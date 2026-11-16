@@ -124,7 +124,7 @@ $ciTests = @(
     "test/pages/community/reply_list_results_test.dart",
     "test/pages/community/reply_publish_results_test.dart",
     "test/pages/community/reply_search_results_test.dart",
-    "test/pages/history/operation_results_test.dart",
+    "test/features/history/history_library_test.dart",
     "test/pages/sponsor_block/operation_results_test.dart",
     "test/pages/sponsor_block/block_mixin_test.dart",
     "test/utils/sponsor_block_settings_test.dart",

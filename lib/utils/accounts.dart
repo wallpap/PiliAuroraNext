@@ -30,6 +30,9 @@ abstract final class Accounts {
 
   static Account get video => accountMode[AccountType.video.index];
   static Account get heartbeat => accountMode[AccountType.heartbeat.index];
+  static final _historyChanges = ValueNotifier(0);
+  static ValueListenable<int> get historyChanges => _historyChanges;
+
   static Account get history {
     final heartbeat = Accounts.heartbeat;
     if (heartbeat is AnonymousAccount) {
@@ -40,6 +43,7 @@ abstract final class Accounts {
 
   /// 重新登录也会替换账号对象，使使用旧凭据的在途结果失效。
   static void replaceCredentials(LoginAccount account) {
+    final previousHistory = history;
     final previousMain = main;
     final previousRecommend = get(AccountType.recommend);
     for (final type in AccountType.values) {
@@ -52,6 +56,7 @@ abstract final class Accounts {
     if (!identical(previousRecommend, get(AccountType.recommend))) {
       _recommendChanges.value++;
     }
+    if (!identical(previousHistory, history)) _historyChanges.value++;
   }
   // static set main(Account account) => set(AccountType.main, account);
 
@@ -79,6 +84,7 @@ abstract final class Accounts {
     }
     _onMainChanged();
     _recommendChanges.value++;
+    _historyChanges.value++;
     return Future.wait(
       (accountMode.toSet()..removeWhere((i) => i.activated)).map(
         Request.buvidActive,
@@ -93,11 +99,13 @@ abstract final class Accounts {
     }
     _onMainChanged();
     _recommendChanges.value++;
+    _historyChanges.value++;
     await AnonymousAccount().delete();
     Request.buvidActive(AnonymousAccount());
   }
 
   static Future<void> deleteAll(Set<Account> accounts) async {
+    final previousHistory = history;
     final previousMain = Accounts.main;
     final previousRecommend = get(AccountType.recommend);
     final isLoginMain = previousMain.isLogin;
@@ -112,6 +120,7 @@ abstract final class Accounts {
     if (!identical(previousRecommend, get(AccountType.recommend))) {
       _recommendChanges.value++;
     }
+    if (!identical(previousHistory, history)) _historyChanges.value++;
     await Future.wait(accounts.map((i) => i.delete()));
     if (isLoginMain && !Accounts.main.isLogin) {
       await LoginUtils.onLogoutMain();
@@ -119,10 +128,12 @@ abstract final class Accounts {
   }
 
   static Future<void> set(AccountType key, Account account) async {
+    final previousHistory = history;
     final oldAccount = accountMode[key.index]..type.remove(key);
     accountMode[key.index] = account..type.add(key);
     if (key == AccountType.main) _onMainChanged();
     if (key == AccountType.recommend) _recommendChanges.value++;
+    if (!identical(previousHistory, history)) _historyChanges.value++;
     await Future.wait([?account.onChange(), ?oldAccount.onChange()]);
     if (!account.activated) await Request.buvidActive(account);
     switch (key) {

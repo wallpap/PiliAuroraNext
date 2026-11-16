@@ -40,3 +40,16 @@ class RecommendAccountNotifier extends MainAccountNotifier {
   @override
   ValueListenable<int> get accountChanges => Accounts.recommendChanges;
 }
+
+final historyAccountProvider =
+    NotifierProvider<HistoryAccountNotifier, Account>(
+      HistoryAccountNotifier.new,
+      isAutoDispose: true,
+    );
+
+class HistoryAccountNotifier extends MainAccountNotifier {
+  @override
+  Account get currentAccount => Accounts.history;
+  @override
+  ValueListenable<int> get accountChanges => Accounts.historyChanges;
+}

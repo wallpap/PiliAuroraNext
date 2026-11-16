@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/models/user/info.dart';
 import 'package:pili_aurora_next/models/user/stat.dart';
 import 'package:pili_aurora_next/models/remote/coin_log/data.dart';
 import 'package:pili_aurora_next/models/remote/follow/data.dart';
-import 'package:pili_aurora_next/models/remote/history/data.dart';
+import 'package:pili_aurora_next/features/history/domain/data.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/data.dart';
 import 'package:pili_aurora_next/models/remote/login_log/data.dart';
 import 'package:pili_aurora_next/models/remote/media_list/data.dart';

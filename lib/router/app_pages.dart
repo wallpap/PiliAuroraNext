@@ -19,8 +19,7 @@ import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';
 import 'package:pili_aurora_next/pages/follow_type/controller.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
-import 'package:pili_aurora_next/pages/history/view.dart';
-import 'package:pili_aurora_next/pages/history_search/view.dart';
+import 'package:pili_aurora_next/features/history/presentation/history_page.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
 import 'package:pili_aurora_next/features/watch_later/presentation/later_page.dart';
@@ -125,7 +124,10 @@ class Routes {
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     // 收藏搜索
     GetPage(name: '/favSearch', page: () => const FavSearchPage()),
-    GetPage(name: '/historySearch', page: () => const HistorySearchPage()),
+    GetPage(
+      name: '/historySearch',
+      page: () => const HistoryPage(search: true),
+    ),
     GetPage(name: '/laterSearch', page: () => const LaterPage(search: true)),
     GetPage(
       name: '/followSearch',

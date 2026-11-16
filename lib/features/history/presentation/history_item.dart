@@ -6,27 +6,32 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/select_mask.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/remote/history/list.dart';
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
+import 'package:pili_aurora_next/features/history/domain/list.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
 class HistoryItem extends StatelessWidget {
   final HistoryItemModel item;
-  final MultiSelectBase ctr;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback onSelect;
+  final bool Function() isCurrent;
   final void Function(int kid, String business) onDelete;
 
   const HistoryItem({
     super.key,
     required this.item,
-    required this.ctr,
+    required this.selecting,
+    required this.selected,
+    required this.onSelect,
+    required this.isCurrent,
     required this.onDelete,
   });
 
@@ -37,19 +42,15 @@ class HistoryItem extends StatelessWidget {
     int aid = item.history.oid!;
     String bvid = item.history.bvid ?? IdUtils.av2bv(aid);
     final business = item.history.business;
-    final enableMultiSelect = ctr.enableMultiSelect.value;
+    final enableMultiSelect = selecting;
 
-    final onLongPress = enableMultiSelect
-        ? null
-        : () => ctr
-            ..enableMultiSelect.value = true
-            ..onSelect(item);
+    final onLongPress = enableMultiSelect ? null : onSelect;
 
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: enableMultiSelect
-            ? () => ctr.onSelect(item)
+            ? onSelect
             : () async {
                 if (business?.contains('article') == true) {
                   PageUtils.toDupNamed(
@@ -91,7 +92,7 @@ class HistoryItem extends StatelessWidget {
                     cover: item.cover,
                     title: item.title,
                     progress: item.playbackProgress,
-                    isCurrent: () => !ctr.enableMultiSelect.value,
+                    isCurrent: isCurrent,
                   );
                 }
               },
@@ -168,7 +169,7 @@ class HistoryItem extends StatelessWidget {
                             Positioned.fill(
                               child: selectMask(
                                 theme.colorScheme,
-                                item.checked,
+                                selected,
                               ),
                             ),
                           ],

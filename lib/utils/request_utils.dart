@@ -1,6 +1,7 @@
 import 'dart:async' show FutureOr, unawaited;
 import 'dart:math';
 
+import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
@@ -33,8 +34,6 @@ import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -58,21 +57,9 @@ abstract final class RequestUtils {
     }
   }
 
-  static int _historyStatusGeneration = 0;
   static Future<void> syncHistoryStatus() async {
-    final generation = ++_historyStatusGeneration;
     final account = Accounts.history;
-    if (!account.isLogin) {
-      return;
-    }
-    final res = await UserHttp.historyStatus(account: account);
-    if (generation != _historyStatusGeneration ||
-        !identical(account, Accounts.history)) {
-      return;
-    }
-    if (res case Success(:final response)) {
-      await GStorage.localCache.put(LocalCacheKey.historyPause, response);
-    }
+    if (account.isLogin) await HistoryLibrary.legacy.status(account);
   }
 
   static Future<void> actionRelationMod({

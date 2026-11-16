@@ -15,7 +15,8 @@
 | 账号、登录、会员 | `login/`、`login_devices/`、`log_table/`、`member/`、`member_profile/` | `login.dart`、`member.dart`、`member_profile.dart`、`user.dart`；`lib/services/account_service.dart`、`lib/utils/accounts/` | `test/pages/login/`、`test/pages/account_queries/`、`test/pages/member_profile/`、`test/utils/accounts/` |
 | 动态、关注、粉丝 | `dynamics*`、`follow/`、`follow_type/` | `dynamics.dart`、`follow.dart`、`fan.dart` | `test/pages/dynamics/`、`test/pages/follow/`、`test/pages/follow_type/` |
 | 消息、私信、分享 | `msg_feed_top/`、`whisper*`、`share/` | [消息模块](../../lib/services/messaging/README.md)；`msg.dart`、`lib/grpc/im.dart` | `test/services/messaging/` |
-| 收藏、历史、订阅 | `fav*`、`history*`、`subscription*` | `fav.dart`、`pgc.dart`；`models/remote/fav/`、`history/` | `test/pages/fav/`、`test/pages/history/`、`test/pages/subscription/` |
+| 收藏、订阅 | `fav*`、`subscription*` | `fav.dart`、`pgc.dart`；`models/remote/fav/` | `test/pages/fav/`、`test/pages/subscription/` |
+| 观看历史 | `lib/features/history/presentation/` | [历史模块](../../lib/features/history/README.md)；历史账号角色与游标分页 | `test/features/history/` |
 | 稍后再看 | `lib/features/watch_later/presentation/` | [稍后再看模块](../../lib/features/watch_later/README.md)；共享 [Implementation](../../lib/features/content_library/README.md) | `test/features/watch_later/` |
 | 下载与离线 | `lib/features/download/presentation/` | [下载模块](../../lib/features/download/README.md)；`data/`、`domain/`、`application/`；路径在 `lib/app/app_paths.dart` | `test/services/download/`、`test/features/download/`、`test/pages/download/` |
 | 设置与主题 | `setting/`、`settings_search/`、`space_setting/` | `lib/common/style.dart`、`lib/utils/theme_utils.dart`、`storage_pref.dart` | `test/pages/setting/`、`test/pages/space_setting/` |

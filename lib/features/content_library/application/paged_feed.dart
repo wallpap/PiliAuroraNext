@@ -47,6 +47,7 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
   bool ownsAccount(Account account);
   Object itemKey(T item);
   Future<FeedPage<T, M>> fetch(Account account, Object? cursor);
+  M mergeMetadata(M previous, M next) => next;
   Object _generation = Object();
 
   @override
@@ -112,7 +113,7 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
         if (!current()) return;
         final length = items.length;
         items.addAll(page.items.where((item) => seen.add(itemKey(item))));
-        metadata = page.metadata;
+        metadata = mergeMetadata(metadata, page.metadata);
         cursor = page.next;
         if (cursor != null && cursors.contains(cursor)) cursor = null;
         if (items.length > length) break;

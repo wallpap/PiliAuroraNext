@@ -1,8 +1,7 @@
-import 'package:pili_aurora_next/models/remote/history/history.dart';
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
+import 'package:pili_aurora_next/features/history/domain/history.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 
-class HistoryItemModel with MultiSelectData {
+class HistoryItemModel {
   String? title;
   String? cover;
   List<String>? covers;

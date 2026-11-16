@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/history/list.dart';
-import 'package:pili_aurora_next/models/remote/history/tab.dart';
+import 'package:pili_aurora_next/features/history/domain/list.dart';
+import 'package:pili_aurora_next/features/history/domain/tab.dart';
 
 class HistoryData {
   List<HistoryTab>? tab;

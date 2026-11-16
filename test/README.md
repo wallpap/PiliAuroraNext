@@ -345,3 +345,5 @@ CI 显式选择弹幕生产链路与帧计划的核心回归，完整弹幕测�
 ## 内容管理迁移
 
 `features/watch_later/later_library_test.dart` 通过 Module 的写入 Interface 和 Riverpod 查询验证分页重试、刷新与释放后的迟到结果、同 UID 换凭据、跨标签与搜索失效，以及 Widget 选择和待确认弹窗。原 `pages/history/operation_results_test.dart` 中稍后再看 controller 回归由这些行为测试替换。
+
+`features/history/history_library_test.dart` 覆盖历史账号角色与同 UID 换凭据、分类游标和搜索分页、删除互斥、暂停旧查询竞争、缓存失败及页面选择；旧 history controller 回归由此替换。`utils/history_status_lifecycle_test.dart` 与 `background_sync_results_test.dart` 继续验证真实 HTTP Adapter 和登录同步的落盘等待。
