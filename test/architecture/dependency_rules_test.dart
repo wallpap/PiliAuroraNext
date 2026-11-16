@@ -38,7 +38,7 @@ void main() {
   const rules = <String, List<String>>{
     'plugin/pl_player/playback/playback_session.dart': coreRestrictions,
     'plugin/pl_player/playback/network_recovery.dart': coreRestrictions,
-    'services/download/download_repository.dart': [
+    'features/download/data/download_repository.dart': [
       ...coreRestrictions,
       '/logger.dart',
     ],
@@ -54,8 +54,53 @@ void main() {
       '/utils/storage',
       '/device_utils',
     ],
-    'services/download/download_manager.dart': ['/http/'],
+    'features/download/data/download_manager.dart': ['/http/'],
   };
+  test(
+    'download feature enforces domain, application and presentation boundaries',
+    () {
+      final violations = <String>[];
+      for (final file in Directory(
+        'lib/features/download',
+      ).listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final source = path
+            .relative(file.path, from: 'lib')
+            .replaceAll('\\', '/');
+        final domain = source.startsWith('features/download/domain/');
+        final application = source.startsWith('features/download/application/');
+        final presentation = source.startsWith(
+          'features/download/presentation/',
+        );
+        for (final uri in dependencies(file)) {
+          final target = localDependency(file, uri);
+          final isRouteCompatibility =
+              presentation && uri == 'package:get/route_manager.dart';
+          final forbidden =
+              (uri.startsWith('package:get/') && !isRouteCompatibility) ||
+              (domain &&
+                  (uri.startsWith('package:flutter') ||
+                      uri.startsWith('package:material_ui/') ||
+                      uri.startsWith('package:dio/') ||
+                      (target != null &&
+                          !target.startsWith('features/download/domain/') &&
+                          !target.startsWith('utils/extension/')))) ||
+              (application &&
+                  (target?.startsWith('features/download/presentation/') ==
+                          true ||
+                      target?.startsWith('pages/') == true ||
+                      uri.startsWith('package:flutter_smart_dialog/'))) ||
+              (presentation &&
+                  (target?.startsWith('features/download/data/') == true ||
+                      (target?.startsWith('http/') == true &&
+                          target != 'http/loading_state.dart') ||
+                      target?.startsWith('utils/storage') == true));
+          if (forbidden) violations.add('$source -> $uri');
+        }
+      }
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    },
+  );
   for (final entry in rules.entries) {
     test('${entry.key} respects its dependency boundary', () {
       final file = File('lib/${entry.key}');

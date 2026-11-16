@@ -1,8 +1,10 @@
+import 'package:pili_aurora_next/features/download/presentation/danmaku_update.dart';
+import 'package:pili_aurora_next/features/download/presentation/entry_menu.dart';
+
 import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
@@ -16,15 +18,16 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/select_mask.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:pili_aurora_next/features/download/application/download_progress.dart';
 import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/pages/download/deletion.dart';
-import 'package:pili_aurora_next/pages/download/detail/view.dart';
-import 'package:pili_aurora_next/pages/download/detail/widgets/item.dart';
-import 'package:pili_aurora_next/pages/download/search/view.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/presentation/deletion.dart';
+import 'package:pili_aurora_next/features/download/presentation/detail_page.dart';
+import 'package:pili_aurora_next/features/download/presentation/detail_item.dart';
+import 'package:pili_aurora_next/features/download/presentation/search_page.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -54,10 +57,12 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
     with GridMixin {
   final _selected = <String>{};
   final _search = TextEditingController();
-  final _deletion = DownloadDeletion();
+  late final _deletion = DownloadDeletion(
+    clearProgress: ref.read(downloadProgressStoreProvider).remove,
+  );
   late final _progress = widget.progress ?? ChangeNotifier();
   bool _selecting = false;
-  bool _updating = false;
+  final _danmakuUpdate = DownloadDanmakuUpdate();
   int? _generation;
 
   DownloadLibrary get _commands => ref.read(downloadLibraryProvider.notifier);
@@ -93,58 +98,56 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
   ];
 
   Future<void> _updateDanmaku(Iterable<DownloadTask> tasks) async {
-    if (_updating || !mounted) return;
-    _updating = true;
     final generation = _snapshot?.generation;
+    final query = _search.text;
+    final route = ModalRoute.of(context);
     final commands = _commands;
-    final selected = tasks.toList();
-    final updated = <String>{};
-    Error? failure;
-    bool current() => mounted && _snapshot?.generation == generation;
-    try {
-      for (final task in selected) {
-        if (!current()) break;
-        final result = await commands.updateDanmaku(task);
-        if (result.isSuccess) {
-          updated.add(task.key);
-        } else if (result is Error && result is! DownloadCancelled) {
-          failure ??= result;
-        }
-      }
-      if (!current()) return;
-      setState(() {
-        if (widget.mode == DownloadViewMode.library) {
-          for (final group in _groups(_tasks(_snapshot!))) {
-            if (group.tasks.every((task) => updated.contains(task.key))) {
-              _selected.remove(group.dirPath);
-            }
+    bool current() =>
+        mounted &&
+        route?.isCurrent != false &&
+        _search.text == query &&
+        _snapshot?.generation == generation;
+    final updatedTasks = await _danmakuUpdate.run(
+      update: commands.updateDanmaku,
+      entries: tasks,
+      isCurrent: current,
+    );
+    if (!mounted || !current()) return;
+    final updated = updatedTasks.map((task) => task.key).toSet();
+    setState(() {
+      if (widget.mode == DownloadViewMode.library) {
+        for (final group in _groups(_tasks(_snapshot!))) {
+          if (group.tasks.every((task) => updated.contains(task.key))) {
+            _selected.remove(group.dirPath);
           }
-        } else {
-          _selected.removeAll(updated);
         }
-        if (_selected.isEmpty) _selecting = false;
-      });
-      if (failure != null) {
-        failure.toast();
-      } else if (selected.isNotEmpty && updated.length == selected.length) {
-        SmartDialog.showToast('更新成功');
+      } else {
+        _selected.removeAll(updated);
       }
-    } finally {
-      _updating = false;
-    }
+      if (_selected.isEmpty) _selecting = false;
+    });
   }
 
   Future<void> _removeTasks(List<DownloadTask> tasks) async {
     final generation = _snapshot?.generation;
+    final query = _search.text;
+    final route = ModalRoute.of(context);
+    bool current() =>
+        mounted &&
+        route?.isCurrent != false &&
+        _search.text == query &&
+        _snapshot?.generation == generation;
     final commands = _commands;
-    final removed = await _deletion.run(
-      items: tasks,
-      delete: commands.remove,
-      entries: (task) => [task.toEntry()],
-      isCurrent: () => mounted && _snapshot?.generation == generation,
-      showLoading: tasks.length > 1,
+    final removed = await commands.withoutAutomaticScheduling(
+      () => _deletion.run(
+        items: tasks,
+        delete: commands.remove,
+        entries: (task) => [task.toEntry()],
+        isCurrent: current,
+        showLoading: tasks.length > 1,
+      ),
     );
-    if (!mounted) return;
+    if (!mounted || !current()) return;
     setState(() {
       _selected.removeAll(removed.map((task) => task.key));
       if (_selected.isEmpty) _selecting = false;
@@ -159,15 +162,20 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
 
   Future<void> _removeGroups(List<_DownloadGroup> groups) async {
     final generation = _snapshot?.generation;
+    final route = ModalRoute.of(context);
+    bool current() =>
+        mounted &&
+        route?.isCurrent != false &&
+        _snapshot?.generation == generation;
     final commands = _commands;
     final removed = await _deletion.run(
       items: groups,
       delete: (group) => commands.removeGroup(group.tasks),
       entries: (group) => group.entries,
-      isCurrent: () => mounted && _snapshot?.generation == generation,
+      isCurrent: current,
       showLoading: groups.length > 1,
     );
-    if (!mounted) return;
+    if (!mounted || !current()) return;
     setState(() {
       _selected.removeAll(removed.map((group) => group.dirPath));
       if (_selected.isEmpty) _selecting = false;
@@ -198,7 +206,7 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
   }) => DetailItem(
     key: ValueKey(task.key),
     entry: task.toEntry(),
-    playlist: [
+    playlist: () => [
       for (final group in _groups(_snapshot?.completed ?? [])) ...group.entries,
     ],
     progress: widget.mode == DownloadViewMode.queued ? null : _progress,

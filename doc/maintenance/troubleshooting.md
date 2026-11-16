@@ -130,7 +130,7 @@ Dart 工作量。其他 GPU 与真实音视频仍须分别验证。
 
 ### 下载
 
-`lib/pages/download/` → `lib/services/download/` → `lib/http/download.dart`、响应适配和流式写入 → 本地下载目录。重点检查路径权限、磁盘空间、网络重试、写入回压和任务生命周期；任务状态见[下载流程](../development/runtime-flows.md#下载)。
+[下载模块](../../lib/features/download/README.md)的 `presentation/` → `application/` → `data/` 中的地址解析、响应适配和流式写入 → 本地下载目录。重点检查路径权限、磁盘空间、网络重试、写入回压和任务生命周期；任务状态见[下载流程](../development/runtime-flows.md#下载)。
 
 ### 登录与账号
 

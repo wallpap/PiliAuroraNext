@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:pili_aurora_next/services/diagnostics/http_diagnostics.dart';
-import 'package:pili_aurora_next/services/download/response_adapter.dart';
+import 'package:pili_aurora_next/features/download/data/response_adapter.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 
 import 'package:pili_aurora_next/http/api.dart';

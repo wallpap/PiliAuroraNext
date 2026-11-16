@@ -5,10 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/pages/download/deletion.dart';
-import 'package:pili_aurora_next/pages/download/danmaku_update.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/presentation/deletion.dart';
+import 'package:pili_aurora_next/features/download/presentation/danmaku_update.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../services/download/download_fixtures.dart';
@@ -112,7 +112,9 @@ void main() {
     box.fail = true;
     final a = downloadEntry();
     final deleted = <BiliDownloadEntryInfo>[];
-    final helper = DownloadDeletion();
+    final helper = DownloadDeletion(
+      clearProgress: (cids) => box.deleteAll(cids.map((cid) => cid.toString())),
+    );
     final result = await helper.run(
       items: [a],
       delete: (_) async => const Success<void>(null),
@@ -134,7 +136,9 @@ void main() {
     final b = downloadEntry(cid: 2);
     var current = true;
     var callbacks = 0;
-    final helper = DownloadDeletion();
+    final helper = DownloadDeletion(
+      clearProgress: (cids) => box.deleteAll(cids.map((cid) => cid.toString())),
+    );
     final pending = helper.run(
       items: [a, b],
       delete: (entry) => service.deleteDownload(entry: entry),
@@ -155,7 +159,9 @@ void main() {
     await mount(tester);
     final a = downloadEntry(cid: 1);
     final b = downloadEntry(cid: 2);
-    final helper = DownloadDeletion();
+    final helper = DownloadDeletion(
+      clearProgress: (cids) => box.deleteAll(cids.map((cid) => cid.toString())),
+    );
     final callbacks = <BiliDownloadEntryInfo>[];
     final result = await helper.run(
       items: [a, b],
@@ -181,7 +187,7 @@ void main() {
     final b = downloadEntry(cid: 2);
     final helper = DownloadDanmakuUpdate();
     Future<Set<BiliDownloadEntryInfo>> update() => helper.run(
-      service: service,
+      update: (entry) => service.downloadDanmaku(entry: entry, isUpdate: true),
       entries: [a, b],
       isCurrent: () => true,
     );
@@ -208,7 +214,7 @@ void main() {
     var current = true;
     final helper = DownloadDanmakuUpdate();
     final pending = helper.run(
-      service: service,
+      update: (entry) => service.downloadDanmaku(entry: entry, isUpdate: true),
       entries: [a, b],
       isCurrent: () => current,
     );

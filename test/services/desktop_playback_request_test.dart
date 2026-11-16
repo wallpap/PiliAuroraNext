@@ -38,4 +38,17 @@ void main() {
       throwsFormatException,
     );
   });
+  test('独立窗口请求不携带主窗口的离线列表快照', () {
+    const request = DesktopPlaybackRequest.video({
+      'aid': 100,
+      'cid': 200,
+      'videoType': VideoType.ugc,
+      'offlineEntries': [Object()],
+    });
+    final decoded = DesktopPlaybackRequest.fromJson(
+      jsonDecode(jsonEncode(request.toJson())),
+    );
+    expect((decoded.arguments as Map).containsKey('offlineEntries'), false);
+    expect((request.arguments as Map).containsKey('offlineEntries'), true);
+  });
 }

@@ -1,5 +1,7 @@
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
+import 'package:pili_aurora_next/features/download/application/download_progress.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
@@ -34,6 +36,9 @@ class PiliAuroraNextApp extends StatelessWidget {
     final (light, dark) = ThemeUtils.getAllTheme();
     return ProviderScope(
       overrides: [
+        downloadProgressStoreProvider.overrideWithValue(
+          _DownloadProgressStore(),
+        ),
         downloadRepositoryProvider.overrideWith(
           (ref) => DownloadRepository(
             rootPath: () => downloadPath,
@@ -109,4 +114,13 @@ class PiliAuroraNextApp extends StatelessWidget {
           )
         : viewport;
   }
+}
+
+class _DownloadProgressStore implements DownloadProgressStore {
+  @override
+  int? read(int cid) => GStorage.watchProgress.get(cid.toString());
+
+  @override
+  Future<void> remove(Iterable<int> cids) =>
+      GStorage.watchProgress.deleteAll(cids.map((cid) => cid.toString()));
 }

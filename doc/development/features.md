@@ -16,7 +16,7 @@
 | 动态、关注、粉丝 | `dynamics*`、`follow/`、`follow_type/` | `dynamics.dart`、`follow.dart`、`fan.dart` | `test/pages/dynamics/`、`test/pages/follow/`、`test/pages/follow_type/` |
 | 消息、私信、分享 | `msg_feed_top/`、`whisper*`、`share/` | [消息模块](../../lib/services/messaging/README.md)；`msg.dart`、`lib/grpc/im.dart` | `test/services/messaging/` |
 | 收藏、历史、稍后再看、订阅 | `fav*`、`history*`、`later*`、`subscription*` | `fav.dart`、`pgc.dart`；`models/remote/fav/`、`history/`、`later/` | `test/pages/fav/`、`test/pages/history/`、`test/pages/subscription/` |
-| 下载与离线 | `download/` | `download.dart`；`lib/services/download/`；路径在 `lib/app/app_paths.dart` | `test/services/download/` |
+| 下载与离线 | `lib/features/download/presentation/` | [下载模块](../../lib/features/download/README.md)；`data/`、`domain/`、`application/`；路径在 `lib/app/app_paths.dart` | `test/services/download/`、`test/features/download/`、`test/pages/download/` |
 | 设置与主题 | `setting/`、`settings_search/`、`space_setting/` | `lib/common/style.dart`、`lib/utils/theme_utils.dart`、`storage_pref.dart` | `test/pages/setting/`、`test/pages/space_setting/` |
 | WebView、DLNA、空降助手 | `webview/`、`dlna/`、`sponsor_block/` | 从 import 定位插件，核对 `third_party/` 的平台实现 | `test/pages/webview/`、`test/pages/dlna/`、`test/pages/video/cast_results_test.dart`、`test/pages/sponsor_block/`、对应依赖包测试 |
 

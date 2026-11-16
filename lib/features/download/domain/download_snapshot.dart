@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 
 /// 页面只读取副本；命令凭原始对象身份核对记录，避免同路径重建后操作新任务。
 class DownloadTask {

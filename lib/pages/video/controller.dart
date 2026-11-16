@@ -26,7 +26,7 @@ import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/models/remote/media_list/media_list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';

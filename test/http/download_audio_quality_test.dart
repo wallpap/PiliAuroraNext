@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/http/download.dart';
+import 'package:pili_aurora_next/features/download/data/download_api.dart';
 
 void main() {
   test('音频画质按精确匹配、向下降级、192K及首项顺序选择', () {

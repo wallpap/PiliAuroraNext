@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/services/download/response_adapter.dart';
-import 'package:pili_aurora_next/services/download/stream_writer.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/data/response_adapter.dart';
+import 'package:pili_aurora_next/features/download/data/stream_writer.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:dio/dio.dart';
 

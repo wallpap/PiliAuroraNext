@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io' show Directory, File;
 
 import 'package:pili_aurora_next/grpc/dm.dart';
-import 'package:pili_aurora_next/http/download.dart';
+import 'package:pili_aurora_next/features/download/data/download_api.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_media_file_info.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/domain/download_media.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
     as pgc;
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
@@ -15,8 +15,8 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     as ugc;
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/services/download/download_manager.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
+import 'package:pili_aurora_next/features/download/data/download_manager.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/danmaku_utils.dart';
@@ -53,6 +53,10 @@ class DownloadService extends ChangeNotifier {
 
   final void Function(String)? onBackgroundError;
   bool _closed = false;
+  Future<void>? _closing;
+  int _schedulingHolds = 0;
+  bool _scheduleRequested = false;
+  bool _batchDeletionFailed = false;
   final DownloadRepository _repository;
   final Dio _downloadClient;
   final Future<List<int>> Function(BiliDownloadEntryInfo)?
@@ -71,6 +75,7 @@ class DownloadService extends ChangeNotifier {
 
   final waitDownloadQueue = <BiliDownloadEntryInfo>[];
   final downloadList = <BiliDownloadEntryInfo>[];
+  final progressNotifier = ChangeNotifier();
 
   int? _curCid;
   int? get curCid => _curCid;
@@ -86,11 +91,15 @@ class DownloadService extends ChangeNotifier {
   DownloadManager? _audioDownloadManager;
   final _completing = <BiliDownloadEntryInfo>{};
 
+  void _notifyBackgroundError(String message) {
+    if (!_closed) onBackgroundError?.call(message);
+  }
+
   void _saveProgress(BiliDownloadEntryInfo entry) {
     unawaited(
       _repository.save(entry).catchError((Object error, StackTrace stack) {
         logger.e('下载进度保存失败', error: error.runtimeType, stackTrace: stack);
-        onBackgroundError?.call('下载进度保存失败，请检查磁盘空间和目录权限');
+        _notifyBackgroundError('下载进度保存失败，请检查磁盘空间和目录权限');
       }),
     );
   }
@@ -99,12 +108,16 @@ class DownloadService extends ChangeNotifier {
   late Future<LoadingState<void>> waitForInitialization;
 
   void _publish() {
-    if (!_closed) notifyListeners();
+    if (!_closed) {
+      notifyListeners();
+      progressNotifier.notifyListeners();
+    }
   }
 
   /// 根 ProviderScope 释放时停止传输；页面订阅释放不触发关闭。
-  Future<void> close() async {
-    if (_closed) return;
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
     _closed = true;
     _initializationGeneration++;
     _operation = null;
@@ -118,8 +131,28 @@ class DownloadService extends ChangeNotifier {
           await _repository.save(entry);
         }
       });
+    } catch (error, stack) {
+      _failure('下载关闭时保存进度失败', error, stack);
     } finally {
+      progressNotifier.dispose();
       super.dispose();
+    }
+  }
+
+  /// 批量删除期间合并自动续行，避免中间项刚启动又被下一次删除取消。
+  Future<T> withoutAutomaticScheduling<T>(
+    Future<T> Function() operation,
+  ) async {
+    if (_schedulingHolds == 0) _batchDeletionFailed = false;
+    _schedulingHolds++;
+    try {
+      return await operation();
+    } finally {
+      _schedulingHolds--;
+      if (_schedulingHolds == 0 && _scheduleRequested) {
+        _scheduleRequested = false;
+        if (!_batchDeletionFailed && curDownload == null) nextDownload();
+      }
     }
   }
 
@@ -351,7 +384,11 @@ class DownloadService extends ChangeNotifier {
         waitDownloadQueue.add(entry);
         _publish();
         if (curDownload?.status.isDownloading != true) {
-          unawaited(_startAndNotify(entry));
+          if (_schedulingHolds > 0) {
+            _scheduleRequested = true;
+          } else {
+            unawaited(_startAndNotify(entry));
+          }
         }
         return const Success<void>(null);
       });
@@ -411,7 +448,7 @@ class DownloadService extends ChangeNotifier {
     if (!result.isSuccess &&
         result is! DownloadCancelled &&
         (identical(curDownload, entry) || identical(curDownload, before))) {
-      onBackgroundError?.call(result.toString());
+      _notifyBackgroundError(result.toString());
     }
   }
 
@@ -449,6 +486,7 @@ class DownloadService extends ChangeNotifier {
     required BiliDownloadEntryInfo entry,
     bool isUpdate = false,
   }) async {
+    if (_closed) return const DownloadCancelled();
     String? entryPath;
     final token = Object();
     final generation = _initializationGeneration;
@@ -658,6 +696,7 @@ class DownloadService extends ChangeNotifier {
 
   void _onReceive(int progress, int total) {
     if (curDownload case final entry?) {
+      final previousStatus = entry.status;
       entry
         ..downloadedBytes = progress
         ..status = DownloadStatus.downloading;
@@ -665,7 +704,11 @@ class DownloadService extends ChangeNotifier {
         entry.totalBytes = total;
         _saveProgress(entry);
       }
-      _publish();
+      if (previousStatus != DownloadStatus.downloading) {
+        _publish();
+      } else if (!_closed) {
+        progressNotifier.notifyListeners();
+      }
     }
   }
 
@@ -748,7 +791,7 @@ class DownloadService extends ChangeNotifier {
           ..status = DownloadStatus.failDownload;
         _publish();
         logger.e('下载完成记录保存失败', error: error.runtimeType, stackTrace: stack);
-        onBackgroundError?.call('下载文件已保留，但完成记录保存失败，请检查磁盘后重试');
+        _notifyBackgroundError('下载文件已保留，但完成记录保存失败，请检查磁盘后重试');
       } finally {
         _completing.remove(entry);
       }
@@ -756,6 +799,10 @@ class DownloadService extends ChangeNotifier {
   }
 
   void nextDownload() {
+    if (_schedulingHolds > 0) {
+      _scheduleRequested = true;
+      return;
+    }
     if (!_closed && waitDownloadQueue.isNotEmpty) {
       unawaited(_startAndNotify(waitDownloadQueue.first));
     }
@@ -823,6 +870,7 @@ class DownloadService extends ChangeNotifier {
   });
 
   Error _deleteFailure(Object error, StackTrace stack) {
+    if (_schedulingHolds > 0) _batchDeletionFailed = true;
     const message = '删除未完成，请检查文件占用或目录权限后重试';
     logger.e(message, error: error.runtimeType, stackTrace: stack);
     return Error(message, cause: error, stackTrace: stack);

@@ -184,7 +184,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `utils/image_permission_results_test.dart` 检查图片分享取消/无法确认、重复分享互斥、迟到分享不关闭其他加载提示，以及权限受限、查询失败和打开设置失败。`utils/theme_utils_test.dart`、`utils/theme_palette_results_test.dart` 和 `utils/window_position_results_test.dart` 检查损坏平台颜色输入、取色失败保留偏好、并发探测与重试、有限窗口尺寸/坐标和多屏原点恢复。真实系统分享、动态色、多屏 DPI/热插拔仍需设备验收。
 
-`services/download/download_repository_test.dart` 与 `services/download/download_service_test.dart` 检查删除失败保留队列/完成列表、原始原因、删除与启动串行，以及重复删除缺失分 P 不影响兄弟目录。`pages/download/deletion_results_test.dart` 检查确认删除后清理播放记录、部分失败保留选择、刷新/离页后的迟到结果和清理失败不覆盖成功。真实文件占用/权限及完整页面交互仍需设备验收。
+`services/download/download_repository_test.dart` 与 `services/download/download_service_test.dart` 检查删除失败保留队列/完成列表、原始原因、删除与启动串行，以及重复删除缺失分 P 不影响兄弟目录。`pages/download/deletion_results_test.dart` 检查确认删除后的进度清理、离页后的迟到结果、批量弹幕更新和清理失败不覆盖成功。`features/download/` 检查隔离快照、应用级保活、初始化重试、目录重读后的旧命令失效、详情独立打开、跨页面选择隔离及批量部分失败保留选择。真实文件占用/权限及完整页面交互仍需设备验收。
 
 下载服务回归还覆盖初始化失败/重试与读取代次、初始化和创建/删除的串行关系、创建落盘失败、暂停记录保存失败、准备失败及取消结果，以及手动弹幕更新与删除/重建/较新更新的隔离；页面回归检查初始化错误消费、批量弹幕更新部分失败保留及离页停止。创建面板仅在队列记录保存成功后标记已加入，真实下载目录与文件占用行为仍需设备验收。
 

@@ -1,3 +1,5 @@
+import 'package:pili_aurora_next/features/download/presentation/entry_menu.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -12,19 +14,21 @@ import 'package:pili_aurora_next/common/widgets/select_mask.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/pages/download/downloading/view.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/presentation/downloading_page.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/download/application/download_progress.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
-class DetailItem extends StatelessWidget {
+class DetailItem extends ConsumerWidget {
   const DetailItem({
     super.key,
     required this.entry,
@@ -38,7 +42,7 @@ class DetailItem extends StatelessWidget {
     this.enableMultiSelect = false,
     this.checked,
     this.onSelect,
-    this.playlist = const [],
+    this.playlist,
   });
 
   final BiliDownloadEntryInfo entry;
@@ -52,10 +56,14 @@ class DetailItem extends StatelessWidget {
   final bool enableMultiSelect;
   final bool? checked;
   final ValueChanged<BiliDownloadEntryInfo>? onSelect;
-  final List<BiliDownloadEntryInfo> playlist;
+  final List<BiliDownloadEntryInfo> Function()? playlist;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = isCurr ? ref.watch(downloadCurrentTaskProvider) : null;
+    final entry = current?.key == this.entry.entryDirPath
+        ? current!.toEntry()
+        : this.entry;
     final theme = Theme.of(context);
     final outline = theme.colorScheme.outline;
     final cid = entry.source?.cid ?? entry.pageData?.cid;
@@ -113,7 +121,7 @@ class DetailItem extends StatelessWidget {
               extraArguments: {
                 'sourceType': SourceType.file,
                 'entry': entry,
-                'offlineEntries': playlist,
+                'offlineEntries': playlist?.call() ?? [entry],
                 'dirPath': entry.entryDirPath,
               },
             );
@@ -194,9 +202,9 @@ class DetailItem extends StatelessWidget {
                     ListenableBuilder(
                       listenable: progress!,
                       builder: (_, _) {
-                        final progress = GStorage.watchProgress.get(
-                          cid.toString(),
-                        );
+                        final progress = ref
+                            .read(downloadProgressStoreProvider)
+                            .read(cid!);
                         if (progress != null) {
                           return Positioned(
                             left: 0,
@@ -328,7 +336,7 @@ class DetailItem extends StatelessWidget {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: entryProgress(theme),
+                        child: entryProgress(theme, entry),
                       ),
                   ],
                 ),
@@ -340,7 +348,10 @@ class DetailItem extends StatelessWidget {
     );
   }
 
-  Widget entryProgress(ThemeData theme) => progressWidget(
+  Widget entryProgress(
+    ThemeData theme,
+    BiliDownloadEntryInfo entry,
+  ) => progressWidget(
     statusMsg: entry.status.message,
     progressStr: entry.totalBytes == 0
         ? ''
@@ -348,7 +359,9 @@ class DetailItem extends StatelessWidget {
     progress: entry.totalBytes == 0
         ? 0
         : entry.downloadedBytes / entry.totalBytes,
-    color: theme.colorScheme.outline,
+    color: isCurr && entry.status != DownloadStatus.pause
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outline,
     highlightColor: theme.highlightColor,
   );
 
@@ -367,20 +380,28 @@ class DetailItem extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              statusMsg,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1,
-                color: color,
+            Flexible(
+              child: Text(
+                statusMsg,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1,
+                  color: color,
+                ),
               ),
             ),
-            Text(
-              progressStr,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1,
-                color: color,
+            Flexible(
+              child: Text(
+                progressStr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1,
+                  color: color,
+                ),
               ),
             ),
           ],

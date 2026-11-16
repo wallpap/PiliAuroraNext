@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/pages/blacklist/view.dart';
 import 'package:pili_aurora_next/pages/bubble/view.dart';
 import 'package:pili_aurora_next/pages/danmaku_block/view.dart';
 import 'package:pili_aurora_next/pages/dlna/view.dart';
-import 'package:pili_aurora_next/pages/download/view.dart';
+import 'package:pili_aurora_next/features/download/presentation/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/view.dart';

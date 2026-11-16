@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_media_file_info.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/domain/download_media.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 
 import 'download_fixtures.dart';
 

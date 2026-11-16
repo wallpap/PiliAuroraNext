@@ -161,6 +161,9 @@ $ciTests = @(
     "test/services/download/download_repository_test.dart",
     "test/services/download/download_manager_test.dart",
     "test/pages/download/deletion_results_test.dart",
+    "test/features/download/download_snapshot_test.dart",
+    "test/features/download/download_providers_test.dart",
+    "test/features/download/library_page_test.dart",
     # 页面退出、音频归属与播放会话
     "test/common/widgets/image/image_lifecycle_test.dart",
     "test/common/widgets/image/image_cache_lifecycle_test.dart",

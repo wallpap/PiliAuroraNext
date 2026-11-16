@@ -7,9 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 
 import '../../services/download/download_fixtures.dart';
 
@@ -50,6 +50,7 @@ void main() {
     first.close();
     second.close();
     await container.pump();
+    expect(container.exists(downloadLibraryProvider), false);
     expect(container.read(downloadServiceProvider), same(service));
     expect(service.generation, 1);
     expect(service.initializationState.isSuccess, true);
@@ -74,7 +75,8 @@ void main() {
       container.dispose();
       client.close(force: true);
     });
-    final commands = container.read(downloadLibraryProvider.notifier);
+    final commands = (container..listen(downloadLibraryProvider, (_, _) {}))
+        .read(downloadLibraryProvider.notifier);
     expect(container.read(downloadLibraryProvider).isSuccess, false);
     repository.read = () async => [
       downloadEntry(completed: true)

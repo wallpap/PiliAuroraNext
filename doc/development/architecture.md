@@ -52,6 +52,7 @@ flowchart LR
 | --- | --- | --- |
 | `lib/app/` | 启动装配、路径准备、平台初始化、根 Widget 与返回导航 | `bootstrap.dart`、`platform_setup.dart`、`app.dart` |
 | `lib/router/` | 集中注册 GetX 路由及页面入口 | `app_pages.dart` 与页面构造参数 |
+| `lib/features/download/` | 下载领域模型、数据适配、应用状态与展示的垂直边界 | [下载模块](../../lib/features/download/README.md) |
 | `lib/pages/` | 按用户功能组织 view、controller 和局部组件 | 路由、controller、对应测试 |
 | `lib/http/` | 业务 API 与请求层横切逻辑 | API 调用方、响应模型、`init.dart` |
 | `lib/services/` | 下载、消息、直播流、账号、诊断等跨页面或长生命周期能力 | 生命周期、资源所有者、对应测试 |
@@ -62,7 +63,7 @@ flowchart LR
 
 部分页面 controller 直接调用 `http/`，另一些经由 `services/`。`models/` 同时包含远端响应和页面间共享对象，用途比数据库实体更宽。
 
-消息及已迁移的查询、列表和偏好页面使用 Riverpod。各功能的状态所有者、账号切换和异步失效约定见[状态管理](state-management.md)。
+下载、消息及已迁移的查询、列表和偏好页面使用 Riverpod。下载功能集中在 `features/download/`，应用级服务通过根 ProviderScope 注入与保活。各功能的状态所有者、账号切换和异步失效约定见[状态管理](state-management.md)。
 
 ## 桌面窗口与标题栏
 

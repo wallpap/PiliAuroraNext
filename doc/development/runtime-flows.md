@@ -285,7 +285,7 @@ flowchart TD
     Cancel -->|删除| Remove
 ```
 
-实现与测试：[`download_service.dart`](../../lib/services/download/download_service.dart)、[`download_repository.dart`](../../lib/services/download/download_repository.dart)、[`download_manager.dart`](../../lib/services/download/download_manager.dart)；`test/services/download/`。
+实现与测试：[`download_service.dart`](../../lib/features/download/application/download_service.dart)、[`download_repository.dart`](../../lib/features/download/data/download_repository.dart)、[`download_manager.dart`](../../lib/features/download/data/download_manager.dart)；`test/services/download/`。
 
 ## 账号消息与私信
 

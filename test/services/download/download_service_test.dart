@@ -10,10 +10,10 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_media_file_info.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/domain/download_media.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 
@@ -863,6 +863,87 @@ void main() {
     expect(schedulingService.waitDownloadQueue.map((entry) => entry.cid), [22]);
     expect(schedulingService.started, [22]);
     expect((await repository.load()).map((entry) => entry.cid), [22]);
+  });
+
+  test('关闭服务不等待准备请求，重复关闭共用回执且迟到结果不落盘', () async {
+    final entry = downloadEntry();
+    await repository.create(entry);
+    final started = Completer<void>();
+    final preparation = Completer<List<int>>();
+    final pending = DownloadService(
+      repository: repository,
+      downloadClient: client,
+      prepareDanmaku: (_) {
+        started.complete();
+        return preparation.future;
+      },
+    );
+    pending.waitDownloadQueue.add(entry);
+    final start = pending.startDownload(entry);
+    await started.future;
+    final closing = pending.close();
+    expect(pending.close(), same(closing));
+    await closing.timeout(const Duration(seconds: 2));
+    preparation.complete([1, 2, 3]);
+    expect(await start, isA<DownloadCancelled>());
+    expect(entry.status, DownloadStatus.pause);
+    expect(
+      File(path.join(entry.entryDirPath, PathUtils.danmakuName)).existsSync(),
+      false,
+    );
+    expect(await pending.startDownload(entry), isA<Error>());
+    expect(
+      await pending.downloadDanmaku(entry: entry),
+      isA<DownloadCancelled>(),
+    );
+  });
+
+  test('批量删除当前项和后续项只在批次结束后续行一次', () async {
+    final entries = [
+      downloadEntry(cid: 11),
+      downloadEntry(cid: 12),
+      downloadEntry(cid: 13),
+    ];
+    for (final entry in entries) {
+      await repository.create(entry);
+    }
+    final pending =
+        _SchedulingDownloadService(
+            repository: repository,
+            downloadClient: client,
+          )
+          ..waitDownloadQueue.addAll(entries)
+          ..curDownload = entries.first;
+    await pending.withoutAutomaticScheduling(() async {
+      await pending.deleteDownload(entry: entries[0], removeQueue: true);
+      expect(pending.started, isEmpty);
+      await pending.deleteDownload(entry: entries[1], removeQueue: true);
+      expect(pending.started, isEmpty);
+    });
+    expect(pending.started, [13]);
+  });
+
+  test('批量删除后续项失败时保留失败项，批次结束不自动重启它', () async {
+    final repo = _DeletionRepository(rootPath: () => directory.path);
+    final entries = [downloadEntry(cid: 11), downloadEntry(cid: 12)];
+    for (final entry in entries) {
+      await repo.create(entry);
+    }
+    repo.release.complete();
+    final pending =
+        _SchedulingDownloadService(repository: repo, downloadClient: client)
+          ..waitDownloadQueue.addAll(entries)
+          ..curDownload = entries.first;
+    await pending.withoutAutomaticScheduling(() async {
+      await pending.deleteDownload(entry: entries[0], removeQueue: true);
+      repo.failure = const FileSystemException('locked');
+      expect(
+        await pending.deleteDownload(entry: entries[1], removeQueue: true),
+        isA<Error>(),
+      );
+    });
+    expect(pending.started, isEmpty);
+    expect(pending.waitDownloadQueue, [entries[1]]);
   });
 
   test('删除其他下载组时保留当前任务', () async {

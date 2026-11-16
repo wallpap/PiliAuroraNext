@@ -16,11 +16,11 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     as ugc;
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/pages/download/view.dart';
+import 'package:pili_aurora_next/features/download/presentation/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';

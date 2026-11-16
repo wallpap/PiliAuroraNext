@@ -4,9 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 
 final downloadRepositoryProvider = Provider<DownloadRepository>(
   (ref) => throw StateError('应用入口须提供下载仓库'),
@@ -33,7 +33,32 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
 final downloadLibraryProvider =
     NotifierProvider<DownloadLibrary, LoadingState<DownloadSnapshot>>(
       DownloadLibrary.new,
+      isAutoDispose: true,
     );
+
+/// 字节进度只重建当前任务行，避免每个网络分片复制整份完成列表。
+final downloadCurrentTaskProvider =
+    NotifierProvider<DownloadCurrentTask, DownloadTask?>(
+      DownloadCurrentTask.new,
+      isAutoDispose: true,
+    );
+
+class DownloadCurrentTask extends Notifier<DownloadTask?> {
+  @override
+  DownloadTask? build() {
+    final service = ref.watch(downloadServiceProvider);
+    DownloadTask? capture() => service.curDownload == null
+        ? null
+        : DownloadTask.capture(
+            service.curDownload!,
+            generation: service.generation,
+          );
+    void changed() => state = capture();
+    service.progressNotifier.addListener(changed);
+    ref.onDispose(() => service.progressNotifier.removeListener(changed));
+    return capture();
+  }
+}
 
 class DownloadLibrary extends Notifier<LoadingState<DownloadSnapshot>> {
   late DownloadService _service;
@@ -67,6 +92,9 @@ class DownloadLibrary extends Notifier<LoadingState<DownloadSnapshot>> {
   }
 
   Future<LoadingState<void>> refresh() => _service.initDownloadList();
+
+  Future<T> withoutAutomaticScheduling<T>(Future<T> Function() operation) =>
+      _service.withoutAutomaticScheduling(operation);
 
   BiliDownloadEntryInfo? _resolve(DownloadTask task) {
     if (!_service.initializationState.isSuccess ||

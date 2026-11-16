@@ -1,11 +1,13 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 
 /// 页面持有删除锁；下载文件删除成功后才清理播放记录和页面快照。
 class DownloadDeletion {
+  DownloadDeletion({required this.clearProgress});
+  final Future<void> Function(Iterable<int>) clearProgress;
   bool busy = false;
 
   Future<Set<T>> run<T>({
@@ -33,14 +35,12 @@ class DownloadDeletion {
           result = Error('删除失败，请重试', cause: error, stackTrace: stackTrace);
         }
         if (!result.isSuccess) {
-          if (isCurrent()) result.toast();
+          if (isCurrent() && result is! DownloadCancelled) result.toast();
           continue;
         }
         removed.add(item);
         try {
-          await GStorage.watchProgress.deleteAll(
-            entries(item).map((e) => e.cid.toString()),
-          );
+          await clearProgress(entries(item).map((entry) => entry.cid));
         } catch (error, stackTrace) {
           logger.w(
             '下载已删除，播放记录清理失败',

@@ -22,7 +22,7 @@
 | 视频、番剧、音频、直播、收藏、搜索、历史等卡片 | 页面 → [NetworkImgLayer](../../lib/common/widgets/image/network_img_layer.dart) → `CachedImage` → `CachedImageProvider` | 布局、裁剪与对齐、CDN 变体、占位和有效 DPR |
 | 头像、认证与头像挂件 | 页面 → [PendantAvatar](../../lib/common/widgets/pendant_avatar.dart)；头像和挂件分别调用 `NetworkImgLayer` | 挂件透明边界、超出头像的绘制尺寸、来源可能带动画 |
 | 用户空间头图、装扮、活动标识 | [用户信息卡](../../lib/pages/member/widget/user_info_card.dart)、[动态作者](../../lib/pages/dynamics/widgets/author_panel.dart)、搜索等直接使用 `CachedImage` | 有些宽度由父布局确定，不能只根据组件名称推断解码尺寸 |
-| 下载和本地视频封面 | [下载条目](../../lib/pages/download/detail/widgets/item.dart)、[本地视频简介](../../lib/pages/video/introduction/local/view.dart) → Flutter `Image.file` | 有显示宽高，但没有相应解码尺寸参数；目前未走网络图片的准入路径 |
+| 下载和本地视频封面 | [下载条目](../../lib/features/download/presentation/detail_item.dart)、[本地视频简介](../../lib/pages/video/introduction/local/view.dart) → Flutter `Image.file` | 有显示宽高，但没有相应解码尺寸参数；目前未走网络图片的准入路径 |
 
 [ImageType](../../lib/models/common/image_type.dart) 目前只有 `avatar/emote/def`，主要控制外观。挂件也使用 `.emote`，所以不能把此枚举直接升级成解码策略或据此统计普通表情数量。
 
