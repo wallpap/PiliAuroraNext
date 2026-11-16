@@ -83,6 +83,8 @@ gh workflow run build.yml --repo wallpap/PiliAuroraNext --ref 1.0.0 -f tag=1.0.0
 
 Android APK 位于 `build/release-apks/PiliAuroraNext-android-<ABI>-release.apk`，每包旁有身份 JSON 和构建日志；单架构构建也将最终签署的 APK 与身份同步到 `build/app/outputs/flutter-apk/app-release.apk` 及同名 JSON。Windows 运行目录位于 `build/windows/x64/runner/Release/`，编译期引擎配置自动写入 `build/windows-engine-config.json`，供打包前置校验使用。GitHub Release 由 `.github/workflows/build.yml` 手动触发并传入 `X.Y.Z` 或 `vX.Y.Z`，通过 `build_android` 和 `build_win_x64` 选择平台；预发布须启用 `prerelease`，需要先验证附件时可同时启用 `draft_release`。发布说明由 GitHub 根据本次发布的提交记录生成。不填 tag 时仅上传工作流附件；`skip_ci_tests` 可跳过主机 CI 测试与 Windows 安装器测试，依赖及预编译产物校验仍执行，默认不跳过。Android 使用对应架构的定制引擎生成三个分 ABI APK，Windows 使用定制引擎生成 x64 便携包和安装程序。引擎产物及身份文件随 Git 保存，CI 校验后直接装配，维护步骤见[预编译引擎](../../third_party/flutter_engine/README.md)。发布工作流以 tag 指定版本名，用提交数生成构建号，并写入本次构建的 `pubspec.yaml` 和 `pili_release.json`。
 
+Android APK 构建失败时，工作流会在步骤输出中打印对应 `.build.log` 的最后 200 行；完整日志以 `android-build-logs-<run_id>-<run_attempt>` 工作流附件保留，成功、失败或取消时均尝试上传已有日志。排查 `flutter failed` 时先查看这些日志，定位 Flutter 或 Gradle 的实际错误。
+
 ### Windows 打包与覆盖安装
 
 Windows 的 fastforge 打包前置入口为 `tool/packaging/prepare_windows_package.py`，先装配并校验定制引擎，再生成 `piliauroranext-runtime.sha256`。安装版和便携版携带相同的程序文件清单；Inno 模板要求该清单存在。覆盖安装完成后，旧清单中已退役且摘要未改变的程序文件会被清理，用户修改的文件和未登记文件会保留。从尚无清单的旧安装升级时，开始记录本次包的文件归属。

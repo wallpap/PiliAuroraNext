@@ -144,9 +144,21 @@ jobs:
                     python third_party/flutter_engine/package.py unpack --target "android-$arch" --output $engine
                     if ($LASTEXITCODE -ne 0) { throw "Engine validation failed: $abi" }
                     python tool/engine/frame_plan/build_apk.py --mode release --abi $abi --flutter-sdk $env:FLUTTER_ROOT --android-sdk $env:ANDROID_HOME --engine-library "$engine/libflutter.so" --skip-pub-get --skip-patch --output "build/release-apks/PiliAuroraNext_android_$($env:version)_$abi.apk" @defines
-                    if ($LASTEXITCODE -ne 0) { throw "APK assembly failed: $abi" }
+                    if ($LASTEXITCODE -ne 0) {
+                      $buildLog = "build/release-apks/PiliAuroraNext_android_$($env:version)_$abi.build.log"
+                      if (Test-Path $buildLog) { Get-Content $buildLog -Tail 200 }
+                      throw "APK assembly failed: $abi"
+                    }
                     Copy-Item "build/release-apks/PiliAuroraNext_android_$($env:version)_$abi.apk" .
                   }
+
+            - name: Upload Android build logs
+              if: ${{ always() }}
+              uses: actions/upload-artifact@v7
+              with:
+                  if-no-files-found: ignore
+                  name: android-build-logs-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: build/release-apks/*.build.log
 
             - name: Release
               if: ${{ inputs.tag != '' }}
