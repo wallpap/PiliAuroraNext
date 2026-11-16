@@ -161,6 +161,7 @@ $ciTests = @(
     "test/services/download/download_repository_test.dart",
     "test/services/download/download_manager_test.dart",
     "test/pages/download/deletion_results_test.dart",
+    "test/features/watch_later/later_library_test.dart",
     "test/features/download/download_snapshot_test.dart",
     "test/features/download/download_providers_test.dart",
     "test/features/download/library_page_test.dart",

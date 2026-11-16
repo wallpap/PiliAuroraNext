@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/later/list.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/list.dart';
 
 class LaterData {
   int? count;

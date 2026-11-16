@@ -1,6 +1,7 @@
 import 'dart:async' show FutureOr, unawaited;
 import 'dart:math';
 
+import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
@@ -16,12 +17,9 @@ import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/login/gaia_result.dart';
 import 'package:pili_aurora_next/models/remote/fav/fav_detail/media.dart';
-import 'package:pili_aurora_next/models/remote/later/list.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
 import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
-import 'package:pili_aurora_next/pages/later/controller.dart'
-    show BaseLaterController;
 import 'package:pili_aurora_next/pages/fav_detail/controller.dart'
     show BaseFavController;
 import 'package:pili_aurora_next/pages/group_panel/view.dart';
@@ -47,7 +45,7 @@ import 'package:material_ui/material_ui.dart';
 abstract final class RequestUtils {
   static Future<void> addToWatchLater({String? bvid, Object? aid}) async {
     final account = Accounts.main;
-    final result = await UserHttp.toViewLater(
+    final result = await LaterLibrary.legacy.add(
       bvid: bvid,
       aid: aid,
       account: account,
@@ -443,7 +441,6 @@ abstract final class RequestUtils {
   }) async {
     final account = switch (ctr) {
       BaseFavController controller => controller.account,
-      BaseLaterController controller => controller.laterAccount,
       _ => Accounts.main,
     };
     final source = ctr.loadingState.value.dataOrNull;
@@ -470,7 +467,6 @@ abstract final class RequestUtils {
       final resources = (isFav ? removeList.toList().reversed : removeList)
           .map(
             (item) => switch (item) {
-              LaterItemModel(:final aid?) => aid,
               FavDetailItemModel(id: final id?, type: final type?) =>
                 '$id:$type',
               _ => null,
@@ -539,8 +535,6 @@ abstract final class RequestUtils {
                               final removed = before - source.length;
                               switch (ctr) {
                                 case BaseFavController controller:
-                                  controller.updateCount?.call(removed);
-                                case BaseLaterController controller:
                                   controller.updateCount?.call(removed);
                               }
                               ctr.loadingState.refresh();

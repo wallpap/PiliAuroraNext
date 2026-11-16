@@ -341,3 +341,7 @@ CI 显式选择弹幕生产链路与帧计划的核心回归，完整弹幕测�
 `video_presentation_cadence_test.dart` 检查 Android 点播采用的持续视频 vsync 策略：24/30/60 FPS 视频驱动下连续请求屏幕帧，弹幕仍以 60 FPS 的固定槽距推进；视频采样清空、过期、静音及停止后释放连续请求。原有按需调度和相位模型继续覆盖未启用此策略的调用路径。
 
 旧 Canvas 屏幕的绘制、轨道、静音与 DPI 回归统一放在 `tool/experiments/danmaku/baseline/`，按需运行；`pages/danmaku/frame_rate_ticker_test.dart` 和 `text_renderer_test.dart` 保留当前窗口内核共用的调度及文字栅格回归。
+
+## 内容管理迁移
+
+`features/watch_later/later_library_test.dart` 通过 Module 的写入 Interface 和 Riverpod 查询验证分页重试、刷新与释放后的迟到结果、同 UID 换凭据、跨标签与搜索失效，以及 Widget 选择和待确认弹窗。原 `pages/history/operation_results_test.dart` 中稍后再看 controller 回归由这些行为测试替换。

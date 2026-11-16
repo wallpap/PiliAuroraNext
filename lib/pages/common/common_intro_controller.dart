@@ -1,8 +1,10 @@
 import 'dart:async' show FutureOr, Timer, unawaited;
 
+import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/services/audio_handler.dart' show MediaNavigation;
+import 'package:pili_aurora_next/services/audio_handler.dart'
+    show MediaNavigation;
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/user.dart';
@@ -258,11 +260,11 @@ abstract class CommonIntroController extends GetxController
     _savingLater = true;
     try {
       final res = await (removing
-          ? UserHttp.toViewDel(
-              aids: IdUtils.bv2av(video).toString(),
+          ? LaterLibrary.legacy.remove(
+              [IdUtils.bv2av(video)],
               account: account,
             )
-          : UserHttp.toViewLater(bvid: video, account: account));
+          : LaterLibrary.legacy.add(bvid: video, account: account));
       if (isClosed || bvid != video || !identical(account, Accounts.main)) {
         return;
       }

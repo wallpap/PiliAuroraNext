@@ -23,8 +23,7 @@ import 'package:pili_aurora_next/pages/history/view.dart';
 import 'package:pili_aurora_next/pages/history_search/view.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
-import 'package:pili_aurora_next/pages/later/view.dart';
-import 'package:pili_aurora_next/pages/later_search/view.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/later_page.dart';
 import 'package:pili_aurora_next/pages/live_dm_block/view.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart';
 import 'package:pili_aurora_next/pages/login/view.dart';
@@ -127,7 +126,7 @@ class Routes {
     // 收藏搜索
     GetPage(name: '/favSearch', page: () => const FavSearchPage()),
     GetPage(name: '/historySearch', page: () => const HistorySearchPage()),
-    GetPage(name: '/laterSearch', page: () => const LaterSearchPage()),
+    GetPage(name: '/laterSearch', page: () => const LaterPage(search: true)),
     GetPage(
       name: '/followSearch',
       page: () => FollowSearchPage.fromArguments(Get.arguments),

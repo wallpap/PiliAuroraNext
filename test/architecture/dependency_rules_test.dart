@@ -101,6 +101,45 @@ void main() {
       expect(violations, isEmpty, reason: violations.join('\n'));
     },
   );
+  for (final feature in ['watch_later', 'content_library']) {
+    test('$feature enforces its migrated Interface', () {
+      final violations = <String>[];
+      for (final file in Directory(
+        'lib/features/$feature',
+      ).listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final source = path
+            .relative(file.path, from: 'lib')
+            .replaceAll('\\', '/');
+        for (final uri in dependencies(file)) {
+          final target = localDependency(file, uri);
+          final presentation = source.contains('/presentation/');
+          final application = source.contains('/application/');
+          final domain = source.contains('/domain/');
+          final forbidden =
+              (uri.startsWith('package:get/') &&
+                  !(presentation && uri == 'package:get/route_manager.dart')) ||
+              (domain &&
+                  (uri.startsWith('package:flutter') ||
+                      uri.startsWith('package:material_ui/') ||
+                      target?.startsWith('pages/') == true ||
+                      target?.startsWith('http/') == true ||
+                      target?.startsWith('utils/storage') == true)) ||
+              (application &&
+                  (target?.startsWith('pages/') == true ||
+                      target?.contains('/presentation/') == true ||
+                      uri.startsWith('package:flutter_smart_dialog/'))) ||
+              (presentation &&
+                  (target?.contains('/data/') == true ||
+                      (target?.startsWith('http/') == true &&
+                          target != 'http/loading_state.dart') ||
+                      target?.startsWith('utils/storage') == true));
+          if (forbidden) violations.add('$source -> $uri');
+        }
+      }
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    });
+  }
   for (final entry in rules.entries) {
     test('${entry.key} respects its dependency boundary', () {
       final file = File('lib/${entry.key}');

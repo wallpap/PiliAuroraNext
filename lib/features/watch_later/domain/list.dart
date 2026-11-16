@@ -1,11 +1,10 @@
 import 'package:pili_aurora_next/models/model_owner.dart';
-import 'package:pili_aurora_next/models/remote/later/bangumi.dart';
-import 'package:pili_aurora_next/models/remote/later/rights.dart';
-import 'package:pili_aurora_next/models/remote/later/stat.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/bangumi.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/rights.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/stat.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
 
-class LaterItemModel with MultiSelectData {
+class LaterItemModel {
   int? aid;
   String? pic;
   String? title;

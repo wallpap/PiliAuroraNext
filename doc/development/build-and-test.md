@@ -115,14 +115,14 @@ fvm flutter test
 
 常规分析覆盖应用、测试和工具代码。本地依赖包有各自的依赖上下文；更新依赖包时，按[依赖维护流程](../../third_party/README.md)单独检查。全仓库分析会包含上游源码和实验代码，结果按来源区分。
 
-PR 检查由 `.github/workflows/checks.yml` 独立执行，使用只读仓库权限。Linux 任务运行依赖验收、共享 CI 测试、Android 主机探针、采集器单元测试、呈现引擎身份与 APK 装配回归及 Windows 采样门控的主机探针。Windows 任务运行 CI 测试、页面与 WebView 保留回归，以及固定 libmpv 包的离线分片音轨回退回归，覆盖依赖实际 Windows 主机的全屏布局交接与原生 seek。严格分析范围为 `lib/plugin/pl_player lib/pages/danmaku lib/features/download test tool`；全量分析还应手动运行上述命令，上游控件副本的旧文本选择工具栏兼容调用在具体使用点标明保留原因；图片磁盘元信息检查保持异步，避免阻塞 UI。
+PR 检查由 `.github/workflows/checks.yml` 独立执行，使用只读仓库权限。Linux 任务运行依赖验收、共享 CI 测试、Android 主机探针、采集器单元测试、呈现引擎身份与 APK 装配回归及 Windows 采样门控的主机探针。Windows 任务运行 CI 测试、页面与 WebView 保留回归，以及固定 libmpv 包的离线分片音轨回退回归，覆盖依赖实际 Windows 主机的全屏布局交接与原生 seek。严格分析范围为 `lib/plugin/pl_player lib/pages/danmaku lib/features test tool`；全量分析还应手动运行上述命令，上游控件副本的旧文本选择工具栏兼容调用在具体使用点标明保留原因；图片磁盘元信息检查保持异步，避免阻塞 UI。
 
 CI 从 `.fvmrc` 读取 Flutter 固定版本，避免 Windows 为解析 `pubspec.yaml` 额外安装 yq；升级 SDK 时仍须同步 `pubspec.yaml` 的版本约束。同一 PR 有新提交时自动取消旧检查，手动检查与发布构建保留独立运行。Android 发布启用 Gradle 任务缓存，配合现有 Gradle 用户目录缓存复用可缓存的任务输出；Gradle 脚本、属性与 Pub 锁文件参与缓存键。实际命中率和耗时需在后续 GitHub Actions 运行中确认。
 
 Android libmpv 的三个原生 JAR 另缓存 `build/media_kit_libs_android_video/20*/*.jar`，缓存键取插件 Gradle 脚本摘要；这些下载产物位于项目构建目录，未被 Gradle 用户目录缓存覆盖。插件仍在使用前逐个校验 SHA-256，缓存不包含 APK 或签名配置。
 
 ```powershell
-fvm flutter analyze --no-pub lib/plugin/pl_player lib/pages/danmaku lib/features/download test tool
+fvm flutter analyze --no-pub lib/plugin/pl_player lib/pages/danmaku lib/features test tool
 pwsh -NoProfile -File tool/run-native-probes.ps1
 uv run --locked python tool/run_python_tests.py --suite android
 ```

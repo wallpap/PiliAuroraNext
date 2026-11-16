@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' show min;
 import 'dart:ui';
 
+import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
@@ -503,8 +504,8 @@ class VideoDetailController extends GetxController
             ? (item, index) async {
                 final account = Accounts.main;
                 if (sourceType == SourceType.watchLater) {
-                  final res = await UserHttp.toViewDel(
-                    aids: item.aid.toString(),
+                  final res = await LaterLibrary.legacy.remove(
+                    [if (item.aid != null) item.aid!],
                     account: account,
                   );
                   if (isClosed ||

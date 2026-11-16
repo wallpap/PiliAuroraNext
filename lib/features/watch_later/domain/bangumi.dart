@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/later/season.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/season.dart';
 
 class Bangumi {
   int? epId;

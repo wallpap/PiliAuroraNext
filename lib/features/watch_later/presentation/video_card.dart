@@ -7,8 +7,7 @@ import 'package:pili_aurora_next/common/widgets/select_mask.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/later/list.dart';
-import 'package:pili_aurora_next/pages/later/controller.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/list.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -18,26 +17,30 @@ import 'package:material_ui/material_ui.dart';
 class VideoCardHLater extends StatelessWidget {
   const VideoCardHLater({
     super.key,
-    required this.ctr,
+    required this.selecting,
+    required this.selected,
+    required this.onSelect,
+    required this.onRemove,
+    required this.isCurrent,
     required this.index,
     required this.videoItem,
     required this.onViewLater,
   });
   final int index;
-  final BaseLaterController ctr;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback onSelect;
+  final VoidCallback onRemove;
+  final bool Function() isCurrent;
   final LaterItemModel videoItem;
   final ValueChanged<int> onViewLater;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final enableMultiSelect = ctr.enableMultiSelect.value;
+    final enableMultiSelect = selecting;
 
-    final onLongPress = enableMultiSelect
-        ? null
-        : () => ctr
-            ..enableMultiSelect.value = true
-            ..onSelect(videoItem);
+    final onLongPress = enableMultiSelect ? null : onSelect;
 
     return Material(
       type: MaterialType.transparency,
@@ -45,7 +48,7 @@ class VideoCardHLater extends StatelessWidget {
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         onTap: enableMultiSelect
-            ? () => ctr.onSelect(videoItem)
+            ? onSelect
             : () async {
                 if (videoItem.isPugv ?? false) {
                   PageUtils.viewPugv(seasonId: videoItem.aid);
@@ -64,8 +67,7 @@ class VideoCardHLater extends StatelessWidget {
                   aid: videoItem.aid,
                   bvid: videoItem.bvid,
                   cid: videoItem.cid,
-                  isCurrent: () =>
-                      !ctr.isClosed && !ctr.enableMultiSelect.value,
+                  isCurrent: isCurrent,
                   onResolved: onViewLater,
                 );
               },
@@ -152,7 +154,7 @@ class VideoCardHLater extends StatelessWidget {
                         Positioned.fill(
                           child: selectMask(
                             theme.colorScheme,
-                            videoItem.checked,
+                            selected,
                           ),
                         ),
                       ],
@@ -248,7 +250,7 @@ class VideoCardHLater extends StatelessWidget {
             bottom: -8,
             child: iconButton(
               tooltip: '移除',
-              onPressed: () => ctr.toViewDel(context, videoItem.aid),
+              onPressed: onRemove,
               icon: const Icon(Icons.clear),
               iconColor: theme.colorScheme.outline,
             ),
