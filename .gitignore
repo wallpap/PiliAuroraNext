@@ -34,6 +34,7 @@ __pycache__/
 .build/
 .buildlog/
 .svn/
+.vscode/
 /migrate_working_dir/
 
 # Flutter / Dart / FVM 缓存与生成文件
