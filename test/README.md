@@ -106,9 +106,9 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `pages/dynamics/overview_results_test.dart` 检查聚合页的凭据替换、分页去重/游标停滞和刷新等待，点赞/转发列表的账号隔离，以及互动设置的缺失来源、迟到弹窗与举报后拉黑的部分成功。举报弹窗可由调用方传入归属检查，切号后的结果不提示当前账号。
 
-`http/fav_response_test.dart` 覆盖收藏接口及分支的成功、业务拒绝、损坏响应和传输不确定性，并保留可空列表语义、确认后的收藏夹 ID 和账号绑定。`pages/fav/operation_results_test.dart` 检查快速收藏的 Future/重复提交/空收藏夹/切号，以及创建草稿、编辑加载、迟到查询和操作锁释放；原生封面选择与裁剪不由这些模拟测试证明。
+`http/fav_response_test.dart` 覆盖收藏接口及分支的成功、业务拒绝、损坏响应和传输不确定性，并保留可空列表语义、确认后的收藏夹 ID 和账号绑定。`features/favorites/operation_results_test.dart` 检查快速收藏的 Future/重复提交/空收藏夹/切号，以及创建草稿、编辑加载、迟到查询和操作锁释放；原生封面选择与裁剪不由这些模拟测试证明。
 
-`pages/fav/account_favorite_results_test.dart` 检查课程/话题收藏取消的账号与来源快照、重复提交、失败保留、迟到确认及删除后的分页重读；`pages/pgc/pugv_favorite_results_test.dart` 与 `pages/episode_panel/favorite_results_test.dart` 检查播放器收藏/订阅的在途锁、账号隔离、待确认后的状态重查及离页回执。`pages/subscription/detail_filter_test.dart` 检查隐藏页补读上限、失败停止与切号后的迟到查询隔离。
+收藏课程/话题的账号、来源快照、失败保留与分页重读见 `features/favorites/`；`pages/pgc/pugv_favorite_results_test.dart` 与 `pages/episode_panel/favorite_results_test.dart` 检查播放器收藏/订阅的在途锁、账号隔离、待确认后的状态重查及离页回执。`pages/subscription/detail_filter_test.dart` 检查隐藏页补读上限、失败停止与切号后的迟到查询隔离。
 
 `pages/member/operation_results_test.dart` 检查成员主页面的账号/目标/刷新归属、关系写入和经验领取互斥；`pages/member/child_list_results_test.dart` 与 `pages/member_pgc/controller_results_test.dart` 检查成员视频/图文/Web/番剧子列表的账号订阅、查询失效和页面释放，以及继续播放的迟到结果。番剧页独立查询，不消费无账号归属的父缓存。
 
@@ -152,7 +152,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `pages/member_favorite/pagination_lifecycle_test.dart` 检查成员收藏双分页的失败重试、完整响应、账号订阅与凭据替换、迟到删除回调及订阅释放。
 
-`pages/fav/note_results_test.dart` 检查笔记删除互斥、失败/待确认保留选择、补页等待、凭据替换与刷新后的旧回执隔离，以及公共删除助手按对象删除。`pages/subscription/operation_results_test.dart` 检查取消订阅弹窗和清理流程的账号绑定、失败保留弹窗、在途互斥、确认成功后的本地清理失败、待确认汇总及完成后实际刷新；清理算法另见 `pages/subscription/cleanup_test.dart`。
+笔记删除互斥、失败/待确认保留、有效标识与凭据隔离见 `features/favorites/`。`pages/subscription/operation_results_test.dart` 检查取消订阅弹窗和清理流程的账号绑定、失败保留弹窗、在途互斥、确认成功后的本地清理失败、待确认汇总及完成后实际刷新；清理算法另见 `pages/subscription/cleanup_test.dart`。
 
 `http/validate_response_test.dart` 检查风控挑战与通过/拒绝结果、缺失证明、业务码和传输待确认；`utils/gaia_validation_test.dart` 通过导航替身返回验证结果，检查取消、过期操作、字段校验、一次性成功通知及等待异步消费者，消费者失败不重发请求。原生极验 WebView 的加载、脚本与设备行为需单独验证。
 
@@ -162,7 +162,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `http/video_query_results_test.dart` 覆盖视频 15 类资料/列表查询的业务码、原始原因、领域空语义和签名账号；`pages/popular_series/controller_test.dart` 检查无效期数、重试、乱序与退出。`http/video_media_results_test.dart` 检查媒体协议回退的原因与参数、取消、字幕独立正文协议及转换失败、AI 总结内外状态和预览无数据；真实播放、字幕显示和文件选择仍需设备验收。
 
-`http/pgc_follow_results_test.dart` 与 `pages/pgc/follow_results_test.dart` 检查追番写入的业务拒绝/待确认、可选提示、目标校验和账号绑定，以及状态查询重试/迟到隔离、批量互斥、选择保留和删除后的分页重读。真实服务写入与完整番剧页面另行验收。
+`http/pgc_follow_results_test.dart` 与 `pages/pgc/follow_results_test.dart` 检查追番写入的业务拒绝/待确认、可选提示、目标校验和账号绑定，以及播放器状态查询重试/迟到隔离；追番管理的批量互斥、选择保留与分页重读见 `features/favorites/`。真实服务写入与完整番剧页面另行验收。
 
 `http/pgc_response_test.dart` 覆盖番剧 11 个接口的业务码、解析原因、写入待确认、账号/CSRF、可空内容和追番状态类型。`pages/pgc/operation_results_test.dart` 覆盖时间表部分失败与日期合并、乱序/关闭、点评分页游标与去重、赞踩/删除互斥和未知计数，以及提交草稿与迟到面板。真实评分写入与番剧播放仍需另行验收。
 
@@ -208,9 +208,9 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `pages/scoped_search/controller_test.dart` 覆盖直播/空间搜索的页面实例与关键词隔离、账号角色、分页失败重试、旧响应失效、空间视频 gRPC 及动态游标补页，并检查搜索提交、输入替换和清空重查。
 
-`pages/fav/management_results_test.dart` 检查收藏详情缺字段、重叠删除、两种排序的失败草稿与成功快照、批量迁移的选择/数量保留，以及关闭面板或切号后的迟到结果；`fav_detail/removal_identity_test.dart` 保留不同条目并发取消的身份回归。
+`features/favorites/favorite_library_test.dart` 验证账号对象身份、查询隔离、分页互斥/重试、空页补位、写入失效、选择、排序草稿和收藏面板差量提交；`favorite_repository_test.dart` 验证各分类 HTTP Adapter、反向分页、隐藏过滤、笔记删除标识与 CSRF。旧 fav/fav_detail controller 回归已由这些 Interface 行为测试替换。
 
-`http/user_response_test.dart` 检查账号与历史等 28 个接口的拒绝码、解析失败、写入待确认和签名期间的账号绑定。`pages/history/operation_results_test.dart` 检查历史暂停查询与写入竞争、删除/清空互斥、列表快照与切号隔离，以及待确认时保留列表和数量；视频稍后再看操作复用 `pages/fav/operation_results_test.dart`。
+`http/user_response_test.dart` 检查账号与历史等 28 个接口的拒绝码、解析失败、写入待确认和签名期间的账号绑定。历史状态和删除回归见 `features/history/`；视频收藏与稍后再看操作复用 `features/favorites/operation_results_test.dart`。
 
 `pages/space_setting/controller_test.dart` 覆盖隐私草稿、反向字段、保存互斥、失败重试、切号与刷新隔离及返回保存。`pages/live_settings/controller_test.dart` 覆盖直播屏蔽规则的房间与账号绑定、过期编辑、标签排序保存、推荐账号隔离及成功快照回调。真实直播服务与两端播放器仍需登录验收。
 

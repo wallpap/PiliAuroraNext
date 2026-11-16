@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_library/application/library_module.dart';
 import 'package:pili_aurora_next/features/content_library/application/paged_feed.dart';
 import 'package:pili_aurora_next/features/watch_later/data/later_repository.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_folder/list.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/list.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -57,7 +57,10 @@ class LaterLibrary extends LibraryModule {
     final ids = List<int>.of(aids);
     return write(
       account,
-      () => _repository.transfer(account, ids, folder, copy),
+      () => FavoriteLibrary.legacy.write(
+        account,
+        () => _repository.transfer(account, ids, folder, copy),
+      ),
     );
   }
 }

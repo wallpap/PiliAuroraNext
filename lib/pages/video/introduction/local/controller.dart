@@ -27,7 +27,7 @@ class LocalIntroController extends CommonIntroController {
   void actionTriple() {}
 
   @override
-  Future<void> actionFavVideo({bool isQuick = false}) async {}
+  Future<void> quickFavorite() async {}
 
   @override
   (Object, int) get getFavRidType => throw UnimplementedError();

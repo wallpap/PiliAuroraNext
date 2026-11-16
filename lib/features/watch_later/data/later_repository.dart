@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/data.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_folder/list.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_folder/list.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 class LaterRepository {

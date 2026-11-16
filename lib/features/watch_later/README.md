@@ -11,7 +11,7 @@
 验证入口：
 
 ```powershell
-fvm flutter test --no-pub test/features/watch_later test/pages/fav/operation_results_test.dart test/pages/video/media_navigation_test.dart test/architecture/dependency_rules_test.dart
+fvm flutter test --no-pub test/features/watch_later test/features/favorites/operation_results_test.dart test/pages/video/media_navigation_test.dart test/architecture/dependency_rules_test.dart
 fvm flutter analyze --no-pub lib test tool
 ```
 

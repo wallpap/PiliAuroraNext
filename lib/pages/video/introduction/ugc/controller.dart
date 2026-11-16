@@ -1,3 +1,5 @@
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+
 import 'dart:async';
 import 'dart:math';
 
@@ -229,7 +231,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       SmartDialog.showToast('已三连');
       return;
     }
-    final result = await VideoHttp.ugcTriple(bvid: bvid, account: account);
+    final result = await FavoriteLibrary.legacy.write(
+      account,
+      () => VideoHttp.ugcTriple(bvid: bvid, account: account),
+    );
     if (result case Success(:final response)) {
       final paid = response.coin ? response.multiply : 0;
       if (identical(account, Accounts.main)) GlobalData().afterCoin(paid);

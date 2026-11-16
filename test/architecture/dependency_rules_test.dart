@@ -101,7 +101,12 @@ void main() {
       expect(violations, isEmpty, reason: violations.join('\n'));
     },
   );
-  for (final feature in ['watch_later', 'content_library', 'history']) {
+  for (final feature in [
+    'watch_later',
+    'content_library',
+    'history',
+    'favorites',
+  ]) {
     test('$feature enforces its migrated Interface', () {
       final violations = <String>[];
       for (final file in Directory(

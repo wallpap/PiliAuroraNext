@@ -247,7 +247,7 @@ class PlayerFocus extends StatelessWidget {
             return true;
 
           case LogicalKeyboardKey.keyE:
-            introController?.actionFavVideo(isQuick: true);
+            introController?.quickFavorite();
             return true;
 
           case LogicalKeyboardKey.keyT || LogicalKeyboardKey.keyV:

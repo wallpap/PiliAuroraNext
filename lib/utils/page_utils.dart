@@ -13,10 +13,9 @@ import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
-import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/contact/view.dart';
-import 'package:pili_aurora_next/pages/fav_panel/view.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/selection_panel.dart';
 import 'package:pili_aurora_next/pages/share/view.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/sharing.dart';
@@ -165,7 +164,9 @@ abstract final class PageUtils {
 
   static void showFavBottomSheet({
     required BuildContext context,
-    required FavMixin ctr,
+    required (Object, int) target,
+    required bool Function() isCurrent,
+    required ValueChanged<bool> onSaved,
   }) {
     showModalBottomSheet(
       context: context,
@@ -187,8 +188,10 @@ abstract final class PageUtils {
           snapSizes: [maxChildSize],
           initialChildSize: maxChildSize,
           builder: (BuildContext context, ScrollController scrollController) {
-            return FavPanel(
-              ctr: ctr,
+            return FavoriteSelectionPanel(
+              target: target,
+              isCurrent: isCurrent,
+              onSaved: onSaved,
               scrollController: scrollController,
             );
           },

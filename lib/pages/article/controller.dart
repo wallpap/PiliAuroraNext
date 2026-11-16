@@ -2,6 +2,7 @@ import 'dart:math' show max;
 
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
@@ -316,21 +317,24 @@ class ArticleController extends CommonDynController {
     final isFav = favorite.status ?? false;
     final operation = _favoriteOperation = Object();
     try {
-      final res = type == 'read'
-          ? isFav
-                ? await FavHttp.delFavArticle(
-                    account: context.account,
-                    id: articleId,
-                  )
-                : await FavHttp.addFavArticle(
-                    account: context.account,
-                    id: articleId,
-                  )
-          : await FavHttp.communityAction(
-              account: context.account,
-              opusId: id,
-              action: isFav ? 4 : 3,
-            );
+      final res = await FavoriteLibrary.legacy.write(
+        context.account,
+        () async => type == 'read'
+            ? isFav
+                  ? await FavHttp.delFavArticle(
+                      account: context.account,
+                      id: articleId,
+                    )
+                  : await FavHttp.addFavArticle(
+                      account: context.account,
+                      id: articleId,
+                    )
+            : await FavHttp.communityAction(
+                account: context.account,
+                opusId: id,
+                action: isFav ? 4 : 3,
+              ),
+      );
       if (!_owns(context) ||
           articleId != commentId ||
           !identical(favorite, stats.value?.favorite)) {

@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/models/model_owner.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_detail/cnt_info.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_detail/cnt_info.dart';
 import 'package:pili_aurora_next/models/remote/media_list/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
 

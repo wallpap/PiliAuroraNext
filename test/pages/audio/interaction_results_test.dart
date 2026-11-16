@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -175,9 +177,11 @@ void main() {
   });
   tearDownAll(() => Request.dio.close(force: true));
   Future<void> host(WidgetTester tester) => tester.pumpWidget(
-    MaterialApp(
-      builder: FlutterSmartDialog.init(),
-      home: const Scaffold(body: SizedBox(key: ValueKey('body'))),
+    ProviderScope(
+      child: MaterialApp(
+        builder: FlutterSmartDialog.init(),
+        home: const Scaffold(body: SizedBox(key: ValueKey('body'))),
+      ),
     ),
   );
 
@@ -301,7 +305,10 @@ void main() {
       ..audioItem.value = DetailItem(
         item: PlayItem(oid: Int64(2), itemType: 1),
       );
-    await controller.actionFavVideo();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+    expect(find.text('视频或账号已更新，请重新打开'), findsOneWidget);
     expect(adapter.requests, hasLength(1));
   });
   _check(

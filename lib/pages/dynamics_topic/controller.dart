@@ -1,5 +1,6 @@
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/item.dart';
@@ -159,9 +160,12 @@ class DynTopicController
     _savingFav = true;
     _topVersion++;
     try {
-      final res = wasFav
-          ? await FavHttp.delFavTopic(topicId, account: account)
-          : await FavHttp.addFavTopic(topicId, account: account);
+      final res = await FavoriteLibrary.legacy.write(
+        account,
+        () async => wasFav
+            ? await FavHttp.delFavTopic(topicId, account: account)
+            : await FavHttp.addFavTopic(topicId, account: account),
+      );
       if (!_ownsTop(account, item)) return;
       if (res.isSuccess) {
         if (!wasFav) {

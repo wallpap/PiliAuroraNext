@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/fav/fav_detail/cnt_info.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_detail/cnt_info.dart';
 
 class SubDetailItemModel {
   int? id;

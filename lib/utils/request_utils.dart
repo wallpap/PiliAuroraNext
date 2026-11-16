@@ -9,7 +9,6 @@ import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/http/dynamics.dart';
-import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/user.dart';
@@ -17,12 +16,8 @@ import 'package:pili_aurora_next/http/validate.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/login/gaia_result.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_detail/media.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
-import 'package:pili_aurora_next/pages/fav_detail/controller.dart'
-    show BaseFavController;
 import 'package:pili_aurora_next/pages/group_panel/view.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -416,134 +411,6 @@ abstract final class RequestUtils {
       }
     } finally {
       _likingDynamics.remove(item);
-    }
-  }
-
-  static Future<void> onCopyOrMove<T extends MultiSelectData>({
-    required BuildContext context,
-    required bool isCopy,
-    required CommonMultiSelectMixin<T> ctr,
-    required dynamic mediaId,
-    required dynamic mid,
-  }) async {
-    final account = switch (ctr) {
-      BaseFavController controller => controller.account,
-      _ => Accounts.main,
-    };
-    final source = ctr.loadingState.value.dataOrNull;
-    if (source == null) return;
-    final removeList = ctr.allChecked.toSet();
-    if (removeList.isEmpty) return;
-    bool current() =>
-        context.mounted &&
-        identical(account, Accounts.main) &&
-        identical(source, ctr.loadingState.value.dataOrNull) &&
-        (ctr is! GetxController || !(ctr as GetxController).isClosed);
-    if (!current()) return;
-    final result = await FavHttp.allFavFolders(mid, account: account);
-    if (!context.mounted || !current()) return;
-    if (result case Success(:final response)) {
-      final list = response.list;
-      if (list == null || list.isEmpty) {
-        SmartDialog.showToast('暂无可用收藏夹，请先创建');
-        return;
-      }
-      int? checkedId;
-      var saving = false;
-      final isFav = ctr is BaseFavController;
-      final resources = (isFav ? removeList.toList().reversed : removeList)
-          .map(
-            (item) => switch (item) {
-              FavDetailItemModel(id: final id?, type: final type?) =>
-                '$id:$type',
-              _ => null,
-            },
-          )
-          .toList();
-      if (resources.contains(null)) {
-        SmartDialog.showToast('所选内容缺少有效标识');
-        return;
-      }
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: Text('${isCopy ? '复制' : '移动'}到'),
-            contentPadding: const EdgeInsets.only(top: 5),
-            content: SingleChildScrollView(
-              child: RadioGroup<int>(
-                onChanged: (value) {
-                  if (!saving) setState(() => checkedId = value);
-                },
-                groupValue: checkedId,
-                child: Column(
-                  children: list
-                      .map(
-                        (item) => RadioListTile<int>(
-                          dense: true,
-                          title: Text(item.title),
-                          value: item.id,
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: saving || checkedId == null
-                    ? null
-                    : () async {
-                        if (!current()) return;
-                        setState(() => saving = true);
-                        try {
-                          final result = await FavHttp.copyOrMoveFav(
-                            account: account,
-                            isCopy: isCopy,
-                            isFav: isFav,
-                            srcMediaId: mediaId,
-                            tarMediaId: checkedId,
-                            resources: resources.join(','),
-                            mid: isCopy ? mid : null,
-                          );
-                          if (!current() ||
-                              !dialogContext.mounted ||
-                              ModalRoute.of(dialogContext)?.isCurrent != true) {
-                            return;
-                          }
-                          if (result.isSuccess) {
-                            if (!isCopy) {
-                              final before = source.length;
-                              source.removeWhere(removeList.contains);
-                              final removed = before - source.length;
-                              switch (ctr) {
-                                case BaseFavController controller:
-                                  controller.updateCount?.call(removed);
-                              }
-                              ctr.loadingState.refresh();
-                            }
-                            ctr.handleSelect(checked: false);
-                            SmartDialog.showToast('${isCopy ? '复制' : '移动'}成功');
-                            Navigator.of(dialogContext).pop();
-                          } else {
-                            result.toast();
-                          }
-                        } finally {
-                          if (context.mounted) setState(() => saving = false);
-                        }
-                      },
-                child: Text(saving ? '提交中' : '确认'),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      result.toast();
     }
   }
 

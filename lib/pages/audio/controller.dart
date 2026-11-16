@@ -1,3 +1,5 @@
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+
 import 'dart:async';
 import 'dart:io' show Platform;
 
@@ -37,7 +39,8 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart'
     show CommandOutcome;
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/services/audio_handler.dart' show MediaNavigation;
+import 'package:pili_aurora_next/services/audio_handler.dart'
+    show MediaNavigation;
 import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -1134,11 +1137,14 @@ class AudioController extends GetxController
   @override
   Future<void> actionTriple() => _runInteraction((account, current) async {
     final previousCoins = coinNum.value;
-    final res = await AudioGrpc.audioTripleLike(
-      account: account,
-      oid: oid,
-      subId: List.of(subId),
-      itemType: itemType,
+    final res = await FavoriteLibrary.legacy.write(
+      account,
+      () => AudioGrpc.audioTripleLike(
+        account: account,
+        oid: oid,
+        subId: List.of(subId),
+        itemType: itemType,
+      ),
     );
     if (res case Success(:final response)) {
       final addedCoins = response.coinOk && previousCoins == 0 ? 2 : 0;
@@ -1221,36 +1227,18 @@ class AudioController extends GetxController
         }
       });
 
-  (Account, (Object, int))? _favPanelTarget;
+  @override
+  Object get favoriteOwner => audioItem.value ?? this;
 
   @override
-  Future<void> actionFavVideo({bool isQuick = false}) async {
-    if (!isQuick && _favPanelTarget != (Accounts.main, getFavRidType)) {
-      SmartDialog.showToast('曲目或账号已更新，请重新打开收藏面板');
-      return;
-    }
-    await _runInteraction(
-      (account, current) => super.actionFavVideo(isQuick: isQuick),
-    );
-  }
+  Future<void> quickFavorite() => _runInteraction(
+    (account, current) => super.quickFavorite(),
+  );
 
   @override
   void showFavBottomSheet(BuildContext context, {bool isLongPress = false}) {
     if (!_canInteract()) return;
-    _favPanelTarget = (Accounts.main, getFavRidType);
-    if (!isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-    if (enableQuickFav) {
-      if (!isLongPress) {
-        actionFavVideo(isQuick: true);
-      } else {
-        PageUtils.showFavBottomSheet(context: context, ctr: this);
-      }
-    } else if (!isLongPress) {
-      PageUtils.showFavBottomSheet(context: context, ctr: this);
-    }
+    super.showFavBottomSheet(context, isLongPress: isLongPress);
   }
 
   void showReply() {

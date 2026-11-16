@@ -35,18 +35,16 @@ Future<bool> libraryConfirm(
                         final route = ModalRoute.of(context);
                         setState(() => saving = true);
                         final result = await submit();
-                        if (!context.mounted ||
-                            route?.isCurrent != true ||
-                            !ownsResult()) {
+                        if (!context.mounted) return;
+                        setState(() {
+                          saving = false;
+                          if (!result.isSuccess) error = result.toString();
+                        });
+                        if (route?.isCurrent != true || !ownsResult()) {
                           return;
                         }
                         if (result.isSuccess) {
                           Navigator.of(context).pop(true);
-                        } else {
-                          setState(() {
-                            saving = false;
-                            error = result.toString();
-                          });
                         }
                       },
                 child: Text(saving ? '提交中' : '确认'),

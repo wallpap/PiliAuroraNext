@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:pili_aurora_next/grpc/dm.dart';
 import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/user.dart';
@@ -520,10 +520,10 @@ class VideoDetailController extends GetxController
                     res.toast();
                   }
                 } else {
-                  final res = await FavHttp.favVideo(
-                    account: account,
-                    resources: '${item.aid}:${item.type}',
-                    delIds: '${args['mediaId']}',
+                  final res = await FavoriteLibrary.legacy.video(
+                    account,
+                    '${item.aid}:${item.type}',
+                    remove: '${args['mediaId']}',
                   );
                   if (isClosed ||
                       !identical(account, Accounts.main) ||

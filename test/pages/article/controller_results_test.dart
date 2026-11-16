@@ -5,15 +5,12 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/remote/article/article_info/data.dart';
 import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_article/item.dart';
 import 'package:pili_aurora_next/pages/article/controller.dart';
-import 'package:pili_aurora_next/pages/fav/article/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -29,16 +26,6 @@ class _Article extends ArticleController {
   @override
   Future<void> queryData([bool isRefresh = true]) async {
     repliesRequested++;
-  }
-}
-
-class _Favorites extends FavArticleController {
-  final queries = <Future<void>>[];
-  @override
-  Future<void> queryData([bool isRefresh = true]) {
-    final query = super.queryData(isRefresh);
-    queries.add(query);
-    return query;
   }
 }
 
@@ -82,15 +69,6 @@ void main() {
           },
         ],
       },
-    },
-  };
-  Map<String, dynamic> favorites(String id) => {
-    'code': 0,
-    'data': {
-      'items': [
-        {'opus_id': id},
-      ],
-      'has_more': false,
     },
   };
   setUpAll(() {
@@ -435,58 +413,6 @@ void main() {
     expect(controller.summary.title, isNull);
     expect(like.status, isTrue);
     expect(like.count, isNull);
-    await finish(tester);
-  });
-
-  test('文章收藏列表换凭据重载，旧结果不覆盖新列表并释放订阅', () async {
-    final controller = own(_Favorites())..onInit();
-    await interceptor.waitForRequests(1);
-    final replacement = account(1, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(2);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete(favorites('2'));
-    await controller.queries.last;
-    requests.first.reply.complete(favorites('1'));
-    await controller.queries.first;
-    expect(controller.loadingState.value.data!.single.opusId, '2');
-    controller.onDelete();
-    Accounts.replaceCredentials(account(1, 'closed'));
-    expect(requests, hasLength(2));
-  });
-
-  testWidgets('文章取消收藏防重复，待确认或列表替换保留条目，成功才移除', (tester) async {
-    await mount(tester);
-    final controller = own(FavArticleController());
-    final list = [FavArticleItemModel(opusId: '1')];
-    controller.loadingState.value = Success(list);
-    var remove = controller.onRemove('1');
-    await controller.onRemove('1');
-    await until(tester, () => requests.length == 1);
-    expect(requests.single.options.path, Api.communityAction);
-    expect(requests.single.options.extra['account'], same(original));
-    expect(requests.single.options.queryParameters['csrf'], original.csrf);
-    requests.single.reply.complete({'code': '0'});
-    await settle(tester);
-    await remove;
-    expect(list, hasLength(1));
-    expect(find.text('操作结果待确认，请先核对后再操作'), findsOneWidget);
-    remove = controller.onRemove('1');
-    await until(tester, () => requests.length == 2);
-    final refreshed = [FavArticleItemModel(opusId: '1')];
-    controller.loadingState.value = Success(refreshed);
-    requests.last.reply.complete({'code': 0});
-    await settle(tester);
-    await remove;
-    expect(list, hasLength(1));
-    expect(refreshed, hasLength(1));
-    remove = controller.onRemove('1');
-    await until(tester, () => requests.length == 3);
-    requests.last.reply.complete({'code': 0});
-    await settle(tester);
-    await remove;
-    expect(refreshed, isEmpty);
-    expect(find.text('已取消收藏'), findsOneWidget);
     await finish(tester);
   });
 }

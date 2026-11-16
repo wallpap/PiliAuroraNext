@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/player_bar.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_folder/list.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_folder/list.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/login/controller.dart';

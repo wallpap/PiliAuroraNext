@@ -11,10 +11,9 @@ import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic_rcmd/view.dart';
-import 'package:pili_aurora_next/pages/fav/view.dart';
-import 'package:pili_aurora_next/pages/fav_create/view.dart';
-import 'package:pili_aurora_next/pages/fav_detail/view.dart';
-import 'package:pili_aurora_next/pages/fav_search/view.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/favorites_page.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/folder_editor.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/favorite_detail_page.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';
 import 'package:pili_aurora_next/pages/follow_type/controller.dart';
@@ -81,9 +80,9 @@ class Routes {
     // 设置
     GetPage(name: '/setting', page: () => const SettingPage()),
     //
-    GetPage(name: '/fav', page: () => const FavPage()),
+    GetPage(name: '/fav', page: () => const FavoritesPage()),
     //
-    GetPage(name: '/favDetail', page: () => const FavDetailPage()),
+    GetPage(name: '/favDetail', page: () => const FavoriteDetailPage()),
     // 稍后再看
     GetPage(name: '/later', page: () => const LaterPage()),
     // 历史记录
@@ -123,7 +122,10 @@ class Routes {
     // 历史记录搜索
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     // 收藏搜索
-    GetPage(name: '/favSearch', page: () => const FavSearchPage()),
+    GetPage(
+      name: '/favSearch',
+      page: () => const FavoriteDetailPage(search: true),
+    ),
     GetPage(
       name: '/historySearch',
       page: () => const HistoryPage(search: true),

@@ -56,7 +56,27 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
     final source = _generation;
     final account = watchAccount();
     if (!account.isLogin) throw const Error('账号未登录');
-    final page = await fetch(account, null);
+    final owner = ref;
+    var page = await fetch(account, null);
+    final cursors = <Object>{};
+    // 隐藏内容可能使首屏为空，仍按远端游标补位，并限制连续空页。
+    for (var budget = 0; page.items.isEmpty && page.next != null; budget++) {
+      if (!owner.mounted ||
+          !identical(source, _generation) ||
+          !ownsAccount(account)) {
+        throw const Error('账号或查询已更新');
+      }
+      if (budget == 4 || !cursors.add(page.next!)) {
+        page = FeedPage(page.items, metadata: page.metadata);
+        break;
+      }
+      final next = await fetch(account, page.next);
+      page = FeedPage(
+        next.items,
+        metadata: mergeMetadata(page.metadata, next.metadata),
+        next: next.next,
+      );
+    }
     final seen = <Object>{};
     return FeedState(
       items: page.items.where((item) => seen.add(itemKey(item))),

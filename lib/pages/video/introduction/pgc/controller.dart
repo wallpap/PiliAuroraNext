@@ -4,7 +4,7 @@ import 'dart:math' show max;
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/pgc.dart';
 import 'package:pili_aurora_next/http/search.dart';
@@ -404,21 +404,24 @@ class PgcIntroController extends CommonIntroController {
     _followQueryVersion++;
     followBusy.value = true;
     try {
-      final result = await switch (action) {
-        _FollowAction.add => VideoHttp.pgcAdd(
-          seasonId: target,
-          account: account,
-        ),
-        _FollowAction.remove => VideoHttp.pgcDel(
-          seasonId: target,
-          account: account,
-        ),
-        _FollowAction.update => VideoHttp.pgcUpdate(
-          seasonId: '$target',
-          status: status!,
-          account: account,
-        ),
-      };
+      final result = await FavoriteLibrary.legacy.write(
+        account,
+        () => switch (action) {
+          _FollowAction.add => VideoHttp.pgcAdd(
+            seasonId: target,
+            account: account,
+          ),
+          _FollowAction.remove => VideoHttp.pgcDel(
+            seasonId: target,
+            account: account,
+          ),
+          _FollowAction.update => VideoHttp.pgcUpdate(
+            seasonId: '$target',
+            status: status!,
+            account: account,
+          ),
+        },
+      );
       if (isClosed ||
           operation != _followOperation ||
           !identical(account, Accounts.main) ||
@@ -504,10 +507,13 @@ class PgcIntroController extends CommonIntroController {
       return;
     }
     final previousCoins = coinNum.value;
-    final result = await VideoHttp.pgcTriple(
-      epId: episode,
-      seasonId: seasonId,
-      account: account,
+    final result = await FavoriteLibrary.legacy.write(
+      account,
+      () => VideoHttp.pgcTriple(
+        epId: episode,
+        seasonId: seasonId,
+        account: account,
+      ),
     );
     if (result case Success(:final response)) {
       final paid = response.coin == 1
@@ -641,9 +647,11 @@ class PgcIntroController extends CommonIntroController {
     final version = ++_pugvVersion;
     pugvFavBusy.value = true;
     try {
-      final result = wasFav
-          ? await FavHttp.delFavPugv(target, account: account)
-          : await FavHttp.addFavPugv(target, account: account);
+      final result = await FavoriteLibrary.legacy.cheese(
+        account,
+        target,
+        !wasFav,
+      );
       if (isClosed ||
           version != _pugvVersion ||
           !identical(account, Accounts.main) ||
