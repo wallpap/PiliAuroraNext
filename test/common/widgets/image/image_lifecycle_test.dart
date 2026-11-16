@@ -1,0 +1,899 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' show TabBarView, TabController;
+import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
+import 'package:pili_aurora_next/utils/screenshot.dart';
+
+class _RetainedImages extends StatefulWidget {
+  const _RetainedImages({required this.tab, required this.cache});
+
+  final int tab;
+  final _FileCache cache;
+
+  @override
+  State<_RetainedImages> createState() => _RetainedImagesState();
+}
+
+class _RetainedImagesState extends State<_RetainedImages>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return ListView(
+      children: [
+        for (var index = 0; index < 4; index++)
+          CachedImage(
+            imageUrl: 'https://example.test/tab-${widget.tab}-$index.png',
+            cacheManager: widget.cache,
+            width: 16,
+            height: 16,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+          ),
+      ],
+    );
+  }
+}
+
+class _FileCache implements BaseCacheManager {
+  _FileCache(this.file);
+
+  final File file;
+  int loads = 0;
+  Completer<void>? gate;
+  Object? failure;
+  Completer<void>? refresh;
+
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    loads++;
+    await gate?.future;
+    if (failure case final error?) throw error;
+    return file;
+  }
+
+  @override
+  Stream<FileResponse> getFileStream(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool? withProgress,
+  }) async* {
+    yield FileInfo(
+      await getSingleFile(url),
+      FileSource.Cache,
+      DateTime(2100),
+      url,
+    );
+    await refresh?.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Frame implements ui.FrameInfo {
+  _Frame(this.image);
+
+  @override
+  final ui.Image image;
+
+  @override
+  Duration get duration => const Duration(milliseconds: 100);
+}
+
+class _TrackedCodec implements ui.Codec {
+  _TrackedCodec(this.image, {this.frameCount = 1});
+
+  final ui.Image image;
+  bool disposed = false;
+  bool created = false;
+  int decodedFrames = 0;
+  Completer<void>? frameGate;
+  ui.Image? decodedImage;
+
+  @override
+  final int frameCount;
+
+  @override
+  int get repetitionCount => 0;
+
+  @override
+  Future<ui.FrameInfo> getNextFrame() async {
+    decodedFrames++;
+    if (frameGate case final gate?) await gate.future;
+    return _Frame(decodedImage = image.clone());
+  }
+
+  @override
+  void dispose() {
+    disposed = true;
+  }
+}
+
+class _ImageBatch {
+  final gates = <Completer<void>>[];
+  final streams = <(ImageStreamCompleter, ImageStreamListener)>[];
+  final codecs = <_TrackedCodec>[];
+  final errors = <Object>[];
+  int delivered = 0;
+
+  void release() {
+    for (final gate in gates) {
+      gate.complete();
+    }
+  }
+
+  void dispose() {
+    for (final (completer, listener) in streams) {
+      completer.removeListener(listener);
+    }
+  }
+}
+
+Future<_ImageBatch> _prepareBatch(
+  WidgetTester tester,
+  _FileCache cache,
+  ui.Image image, {
+  int count = 3,
+  Completer<void>? creationGate,
+}) async {
+  final batch = _ImageBatch();
+  await tester.runAsync(() async {
+    final ready = Completer<void>();
+    var createdCount = 0;
+    for (var index = 0; index < count; index++) {
+      final gate = Completer<void>();
+      final codec = _TrackedCodec(image)..frameGate = gate;
+      final provider = CachedImageProvider(
+        'https://example.test/batch-$index.png',
+        cacheManager: cache,
+      );
+      final completer = provider.loadImage(provider, (
+        buffer, {
+        getTargetSize,
+      }) async {
+        buffer.dispose();
+        codec.created = true;
+        if (++createdCount == (count < 2 ? count : 2)) ready.complete();
+        await creationGate?.future;
+        return codec;
+      });
+      final listener = ImageStreamListener((info, _) {
+        info.dispose();
+        batch.delivered++;
+      }, onError: (error, _) => batch.errors.add(error));
+      batch.gates.add(gate);
+      batch.streams.add((completer, listener));
+      batch.codecs.add(codec);
+      completer.addListener(listener);
+    }
+    await ready.future;
+  });
+  return batch;
+}
+
+Future<void> _flushDecoding(WidgetTester tester) async {
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 20)),
+  );
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory directory;
+  late _FileCache manager;
+  late ui.Image source;
+  late ui.Image largeSource;
+  late ui.Image oversizedSource;
+
+  setUpAll(() async {
+    directory = await Directory.systemTemp.createTemp('pili-image-lifecycle-');
+    final recorder = ui.PictureRecorder();
+    ui.Canvas(recorder).drawColor(const ui.Color(0xff336699), ui.BlendMode.src);
+    final picture = recorder.endRecording();
+    source = await picture.toImage(2, 2);
+    picture.dispose();
+    final bytes = await source.toByteData(format: ui.ImageByteFormat.png);
+    final file = await File('${directory.path}/image.png')
+        .writeAsBytes(bytes!.buffer.asUint8List());
+    manager = _FileCache(file);
+    final largeRecorder = ui.PictureRecorder();
+    ui.Canvas(largeRecorder).drawColor(
+      const ui.Color(0x00000000),
+      ui.BlendMode.src,
+    );
+    final largePicture = largeRecorder.endRecording();
+    largeSource = await largePicture.toImage(1024, 1024);
+    oversizedSource = await largePicture.toImage(2048, 1024);
+    largePicture.dispose();
+  });
+
+  tearDownAll(() async {
+    source.dispose();
+    largeSource.dispose();
+    oversizedSource.dispose();
+    await directory.delete(recursive: true);
+  });
+
+  test(
+    'removing an image releases its native codec without waiting for GC',
+    () async {
+      final provider = CachedImageProvider(
+        'https://example.test/image.png',
+        cacheManager: manager,
+      );
+      final codec = _TrackedCodec(source);
+      final completer = provider.loadImage(provider, (
+        buffer, {
+        getTargetSize,
+      }) async {
+        buffer.dispose();
+        return codec;
+      });
+      final loaded = Completer<void>();
+      final listener = ImageStreamListener((info, _) {
+        info.dispose();
+        if (!loaded.isCompleted) loaded.complete();
+      }, onError: loaded.completeError);
+      completer.addListener(listener);
+      await loaded.future;
+      completer.removeListener(listener);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        codec.disposed,
+        isTrue,
+        reason: '刷新或滚出列表后，原生解码器应立即释放，不能依赖 Dart GC。',
+      );
+    },
+  );
+
+  test('a codec completing after its image was removed is released', () async {
+    final provider = CachedImageProvider(
+      'https://example.test/late.png',
+      cacheManager: manager,
+    );
+    final decoding = Completer<void>();
+    final ready = Completer<ui.Codec>();
+    final codec = _TrackedCodec(source);
+    final completer = provider.loadImage(provider, (buffer, {getTargetSize}) {
+      buffer.dispose();
+      decoding.complete();
+      return ready.future;
+    });
+    final listener = ImageStreamListener((info, _) => info.dispose());
+    completer.addListener(listener);
+    await decoding.future;
+    completer.removeListener(listener);
+    ready.complete(codec);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(codec.disposed, isTrue);
+    expect(codec.decodedFrames, 0);
+  });
+
+  test(
+    'a cached animation stays reusable until its final cache handle leaves',
+    () async {
+      final provider = CachedImageProvider(
+        'https://example.test/animation.gif',
+        cacheManager: manager,
+      );
+      final decoding = Completer<void>();
+      final codec = _TrackedCodec(source, frameCount: 2);
+      final completer = provider.loadImage(provider, (
+        buffer, {
+        getTargetSize,
+      }) async {
+        buffer.dispose();
+        decoding.complete();
+        return codec;
+      });
+      final listener = ImageStreamListener((info, _) => info.dispose());
+      completer.addListener(listener);
+      final handle = completer.keepAlive();
+      await decoding.future;
+      await Future<void>.delayed(Duration.zero);
+      completer.removeListener(listener);
+      expect(codec.disposed, isFalse);
+
+      completer.addListener(listener);
+      expect(codec.disposed, isFalse);
+      completer.removeListener(listener);
+      handle.dispose();
+      expect(codec.disposed, isTrue);
+    },
+  );
+
+  testWidgets(
+    'finite animations retain frame duration and stop after their final frame',
+    (tester) async {
+      final provider = CachedImageProvider(
+        'https://example.test/finite.webp',
+        cacheManager: manager,
+      );
+      final codec = _TrackedCodec(source, frameCount: 2);
+      final stream = provider.loadImage(provider, (
+        buffer, {
+        getTargetSize,
+      }) {
+        buffer.dispose();
+        return Future.value(codec);
+      });
+      var frames = 0;
+      final listener = ImageStreamListener((info, _) {
+        info.dispose();
+        frames++;
+      });
+      stream.addListener(listener);
+      try {
+        for (var attempt = 0; attempt < 50 && frames == 0; attempt++) {
+          await _flushDecoding(tester);
+          await tester.pump();
+        }
+        expect(frames, 1);
+        await _flushDecoding(tester);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(frames, 1);
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(frames, 2);
+        expect(codec.disposed, isTrue);
+        await tester.pump(const Duration(seconds: 1));
+        expect(codec.decodedFrames, 2);
+      } finally {
+        stream.removeListener(listener);
+        await tester.pumpAndSettle();
+      }
+    },
+  );
+
+  testWidgets(
+    'long thumbnails stay within their pixel budget and the viewer keeps full resolution',
+    (tester) async {
+      await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        ui.Canvas(recorder)
+            .drawColor(const ui.Color(0xff336699), ui.BlendMode.src);
+        final picture = recorder.endRecording();
+        final longImage = await picture.toImage(400, 16000);
+        picture.dispose();
+        final bytes = await longImage.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        longImage.dispose();
+        final file = await File('${directory.path}/long.png')
+            .writeAsBytes(bytes!.buffer.asUint8List());
+        final cache = _FileCache(file);
+
+        Future<int> pixels(ImageProvider provider) async {
+          final stream = provider.resolve(ImageConfiguration.empty);
+          final result = Completer<int>();
+          final listener = ImageStreamListener((info, _) {
+            result.complete(info.image.width * info.image.height);
+            info.dispose();
+          }, onError: result.completeError);
+          stream.addListener(listener);
+          try {
+            final timeout = Stopwatch()..start();
+            while (!result.isCompleted &&
+                timeout.elapsed < const Duration(seconds: 5)) {
+              await tester.pump();
+              await Future<void>.delayed(const Duration(milliseconds: 1));
+            }
+            expect(result.isCompleted, isTrue);
+            return await result.future;
+          } finally {
+            stream.removeListener(listener);
+            await provider.evict();
+          }
+        }
+
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: CachedImage(
+              imageUrl: 'https://example.test/long.png',
+              cacheManager: cache,
+              memCacheWidth: 300,
+            ),
+          ),
+        );
+        final thumbnailPixels = await pixels(
+          tester.widget<Image>(find.byType(Image)).image,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        final viewerPixels = await pixels(
+          CachedImageProvider(
+            'https://example.test/long.png',
+            cacheManager: cache,
+          ),
+        );
+
+        expect(thumbnailPixels, lessThanOrEqualTo(1 << 20));
+        expect(viewerPixels, 400 * 16000);
+      });
+      await tester.pumpAndSettle();
+    },
+  );
+
+  test('simultaneous sizes share one pending file request', () async {
+    final cache = _FileCache(manager.file)..gate = Completer<void>();
+    final results = <Future<void>>[];
+    for (final width in [100, 200, 300]) {
+      final provider = CachedImageProvider(
+        'https://example.test/shared.png',
+        cacheManager: cache,
+        width: width,
+      );
+      final loaded = Completer<void>();
+      final completer = provider.loadImage(provider, (
+        buffer, {
+        getTargetSize,
+      }) async {
+        buffer.dispose();
+        return _TrackedCodec(source);
+      });
+      late final ImageStreamListener listener;
+      listener = ImageStreamListener((info, _) {
+        info.dispose();
+        completer.removeListener(listener);
+        loaded.complete();
+      }, onError: loaded.completeError);
+      completer.addListener(listener);
+      results.add(loaded.future);
+    }
+    cache.gate!.complete();
+    await Future.wait(results);
+    expect(cache.loads, 1);
+  });
+
+  test('failed file requests can be retried', () async {
+    final cache = _FileCache(manager.file)
+      ..failure = const FileSystemException('test failure');
+    final provider = CachedImageProvider(
+      'https://example.test/retry.png',
+      cacheManager: cache,
+    );
+
+    Future<void> load() async {
+      final completer = provider.loadImage(provider, (
+        buffer, {
+        getTargetSize,
+      }) async {
+        buffer.dispose();
+        return _TrackedCodec(source);
+      });
+      final loaded = Completer<void>();
+      final listener = ImageStreamListener((info, _) {
+        info.dispose();
+        loaded.complete();
+      }, onError: loaded.completeError);
+      completer.addListener(listener);
+      try {
+        await loaded.future;
+      } finally {
+        completer.removeListener(listener);
+      }
+    }
+
+    await expectLater(load(), throwsA(isA<FileSystemException>()));
+    cache.failure = null;
+    await load();
+    expect(cache.loads, 2);
+  });
+
+  test('a cached file is usable while refresh is pending or fails', () async {
+    final cache = _FileCache(manager.file)..refresh = Completer<void>();
+    final provider = CachedImageProvider(
+      'https://example.test/stale.png',
+      cacheManager: cache,
+    );
+    final completer = provider.loadImage(provider, (
+      buffer, {
+      getTargetSize,
+    }) async {
+      buffer.dispose();
+      return _TrackedCodec(source);
+    });
+    final loaded = Completer<void>();
+    final listener = ImageStreamListener((info, _) {
+      info.dispose();
+      loaded.complete();
+    }, onError: loaded.completeError);
+    completer.addListener(listener);
+    await loaded.future;
+    expect(cache.refresh!.isCompleted, isFalse);
+    cache.refresh!.completeError(const FileSystemException('offline'));
+    await Future<void>.delayed(Duration.zero);
+    completer.removeListener(listener);
+  });
+
+  testWidgets('cached image paints through loading, URL changes and removal', (
+    tester,
+  ) async {
+    final cache = _FileCache(manager.file);
+    Future<void> show(String url) async {
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(
+              child: CachedImage(
+                imageUrl: url,
+                cacheManager: cache,
+                width: 100,
+                height: 80,
+                fit: BoxFit.cover,
+                placeholder: (_, _) =>
+                    const SizedBox(key: ValueKey('placeholder')),
+              ),
+            ),
+          ),
+        );
+        final provider = tester.widget<Image>(find.byType(Image)).image;
+        final stream = provider.resolve(ImageConfiguration.empty);
+        final loaded = Completer<void>();
+        final listener = ImageStreamListener((info, _) {
+          info.dispose();
+          loaded.complete();
+        }, onError: loaded.completeError);
+        stream.addListener(listener);
+        try {
+          await loaded.future;
+        } finally {
+          stream.removeListener(listener);
+        }
+      });
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('placeholder')), findsNothing);
+      expect(tester.getSize(find.byType(RawImage)), const Size(100, 80));
+      expect(tester.takeException(), isNull);
+    }
+
+    await show('https://example.test/widget-first.png');
+    await show('https://example.test/widget-second.png');
+    await tester.pumpWidget(const SizedBox.shrink());
+    PaintingBinding.instance.imageCache.clear();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    '突发图片限制 codec 创建与并发取帧，释放后全部交付',
+    (
+      tester,
+    ) async {
+      final batch = await _prepareBatch(tester, manager, source, count: 12);
+      try {
+        await _flushDecoding(tester);
+        expect(batch.codecs.where((codec) => codec.created), hasLength(2));
+        expect(
+          batch.codecs.fold<int>(0, (sum, codec) => sum + codec.decodedFrames),
+          2,
+        );
+        batch.release();
+        await _flushDecoding(tester);
+        expect(batch.delivered, 12);
+        expect(batch.errors, isEmpty);
+      } finally {
+        batch.dispose();
+        for (final gate in batch.gates) {
+          if (!gate.isCompleted) gate.complete();
+        }
+        await _flushDecoding(tester);
+        await tester.pumpAndSettle();
+      }
+    },
+  );
+
+  testWidgets('cancelled queued images never start native decoding', (
+    tester,
+  ) async {
+    final batch = await _prepareBatch(tester, manager, source, count: 5);
+    await _flushDecoding(tester);
+    final queued = batch.codecs
+        .where((codec) => codec.decodedFrames == 0)
+        .toList();
+    batch.dispose();
+    await _flushDecoding(tester);
+    batch.release();
+    await _flushDecoding(tester);
+    expect(queued.length, 3);
+    expect(
+      queued.every((codec) => !codec.created && codec.decodedFrames == 0),
+      isTrue,
+    );
+    expect(batch.delivered, 0);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('cancellation keeps in-flight codec creation within the budget', (
+    tester,
+  ) async {
+    final creationGate = Completer<void>();
+    final batch = await _prepareBatch(
+      tester,
+      manager,
+      source,
+      count: 5,
+      creationGate: creationGate,
+    );
+    batch.dispose();
+    await _flushDecoding(tester);
+    expect(batch.codecs.where((codec) => codec.created), hasLength(2));
+    creationGate.complete();
+    await _flushDecoding(tester);
+    expect(batch.codecs.where((codec) => codec.created), hasLength(2));
+    expect(
+      batch.codecs
+          .where((codec) => codec.created)
+          .every((codec) => codec.disposed),
+      isTrue,
+    );
+    expect(batch.codecs.every((codec) => codec.decodedFrames == 0), isTrue);
+    expect(batch.errors, isEmpty);
+    batch.release();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('an idle retained stream releases its creation slot', (
+    tester,
+  ) async {
+    late Completer<void> gate;
+    final codec = _TrackedCodec(source, frameCount: 2);
+    final provider = CachedImageProvider(
+      'https://example.test/paused-before-codec.gif',
+      cacheManager: manager,
+    );
+    final listener = ImageStreamListener((info, _) => info.dispose());
+    late ImageStreamCompleter completer;
+    late ImageStreamCompleterHandle handle;
+    await tester.runAsync(() async {
+      gate = Completer<void>();
+      final created = Completer<void>();
+      completer = provider.loadImage(provider, (buffer, {getTargetSize}) async {
+        buffer.dispose();
+        created.complete();
+        await gate.future;
+        return codec;
+      });
+      handle = (completer..addListener(listener)).keepAlive();
+      await created.future;
+    });
+    completer.removeListener(listener);
+    gate.complete();
+    await _flushDecoding(tester);
+    expect(codec.disposed, isFalse);
+    expect(codec.decodedFrames, 0);
+    final batch = await _prepareBatch(tester, manager, source, count: 2);
+    try {
+      await _flushDecoding(tester);
+      expect(batch.codecs.where((codec) => codec.created), hasLength(2));
+    } finally {
+      batch
+        ..dispose()
+        ..release();
+      handle.dispose();
+      await _flushDecoding(tester);
+      await tester.pumpAndSettle();
+    }
+    expect(codec.disposed, isTrue);
+  });
+
+  testWidgets('failed native decoding releases its concurrency slot', (
+    tester,
+  ) async {
+    final batch = await _prepareBatch(tester, manager, source, count: 3);
+    try {
+      await _flushDecoding(tester);
+      final active = batch.codecs.indexWhere(
+        (codec) => codec.decodedFrames == 1,
+      );
+      final queued = batch.codecs.singleWhere(
+        (codec) => codec.decodedFrames == 0,
+      );
+      batch.gates[active].completeError(StateError('test decode failure'));
+      await _flushDecoding(tester);
+      expect(queued.decodedFrames, 1);
+      expect(batch.errors, hasLength(1));
+      for (final gate in batch.gates) {
+        if (!gate.isCompleted) gate.complete();
+      }
+      await _flushDecoding(tester);
+      expect(batch.delivered, 2);
+    } finally {
+      batch.dispose();
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets('retained tabs restore images only for the visible tab', (
+    tester,
+  ) async {
+    final cache = PaintingBinding.instance.imageCache;
+    final previousLimit = cache.maximumSize;
+    cache.maximumSize = 2;
+    final controller = TabController(length: 3, vsync: tester);
+    final files = _FileCache(manager.file);
+    Widget scene(bool active) => Directionality(
+      textDirection: TextDirection.ltr,
+      child: TickerMode(
+        enabled: active,
+        child: TabBarView(
+          controller: controller,
+          children: [
+            for (var index = 0; index < 3; index++)
+              TabActivity(
+                controller: controller,
+                index: index,
+                child: _RetainedImages(tab: index, cache: files),
+              ),
+          ],
+        ),
+      ),
+    );
+    Future<void> settleImages() async {
+      for (var i = 0; i < 20; i++) {
+        await _flushDecoding(tester);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+    }
+
+    try {
+      for (var tab = 0; tab < 3; tab++) {
+        controller.index = tab;
+        await tester.pumpWidget(scene(true));
+        await settleImages();
+        expect(cache.liveImageCount, 4);
+        expect(find.byType(RawImage, skipOffstage: false), findsNWidgets(4));
+      }
+      await tester.pumpWidget(scene(false));
+      await settleImages();
+      expect(cache.liveImageCount, 0);
+      expect(find.byType(RawImage, skipOffstage: false), findsNothing);
+      final loadsBeforeResume = files.loads;
+      await tester.pumpWidget(scene(true));
+      await settleImages();
+      expect(files.loads - loadsBeforeResume, lessThanOrEqualTo(4));
+      expect(cache.liveImageCount, 4);
+      // 三个页面仍在树中，列表与页面状态没有随图片一同销毁。
+      expect(
+        find.byType(_RetainedImages, skipOffstage: false),
+        findsNWidgets(3),
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await settleImages();
+      controller.dispose();
+      cache
+        ..maximumSize = previousLimit
+        ..clear()
+        ..clearLiveImages();
+    }
+  });
+
+  testWidgets('static screenshots retain images while animations are paused', (
+    tester,
+  ) async {
+    late BuildContext context;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(),
+          child: Builder(
+            builder: (value) {
+              context = value;
+              return const SizedBox();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(() async {
+      const url = 'https://example.test/screenshot.png';
+      await precacheImage(
+        CachedImageProvider(
+          url,
+          cacheManager: manager,
+          maxDecodePixels: 1 << 20,
+        ),
+        context,
+      );
+      final image = await Screenshot.screenshot(
+        context,
+        CachedImage(imageUrl: url, cacheManager: manager, width: 2, height: 2),
+        constraints: const BoxConstraints.tightFor(width: 2, height: 2),
+      );
+      try {
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        expect(bytes!.buffer.asUint8List().take(4), [0x33, 0x66, 0x99, 0xff]);
+      } finally {
+        image.dispose();
+      }
+    });
+    await tester.pumpWidget(const SizedBox.shrink());
+    PaintingBinding.instance.imageCache.clear();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final phase in ['idle', 'pending-frame', 'during-frame', 'oversized']) {
+    testWidgets('image delivery $phase admits one image per frame', (
+      tester,
+    ) async {
+      final batch = await _prepareBatch(
+        tester,
+        manager,
+        phase == 'oversized' ? oversizedSource : largeSource,
+      );
+      try {
+        if (phase == 'pending-frame') tester.binding.scheduleFrame();
+        if (phase == 'during-frame') {
+          tester.binding.scheduleFrameCallback((_) => batch.release());
+          await tester.pump();
+        } else {
+          batch.release();
+        }
+        for (
+          var delivered = 1;
+          delivered <= batch.streams.length;
+          delivered++
+        ) {
+          await _flushDecoding(tester);
+          expect(batch.delivered, delivered);
+          await tester.pump();
+        }
+        expect(batch.errors, isEmpty);
+      } finally {
+        batch.dispose();
+        await tester.pumpAndSettle();
+      }
+    });
+  }
+
+  testWidgets('removing a budgeted image releases its codec without delivery', (
+    tester,
+  ) async {
+    final batch = await _prepareBatch(tester, manager, largeSource, count: 2);
+    try {
+      tester.binding.scheduleFrame();
+      batch.release();
+      await _flushDecoding(tester);
+      expect(batch.delivered, 1);
+
+      final (completer, listener) = batch.streams.removeLast();
+      completer.removeListener(listener);
+      await _flushDecoding(tester);
+      expect(batch.codecs.last.disposed, isTrue);
+      expect(batch.codecs.last.decodedImage!.debugDisposed, isTrue);
+
+      await tester.pumpAndSettle();
+      await _flushDecoding(tester);
+      expect(batch.delivered, 1);
+      expect(batch.errors, isEmpty);
+    } finally {
+      batch.dispose();
+      await tester.pumpAndSettle();
+    }
+  });
+}

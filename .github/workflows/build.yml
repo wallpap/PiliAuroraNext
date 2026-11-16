@@ -1,0 +1,346 @@
+name: Build Android and Windows x64
+
+on:
+    workflow_dispatch:
+        inputs:
+            build_android:
+                description: "Build Android APK"
+                required: false
+                default: true
+                type: boolean
+
+            build_win_x64:
+                description: "Build Windows x64"
+                required: false
+                default: true
+                type: boolean
+
+            skip_ci_tests:
+                description: "Skip host CI and Windows installer tests for this build"
+                required: false
+                default: false
+                type: boolean
+
+            tag:
+                description: "Release tag; empty only uploads workflow artifacts"
+                required: false
+                default: ""
+                type: string
+
+            draft_release:
+                description: "Keep uploaded release assets in a draft until final verification"
+                required: false
+                default: false
+                type: boolean
+
+            prerelease:
+                description: "Mark the release as a prerelease"
+                required: false
+                default: false
+                type: boolean
+
+jobs:
+    android:
+        if: ${{ inputs.build_android }}
+        name: Release Android
+        runs-on: ubuntu-latest
+        env:
+            # CI 不复用目录监听状态，避免 Linux runner 重复注册同一路径。
+            GRADLE_OPTS: "--enable-native-access=ALL-UNNAMED -Dorg.gradle.vfs.watch=false -Dorg.gradle.caching=true"
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+
+            - name: Set up Java
+              uses: actions/setup-java@v5
+              with:
+                  distribution: "zulu"
+                  java-version: "25"
+                  cache: "gradle"
+                  cache-dependency-path: |
+                      android/**/*.gradle*
+                      android/gradle.properties
+                      android/**/gradle-wrapper.properties
+                      android/gradle/gradle-daemon-jvm.properties
+                      third_party/**/*.gradle*
+                      pubspec.lock
+
+            - name: Set up Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                  channel: stable
+                  flutter-version-file: .fvmrc
+                  cache: true
+
+            - name: Apply Flutter patches
+              shell: pwsh
+              run: lib/scripts/patch.ps1 android
+
+            - name: Check dependency sources and versions
+              run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart
+
+            - name: Run Linux host CI tests
+              if: ${{ !inputs.skip_ci_tests }}
+              shell: pwsh
+              run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path
+
+            - name: Write signing key
+              run: |
+                  set -euo pipefail
+
+                  test -n "${{ secrets.SIGN_KEYSTORE_BASE64 }}" || {
+                    echo "SIGN_KEYSTORE_BASE64 is missing"
+                    exit 1
+                  }
+                  test -n "${{ secrets.KEYSTORE_PASSWORD }}" || {
+                    echo "KEYSTORE_PASSWORD is missing"
+                    exit 1
+                  }
+                  test -n "${{ secrets.KEY_ALIAS }}" || {
+                    echo "KEY_ALIAS is missing"
+                    exit 1
+                  }
+                  test -n "${{ secrets.KEY_PASSWORD }}" || {
+                    echo "KEY_PASSWORD is missing"
+                    exit 1
+                  }
+
+                  echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+                  test -s android/app/key.jks
+                  {
+                    echo "storeFile=key.jks"
+                    echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
+                    echo "keyAlias=${{ secrets.KEY_ALIAS }}"
+                    echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
+                  } >> android/key.properties
+
+            - name: Write version and build info
+              shell: pwsh
+              env:
+                  RELEASE_VERSION: ${{ inputs.tag }}
+              run: lib/scripts/build.ps1 -Version $env:RELEASE_VERSION
+
+            # 插件将原生 JAR 下载到项目 build 目录，不在 Gradle 用户缓存内。
+            - name: Cache Android libmpv archives
+              uses: actions/cache@v5
+              with:
+                  path: build/media_kit_libs_android_video/20*/*.jar
+                  key: android-libmpv-${{ hashFiles('third_party/media_kit_libs_android_video/android/build.gradle') }}
+
+            - name: Build release APK with verified prebuilt engines
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $metadata = Get-Content pili_release.json | ConvertFrom-Json -AsHashtable
+                  $defines = @($metadata.GetEnumerator() | ForEach-Object { "--dart-define=$($_.Key)=$($_.Value)" })
+                  foreach ($entry in @(@('arm', 'armeabi-v7a'), @('arm64', 'arm64-v8a'), @('x64', 'x86_64'))) {
+                    $arch, $abi = $entry
+                    $engine = "build/prebuilt-engine/android-$arch"
+                    python third_party/flutter_engine/package.py unpack --target "android-$arch" --output $engine
+                    if ($LASTEXITCODE -ne 0) { throw "Engine validation failed: $abi" }
+                    python tool/engine/frame_plan/build_apk.py --mode release --abi $abi --flutter-sdk $env:FLUTTER_ROOT --android-sdk $env:ANDROID_HOME --engine-library "$engine/libflutter.so" --skip-pub-get --skip-patch --output "build/release-apks/PiliAuroraNext_android_$($env:version)_$abi.apk" @defines
+                    if ($LASTEXITCODE -ne 0) { throw "APK assembly failed: $abi" }
+                    Copy-Item "build/release-apks/PiliAuroraNext_android_$($env:version)_$abi.apk" .
+                  }
+
+            - name: Release
+              if: ${{ inputs.tag != '' }}
+              uses: softprops/action-gh-release@v3
+              with:
+                  tag_name: ${{ inputs.tag }}
+                  name: ${{ inputs.tag }}
+                  generate_release_notes: true
+                  draft: ${{ inputs.draft_release }}
+                  prerelease: ${{ inputs.prerelease }}
+                  files: PiliAuroraNext_android_*.apk
+
+            - name: Upload arm64-v8a APK
+              uses: actions/upload-artifact@v7
+              with:
+                  archive: false
+                  if-no-files-found: error
+                  name: PiliAuroraNext_android_${{ env.version }}_arm64-v8a
+                  path: PiliAuroraNext_android_*_arm64-v8a.apk
+
+            - name: Upload armeabi-v7a APK
+              uses: actions/upload-artifact@v7
+              with:
+                  archive: false
+                  if-no-files-found: error
+                  name: PiliAuroraNext_android_${{ env.version }}_armeabi-v7a
+                  path: PiliAuroraNext_android_*_armeabi-v7a.apk
+
+            - name: Upload x86_64 APK
+              uses: actions/upload-artifact@v7
+              with:
+                  archive: false
+                  if-no-files-found: error
+                  name: PiliAuroraNext_android_${{ env.version }}_x86_64
+                  path: PiliAuroraNext_android_*_x86_64.apk
+
+    windows:
+        name: Release Windows x64
+        if: ${{ inputs.build_win_x64 }}
+        permissions:
+              contents: write
+        runs-on: windows-latest
+        env:
+            INNO_SETUP_PATH: 'C:\Program Files (x86)\Inno Setup 6'
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+
+            - name: Set up Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                channel: stable
+                flutter-version-file: .fvmrc
+                cache: true
+
+            - name: Cache WebView NuGet packages
+              uses: actions/cache@v5
+              with:
+                path: build/windows/x64/packages
+                key: windows-x64-webview-${{ hashFiles('third_party/flutter_inappwebview_windows/windows/CMakeLists.txt') }}
+
+            - name: Install fastforge and Inno Setup
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = "Stop"
+                dart pub global activate fastforge
+
+                $innoSetupPath = $env:INNO_SETUP_PATH
+                $iscc = Join-Path $innoSetupPath "ISCC.exe"
+                if (-not (Test-Path $iscc)) {
+                  choco install innosetup -y --no-progress
+                }
+                if (-not (Test-Path $iscc)) {
+                  throw "ISCC.exe not found at $iscc; fastforge silently skips the exe target when Inno Setup 6 is missing"
+                }
+                Copy-Item "windows/packaging/exe/ChineseSimplified.isl" (Join-Path $innoSetupPath "Languages/ChineseSimplified.isl") -Force
+                Write-Host "Inno Setup: $iscc"
+
+            - name: Write version and build info
+              shell: pwsh
+              env:
+                RELEASE_VERSION: ${{ inputs.tag }}
+              run: lib/scripts/build.ps1 -Version $env:RELEASE_VERSION
+
+            - name: Apply Flutter patches
+              shell: pwsh
+              run: lib/scripts/patch.ps1 windows
+
+            - name: Check dependency sources and versions
+              run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart
+
+            - name: Run Windows host CI tests
+              if: ${{ !inputs.skip_ci_tests }}
+              shell: pwsh
+              run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path
+
+            - name: Set up Python for native package verification
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.14'
+
+            - name: Verify prebuilt libmpv
+              shell: pwsh
+              run: python tool/verify_libmpv.py --backward-seek
+
+            - name: Test Windows upgrade installation
+              if: ${{ !inputs.skip_ci_tests }}
+              shell: pwsh
+              run: |
+                $env:PATH = "$env:INNO_SETUP_PATH;$env:PATH"
+                python -m unittest discover -s tool/packaging -p '*_test.py' -v
+
+            - name: Verify prebuilt cnativeapi
+              shell: pwsh
+              run: python third_party/nativeapi/package.py verify
+
+            - name: Build Windows release with verified prebuilt engine
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = 'Stop'
+                $configuration = python third_party/flutter_engine/package.py unpack --target windows-x64 --output build/prebuilt-engine/windows-x64
+                if ($LASTEXITCODE -ne 0) { throw 'Windows engine validation failed' }
+                $configuration | Set-Content build/windows-engine-config.json -Encoding utf8NoBOM
+                $defines = @(($configuration | ConvertFrom-Json).dartDefines | ForEach-Object { "--build-dart-define=$_" })
+                fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean @defines --hook-pre "python tool/packaging/prepare_windows_package.py --runtime build/windows/x64/runner/Release"
+                if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
+                $expected = ($configuration | ConvertFrom-Json).identity.binarySha256
+                $actual = (Get-FileHash build/windows/x64/runner/Release/flutter_windows.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($actual -ne $expected) { throw 'Packaged Windows engine differs from verified artifact' }
+
+            - name: Package Windows portable and installer
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = "Stop"
+                $portable = "PiliAuroraNext_windows_${{ env.version }}_x64"
+                $setupDir = "PiliAuroraNext-Win-Setup"
+
+                $releaseDir = "build/windows/x64/runner/Release"
+                if (-not (Test-Path "$releaseDir/PiliAuroraNext.exe")) {
+                  throw "Portable build output is incomplete: $releaseDir/PiliAuroraNext.exe not found"
+                }
+                New-Item -ItemType Directory -Path $portable -Force | Out-Null
+                Move-Item "$releaseDir/*" $portable -Force
+                Write-Host "Portable folder: $portable"
+
+                Write-Host "dist directory:"
+                if (Test-Path dist) { Get-ChildItem dist -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" } }
+
+                New-Item -ItemType Directory -Path $setupDir -Force | Out-Null
+                if (-not (Test-Path dist)) {
+                  throw "The Windows installer was not produced: dist directory does not exist"
+                }
+                $installers = @(Get-ChildItem -Path "dist" -Filter *.exe -File -Recurse)
+                if ($installers.Count -ne 1) {
+                  $found = if ($installers.Count) { ($installers.FullName -join ', ') } else { 'none' }
+                  throw "Expected exactly one installer in dist, found $($installers.Count): $found"
+                }
+                $setup = Join-Path $setupDir "PiliAuroraNext_windows_${{ env.version }}_x64_setup.exe"
+                Move-Item $installers[0].FullName $setup -Force
+                Write-Host "Installer: $setup"
+
+            - name: Compress Windows portable
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = "Stop"
+                Compress-Archive -Path "PiliAuroraNext_windows_${{ env.version }}_x64" -DestinationPath "PiliAuroraNext_windows_${{ env.version }}_x64_portable.zip"
+
+            - name: Release
+              if: ${{ inputs.tag != '' }}
+              uses: softprops/action-gh-release@v3
+              with:
+                tag_name: ${{ inputs.tag }}
+                name: ${{ inputs.tag }}
+                generate_release_notes: true
+                draft: ${{ inputs.draft_release }}
+                prerelease: ${{ inputs.prerelease }}
+                files: |
+                  PiliAuroraNext_windows_*_x64_portable.zip
+                  PiliAuroraNext-Win-Setup/PiliAuroraNext_windows_*_x64_setup.exe
+
+            - name: Upload Windows portable
+              uses: actions/upload-artifact@v7
+              with:
+                archive: false
+                if-no-files-found: error
+                name: PiliAuroraNext_windows_${{ env.version }}_x64_portable
+                path: PiliAuroraNext_windows_*_x64_portable.zip
+
+            - name: Upload Windows setup
+              uses: actions/upload-artifact@v7
+              with:
+                archive: false
+                if-no-files-found: error
+                name: PiliAuroraNext_windows_${{ env.version }}_x64_setup
+                path: PiliAuroraNext-Win-Setup/PiliAuroraNext_windows_*_x64_setup.exe

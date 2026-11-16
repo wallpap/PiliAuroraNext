@@ -1,0 +1,158 @@
+import 'dart:async';
+
+import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
+import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/utils/theme_utils.dart';
+
+import '../support/memory_box.dart';
+
+void main() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() => GStorage.setting = MemoryBox<dynamic>());
+
+  setUp(() async {
+    await GStorage.setting.clear();
+    await GStorage.setting.put(SettingBoxKey.dynamicColor, false);
+  });
+
+  tearDown(() {
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      DynamicColorPlugin.channel,
+      null,
+    );
+  });
+
+  test('builds both themes without importing or mounting the application', () {
+    final (light, dark) = ThemeUtils.getAllTheme();
+    expect(light.brightness, Brightness.light);
+    expect(dark.brightness, Brightness.dark);
+    expect(
+      light.colorScheme.primary,
+      colorThemeTypes.first.color.asColorSchemeSeed(Pref.schemeVariant).primary,
+    );
+    expect(ThemeUtils.lightTheme, same(light));
+    expect(ThemeUtils.darkTheme, same(dark));
+    ThemeUtils.themeMode = ThemeMode.light;
+    expect(ThemeUtils.theme, same(light));
+    ThemeUtils.themeMode = ThemeMode.dark;
+    expect(ThemeUtils.theme, same(dark));
+  });
+
+  test(
+    'custom colors regenerate both schemes without a platform call',
+    () async {
+      const seed = Color(0xFF0055AA);
+      await GStorage.setting.put(SettingBoxKey.customColor, seed.toARGB32());
+      final (light, dark) = ThemeUtils.getAllTheme();
+      expect(
+        light.colorScheme.primary,
+        seed.asColorSchemeSeed(Pref.schemeVariant).primary,
+      );
+      expect(
+        dark.colorScheme.primary,
+        seed.asColorSchemeSeed(Pref.schemeVariant, Brightness.dark).primary,
+      );
+    },
+  );
+  test('损坏原生调色板/强调色及平台错误保留确认偏好，可重新探测', () async {
+    await GStorage.setting.put(SettingBoxKey.dynamicColor, true);
+    for (final palette in [
+      <int>[],
+      [1],
+      'bad',
+      List.filled(65, 'bad'),
+    ]) {
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        DynamicColorPlugin.channel,
+        (call) async =>
+            call.method == DynamicColorPlugin.methodName ? palette : 'invalid',
+      );
+      expect(await ThemeUtils.initPlatformState(), false);
+      expect(Pref.dynamicColor, true);
+    }
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      DynamicColorPlugin.channel,
+      (_) async => throw PlatformException(code: 'temporary'),
+    );
+    expect(await ThemeUtils.initPlatformState(), false);
+    expect(Pref.dynamicColor, true);
+  });
+  test('并发探测共享原生调用，失败后可以重试', () async {
+    final palette = Completer<Object?>();
+    final calls = <String>[];
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      DynamicColorPlugin.channel,
+      (call) async {
+        calls.add(call.method);
+        return call.method == DynamicColorPlugin.methodName
+            ? palette.future
+            : null;
+      },
+    );
+    final first = ThemeUtils.initPlatformState();
+    final second = ThemeUtils.initPlatformState();
+    expect(identical(first, second), true);
+    palette.complete(null);
+    expect(await first, false);
+    expect(await second, false);
+    expect(calls, [
+      DynamicColorPlugin.methodName,
+      DynamicColorPlugin.accentColorMethodName,
+    ]);
+  });
+  test(
+    'dynamic colors handle absence, accent fallback and caching',
+    () async {
+      final calls = <String>[];
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        DynamicColorPlugin.channel,
+        (call) async {
+          calls.add(call.method);
+          return null;
+        },
+      );
+      await GStorage.setting.put(SettingBoxKey.dynamicColor, true);
+      expect(await ThemeUtils.initPlatformState(), isFalse);
+      expect(Pref.dynamicColor, isTrue);
+      expect(calls, [
+        DynamicColorPlugin.methodName,
+        DynamicColorPlugin.accentColorMethodName,
+      ]);
+      calls.clear();
+      await GStorage.setting.put(SettingBoxKey.dynamicColor, true);
+      const accent = Color(0xFF6750A4);
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        DynamicColorPlugin.channel,
+        (call) async {
+          calls.add(call.method);
+          if (call.method == DynamicColorPlugin.methodName) {
+            throw PlatformException(code: 'unavailable');
+          }
+          return accent.toARGB32();
+        },
+      );
+      expect(await ThemeUtils.initPlatformState(), isTrue);
+      expect(await ThemeUtils.initPlatformState(), isTrue);
+      expect(calls, [
+        DynamicColorPlugin.methodName,
+        DynamicColorPlugin.accentColorMethodName,
+      ]);
+      final (light, dark) = ThemeUtils.getAllTheme();
+      expect(
+        light.colorScheme.primary,
+        accent.asColorSchemeSeed(Pref.schemeVariant).primary,
+      );
+      expect(
+        dark.colorScheme.primary,
+        accent.asColorSchemeSeed(Pref.schemeVariant, Brightness.dark).primary,
+      );
+    },
+  );
+}

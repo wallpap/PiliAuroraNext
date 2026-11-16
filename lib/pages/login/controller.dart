@@ -1,0 +1,795 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:pili_aurora_next/common/dial_prefix.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
+import 'package:pili_aurora_next/common/widgets/radio_widget.dart';
+import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/login.dart';
+import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/models/login/model.dart';
+import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+
+class LoginPageController extends GetxController
+    with GetSingleTickerProviderStateMixin {
+  final TextEditingController telTextController = TextEditingController();
+  final TextEditingController usernameTextController = TextEditingController();
+  final TextEditingController passwordTextController = TextEditingController();
+  final TextEditingController smsCodeTextController = TextEditingController();
+  final TextEditingController cookieTextController = TextEditingController();
+
+  late final codeInfo =
+      LoadingState<({String authCode, String url})>.loading().obs;
+
+  late final TabController tabController;
+
+  late final CaptchaDataModel captchaData = CaptchaDataModel();
+  late final RxInt qrCodeLeftTime = 180.obs;
+  late final RxString statusQRCode = ''.obs;
+
+  late var selectedCountryCodeId = Login.dialPrefix.first;
+  late String captchaKey = '';
+  late final RxInt smsSendCooldown = 0.obs;
+  late final RxBool smsSending = false.obs;
+  late int smsSendTimestamp = 0;
+
+  // 定时器
+  Timer? qrCodeTimer;
+  Timer? smsSendCooldownTimer;
+
+  bool _isReq = false;
+  int _qrGeneration = 0;
+  int _smsLoginGeneration = 0;
+  int _lastTabIndex = 0;
+
+  @override
+  void onInit() {
+    super.onInit();
+    tabController = TabController(length: 4, vsync: this)
+      ..addListener(_handleTabChange);
+  }
+
+  @override
+  void onClose() {
+    tabController
+      ..removeListener(_handleTabChange)
+      ..dispose();
+    qrCodeTimer?.cancel();
+    _qrGeneration++;
+    _smsLoginGeneration++;
+    smsSendCooldownTimer?.cancel();
+    telTextController.dispose();
+    usernameTextController.dispose();
+    passwordTextController.dispose();
+    smsCodeTextController.dispose();
+    cookieTextController.dispose();
+    super.onClose();
+  }
+
+  Future<void> refreshQRCode() async {
+    if (isClosed) return;
+    final generation = ++_qrGeneration;
+    qrCodeTimer?.cancel();
+    _isReq = false;
+    codeInfo.value = LoadingState.loading();
+    qrCodeLeftTime.value = 180;
+    statusQRCode.value = '';
+    late final LoadingState<({String authCode, String url})> res;
+    try {
+      res = await LoginHttp.getHDcode();
+    } catch (_) {
+      if (!isClosed && generation == _qrGeneration) {
+        codeInfo.value = const Error('二维码申请失败，请重试');
+        statusQRCode.value = '二维码申请失败，请重试';
+        qrCodeLeftTime.value = 0;
+      }
+      return;
+    }
+    if (isClosed || generation != _qrGeneration) return;
+    if (res case Success(:final response)) {
+      codeInfo.value = res;
+      qrCodeTimer = Timer.periodic(const Duration(milliseconds: 1000), (t) {
+        if (isClosed || generation != _qrGeneration) {
+          t.cancel();
+          return;
+        }
+        final left = 180 - t.tick;
+        if (left <= 0) {
+          t.cancel();
+          statusQRCode.value = '二维码已过期，请刷新';
+          qrCodeLeftTime.value = 0;
+          return;
+        }
+        qrCodeLeftTime.value = left;
+        if (_isReq || tabController.index != 2) return;
+
+        _isReq = true;
+        LoginHttp.codePoll(response.authCode)
+            .then((value) async {
+              if (isClosed || generation != _qrGeneration) return;
+              if (value.isSuccess) {
+                t.cancel();
+                statusQRCode.value = '扫码成功';
+                await setAccount(
+                  value.data,
+                  value.data['cookie_info']['cookies'],
+                );
+                if (!isClosed && generation == _qrGeneration) Get.back();
+              } else if (value.code == 86038) {
+                t.cancel();
+                qrCodeLeftTime.value = 0;
+              } else {
+                statusQRCode.value = value.message;
+                if (value.code == null) {
+                  t.cancel();
+                  qrCodeLeftTime.value = 0;
+                }
+              }
+            })
+            .catchError((Object error, StackTrace stackTrace) {
+              if (!isClosed && generation == _qrGeneration) {
+                statusQRCode.value = '二维码状态查询失败，请重试';
+                qrCodeLeftTime.value = 0;
+                t.cancel();
+              }
+            })
+            .whenComplete(() {
+              if (generation == _qrGeneration) _isReq = false;
+            });
+      });
+    } else {
+      codeInfo.value = res;
+      qrCodeLeftTime.value = 0;
+    }
+  }
+
+  void _handleTabChange() {
+    if (_lastTabIndex == tabController.index) return;
+    _lastTabIndex = tabController.index;
+    if (tabController.index != 2) {
+      qrCodeTimer?.cancel();
+      _qrGeneration++;
+      _isReq = false;
+      return;
+    }
+    if (qrCodeTimer == null || !qrCodeTimer!.isActive) {
+      refreshQRCode();
+    }
+  }
+
+  // 申请极验验证码
+  Future<void> getCaptcha(
+    String geeGt,
+    String geeChallenge,
+    FutureOr<void> Function() onSuccess,
+  ) async {
+    final res = await GeetestWebviewDialog.geetest(geeGt, geeChallenge);
+    if (!isClosed && res != null) {
+      captchaData
+        ..validate = res['geetest_validate']
+        ..seccode = res['geetest_seccode']
+        ..geetest = GeetestData(
+          challenge: res['geetest_challenge'],
+          gt: geeGt,
+        );
+      SmartDialog.showToast('验证成功');
+      await onSuccess();
+    }
+  }
+
+  static String validateCookie(String cookie) {
+    return cookie
+        .split(';')
+        .where((e) {
+          try {
+            Cookie.fromSetCookieValue(e.trim());
+          } catch (_) {
+            return false;
+          }
+          return true;
+        })
+        .join(';');
+  }
+
+  // cookie登录
+  Future<void> loginByCookie() async {
+    if (cookieTextController.text.isEmpty) {
+      SmartDialog.showToast('cookie不能为空');
+      return;
+    }
+    try {
+      final result = await Request().get(
+        "/x/member/web/account",
+        options: Options(
+          headers: {
+            "cookie": validateCookie(cookieTextController.text),
+          },
+          extra: {'account': AnonymousAccount()},
+        ),
+      );
+      if (result.data['code'] == 0) {
+        try {
+          await LoginAccount(
+            BiliCookieJar.fromJson(
+              Map.fromEntries(
+                cookieTextController.text.split(';').map((item) {
+                  final list = item.split('=');
+                  return MapEntry(list.first, list.skip(1).join());
+                }),
+              ),
+            ),
+            null,
+            null,
+          ).onChange();
+          if (!Accounts.main.isLogin) await switchAccountDialog(Get.context!);
+          SmartDialog.showToast('登录成功');
+          Get.back();
+        } catch (e) {
+          SmartDialog.showToast("登录失败: $e");
+        }
+      } else {
+        SmartDialog.showToast("哔哩哔哩登录已失效，请重新登录");
+      }
+    } catch (e) {
+      SmartDialog.showToast("获取哔哩哔哩用户信息失败，可前往账号管理重试");
+    }
+  }
+
+  // app端密码登录
+  Future<void> loginByPassword() async {
+    String username = usernameTextController.text;
+    String password = passwordTextController.text;
+    if (username.isEmpty || password.isEmpty) {
+      SmartDialog.showToast('用户名或密码不能为空');
+      return;
+    }
+    // if ((passwordFormKey.currentState as FormState).validate()) {
+    final webKeyRes = await LoginHttp.getWebKey();
+    if (!webKeyRes.isSuccess) {
+      SmartDialog.showToast(webKeyRes.message);
+      return;
+    }
+    final salt = webKeyRes.data['hash'];
+    if (salt is! String) {
+      SmartDialog.showToast('登录服务返回的数据不完整，请重试');
+      return;
+    }
+    String key = webKeyRes.data['key'];
+    final res = await LoginHttp.loginByPwd(
+      username: username,
+      password: password,
+      key: key,
+      salt: salt,
+      geeValidate: captchaData.validate,
+      geeSeccode: captchaData.seccode,
+      geeChallenge: captchaData.geetest?.challenge,
+      recaptchaToken: captchaData.token,
+    );
+    if (res.isSuccess) {
+      final data = res.data;
+      if (data['status'] == 2) {
+        SmartDialog.showToast(data['message']);
+        // return;
+        //{"code":0,"message":"0","ttl":1,"data":{"status":2,"message":"本次登录环境存在风险, 需使用手机号进行验证或绑定","url":"https://passport.bilibili.com/h5-app/passport/risk/verify?tmp_token=9e785433940891dfa78f033fb7928181&request_id=e5a6d6480df04097870be56c6e60f7ef&source=risk","token_info":null,"cookie_info":null,"sso":null,"is_new":false,"is_tourist":false}}
+        String url = data['url']!;
+        Uri currentUri = Uri.parse(url);
+        final safeCenterRes = await LoginHttp.safeCenterGetInfo(
+          tmpCode: currentUri.queryParameters['tmp_token']!,
+        );
+        //{"code":0,"message":"0","ttl":1,"data":{"account_info":{"hide_tel":"111*****111","hide_mail":"aaa*****aaaa.aaa","bind_mail":true,"bind_tel":true,"tel_verify":true,"mail_verify":true,"unneeded_check":false,"bind_safe_question":false,"mid":1111111},"member_info":{"nickname":"xxxxxxx","face":"https://i0.hdslb.com/bfs/face/xxxxxxx.jpg","realname_status":false},"sns_info":{"bind_google":false,"bind_fb":false,"bind_apple":false,"bind_qq":true,"bind_weibo":true,"bind_wechat":false},"account_safe":{"score":80}}}
+        if (!safeCenterRes.isSuccess) {
+          SmartDialog.showToast(
+            "获取安全验证信息失败，请尝试其它登录方式\n"
+            "(${safeCenterRes.code}) ${safeCenterRes.message}",
+          );
+          return;
+        }
+        Map<String, String> accountInfo = {
+          "hindTel":
+              safeCenterRes.data['account_info']["hide_tel"]?.toString() ??
+              '未能获取手机号',
+          "hindMail":
+              safeCenterRes.data['account_info']["hide_mail"]?.toString() ??
+              '未能获取邮箱',
+        };
+        if (safeCenterRes.data['account_info']['tel_verify'] != true) {
+          SmartDialog.showToast("当前账号未支持手机号验证，请尝试其它登录方式");
+          return;
+        }
+
+        TextEditingController textFieldController = TextEditingController();
+        String captchaKey = '';
+        showDialog(
+          context: Get.context!,
+          builder: (context) => AlertDialog(
+            titlePadding: const EdgeInsets.only(
+              left: 16,
+              top: 18,
+              right: 16,
+              bottom: 12,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            actionsPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            title: const Text(
+              "本次登录需要验证您的手机号",
+              textAlign: TextAlign.center,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  accountInfo['hindTel'] ?? '未能获取手机号',
+                  style: const TextStyle(fontSize: 18),
+                ),
+                // 带有清空按钮的输入框
+                TextField(
+                  style: const TextStyle(fontSize: 15),
+                  controller: textFieldController,
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    hintText: "请输入短信验证码",
+                    hintStyle: const TextStyle(fontSize: 15),
+                    suffixIcon: iconButton(
+                      icon: const Icon(Icons.clear),
+                      size: 32,
+                      onPressed: textFieldController.clear,
+                    ),
+                    suffixIconConstraints: const BoxConstraints(
+                      maxHeight: 32,
+                      maxWidth: 32,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text("发送验证码"),
+                onPressed: () async {
+                  final preCaptureRes = await LoginHttp.preCapture();
+                  if (!preCaptureRes.isSuccess) {
+                    SmartDialog.showToast(
+                      "获取验证码失败，请尝试其它登录方式\n"
+                      "(${preCaptureRes.code}) ${preCaptureRes.message}",
+                    );
+                    return;
+                  }
+                  String geeGt = preCaptureRes.data['gee_gt'];
+                  String geeChallenge = preCaptureRes.data['gee_challenge'];
+                  captchaData.token = preCaptureRes.data['recaptcha_token'];
+                  if (!isGeeArgumentValid(geeGt, geeChallenge)) {
+                    SmartDialog.showToast(
+                      "获取极验参数为空，请尝试其它登录方式\n"
+                      "(${preCaptureRes.code}) ${preCaptureRes.message}",
+                    );
+                    return;
+                  }
+
+                  getCaptcha(
+                    geeGt,
+                    geeChallenge,
+                    () async {
+                      final safeCenterSendSmsCodeRes =
+                          await LoginHttp.safeCenterSmsCode(
+                            tmpCode: currentUri.queryParameters['tmp_token']!,
+                            geeChallenge: geeChallenge,
+                            geeSeccode: captchaData.seccode,
+                            geeValidate: captchaData.validate,
+                            recaptchaToken: captchaData.token,
+                            refererUrl: url,
+                          );
+                      if (!safeCenterSendSmsCodeRes.isSuccess) {
+                        SmartDialog.showToast(
+                          "发送短信验证码失败，请尝试其它登录方式\n"
+                          "(${safeCenterSendSmsCodeRes.code}) ${safeCenterSendSmsCodeRes.message}",
+                        );
+                        return;
+                      }
+                      SmartDialog.showToast("短信验证码已发送，请查收");
+                      captchaKey = safeCenterSendSmsCodeRes.data['captcha_key'];
+                    },
+                  );
+                },
+              ),
+              TextButton(
+                onPressed: Get.back,
+                child: Text(
+                  "取消",
+                  style: TextStyle(color: ThemeUtils.theme.colorScheme.outline),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  String? code = textFieldController.text;
+                  if (code.isEmpty) {
+                    SmartDialog.showToast("请输入短信验证码");
+                    return;
+                  }
+                  final safeCenterSmsVerifyRes =
+                      await LoginHttp.safeCenterSmsVerify(
+                        code: code,
+                        tmpCode: currentUri.queryParameters['tmp_token']!,
+                        requestId: currentUri.queryParameters['request_id']!,
+                        source: currentUri.queryParameters['source']!,
+                        captchaKey: captchaKey,
+                        refererUrl: url,
+                      );
+                  if (!safeCenterSmsVerifyRes.isSuccess) {
+                    SmartDialog.showToast(
+                      "验证短信验证码失败，请尝试其它登录方式\n"
+                      "(${safeCenterSmsVerifyRes.code}) ${safeCenterSmsVerifyRes.message}",
+                    );
+                    return;
+                  }
+                  SmartDialog.showToast("验证成功，正在登录");
+                  final oauth2AccessTokenRes =
+                      await LoginHttp.oauth2AccessToken(
+                        code: safeCenterSmsVerifyRes.data['code'],
+                      );
+                  if (!oauth2AccessTokenRes.isSuccess) {
+                    SmartDialog.showToast(
+                      "登录失败，请尝试其它登录方式\n"
+                      "(${oauth2AccessTokenRes.code}) ${oauth2AccessTokenRes.message}",
+                    );
+                    return;
+                  }
+                  final data = oauth2AccessTokenRes.data;
+                  if (data['token_info'] == null ||
+                      data['cookie_info'] == null) {
+                    SmartDialog.showToast(
+                      '登录异常，接口未返回身份信息，可能是因为账号风控，请尝试其它登录方式。\n${oauth2AccessTokenRes.message}',
+                    );
+                    return;
+                  }
+                  SmartDialog.showToast('正在保存身份信息');
+                  await setAccount(
+                    data['token_info'],
+                    data['cookie_info']['cookies'],
+                  );
+                  Get
+                    ..back()
+                    ..back();
+                },
+                child: const Text("确认"),
+              ),
+            ],
+          ),
+        ).whenComplete(textFieldController.dispose);
+
+        return;
+      }
+      if (data['token_info'] == null || data['cookie_info'] == null) {
+        SmartDialog.showToast(
+          '登录异常，接口未返回身份信息，可能是因为账号风控，请尝试其它登录方式。\n${res.message}',
+        );
+        return;
+      }
+      SmartDialog.showToast('正在保存身份信息');
+      await setAccount(data['token_info'], data['cookie_info']['cookies']);
+      Get.back();
+    } else {
+      // handle login result
+      switch (res.code) {
+        case 0:
+          // login success
+          break;
+        case -105:
+          final captureUrl = res.data['url'];
+          final captureUri = captureUrl is String
+              ? Uri.tryParse(captureUrl)
+              : null;
+          captchaData.token = captureUri?.queryParameters['recaptcha_token'];
+          final geeGt = captureUri?.queryParameters['gee_gt'];
+          final geeChallenge = captureUri?.queryParameters['gee_challenge'];
+          if (!isGeeArgumentValid(geeGt, geeChallenge)) {
+            SmartDialog.showToast('验证信息不完整，请重试或使用其他登录方式');
+            return;
+          }
+          await getCaptcha(geeGt!, geeChallenge!, loginByPassword);
+          break;
+        default:
+          SmartDialog.showToast(res.message);
+          // login failed
+          break;
+      }
+    }
+    // }
+  }
+
+  // 短信验证码登录
+  Future<void> loginBySmsCode() async {
+    if (isClosed) return;
+    final generation = ++_smsLoginGeneration;
+    if (telTextController.text.isEmpty) {
+      SmartDialog.showToast('手机号不能为空');
+      return;
+    }
+    if (captchaKey.isEmpty) {
+      SmartDialog.showToast('请先点击获取验证码');
+      return;
+    }
+    if (smsCodeTextController.text.isEmpty) {
+      SmartDialog.showToast('验证码不能为空');
+      return;
+    }
+    if (DateTime.now().millisecondsSinceEpoch - smsSendTimestamp >
+        1000 * 60 * 5) {
+      SmartDialog.showToast('验证码已过期，请重新获取');
+      return;
+    }
+    final webKeyRes = await LoginHttp.getWebKey();
+    if (isClosed || generation != _smsLoginGeneration) return;
+    if (!webKeyRes.isSuccess) {
+      SmartDialog.showToast(webKeyRes.message);
+      return;
+    }
+    String key = webKeyRes.data['key'];
+    final res = await LoginHttp.loginBySms(
+      tel: telTextController.text,
+      code: smsCodeTextController.text,
+      captchaKey: captchaKey,
+      cid: selectedCountryCodeId.countryId,
+      key: key,
+    );
+    if (isClosed || generation != _smsLoginGeneration) return;
+    if (res.isSuccess) {
+      SmartDialog.showToast('登录成功');
+      final data = res.data;
+      await setAccount(data['token_info'], data['cookie_info']['cookies']);
+      if (!isClosed && generation == _smsLoginGeneration) Get.back();
+    } else {
+      SmartDialog.showToast(res.message);
+    }
+  }
+
+  // app端验证码
+  Future<void> sendSmsCode() async {
+    if (isClosed || smsSending.value || smsSendCooldown.value > 0) return;
+    smsSending.value = true;
+    try {
+      await _sendSmsCode();
+    } catch (_) {
+      if (!isClosed) SmartDialog.showToast('发送验证码失败，请重试');
+    } finally {
+      smsSending.value = false;
+    }
+  }
+
+  Future<void> _sendSmsCode() async {
+    if (isClosed) return;
+    if (telTextController.text.isEmpty) {
+      SmartDialog.showToast('手机号不能为空');
+      return;
+    }
+    final res = await LoginHttp.sendSmsCode(
+      tel: telTextController.text,
+      cid: selectedCountryCodeId.countryId,
+      geeValidate: captchaData.validate,
+      geeSeccode: captchaData.seccode,
+      geeChallenge: captchaData.geetest?.challenge,
+      recaptchaToken: captchaData.token,
+    );
+    if (isClosed) return;
+    if (res.isSuccess) {
+      SmartDialog.showToast('发送成功');
+      smsSendTimestamp = DateTime.now().millisecondsSinceEpoch;
+      smsSendCooldown.value = 60;
+      captchaKey = res.data['captcha_key'];
+      smsSendCooldownTimer?.cancel();
+      smsSendCooldownTimer = Timer.periodic(const Duration(seconds: 1), (
+        timer,
+      ) {
+        smsSendCooldown.value = 60 - timer.tick;
+        if (smsSendCooldown <= 0) {
+          timer.cancel();
+          smsSendCooldown.value = 0;
+        }
+      });
+    } else {
+      // handle login result
+      switch (res.code) {
+        case 0:
+        case -105:
+          String? captureUrl = res.data['recaptcha_url'];
+          String? geeGt;
+          String? geeChallenge;
+          if (captureUrl != null && captureUrl.isNotEmpty) {
+            Uri captureUri = Uri.parse(captureUrl);
+            captchaData.token = captureUri.queryParameters['recaptcha_token'];
+            geeGt = captureUri.queryParameters['gee_gt'];
+            geeChallenge = captureUri.queryParameters['gee_challenge'];
+          }
+
+          if (!isGeeArgumentValid(geeGt, geeChallenge)) {
+            logger.w(
+              '验证信息错误：${res.message}，尝试另一个验证码接口',
+            );
+            final preCaptureRes = await LoginHttp.preCapture();
+            if (isClosed) return;
+            if (!preCaptureRes.isSuccess) {
+              SmartDialog.showToast(
+                "获取验证码失败，请尝试其它登录方式\n"
+                "(${preCaptureRes.code}) ${preCaptureRes.message}",
+              );
+              return;
+            }
+            geeGt = preCaptureRes.data['gee_gt'];
+            geeChallenge = preCaptureRes.data['gee_challenge'];
+            captchaData.token = preCaptureRes.data['recaptcha_token'];
+          }
+
+          if (!isGeeArgumentValid(geeGt, geeChallenge)) {
+            SmartDialog.showToast("获取验证码失败，请尝试其它登录方式\n");
+            return;
+          }
+
+          await getCaptcha(geeGt!, geeChallenge!, _sendSmsCode);
+          break;
+        default:
+          SmartDialog.showToast(res.message);
+          break;
+      }
+    }
+  }
+
+  bool isGeeArgumentValid(String? geeGt, String? geeChallenge) {
+    return geeGt?.isNotEmpty == true &&
+        geeChallenge?.isNotEmpty == true &&
+        captchaData.token?.isNotEmpty == true;
+  }
+
+  Future<void> setAccount(Map tokenInfo, List cookieInfo) async {
+    final account = LoginAccount(
+      BiliCookieJar.fromList(cookieInfo),
+      tokenInfo['access_token'],
+      tokenInfo['refresh_token'],
+    );
+    Accounts.replaceCredentials(account);
+    await Future.wait([?account.onChange(), AnonymousAccount().delete()]);
+    if (Accounts.main.isLogin) {
+      SmartDialog.showToast('登录成功');
+    } else {
+      SmartDialog.showToast('登录成功, 请先设置账号模式');
+      await switchAccountDialog(Get.context!);
+    }
+  }
+
+  static Future<void>? switchAccountDialog(BuildContext context) {
+    if (Accounts.account.isEmpty) {
+      SmartDialog.showToast('请先登录');
+      return Get.toNamed('/loginPage');
+    }
+    final colorScheme = ColorScheme.of(context);
+    final selectAccount = List.of(Accounts.accountMode);
+    final options = {
+      AnonymousAccount(): '0',
+      ...Accounts.account.toMap().map(
+        (k, v) => MapEntry(v, k as String),
+      ),
+    };
+    bool quickSelect = selectAccount.every((e) => e == selectAccount.first);
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          crossAxisAlignment: .start,
+          mainAxisAlignment: .spaceBetween,
+          children: [
+            Text.rich(
+              style: const TextStyle(height: 1.5),
+              TextSpan(
+                children: [
+                  const TextSpan(text: '账号切换'),
+                  TextSpan(
+                    text: '\nmid为0时使用匿名',
+                    style: TextStyle(fontSize: 14, color: colorScheme.outline),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: .compact,
+                tapTargetSize: .shrinkWrap,
+              ),
+              onPressed: () {
+                quickSelect = !quickSelect;
+                (context as Element).markNeedsBuild();
+              },
+              child: Text(quickSelect ? '详细' : '快速'),
+            ),
+          ],
+        ),
+        titlePadding: const .only(left: 22, top: 16, right: 22, bottom: 3),
+        contentPadding: const .symmetric(vertical: 5),
+        actionsPadding: const .only(left: 16, right: 16, bottom: 10),
+        content: SingleChildScrollView(
+          child: AnimatedSize(
+            curve: Curves.easeIn,
+            alignment: .topCenter,
+            duration: const Duration(milliseconds: 200),
+            child: quickSelect
+                ? Builder(
+                    builder: (context) => RadioGroup<Account>(
+                      groupValue: selectAccount[0],
+                      onChanged: (v) {
+                        selectAccount.fillRange(0, selectAccount.length, v);
+                        (context as Element).markNeedsBuild();
+                      },
+                      child: Column(
+                        crossAxisAlignment: .start,
+                        children: options.entries
+                            .map(
+                              (entry) => RadioWidget<Account>(
+                                value: entry.key,
+                                title: entry.value,
+                                mainAxisSize: .max,
+                                padding: PlatformUtils.isDesktop
+                                    ? const .only(left: 12)
+                                    : const .only(left: 12, top: 2, bottom: 2),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: .start,
+                    children: AccountType.values
+                        .map(
+                          (e) => Builder(
+                            builder: (context) => RadioGroup<Account>(
+                              groupValue: selectAccount[e.index],
+                              onChanged: (v) {
+                                selectAccount[e.index] = v!;
+                                (context as Element).markNeedsBuild();
+                              },
+                              child: WrapRadioOptionsGroup<Account>(
+                                groupTitle: e.title,
+                                options: options,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Get.back,
+            child: Text('取消', style: TextStyle(color: colorScheme.outline)),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              for (final type in AccountType.values) {
+                final index = type.index;
+                final account = quickSelect
+                    ? selectAccount.first
+                    : selectAccount[index];
+                if (account != Accounts.accountMode[index]) {
+                  Accounts.set(type, account);
+                }
+              }
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+}

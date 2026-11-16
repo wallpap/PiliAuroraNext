@@ -1,0 +1,74 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/skeleton/video_card_v.dart';
+import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
+import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
+import 'package:pili_aurora_next/pages/search_panel/live/widgets/item.dart';
+import 'package:pili_aurora_next/pages/search_panel/view.dart';
+import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:material_ui/material_ui.dart';
+
+class SearchLivePanel extends CommonSearchPanel {
+  const SearchLivePanel({
+    super.key,
+    required super.keyword,
+    required super.tag,
+    required super.searchType,
+    super.toTop,
+    super.onCount,
+  });
+
+  @override
+  ConsumerState<SearchLivePanel> createState() => _SearchLivePanelState();
+}
+
+class _SearchLivePanelState
+    extends
+        CommonSearchPanelState<
+          SearchLivePanel,
+          SearchLiveData,
+          SearchLiveItemModel
+        > {
+  @override
+  late final SearchPanelController<SearchLiveData, SearchLiveItemModel>
+  controller = SearchPanelController<SearchLiveData, SearchLiveItemModel>(
+    keyword: widget.keyword,
+    searchType: widget.searchType,
+    tag: widget.tag,
+  );
+
+  late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
+    maxCrossAxisExtent: Grid.smallCardWidth,
+    crossAxisSpacing: Style.cardSpace,
+    mainAxisSpacing: Style.cardSpace,
+    childAspectRatio: Style.aspectRatio,
+    mainAxisExtent: MediaQuery.textScalerOf(context).scale(80),
+  );
+
+  @override
+  Widget buildList(List<SearchLiveItemModel> list) {
+    return SliverPadding(
+      padding: const .only(left: Style.safeSpace, right: Style.safeSpace),
+      sliver: SliverGrid.builder(
+        gridDelegate: gridDelegate,
+        itemBuilder: (context, index) {
+          return LiveItem(liveItem: list[index]);
+        },
+        itemCount: list.length,
+      ),
+    );
+  }
+
+  @override
+  Widget get buildLoading => SliverPadding(
+    padding: const .only(left: Style.safeSpace, right: Style.safeSpace),
+    sliver: SliverGrid(
+      gridDelegate: gridDelegate,
+      delegate: const SliverSingleChildDelegate(
+        count: 10,
+        child: VideoCardVSkeleton(),
+      ),
+    ),
+  );
+}

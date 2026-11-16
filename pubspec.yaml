@@ -1,0 +1,198 @@
+name: pili_aurora_next
+description: PiliAuroraNext, a Flutter Bilibili client for Android and Windows.
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+# update when release
+version: 2.0.1
+
+environment:
+  sdk: ">=3.13.0"
+  flutter: 3.47.5
+
+# 根依赖使用已验收的精确版本；传递解析由 pubspec.lock 和 --enforce-lockfile 固定。
+# 定制源码的版本与来源登记见 third_party/dependencies.json。
+# 仅更新目标包并验证锁文件差异，维护流程见 third_party/README.md。
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  app_links: 7.2.1
+  archive: 4.3.0
+  audio_service: 0.18.19+piliauroranext.1
+  audio_session: 0.2.4
+  battery_plus: 7.1.1
+  brotli: 0.6.0
+  cached_network_image_ce: 4.6.4+piliauroranext.1
+  canvas_danmaku: 0.2.6+piliauroranext.1
+  catcher_2: 2.1.9+piliauroranext.1
+  characters: 1.4.1
+  chat_bottom_container: 0.5.2+piliauroranext.1
+  collection: 1.19.1
+  connectivity_plus: 7.3.1
+  cookie_jar: 4.0.9
+  crypto: 3.0.7
+  cupertino_ui: 1.1.1
+  device_info_plus: 13.2.0
+  dio: 5.11.1
+  dio_http2_adapter: 2.9.0
+  dlna_dart: 0.1.1
+  dynamic_color: 2.1.0
+  encrypt: 5.0.3
+  extended_nested_scroll_view: 6.2.1+piliauroranext.1
+  ffi: 2.2.0
+  file_picker: 13.1.0
+  fixnum: 1.1.1
+  fl_chart: 1.2.0
+  flex_seed_scheme: 5.0.1
+  flutter_displaymode: 0.7.0
+  flutter_html: 3.0.0+piliauroranext.1
+  flutter_inappwebview: 6.1.5
+  flutter_riverpod: 3.4.3
+  flutter_smart_dialog: 5.3.0
+  flutter_sortable_wrap: 1.0.6+piliauroranext.1
+  flutter_svg: 2.3.0
+  flutter_volume_controller: 2.0.2
+  font_awesome_flutter: 11.0.0
+  get: 4.7.2+piliauroranext.1
+  hive_ce: 2.20.1
+  html: 0.15.7
+  http2: 2.3.1
+  image_cropper: 12.2.1
+  image_picker: 1.2.3
+  intl: 0.20.3
+  jni: 1.1.0
+  material_color_utilities: 0.13.0
+  material_design_icons_flutter: 7.0.7447+piliauroranext.1
+  material_new_shapes: 1.0.0
+  material_ui: 1.4.0
+  media_kit: 1.1.11+piliauroranext.1
+  media_kit_libs_video: 1.0.5
+  media_kit_video: 1.2.5+piliauroranext.1
+  mime: 2.1.0
+  native_device_orientation: 2.0.5+piliauroranext.1
+  path: 1.9.1
+  path_provider: 2.1.6
+  permission_handler_android: 14.1.0
+  permission_handler_platform_interface: 4.4.1
+  pretty_qr_code: 3.6.0
+  protobuf: 6.1.0
+  re_highlight: 0.0.3
+  saver_gallery: 5.1.0
+  screen_brightness_platform_interface: 2.1.2
+  screen_retriever: 0.2.2
+  share_plus: 13.3.0
+  super_sliver_list: 0.4.1+piliauroranext.1
+  synchronized: 3.4.2
+  tray_manager: 0.7.0
+  url_launcher: 6.3.2
+  vector_math: 2.4.3
+  wakelock_plus: 1.8.0
+  waterfall_flow: 3.1.1
+  web_socket_channel: 3.0.3
+  win32: 6.4.0
+  window_manager: 0.5.2
+
+dependency_overrides:
+  cnativeapi:
+    path: third_party/cnativeapi
+  # 定制包的来源、版本和保留原因见 third_party/dependencies.json。
+  audio_service:
+    path: third_party/audio_service
+  cached_network_image_ce:
+    path: third_party/cached_network_image_ce
+  canvas_danmaku:
+    path: third_party/canvas_danmaku
+  catcher_2:
+    path: third_party/catcher_2
+  chat_bottom_container:
+    path: third_party/chat_bottom_container
+  extended_nested_scroll_view:
+    path: third_party/extended_nested_scroll_view
+  flutter_html:
+    path: third_party/flutter_html
+  flutter_inappwebview_android:
+    path: third_party/flutter_inappwebview_android
+  flutter_sortable_wrap:
+    path: third_party/flutter_sortable_wrap
+  get:
+    path: third_party/get
+  material_design_icons_flutter:
+    path: third_party/material_design_icons_flutter
+  media_kit:
+    path: third_party/media_kit
+  media_kit_libs_android_video:
+    path: third_party/media_kit_libs_android_video
+  media_kit_video:
+    path: third_party/media_kit_video
+  native_device_orientation:
+    path: third_party/native_device_orientation
+  super_sliver_list:
+    path: third_party/super_sliver_list
+  flutter_inappwebview_windows:
+    path: third_party/flutter_inappwebview_windows
+  media_kit_libs_windows_video:
+    path: third_party/media_kit_libs_windows_video
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: 2.16.1
+  flutter_launcher_icons: 0.14.4
+  flutter_lints: 6.0.0
+  flutter_native_splash: 2.4.8
+  jnigen: 1.0.1
+  # 本地 super_sliver_list 保留上游 strict 检查规则。
+  lint: 2.14.0
+  path_provider_platform_interface: 2.1.3
+  pub_semver: 2.2.1
+  yaml: 3.1.4
+
+flutter_launcher_icons:
+  android: true
+  image_path: assets/images/logo/logo_chibi.png
+  image_path_android: assets/images/logo/logo_chibi.png
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: android/app/src/main/res/drawable-nodpi/app_icon_artwork.png
+  adaptive_icon_monochrome: assets/images/logo/logo_2.png
+
+flutter_native_splash:
+  android_12:
+    color: "#ffffff"
+    color_dark: "#212121"
+  color: "#ffffff"
+  color_dark: "#212121"
+  image: assets/images/logo/logo_chibi.png
+  image_dark: assets/images/logo/logo_chibi_dark.png
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - path: assets/images/
+    - path: assets/images/logo/
+    - path: assets/images/logo/ico/
+      platforms: [windows]
+    - path: assets/images/live/
+    - path: assets/images/paycoins/
+    - path: assets/shaders/
+
+  fonts:
+    - family: digital_id_num
+      fonts:
+        - asset: assets/fonts/digital_id_num.ttf
+    - family: PiliAuroraNextIcons
+      fonts:
+        - asset: assets/fonts/piliauroranext_icons.ttf

@@ -1,0 +1,103 @@
+import 'dart:math';
+
+import 'package:pili_aurora_next/models/common/search/user_search_type.dart';
+import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
+import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
+import 'package:pili_aurora_next/utils/extension/context_ext.dart';
+import 'package:material_ui/material_ui.dart';
+
+class SearchUserController
+    extends SearchPanelController<SearchUserData, SearchUserItemModel> {
+  SearchUserController({
+    required super.keyword,
+    required super.searchType,
+    required super.tag,
+  });
+
+  @override
+  void onInit() {
+    super.onInit();
+    userType = UserType.all;
+    userOrderType = UserOrderType.def;
+  }
+
+  void onShowFilterDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxWidth: min(640, context.mediaQueryShortestSide),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SingleChildScrollView(
+          padding: EdgeInsets.only(
+            top: 20,
+            left: 16,
+            right: 16,
+            bottom: 100 + MediaQuery.viewPaddingOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              const Text('用户粉丝数及等级排序顺序', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: UserOrderType.values.map(
+                  (e) {
+                    final isCurr = e == userOrderType!;
+                    return SearchText(
+                      text: e.label,
+                      onTap: (_) {
+                        userOrderType = e;
+                        order = e.order;
+                        onSortSearch(label: e.label);
+                      },
+                      bgColor: isCurr
+                          ? theme.colorScheme.secondaryContainer
+                          : null,
+                      textColor: isCurr
+                          ? theme.colorScheme.onSecondaryContainer
+                          : null,
+                    );
+                  },
+                ).toList(),
+              ),
+              const SizedBox(height: 20),
+              const Text('用户分类', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: UserType.values.map(
+                  (e) {
+                    final isCurr = e == userType!;
+                    return SearchText(
+                      text: e.label,
+                      onTap: (_) {
+                        userType = e;
+                        onSortSearch(label: e.label);
+                      },
+                      bgColor: isCurr
+                          ? theme.colorScheme.secondaryContainer
+                          : null,
+                      textColor: isCurr
+                          ? theme.colorScheme.onSecondaryContainer
+                          : null,
+                    );
+                  },
+                ).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

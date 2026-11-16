@@ -1,0 +1,110 @@
+name: Code checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同一 PR 只验证最新提交；手动运行各自保留。
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Linux host checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "25"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+
+      - name: Apply Flutter patches and prepare dependencies
+        shell: pwsh
+        run: lib/scripts/patch.ps1 android
+
+      - name: Check dependency sources and versions
+        run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart
+
+      - name: Analyze playback, danmaku, tests and tools
+        run: flutter analyze --no-pub lib/plugin/pl_player lib/pages/danmaku test tool
+
+      - name: Run Linux host CI tests
+        shell: pwsh
+        run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path
+
+      - name: Run Android host probes
+        shell: pwsh
+        run: pwsh -NoProfile -File tool/run-native-probes.ps1
+
+      - name: Test frame-plan selection and fallback
+        run: |
+          c++ -std=c++17 -pthread tool/engine/frame_plan/frame_presentation_plan_test.cc -o "$RUNNER_TEMP/frame-plan-test"
+          "$RUNNER_TEMP/frame-plan-test"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Test tools and native host probes
+        run: python tool/run_python_tests.py --native --jobs 4
+
+  windows:
+    name: Windows host checks
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .fvmrc
+          cache: true
+
+      - name: Apply Windows patches and prepare dependencies
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+
+      - name: Run Windows platform regressions
+        shell: pwsh
+        run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path -PlatformOnly
+
+      - name: Test Windows page retention
+        run: flutter test --no-pub test/common/widgets/inactive_sliver_cache_test.dart test/common/widgets/inactive_sliver_semantics_test.dart test/common/widgets/pipeline_owner_semantics_test.dart
+
+      - name: Test Windows WebView environment lifecycle
+        run: flutter test --no-pub third_party/flutter_inappwebview_windows/test/webview_environment_channel_test.dart
+
+      - name: Set up Python for native playback regression
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Verify native fragmented audio backward seek
+        run: python tool/verify_libmpv.py --backward-seek
+
+      - name: Build Windows region decoder and generated fixtures
+        run: |
+          python -m pip install Pillow==13.0.0
+          python tool/probes/windows/image_region_probe.py
+          python -m unittest discover -s tool/probes/windows -p image_region_probe_test.py -v
+
+      - name: Test native image pixels and lifecycle
+        run: flutter test --no-pub test/common/widgets/image --concurrency 2

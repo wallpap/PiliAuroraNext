@@ -1,0 +1,113 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/skeleton/msg_feed_top.dart';
+import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
+import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/pages/search_panel/user/controller.dart';
+import 'package:pili_aurora_next/pages/search_panel/user/widgets/item.dart';
+import 'package:pili_aurora_next/pages/search_panel/view.dart';
+import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:material_ui/material_ui.dart'
+    hide SliverGridDelegateWithMaxCrossAxisExtent;
+
+class SearchUserPanel extends CommonSearchPanel {
+  const SearchUserPanel({
+    super.key,
+    required super.keyword,
+    required super.tag,
+    required super.searchType,
+    super.toTop,
+    super.onCount,
+  });
+
+  @override
+  ConsumerState<SearchUserPanel> createState() => _SearchUserPanelState();
+}
+
+class _SearchUserPanelState
+    extends
+        CommonSearchPanelState<
+          SearchUserPanel,
+          SearchUserData,
+          SearchUserItemModel
+        > {
+  @override
+  late final SearchUserController controller = SearchUserController(
+    keyword: widget.keyword,
+    searchType: widget.searchType,
+    tag: widget.tag,
+  );
+
+  @override
+  Widget buildHeader() {
+    return SliverFloatingHeaderWidget(
+      backgroundColor: colorScheme.surface,
+      child: Padding(
+        padding: const .fromLTRB(25, 0, 12, 4),
+        child: Row(
+          children: [
+            Builder(
+              builder: (_) => Text(
+                '排序: ${controller.userOrderType!.label}',
+                maxLines: 1,
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+            const Spacer(),
+            Builder(
+              builder: (_) => Text(
+                '用户类型: ${controller.userType!.label}',
+                maxLines: 1,
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: IconButton(
+                tooltip: '筛选',
+                style: const ButtonStyle(
+                  padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                ),
+                onPressed: () => controller.onShowFilterDialog(context),
+                icon: Icon(
+                  Icons.filter_list_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  late final gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: Grid.smallCardWidth * 2,
+    mainAxisExtent: 66,
+  );
+
+  @override
+  Widget buildList(List<SearchUserItemModel> list) {
+    return SliverGrid.builder(
+      gridDelegate: gridDelegate,
+      itemBuilder: (BuildContext context, int index) {
+        return SearchUserItem(
+          item: list[index],
+        );
+      },
+      itemCount: list.length,
+    );
+  }
+
+  @override
+  Widget get buildLoading => SliverGrid(
+    gridDelegate: gridDelegate,
+    delegate: const SliverSingleChildDelegate(
+      count: 10,
+      child: MsgFeedTopSkeleton(),
+    ),
+  );
+}

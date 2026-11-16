@@ -1,0 +1,86 @@
+import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
+import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
+import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/models/remote/space/space_cheese/item.dart';
+import 'package:pili_aurora_next/pages/fav/cheese/controller.dart';
+import 'package:pili_aurora_next/pages/member_cheese/widgets/item.dart';
+import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+
+class FavCheesePage extends StatefulWidget {
+  const FavCheesePage({super.key});
+
+  @override
+  State<FavCheesePage> createState() => _FavCheesePageState();
+}
+
+class _FavCheesePageState extends State<FavCheesePage>
+    with AutomaticKeepAliveClientMixin, GridMixin {
+  final FavCheeseController _controller = Get.put(FavCheeseController());
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final ThemeData theme = Theme.of(context);
+    return refreshIndicator(
+      onRefresh: _controller.onRefresh,
+      child: CustomScrollView(
+        controller: _controller.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(
+              top: 7,
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+            ),
+            sliver: Obx(
+              () => _buildBody(theme, _controller.loadingState.value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    ThemeData theme,
+    LoadingState<List<SpaceCheeseItem>?> loadingState,
+  ) {
+    return switch (loadingState) {
+      Loading() => gridSkeleton,
+      Success(:final response) =>
+        response != null && response.isNotEmpty
+            ? SliverGrid.builder(
+                gridDelegate: gridDelegate,
+                itemBuilder: (context, index) {
+                  if (index == response.length - 1) {
+                    _controller.onLoadMore();
+                  }
+                  final item = response[index];
+                  final remove = _controller.removalAction(item.seasonId);
+                  return MemberCheeseItem(
+                    item: item,
+                    onRemove: remove == null
+                        ? null
+                        : () => showConfirmDialog(
+                            context: context,
+                            title: const Text('确定取消收藏该课堂？'),
+                            onConfirm: remove,
+                          ),
+                  );
+                },
+                itemCount: response.length,
+              )
+            : HttpError(onReload: _controller.onReload),
+      Error(:final errMsg) => HttpError(
+        errMsg: errMsg,
+        onReload: _controller.onReload,
+      ),
+    };
+  }
+}

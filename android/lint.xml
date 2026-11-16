@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- local.properties 由 Flutter 生成：escapePath 只转义反斜杠，不转义值中的盘符冒号。
+         Gradle 的 Properties.load 可正确读取这些值，避免为生成文件反复改写路径。 -->
+    <issue id="PropertyEscape">
+        <ignore path="local.properties" />
+    </issue>
+    <!-- xxxhdpi 启动图标与 hdpi splash 均为 192px，但各自对应 48dp 与 128dp。
+         它们用于不同角色且密度不同，不能直接互相引用，否则会改变缩放尺寸。 -->
+    <issue id="IconDuplicates">
+        <ignore path="**/mipmap-xxxhdpi/ic_launcher.png" />
+        <ignore path="**/mipmap-night-xxxhdpi/ic_launcher.png" />
+    </issue>
+</lint>

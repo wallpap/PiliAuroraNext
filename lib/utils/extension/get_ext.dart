@@ -1,0 +1,30 @@
+import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:get/get.dart';
+
+extension GetExt on GetInterface {
+  S putOrFind<S>(InstanceBuilderCallback<S> dep, {String? tag}) =>
+      GetInstance().putOrFind(dep, tag: tag);
+
+  void updateMyAppTheme() {
+    final (light, dark) = ThemeUtils.getAllTheme();
+    rootController
+      ..theme = light
+      ..darkTheme = dark
+      ..update();
+  }
+
+  Future<T?>? offOrToNamed<T>(
+    String page, {
+    dynamic arguments,
+    int? id,
+    bool preventDuplicates = true,
+    Map<String, String>? parameters,
+    bool off = false,
+  }) => (off ? offNamed : toNamed)(
+    page,
+    arguments: arguments,
+    id: id,
+    preventDuplicates: preventDuplicates,
+    parameters: parameters,
+  );
+}

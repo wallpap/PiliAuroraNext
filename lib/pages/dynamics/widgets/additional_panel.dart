@@ -1,0 +1,748 @@
+import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/common/widgets/selection_text.dart';
+import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
+import 'package:pili_aurora_next/utils/app_scheme.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:get/get.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:material_ui/material_ui.dart';
+
+Widget? addWidget(
+  BuildContext context, {
+  required int floor,
+  required ThemeData theme,
+  required Object idStr,
+  required DynamicAddModel additional,
+}) {
+  final type = additional.type;
+  late final Color bgColor = floor == 1
+      ? theme.dividerColor.withValues(alpha: 0.08)
+      : theme.colorScheme.surface;
+  late final borderRadius = floor == 1 ? null : Style.mdRadius;
+  Widget? child;
+  try {
+    switch (type) {
+      // 转发的投稿
+      case 'ADDITIONAL_TYPE_UGC' when (additional.ugc != null):
+        final ugc = additional.ugc!;
+        child = InkWell(
+          borderRadius: borderRadius,
+          onTap: ugc.jumpUrl == null
+              ? null
+              : () => PiliScheme.routePushFromUrl(ugc.jumpUrl!),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            child: Row(
+              children: [
+                NetworkImgLayer(
+                  width: 120,
+                  height: 75,
+                  src: ugc.cover,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ugc.title!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ugc.descSecond!,
+                        style: TextStyle(
+                          color: theme.colorScheme.outline,
+                          fontSize: theme.textTheme.labelMedium!.fontSize,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+      case 'ADDITIONAL_TYPE_RESERVE' when (additional.reserve != null):
+        final reserve = additional.reserve!;
+        if (reserve.state != -1 && reserve.title != null) {
+          child = InkWell(
+            onTap: () {},
+            borderRadius: borderRadius,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reserve.title!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 1),
+                        Text.rich(
+                          TextSpan(
+                            style: TextStyle(
+                              color: theme.colorScheme.outline,
+                              fontSize: 13,
+                            ),
+                            children: [
+                              if (reserve.desc1?.text?.isNotEmpty == true)
+                                TextSpan(
+                                  text: reserve.desc1!.text,
+                                ),
+                              if (reserve.desc2?.text?.isNotEmpty == true)
+                                TextSpan(
+                                  text: '    ${reserve.desc2!.text}',
+                                ),
+                              if (reserve.desc3?.text?.isNotEmpty == true) ...[
+                                const TextSpan(text: '\n'),
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Icon(
+                                    size: 17,
+                                    Icons.card_giftcard,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' ${reserve.desc3!.text}',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  recognizer: reserve.desc3!.jumpUrl == null
+                                      ? null
+                                      : (NoDeadlineTapGestureRecognizer()
+                                          ..onTap = () {
+                                            Get.toNamed(
+                                              '/webview',
+                                              parameters: {
+                                                'url': reserve.desc3!.jumpUrl!,
+                                              },
+                                            );
+                                          }),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (reserve.button != null) ...[
+                    const SizedBox(width: 10),
+                    _ReserveButton(
+                      reserve: reserve,
+                      dynamicId: idStr,
+                      onChanged: () {
+                        if (context.mounted) {
+                          (context as Element).markNeedsBuild();
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }
+
+      case 'ADDITIONAL_TYPE_UPOWER_LOTTERY'
+          when (additional.upowerLottery != null):
+        final content = additional.upowerLottery!;
+        child = InkWell(
+          borderRadius: borderRadius,
+          onTap: content.jumpUrl == null
+              ? null
+              : () => PiliScheme.routePushFromUrl(content.jumpUrl!),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    spacing: 2,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (content.title?.isNotEmpty == true)
+                        Text(content.title!),
+                      if (content.hint?.text?.isNotEmpty == true)
+                        Text(
+                          content.hint!.text!,
+                          style: TextStyle(
+                            color: theme.colorScheme.outline,
+                            fontSize: 13,
+                          ),
+                        ),
+                      if (content.desc?.text?.isNotEmpty == true)
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Icon(
+                                  size: 17,
+                                  Icons.card_giftcard,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' ${content.desc!.text!}',
+                                style: TextStyle(
+                                  color: theme.colorScheme.primary,
+                                  fontSize: 13,
+                                ),
+                                recognizer: content.desc!.jumpUrl == null
+                                    ? null
+                                    : (NoDeadlineTapGestureRecognizer()
+                                        ..onTap = () {
+                                          Get.toNamed(
+                                            '/webview',
+                                            parameters: {
+                                              'url': content.desc!.jumpUrl!,
+                                            },
+                                          );
+                                        }),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (content.button != null) ...[
+                  const SizedBox(width: 10),
+                  FilledButton.tonal(
+                    onPressed: content.button!.jumpUrl == null
+                        ? null
+                        : () => PiliScheme.routePushFromUrl(
+                            content.button!.jumpUrl!,
+                          ),
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(6)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: const VisualDensity(
+                        horizontal: -2,
+                        vertical: -3,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      content.button!.jumpStyle?.text ??
+                          content.button!.check?.text ??
+                          '',
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+
+      // 商品
+      case 'ADDITIONAL_TYPE_GOODS' when (additional.goods != null):
+        final content = additional.goods!;
+        if (content.items?.isNotEmpty == true) {
+          child = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: content.items!.map((e) {
+              return InkWell(
+                borderRadius: borderRadius,
+                onTap: () => PiliScheme.routePushFromUrl(e.jumpUrl!),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      if (e.cover?.isNotEmpty == true) ...[
+                        NetworkImgLayer(
+                          width: 45,
+                          height: 45,
+                          src: e.cover,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(6),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              e.name!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (e.price?.isNotEmpty == true)
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '${e.price}',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                    const TextSpan(
+                                      text: ' 起',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (e.jumpDesc?.isNotEmpty == true) ...[
+                        const SizedBox(width: 10),
+                        FilledButton.tonal(
+                          onPressed: () =>
+                              PiliScheme.routePushFromUrl(e.jumpUrl!),
+                          style: FilledButton.styleFrom(
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(6),
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                            ),
+                            visualDensity: const VisualDensity(
+                              horizontal: -2,
+                              vertical: -3,
+                            ),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(e.jumpDesc!),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          );
+        }
+
+      case 'ADDITIONAL_TYPE_VOTE' when (additional.vote != null):
+        final vote = additional.vote!;
+        void openVote() {
+          final voteId = vote.voteId;
+          if (voteId == null || voteId <= 0) {
+            SmartDialog.showToast('投票卡片信息无效');
+            return;
+          }
+          final dynamicId = idStr is int
+              ? idStr
+              : int.tryParse(idStr.toString());
+          showVoteDialog(
+            context,
+            voteId,
+            dynamicId != null && dynamicId > 0 ? dynamicId : null,
+          );
+        }
+        child = InkWell(
+          borderRadius: borderRadius,
+          onTap: openVote,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: floor == 1
+                        ? theme.colorScheme.surface
+                        : theme.dividerColor.withValues(alpha: 0.08),
+                    borderRadius: const BorderRadius.all(
+                      Radius.circular(8),
+                    ),
+                  ),
+                  width: 70,
+                  height: 50,
+                  child: Icon(
+                    Icons.bar_chart_rounded,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (vote.title case final title?)
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      Text(
+                        '${NumUtils.numFormat(vote.joinNum)}人参与',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton.tonal(
+                  onPressed: openVote,
+                  style: FilledButton.styleFrom(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(6)),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    visualDensity: const VisualDensity(
+                      horizontal: -2,
+                      vertical: -3,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('参与'),
+                ),
+              ],
+            ),
+          ),
+        );
+
+      case 'ADDITIONAL_TYPE_COMMON' when (additional.common != null):
+        final content = additional.common!;
+        child = InkWell(
+          borderRadius: borderRadius,
+          onTap: content.jumpUrl == null
+              ? null
+              : () => PiliScheme.routePushFromUrl(content.jumpUrl!),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                if (content.cover?.isNotEmpty == true) ...[
+                  NetworkImgLayer(
+                    width: 45,
+                    height: 45,
+                    src: content.cover,
+                    borderRadius: const BorderRadius.all(
+                      Radius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: Column(
+                    spacing: 2,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (content.title?.isNotEmpty == true)
+                        Text(content.title!),
+                      if (content.desc1?.isNotEmpty == true)
+                        Text(
+                          content.desc1!,
+                          style: TextStyle(
+                            color: theme.colorScheme.outline,
+                            fontSize: 13,
+                          ),
+                        ),
+                      if (content.desc2?.isNotEmpty == true)
+                        Text(
+                          content.desc2!,
+                          style: TextStyle(
+                            color: theme.colorScheme.outline,
+                            fontSize: 13,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (content.button?.jumpUrl?.isNotEmpty == true) ...[
+                  const SizedBox(width: 10),
+                  FilledButton.tonal(
+                    onPressed: () => PiliScheme.routePushFromUrl(
+                      content.button!.jumpUrl!,
+                    ),
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(6)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: const VisualDensity(
+                        horizontal: -2,
+                        vertical: -3,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(content.button!.jumpStyle?.text ?? ''),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+
+      case 'ADDITIONAL_TYPE_MATCH' when (additional.match != null):
+        final content = additional.match!;
+        Widget teamItem(TTeam team, Alignment alignment, EdgeInsets padding) {
+          return Expanded(
+            child: Align(
+              alignment: alignment,
+              child: Padding(
+                padding: padding,
+                child: Column(
+                  spacing: 5,
+                  mainAxisSize: .min,
+                  children: [
+                    NetworkImgLayer(
+                      type: .emote,
+                      width: 30,
+                      height: 30,
+                      src: team.pic,
+                    ),
+                    Text(
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      team.name!,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        Widget? title;
+        if (content.matchInfo?.title?.isNotEmpty == true) {
+          title = Text(
+            content.matchInfo!.title!,
+            style: const TextStyle(fontSize: 13),
+          );
+        }
+        if (content.matchInfo?.subTitle?.isNotEmpty == true) {
+          title = Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ?title,
+              Text(
+                content.matchInfo!.subTitle!,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ],
+          );
+        }
+        child = InkWell(
+          borderRadius: borderRadius,
+          onTap: content.jumpUrl == null
+              ? null
+              : () => PiliScheme.routePushFromUrl(content.jumpUrl!),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                ?title,
+                if (content.matchInfo?.leftTeam != null)
+                  teamItem(
+                    content.matchInfo!.leftTeam!,
+                    Alignment.centerRight,
+                    const .only(right: 16),
+                  ),
+                Column(
+                  children: [
+                    if (content.matchInfo?.centerTop?.isNotEmpty == true)
+                      Container(
+                        height: 35,
+                        alignment: Alignment.center,
+                        child: Text(
+                          content.matchInfo!.centerTop!.join(' '),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    if (content.matchInfo?.centerBottom?.isNotEmpty == true)
+                      Text(
+                        content.matchInfo!.centerBottom!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                  ],
+                ),
+                if (content.matchInfo?.rightTeam != null)
+                  teamItem(
+                    content.matchInfo!.rightTeam!,
+                    Alignment.centerLeft,
+                    const .only(left: 16),
+                  ),
+                if (content.button case final button?)
+                  FilledButton.tonal(
+                    onPressed: () =>
+                        PiliScheme.routePushFromUrl(button.jumpUrl!),
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(6)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: const VisualDensity(
+                        horizontal: -2,
+                        vertical: -3,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(button.jumpStyle?.text ?? ''),
+                  ),
+              ],
+            ),
+          ),
+        );
+    }
+    if (child != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Material(
+          borderRadius: borderRadius,
+          color: bgColor,
+          child: child,
+        ),
+      );
+    } else {
+      return null;
+    }
+  } catch (e) {
+    return Padding(
+      padding: const .all(12),
+      child: SelectionText(
+        '''
+additional panel error
+id: $idStr
+type: $type
+err: $e''',
+      ),
+    );
+  }
+}
+
+class _ReserveButton extends StatefulWidget {
+  const _ReserveButton({
+    required this.reserve,
+    required this.dynamicId,
+    required this.onChanged,
+  });
+  final Reserve reserve;
+  final Object dynamicId;
+  final VoidCallback onChanged;
+
+  @override
+  State<_ReserveButton> createState() => _ReserveButtonState();
+}
+
+class _ReserveButtonState extends State<_ReserveButton> {
+  bool _saving = false;
+  final _account = Accounts.main;
+
+  Future<void> _onReserve() async {
+    if (_saving) return;
+    if (!identical(_account, Accounts.main)) {
+      SmartDialog.showToast('账号已切换，请刷新后重试');
+      return;
+    }
+    final reserve = widget.reserve;
+    final button = reserve.button;
+    if (button == null || reserve.rid == null) return;
+    final account = Accounts.main;
+    final dynamicId = widget.dynamicId;
+    setState(() => _saving = true);
+    try {
+      final result = await DynamicsHttp.dynReserve(
+        account: account,
+        reserveId: reserve.rid,
+        curBtnStatus: button.status,
+        dynamicIdStr: dynamicId,
+        reserveTotal: reserve.reserveTotal,
+      );
+      if (!mounted ||
+          !identical(account, Accounts.main) ||
+          !identical(reserve, widget.reserve) ||
+          !identical(button, reserve.button) ||
+          dynamicId != widget.dynamicId) {
+        return;
+      }
+      if (result case Success(:final response)) {
+        if (response.descUpdate case final desc?) reserve.desc2?.text = desc;
+        if (response.reserveUpdate case final total?) {
+          reserve.reserveTotal = total;
+        }
+        button.status = response.finalBtnStatus;
+        widget.onChanged();
+      } else {
+        result.toast();
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final button = widget.reserve.button;
+    if (button == null) return const SizedBox.shrink();
+    final canJump = button.jumpUrl?.isNotEmpty == true;
+    final isReserved = button.status != null && button.status == button.type;
+    return FilledButton.tonal(
+      style: FilledButton.styleFrom(
+        foregroundColor: !canJump && isReserved
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.38)
+            : null,
+        backgroundColor: !canJump && isReserved
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.12)
+            : null,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: _saving || button.disable == 1
+          ? null
+          : canJump
+          ? () => PiliScheme.routePushFromUrl(button.jumpUrl!)
+          : _onReserve,
+      child: Text(
+        _saving
+            ? '提交中'
+            : button.jumpText ??
+                  (isReserved
+                      ? button.checkText ?? '已预约'
+                      : button.uncheckText ?? '预约'),
+      ),
+    );
+  }
+}

@@ -1,0 +1,1357 @@
+import 'dart:convert';
+
+import 'package:pili_aurora_next/common/constants.dart';
+import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+    show ReplyInfo;
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/api_response.dart';
+import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/login.dart';
+import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/models/home/rcmd/result.dart';
+import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/models/model_rec_video_item.dart';
+import 'package:pili_aurora_next/models/pgc_lcf.dart';
+import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
+import 'package:pili_aurora_next/models/remote/popular/popular_precious/data.dart';
+import 'package:pili_aurora_next/models/remote/popular/popular_series_list/list.dart';
+import 'package:pili_aurora_next/models/remote/popular/popular_series_one/data.dart';
+import 'package:pili_aurora_next/models/remote/triple/pgc_triple.dart';
+import 'package:pili_aurora_next/models/remote/triple/ugc_triple.dart';
+import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/data.dart';
+import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
+import 'package:pili_aurora_next/models/remote/video/video_note_list/data.dart';
+import 'package:pili_aurora_next/models/remote/video/video_play_info/data.dart';
+import 'package:pili_aurora_next/models/remote/video/video_relation/data.dart';
+import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/app_sign.dart';
+import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/utils/recommend_filter.dart';
+import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/utils/subtitle_utils.dart';
+import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/blocked_authors.dart';
+import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show compute;
+import 'package:protobuf/protobuf.dart';
+
+/// view层根据 status 判断渲染逻辑
+abstract final class VideoHttp {
+  static RegExp zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
+  static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
+
+  // 首页推荐视频
+  static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
+    required int ps,
+    required int freshIdx,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.recommendListWeb,
+        cancelToken: cancelToken,
+        queryParameters: await WbiSign.makSign({
+          'version': 1,
+          'feed_version': 'V8',
+          'homepage_ver': 1,
+          'ps': ps,
+          'fresh_idx': freshIdx,
+          'brush': freshIdx,
+          'fresh_type': 4,
+        }),
+        options: Options(extra: {'account': account}),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
+          for (final i in body['data']['item']) {
+            // 过滤非视频卡片；作者屏蔽由发现列表统一处理，以保留补位所需数量。
+            if (i['goto'] == 'av' && i['owner'] != null) {
+              RcmdVideoItemModel videoItem = RcmdVideoItemModel.fromJson(i);
+              if (!RecommendFilter.filter(videoItem)) {
+                list.add(videoItem);
+              }
+            }
+          }
+          return list;
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  // 添加额外的loginState变量模拟未登录状态
+  static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp({
+    required int freshIdx,
+    CancelToken? cancelToken,
+  }) async {
+    final account = Accounts.get(AccountType.recommend);
+
+    final params = {
+      'build': 8430300,
+      'c_locale': 'zh_CN',
+      'channel': 'master',
+      'column': 2,
+      'device': 'phone',
+      'device_name': 'android',
+      'device_type': 0,
+      'disable_rcmd': 0,
+      'flush': 8,
+      'fnval': 976,
+      'fnver': 0,
+      'force_host': 2, //使用https
+      'fourk': 1,
+      'guidance': 1,
+      'https_url_req': 1,
+      'idx': freshIdx,
+      'mobi_app': 'android_i',
+      'network': 'wifi',
+      'platform': 'android',
+      'player_net': 1,
+      'pull': freshIdx == 0 ? 'true' : 'false',
+      'qn': 32,
+      'recsys_mode': 0,
+      's_locale': 'zh_CN',
+      'splash_id': '',
+      'statistics': Constants.statisticsApp,
+      'voice_balance': 0,
+    };
+    return await Request().requestApi(
+      Api.recommendListApp,
+      cancelToken: cancelToken,
+      queryParameters: params,
+      options: Options(
+        extra: {'account': account},
+        headers: {
+          'buvid': LoginHttp.buvid,
+          'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
+          'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
+          'session_id': '11111111',
+          'env': 'prod',
+          'app-key': 'android_hd',
+          'User-Agent': Constants.userAgent,
+          'x-bili-trace-id': Constants.traceId,
+          'x-bili-aurora-eid': '',
+          'x-bili-aurora-zone': '',
+          'bili-http-engine': 'cronet',
+        },
+      ),
+      kind: ApiCallKind.query,
+      decode: (body) {
+        final list = <RcmdVideoItemAppModel>[];
+        for (final i in body['data']['items']) {
+          // 屏蔽推广卡片。
+          if (i['card_goto'] != 'ad_av' &&
+              i['card_goto'] != 'ad_web_s' &&
+              i['ad_info'] == null &&
+              i['can_play'] == 1 &&
+              i['args'] != null) {
+            if (enableFilter &&
+                i['args']?['tname'] != null &&
+                zoneRegExp.hasMatch(i['args']['tname'])) {
+              continue;
+            }
+            RcmdVideoItemAppModel videoItem = RcmdVideoItemAppModel.fromJson(i);
+            if (!RecommendFilter.filter(videoItem)) {
+              list.add(videoItem);
+            }
+          }
+        }
+        return list;
+      },
+    );
+  }
+
+  // 最热视频
+  static Future<LoadingState<List<HotVideoItemModel>>> hotVideoList({
+    required int pn,
+    required int ps,
+  }) async {
+    final account = Accounts.get(AccountType.recommend);
+
+    return await Request().requestApi(
+      Api.hotList,
+      queryParameters: {'pn': pn, 'ps': ps},
+      options: Options(extra: {'account': account}),
+      kind: ApiCallKind.query,
+      decode: (body) {
+        List<HotVideoItemModel> list = <HotVideoItemModel>[];
+        for (final i in body['data']['list']) {
+          if (!RecommendFilter.filterTitle(i['title']) &&
+              !RecommendFilter.filterLikeRatio(
+                i['stat']['like'],
+                i['stat']['view'],
+              )) {
+            if (enableFilter &&
+                i['tname'] != null &&
+                zoneRegExp.hasMatch(i['tname'])) {
+              continue;
+            }
+            list.add(HotVideoItemModel.fromJson(i));
+          }
+        }
+        return list;
+      },
+    );
+  }
+
+  // 视频流
+  @pragma('vm:notify-debugger-on-exception')
+  static Future<LoadingState<PlayUrlModel>> videoUrl({
+    int? avid,
+    String? bvid,
+    required int cid,
+    required int qn,
+    dynamic epid,
+    dynamic seasonId,
+    required bool tryLook,
+    required VideoType videoType,
+    String? language,
+    bool voiceBalance = false,
+    CancelToken? cancelToken,
+    Account? account,
+  }) async {
+    account ??= Accounts.get(AccountType.video);
+    if (cancelToken?.isCancelled == true) {
+      final error = cancelToken!.cancelError;
+      return Error('请求已取消', cause: error, stackTrace: error?.stackTrace);
+    }
+    try {
+      final dmImgStr = Utils.base64EncodeRandomString(16, 64);
+      final dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      final params = await WbiSign.makSign({
+        'avid': ?avid,
+        'bvid': ?bvid,
+        'ep_id': ?epid,
+        'season_id': ?seasonId,
+        'cid': cid,
+        'qn': qn,
+        // 获取所有格式的视频
+        'fnval': 4048,
+        'fourk': 1,
+        'fnver': 0,
+        'voice_balance': voiceBalance ? 1 : 0,
+        'gaia_source': 'pre-load',
+        'isGaiaAvoided': true,
+        'web_location': 1315873,
+        // 免登录查看1080p
+        if (tryLook) 'try_look': 1,
+        'dm_img_list': '[]',
+        'dm_img_str': dmImgStr,
+        'dm_cover_img_str': dmCoverImgStr,
+        'dm_img_inter': '{"ds":[],"wh":[0,0,0],"of":[0,0,0]}',
+        'cur_language': ?language,
+      });
+
+      final result = await Request().requestApi<PlayUrlModel>(
+        videoType.api,
+        kind: ApiCallKind.query,
+        options: Options(extra: {'account': account}),
+        queryParameters: params,
+        cancelToken: cancelToken,
+        errorMessages: const {
+          -404: '视频不存在或已被删除',
+          87008: '当前视频可能是专属视频，可能需包月充电观看',
+        },
+        decode: (body) {
+          switch (videoType) {
+            case .ugc:
+              return PlayUrlModel.fromJson(body['data']);
+            case .pgc:
+              final result = body['result'];
+              return PlayUrlModel.fromJson(result['video_info'])
+                ..lastPlayTime =
+                    result['play_view_business_info']?['user_status']?['watch_progress']?['current_watch_progress'];
+            case .pugv:
+              final result = body['data'];
+              return PlayUrlModel.fromJson(result)
+                ..lastPlayTime =
+                    result['play_view_business_info']?['user_status']?['watch_progress']?['current_watch_progress'];
+          }
+        },
+      );
+      // 仅业务拒绝允许尝试番剧协议；网络或解析失败不能冒充资源类型不匹配。
+      if (result case Error(:final code, cause: null)
+          when code != null && epid != null && videoType == .ugc) {
+        return await videoUrl(
+          avid: avid,
+          bvid: bvid,
+          cid: cid,
+          qn: qn,
+          epid: epid,
+          seasonId: seasonId,
+          tryLook: tryLook,
+          videoType: .pgc,
+          language: language,
+          voiceBalance: voiceBalance,
+          cancelToken: cancelToken,
+          account: account,
+        );
+      }
+      return result;
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  // 视频信息 标题、简介
+  static Future<LoadingState<VideoDetailData>> videoIntro({
+    required String bvid,
+    Account? account,
+  }) async {
+    try {
+      final noRetry = account != null;
+      account ??= Accounts.heartbeat;
+
+      return await Request().requestApi(
+        Api.videoIntro,
+        queryParameters: await WbiSign.makSign({'bvid': bvid}),
+        options: Options(extra: {'account': account, 'noRetry': noRetry}),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return VideoDetailData.fromJson(body['data']);
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<VideoRelation>> videoRelation({
+    required String bvid,
+    Account? account,
+  }) async {
+    final int aid;
+    try {
+      if (!IdUtils.bvRegexExact.hasMatch(bvid)) {
+        throw const FormatException('无效的视频标识');
+      }
+      aid = IdUtils.bv2av(bvid);
+    } catch (error, stackTrace) {
+      return Error('视频信息不完整，请刷新后重试', cause: error, stackTrace: stackTrace);
+    }
+    return await Request().requestApi(
+      Api.videoRelation,
+      kind: ApiCallKind.query,
+      decode: (body) => VideoRelation.fromJson(body['data']),
+      options: Options(extra: {'account': account ?? Accounts.main}),
+      queryParameters: {'aid': aid, 'bvid': bvid},
+    );
+  }
+
+  // 相关视频
+  static Future<LoadingState<List<HotVideoItemModel>?>> relatedVideoList({
+    required String bvid,
+  }) async {
+    final account = Accounts.get(AccountType.recommend);
+
+    return await Request().requestApi(
+      Api.relatedList,
+      queryParameters: {'bvid': bvid},
+      options: Options(extra: {'account': account}),
+      kind: ApiCallKind.query,
+      decode: (body) {
+        final items = (body['data'] as List?)?.map(
+          (i) => HotVideoItemModel.fromJson(i),
+        );
+        final list = RecommendFilter.applyFilterToRelatedVideos
+            ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()
+            : items?.toList();
+        return list;
+      },
+    );
+  }
+
+  // 获取点赞/投币/收藏状态 pgc
+  static Future<LoadingState<PgcLCF>> pgcLikeCoinFav({
+    required Object epId,
+    Account? account,
+  }) async {
+    if ((int.tryParse('$epId') ?? 0) <= 0) {
+      return const Error('剧集信息不完整，请刷新后重试');
+    }
+    return await Request().requestApi(
+      Api.pgcLikeCoinFav,
+      kind: ApiCallKind.query,
+      decode: (body) => PgcLCF.fromJson(body['data']),
+      options: Options(extra: {'account': account ?? Accounts.main}),
+      queryParameters: {'ep_id': epId},
+    );
+  }
+
+  // 投币
+  static Future<LoadingState<void>> coinVideo({
+    required String bvid,
+    required int multiply,
+    int selectLike = 0,
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    final invalid = _validateInteraction(bvid, account, app: true);
+    if (invalid != null) return invalid;
+    if (multiply < 1 || multiply > 2 || (selectLike != 0 && selectLike != 1)) {
+      return const Error('投币参数无效，请重新选择');
+    }
+    return await Request().requestApi<void>(
+      Api.coinVideo,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      data: {
+        'aid': IdUtils.bv2av(bvid).toString(),
+        'multiply': multiply.toString(),
+        'select_like': selectLike.toString(),
+      },
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+  }
+
+  // 一键三连 pgc
+  static Future<LoadingState<PgcTriple>> pgcTriple({
+    required Object epId,
+    Object? seasonId,
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    if (!account.isLogin) return const Error('账号未登录');
+    if ((int.tryParse('$epId') ?? 0) <= 0) {
+      return const Error('剧集信息不完整，请刷新后重试');
+    }
+    return await Request().requestApi(
+      Api.pgcTriple,
+      kind: ApiCallKind.mutation,
+      decode: (body) => PgcTriple.fromJson(body['data']),
+      data: {'ep_id': epId, 'csrf': account.csrf},
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+        headers: {
+          'origin': 'https://www.bilibili.com',
+          'referer':
+              'https://www.bilibili.com/bangumi/play/${seasonId == null ? "ep$epId" : "ss$seasonId"}',
+          'user-agent': BrowserUa.pc,
+        },
+      ),
+    );
+  }
+
+  // 一键三连
+  static Future<LoadingState<UgcTriple>> ugcTriple({
+    required String bvid,
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    final invalid = _validateInteraction(bvid, account);
+    if (invalid != null) return invalid;
+    return await Request().requestApi(
+      Api.ugcTriple,
+      kind: ApiCallKind.mutation,
+      decode: (body) => UgcTriple.fromJson(body['data']),
+      data: {
+        'aid': IdUtils.bv2av(bvid),
+        'eab_x': 2,
+        'ramval': 0,
+        'source': 'web_normal',
+        'ga': 1,
+        'csrf': account.csrf,
+        'spmid': '333.788.0.0',
+        'statistics': '{"appId":100,"platform":5}',
+      },
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+        headers: {
+          'origin': 'https://www.bilibili.com',
+          'referer': 'https://www.bilibili.com/video/$bvid',
+          'user-agent': BrowserUa.pc,
+        },
+      ),
+    );
+  }
+
+  // （取消）点赞
+  static Future<LoadingState<String?>> likeVideo({
+    required String bvid,
+    required bool type,
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    final invalid = _validateInteraction(bvid, account, app: true);
+    if (invalid != null) return invalid;
+    return await Request().requestApi<String?>(
+      Api.likeVideo,
+      kind: ApiCallKind.mutation,
+      // 提示文案是可选的展示字段，缺失不能推翻已经确认的写入。
+      decode: (body) {
+        final data = body['data'];
+        final toast = data is Map ? data['toast'] : null;
+        return toast is String && toast.trim().isNotEmpty
+            ? Error(toast).toString()
+            : null;
+      },
+      data: {'aid': IdUtils.bv2av(bvid).toString(), 'like': type ? '0' : '1'},
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+  }
+
+  static Error? _validateInteraction(
+    String bvid,
+    Account account, {
+    bool app = false,
+  }) {
+    if (!account.isLogin) return const Error('账号未登录');
+    if (app && account.accessKey.isNullOrEmpty) {
+      return const Error('请退出账号后重新登录');
+    }
+    try {
+      if (!IdUtils.bvRegexExact.hasMatch(bvid)) {
+        throw const FormatException('无效的视频标识');
+      }
+      IdUtils.bv2av(bvid);
+      return null;
+    } catch (error, stackTrace) {
+      return Error('视频信息不完整，请刷新后重试', cause: error, stackTrace: stackTrace);
+    }
+  }
+
+  // （取消）点踩
+  static Future<LoadingState<void>> dislikeVideo({
+    required String bvid,
+    required bool type,
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    if (account.accessKey.isNullOrEmpty) {
+      return Error(account.isLogin ? '请退出账号后重新登录' : '账号未登录');
+    }
+    final int aid;
+    try {
+      if (!IdUtils.bvRegexExact.hasMatch(bvid)) {
+        throw const FormatException('无效的视频标识');
+      }
+      aid = IdUtils.bv2av(bvid);
+    } catch (error, stackTrace) {
+      return Error('视频信息不完整，请刷新后重试', cause: error, stackTrace: stackTrace);
+    }
+    return await Request().requestApi<void>(
+      Api.dislikeVideo,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      data: {'aid': '$aid', 'dislike': type ? '0' : '1'},
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+  }
+
+  static Future<LoadingState<void>> _feedFeedback(
+    String api, {
+    required String goto,
+    required int id,
+    int? reasonId,
+    int? feedbackId,
+    Account? account,
+  }) async {
+    account ??= Accounts.get(AccountType.recommend);
+    if (account.accessKey.isNullOrEmpty) {
+      return Error(account.isLogin ? '请退出账号后重新登录' : '账号未登录');
+    }
+    if (goto.trim().isEmpty ||
+        id <= 0 ||
+        (reasonId != null && feedbackId != null) ||
+        (api == Api.feedDislike && reasonId == null && feedbackId == null)) {
+      return const Error('推荐反馈信息不完整，请刷新后重试');
+    }
+    return await Request().requestApi<void>(
+      api,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      options: Options(method: 'GET', extra: {'account': account}),
+      queryParameters: {
+        'goto': goto,
+        'id': id,
+        'reason_id': ?reasonId,
+        'feedback_id': ?feedbackId,
+        'build': 1,
+        'mobi_app': 'android',
+      },
+    );
+  }
+
+  static Future<LoadingState<void>> feedDislike({
+    required String goto,
+    required int id,
+    int? reasonId,
+    int? feedbackId,
+    Account? account,
+  }) => _feedFeedback(
+    Api.feedDislike,
+    goto: goto,
+    id: id,
+    reasonId: reasonId,
+    feedbackId: feedbackId,
+    account: account,
+  );
+
+  static Future<LoadingState<void>> feedDislikeCancel({
+    required String goto,
+    required int id,
+    int? reasonId,
+    int? feedbackId,
+    Account? account,
+  }) => _feedFeedback(
+    Api.feedDislikeCancel,
+    goto: goto,
+    id: id,
+    reasonId: reasonId,
+    feedbackId: feedbackId,
+    account: account,
+  );
+
+  // 发表评论 replyAdd
+
+  // type	num	评论区类型代码	必要	类型代码见表
+  // oid	num	目标评论区id	必要
+  // root	num	根评论rpid	非必要	二级评论以上使用
+  // parent	num	父评论rpid	非必要	二级评论同根评论id 大于二级评论为要回复的评论id
+  // message	str	发送评论内容	必要	最大1000字符
+  // plat	num	发送平台标识	非必要	1：web端 2：安卓客户端  3：ios客户端  4：wp客户端
+  static Future<LoadingState<ReplyInfo?>> replyAdd({
+    Account? account,
+    required int type,
+    required int oid,
+    required String message,
+    int? root,
+    int? parent,
+    List? pictures,
+    bool syncToDynamic = false,
+    Map<String, int>? atNameToMid,
+  }) async {
+    account ??= Accounts.main;
+    final data = {
+      'type': type,
+      'oid': oid,
+      if (root != null && root != 0) 'root': root,
+      if (parent != null && parent != 0) 'parent': parent,
+      'message': message,
+      if (atNameToMid?.isNotEmpty == true)
+        'at_name_to_mid': jsonEncode(atNameToMid), // {"name":uid}
+      if (pictures != null) 'pictures': jsonEncode(pictures),
+      if (syncToDynamic) 'sync_to_dynamic': 1,
+      'csrf': account.csrf,
+    };
+    final result = await Request().requestApi<ReplyInfo?>(
+      Api.replyAdd,
+      kind: ApiCallKind.mutation,
+      decode: (body) {
+        // 成功码已确认发送；回显缺失或损坏时保留成功，交由列表重新查询。
+        try {
+          final reply = body['data']?['reply'];
+          if (reply == null) return null;
+          final info = RequestUtils.replyCast(reply);
+          if (info.id <= 0 || info.oid != oid || info.type != type) {
+            throw const FormatException('评论回显与目标不符');
+          }
+          return info;
+        } catch (error, stackTrace) {
+          logger.w(
+            '评论已发送，回显解析失败',
+            error: error.runtimeType,
+            stackTrace: stackTrace,
+          );
+          return null;
+        }
+      },
+      data: data,
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+    if (result case Success(response: final replyInfo?)) {
+      try {
+        await GStorage.reply?.put(
+          replyInfo.id.toString(),
+          (replyInfo.deepCopy()
+                ..unknownFields.clear()
+                ..clearTrackInfo())
+              .writeToBuffer(),
+        );
+      } catch (error, stackTrace) {
+        logger.w(
+          '评论已发送，本地保存失败',
+          error: error.runtimeType,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+    return result;
+  }
+
+  static Future<LoadingState<void>> replyDel({
+    Account? account,
+    required int type, //replyType
+    required int oid,
+    required int rpid,
+  }) async {
+    account ??= Accounts.main;
+    final result = await Request().requestApi<void>(
+      Api.replyDel,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      data: {
+        'type': type, //type.index
+        'oid': oid,
+        'rpid': rpid,
+        'csrf': account.csrf,
+      },
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+    if (result.isSuccess) {
+      try {
+        await GStorage.reply?.delete(rpid.toString());
+      } catch (error, stackTrace) {
+        logger.w(
+          '评论已删除，本地清理失败',
+          error: error.runtimeType,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+    return result;
+  }
+
+  // 操作用户关系
+  static Future<LoadingState<void>> relationMod({
+    Account? account,
+    required int mid,
+    required int act,
+    required int reSrc,
+  }) async {
+    final requestAccount = account ?? Accounts.main;
+    final res = await Request().requestApi<void>(
+      Api.relationMod,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      queryParameters: {
+        'statistics': '{"appId":100,"platform":5}',
+        'x-bili-device-req-json':
+            '{"platform":"web","device":"pc","spmid":"333.1387"}',
+      },
+      data: {
+        'fid': mid,
+        'act': act,
+        're_src': reSrc,
+        'gaia_source': 'web_main',
+        'spmid': '333.1387',
+        'extend_content': jsonEncode({
+          "entity": "user",
+          "entity_id": mid,
+          'fp': BrowserUa.pc,
+        }),
+        'csrf': requestAccount.csrf,
+      },
+      options: Options(
+        extra: {'account': requestAccount},
+        contentType: Headers.formUrlEncodedContentType,
+        headers: {
+          'origin': 'https://space.bilibili.com',
+          'referer': 'https://space.bilibili.com/$mid/dynamic',
+          'user-agent': BrowserUa.pc,
+        },
+      ),
+    );
+    if (res.isSuccess) {
+      if (!identical(requestAccount, Accounts.main)) {
+        return const Error('账号已切换');
+      }
+      if (act == 5) {
+        // block
+        BlockedAuthors.setBlocked(mid, true);
+      } else if (act == 6) {
+        // unblock
+        BlockedAuthors.setBlocked(mid, false);
+      }
+    }
+    return res;
+  }
+
+  static Future<LoadingState<void>> roomEntryAction({
+    Account? account,
+    required Object roomId,
+  }) {
+    account ??= Accounts.heartbeat;
+    return Request().requestApi<void>(
+      Api.roomEntryAction,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      queryParameters: {'csrf': account.csrf},
+      data: {'room_id': roomId, 'platform': 'pc'},
+      options: Options(extra: {'account': account}),
+    );
+  }
+
+  static Future<LoadingState<void>> historyReport({
+    Account? account,
+    required Object aid,
+    required Object type,
+  }) {
+    account ??= Accounts.heartbeat;
+    return Request().requestApi<void>(
+      Api.historyReport,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      data: {'aid': aid, 'type': type, 'csrf': account.csrf},
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+  }
+
+  // 视频播放进度
+  static Future<LoadingState<void>> heartBeat({
+    Account? account,
+    Object? aid,
+    Object? bvid,
+    required Object cid,
+    required Object progress,
+    Object? epid,
+    Object? seasonId,
+    Object? subType,
+    required VideoType videoType,
+  }) {
+    account ??= Accounts.heartbeat;
+    final isPugv = videoType == VideoType.pugv;
+    return Request().requestApi<void>(
+      Api.heartBeat,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      data: {
+        if (isPugv) 'aid': ?aid else 'bvid': ?bvid,
+        'cid': cid,
+        'epid': ?epid,
+        'sid': ?seasonId,
+        'type': videoType.type,
+        'sub_type': ?subType,
+        'played_time': progress,
+        'csrf': account.csrf,
+      },
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+  }
+
+  static Future<LoadingState<void>> medialistHistory({
+    Account? account,
+    required int desc,
+    required Object oid,
+    required Object upperMid,
+  }) {
+    account ??= Accounts.heartbeat;
+    return Request().requestApi<void>(
+      Api.mediaListHistory,
+      kind: ApiCallKind.mutation,
+      decode: (_) {},
+      data: {
+        'desc': desc,
+        'oid': oid,
+        'upper_mid': upperMid,
+        'csrf': account.csrf,
+      },
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+  }
+
+  static Future<LoadingState<String>> _pgcFollow(
+    String api, {
+    required String seasonIds,
+    required String successMessage,
+    int? status,
+    Account? account,
+  }) async {
+    if (seasonIds.split(',').any((id) => (int.tryParse(id) ?? 0) <= 0)) {
+      return const Error('番剧标识无效，请刷新后重试');
+    }
+    if (status != null && (status < 1 || status > 3)) {
+      return const Error('追番分组无效，请重新选择');
+    }
+    account ??= Accounts.main;
+    return await Request().requestApi(
+      api,
+      kind: ApiCallKind.mutation,
+      decode: (body) {
+        // 提示文案是可选回显，不能覆盖服务端已确认的写入结果。
+        if (body['result'] case {'toast': String message}
+            when message.trim().isNotEmpty) {
+          return message;
+        }
+        return successMessage;
+      },
+      data: {
+        'season_id': seasonIds,
+        'status': ?status,
+        'csrf': account.csrf,
+      },
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+  }
+
+  static Future<LoadingState<String>> pgcAdd({
+    int? seasonId,
+    Account? account,
+  }) => _pgcFollow(
+    Api.pgcAdd,
+    seasonIds: '$seasonId',
+    successMessage: '追番成功',
+    account: account,
+  );
+
+  static Future<LoadingState<String>> pgcDel({
+    int? seasonId,
+    Account? account,
+  }) => _pgcFollow(
+    Api.pgcDel,
+    seasonIds: '$seasonId',
+    successMessage: '取消追番成功',
+    account: account,
+  );
+
+  static Future<LoadingState<String>> pgcUpdate({
+    required String seasonId,
+    required int status,
+    Account? account,
+  }) => _pgcFollow(
+    Api.pgcUpdate,
+    seasonIds: seasonId,
+    status: status,
+    successMessage: '追番分组已更新',
+    account: account,
+  );
+
+  // 查看视频同时在看人数
+  static Future<LoadingState<String>> onlineTotal({
+    int? aid,
+    String? bvid,
+    required int cid,
+  }) async {
+    final account = Accounts.heartbeat;
+
+    assert(aid != null || bvid != null);
+    return await Request().requestApi(
+      Api.onlineTotal,
+      queryParameters: {'aid': aid, 'bvid': bvid, 'cid': cid},
+      options: Options(extra: {'account': account}),
+      kind: ApiCallKind.query,
+      decode: (body) {
+        return body['data']['total'];
+      },
+    );
+  }
+
+  static Future<LoadingState<AiConclusionData>> aiConclusion({
+    required String bvid,
+    required int cid,
+    int? upMid,
+  }) async {
+    try {
+      final account = Accounts.heartbeat;
+      final result = await Request().requestApi<Map<String, dynamic>>(
+        Api.aiConclusion,
+        kind: ApiCallKind.query,
+        options: Options(extra: {'account': account}),
+        queryParameters: await WbiSign.makSign({
+          'bvid': bvid,
+          'cid': cid,
+          'up_mid': ?upMid,
+        }),
+        decode: (body) => body['data'] as Map<String, dynamic>,
+      );
+      if (result is! Success<Map<String, dynamic>>) return result as Error;
+      final data = result.response;
+      final code = data['code'];
+      if (code is! int) throw const FormatException('AI 总结响应缺少业务状态');
+      if (code != 0) return Error(null, code: code);
+      return Success<AiConclusionData>(AiConclusionData.fromJson(data));
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<PlayInfoData>> playInfo({
+    String? aid,
+    String? bvid,
+    required int cid,
+    dynamic seasonId,
+    dynamic epId,
+  }) async {
+    try {
+      final account = Accounts.main;
+
+      assert(aid != null || bvid != null);
+      return await Request().requestApi(
+        Api.playInfo,
+        queryParameters: await WbiSign.makSign({
+          'aid': ?aid,
+          'bvid': ?bvid,
+          'cid': cid,
+          'season_id': ?seasonId,
+          'ep_id': ?epId,
+        }),
+        options: Options(extra: {'account': account}),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return PlayInfoData.fromJson(body['data']);
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<String>> getSubtitles(
+    String subtitleUrl, {
+    SubtitleFormat format = .vtt,
+  }) async {
+    final url = subtitleUrl.startsWith('//')
+        ? 'https:$subtitleUrl'
+        : subtitleUrl;
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        !['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty) {
+      return const Error('字幕地址无效，请重新选择');
+    }
+    Request();
+    try {
+      final response = await Request.dio.get<dynamic>(
+        url,
+        options: Options(extra: {'account': const NoAccount()}),
+      );
+      final data = response.data;
+      final body = data is Map<String, dynamic> ? data['body'] : null;
+      if (body is! List) throw const FormatException('字幕响应缺少正文列表');
+      final subtitle = switch (format) {
+        .json => jsonEncode(data),
+        .vtt => await compute<List, String>(SubtitleUtils.json2Vtt, body),
+        .srt => await compute<List, String>(SubtitleUtils.json2Srt, body),
+      };
+      return Success(subtitle);
+    } on DioException catch (error, stackTrace) {
+      return await decodeApiException(
+        error,
+        stackTrace,
+        kind: ApiCallKind.query,
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static bool _canAddRank(Map i) {
+    if (!RecommendFilter.filterTitle(i['title']) &&
+        !RecommendFilter.filterLikeRatio(
+          i['stat']['like'],
+          i['stat']['view'],
+        )) {
+      if (enableFilter &&
+          i['tname'] != null &&
+          zoneRegExp.hasMatch(i['tname'])) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // 视频排行
+  static Future<LoadingState<List<HotVideoItemModel>>> getRankVideoList(
+    int rid,
+  ) async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.getRankApi,
+        queryParameters: await WbiSign.makSign({'rid': rid, 'type': 'all'}),
+        options: Options(extra: {'account': account}),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          List<HotVideoItemModel> list = <HotVideoItemModel>[];
+          for (final i in body['data']['list']) {
+            if (_canAddRank(i)) {
+              list.add(HotVideoItemModel.fromJson(i));
+            }
+          }
+          return list;
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  // pgc 排行
+  static Future<LoadingState<List<PgcRankItemModel>?>> pgcRankList({
+    int day = 3,
+    required int seasonType,
+  }) async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.pgcRank,
+        queryParameters: await WbiSign.makSign({
+          'day': day,
+          'season_type': seasonType,
+        }),
+        options: Options(extra: {'account': account}),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return (body['result']?['list'] as List?)
+              ?.map((e) => PgcRankItemModel.fromJson(e))
+              .toList();
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  // pgc season 排行
+  static Future<LoadingState<List<PgcRankItemModel>?>> pgcSeasonRankList({
+    int day = 3,
+    required int seasonType,
+  }) async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.pgcSeasonRank,
+        queryParameters: await WbiSign.makSign({
+          'day': day,
+          'season_type': seasonType,
+        }),
+        options: Options(extra: {'account': account}),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return (body['data']?['list'] as List?)
+              ?.map((e) => PgcRankItemModel.fromJson(e))
+              .toList();
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<VideoNoteData>> getVideoNoteList({
+    dynamic oid,
+    dynamic uperMid,
+    required int page,
+  }) async {
+    final account = Accounts.main;
+
+    return await Request().requestApi(
+      Api.archiveNoteList,
+      queryParameters: {
+        'csrf': account.csrf,
+        'oid': oid,
+        'oid_type': 0,
+        'pn': page,
+        'ps': 10,
+        'uper_mid': ?uperMid,
+      },
+      options: Options(extra: {'account': account}),
+      kind: ApiCallKind.query,
+      decode: (body) {
+        return VideoNoteData.fromJson(body['data']);
+      },
+    );
+  }
+
+  static Future<LoadingState<List<PopularSeriesListItem>?>>
+  popularSeriesList() async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.popularSeriesList,
+        queryParameters: await WbiSign.makSign({'web_location': 333.934}),
+        options: Options(
+          extra: {'account': account},
+          headers: const {
+            'user-agent': BrowserUa.pc,
+            'origin': HttpString.baseUrl,
+            'referer': 'https://www.bilibili.com/v/popular/weekly',
+          },
+        ),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return (body['data']?['list'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    PopularSeriesListItem.fromJson(e as Map<String, dynamic>),
+              )
+              .toList();
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<PopularSeriesOneData>> popularSeriesOne({
+    required int number,
+  }) async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.popularSeriesOne,
+        queryParameters: await WbiSign.makSign({
+          'number': number,
+          'web_location': 333.934,
+        }),
+        options: Options(
+          extra: {'account': account},
+          headers: {
+            'user-agent': BrowserUa.pc,
+            'origin': HttpString.baseUrl,
+            'referer': 'https://www.bilibili.com/v/popular/weekly?num=$number',
+          },
+        ),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return PopularSeriesOneData.fromJson(body['data']);
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<PopularPreciousData>> popularPrecious({
+    required int page,
+  }) async {
+    try {
+      final account = Accounts.get(AccountType.recommend);
+
+      return await Request().requestApi(
+        Api.popularPrecious,
+        queryParameters: await WbiSign.makSign({
+          'page_size': 100,
+          'page': page,
+          'web_location': 333.934,
+        }),
+        options: Options(
+          extra: {'account': account},
+          headers: const {
+            'user-agent': BrowserUa.pc,
+            'origin': HttpString.baseUrl,
+            'referer': 'https://www.bilibili.com/v/popular/history',
+          },
+        ),
+        kind: ApiCallKind.query,
+        decode: (body) {
+          return PopularPreciousData.fromJson(body['data']);
+        },
+      );
+    } catch (error, stackTrace) {
+      return Error.fromException(error, stackTrace);
+    }
+  }
+
+  static Future<LoadingState<PlayUrlModel>> tvPlayUrl({
+    required int cid,
+    required int objectId, // aid, epid
+    required int playurlType, // ugc 1, pgc 2
+    int? qn,
+  }) async {
+    final account = Accounts.get(AccountType.video);
+
+    final accessKey = account.accessKey;
+    final params = {
+      'access_key': ?accessKey,
+      'actionKey': 'appkey',
+      'cid': cid,
+      'fourk': 1,
+      'is_proj': 1,
+      'mobile_access_key': ?accessKey,
+      'object_id': objectId,
+      'mobi_app': 'android',
+      'platform': 'android',
+      'playurl_type': playurlType,
+      'protocol': 0,
+      'qn': qn ?? 80,
+    };
+    AppSign.appSign(params);
+    return await Request().requestApi(
+      Api.tvPlayUrl,
+      queryParameters: params,
+      options: Options(extra: {'account': account}),
+      kind: ApiCallKind.query,
+      decode: (body) {
+        return PlayUrlModel.fromJson(body['data']);
+      },
+    );
+  }
+
+  static Future<LoadingState<VideoShotData>> videoshot({
+    required String bvid,
+    required int cid,
+  }) async {
+    final result = await Request().requestApi<VideoShotData>(
+      Api.videoshot,
+      kind: ApiCallKind.query,
+      decode: (body) => VideoShotData.fromJson(body['data']),
+      queryParameters: {
+        // 'aid': IdUtils.bv2av(_bvid),
+        'bvid': bvid,
+        'cid': cid,
+        'index': 1,
+      },
+      options: Options(
+        headers: {
+          'user-agent': BrowserUa.pc,
+          'referer': 'https://www.bilibili.com/video/$bvid',
+        },
+      ),
+    );
+    if (result case Success(:final response) when response.index.isEmpty) {
+      return const Error('暂无视频预览');
+    }
+    return result;
+  }
+}

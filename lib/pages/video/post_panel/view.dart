@@ -1,0 +1,618 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
+import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
+import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/sponsor_block.dart';
+import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
+import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
+import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
+import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
+import 'package:pili_aurora_next/pages/video/post_panel/popup_menu_text.dart';
+import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
+import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/utils/extension/context_ext.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
+
+class PostPanel extends CommonSlidePage {
+  const PostPanel({
+    super.key,
+    super.enableSlide,
+    required this.videoDetailController,
+    required this.plPlayerController,
+  });
+
+  final VideoDetailController videoDetailController;
+  final PlPlayerController plPlayerController;
+
+  @override
+  State<PostPanel> createState() => _PostPanelState();
+
+  /// 支持秒、分:秒和时:分:秒；小数仅用于秒，避免含糊输入被静默接受。
+  static double? parseSegmentTime(String text) {
+    final parts = text.trim().split(':');
+    if (parts.isEmpty || parts.length > 3) return null;
+    double seconds = 0;
+    for (var index = 0; index < parts.length; index++) {
+      final last = index == parts.length - 1;
+      if (!(last ? RegExp(r'^\d+(?:\.\d+)?$') : RegExp(r'^\d+$')).hasMatch(
+        parts[index],
+      )) {
+        return null;
+      }
+      final value = double.tryParse(parts[index]);
+      if (value == null || !value.isFinite || (index > 0 && value >= 60)) {
+        return null;
+      }
+      seconds = seconds * 60 + value;
+    }
+    return seconds.isFinite ? seconds : null;
+  }
+
+  static void updateSegment({
+    required bool isFirst,
+    required PostSegmentModel item,
+    required double value,
+  }) {
+    if (isFirst) {
+      item.segment.first = value;
+    } else {
+      item.segment.second = value;
+    }
+    if (item.category == SegmentType.poi_highlight ||
+        item.actionType == ActionType.full) {
+      item.segment.second = value;
+    }
+  }
+
+  static Widget segmentWidget(
+    ThemeData theme, {
+    required PostSegmentModel item,
+    required double Function() currentPos, // get real-time pos
+    required double videoDuration,
+  }) {
+    Widget segment(bool isFirst) => Builder(
+      builder: (context) {
+        String value = DurationUtils.formatDuration(
+          isFirst ? item.segment.first : item.segment.second,
+        );
+        return Row(
+          spacing: 5,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${isFirst ? '开始' : '结束'}: $value',
+            ),
+            iconButton(
+              context: context,
+              size: 26,
+              tooltip: '设为当前',
+              icon: const Icon(Icons.my_location),
+              onPressed: () {
+                updateSegment(
+                  isFirst: isFirst,
+                  item: item,
+                  value: currentPos(),
+                );
+                (context as Element).markNeedsBuild();
+              },
+            ),
+            iconButton(
+              context: context,
+              size: 26,
+              tooltip: isFirst ? '视频开头' : '视频结尾',
+              icon: isFirst
+                  ? const Icon(Icons.first_page)
+                  : const Icon(Icons.last_page),
+              onPressed: () {
+                updateSegment(
+                  isFirst: isFirst,
+                  item: item,
+                  value: isFirst ? 0 : videoDuration,
+                );
+                (context as Element).markNeedsBuild();
+              },
+            ),
+            iconButton(
+              context: context,
+              size: 26,
+              tooltip: '编辑',
+              icon: const Icon(Icons.edit),
+              onPressed: () async {
+                String initV = value;
+                final String? res;
+                final textField = TextFormField(
+                  initialValue: value,
+                  autofocus: true,
+                  textInputAction: .done,
+                  onChanged: (value) => initV = value,
+                  decoration: PlatformUtils.isMobile
+                      ? const InputDecoration(
+                          border: .none,
+                          isDense: true,
+                          contentPadding: .zero,
+                        )
+                      : null,
+                  onFieldSubmitted: (value) => Get.back(result: initV),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
+                  ],
+                );
+                if (PlatformUtils.isDesktop || context.isTablet) {
+                  res = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      content: textField,
+                      title: Text(
+                        '${isFirst ? '开始' : '结束'}: ',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      contentPadding: const .fromLTRB(24, 6, 24, 16),
+                      actions: [
+                        TextButton(
+                          onPressed: Get.back,
+                          child: Text(
+                            '取消',
+                            style: TextStyle(color: theme.colorScheme.outline),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Get.back(result: initV),
+                          child: const Text('确定'),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  res = await showModalBottomSheet<String>(
+                    context: context,
+                    useSafeArea: true,
+                    isScrollControlled: true,
+                    constraints: const BoxConstraints(maxWidth: 450),
+                    builder: (context) {
+                      final colorScheme = ColorScheme.of(context);
+                      return Padding(
+                        padding: const .symmetric(horizontal: 16, vertical: 10),
+                        child: ViewInsetsSafeArea(
+                          child: SafeArea(
+                            bottom: true,
+                            child: Row(
+                              spacing: 10,
+                              mainAxisSize: .min,
+                              children: [
+                                Text('${isFirst ? '开始' : '结束'}: '),
+                                Expanded(child: textField),
+                                iconButton(
+                                  size: 34,
+                                  iconSize: 19,
+                                  tooltip: '取消',
+                                  onPressed: Get.back,
+                                  iconColor: colorScheme.outline,
+                                  bgColor: colorScheme.onInverseSurface,
+                                  icon: const Icon(Icons.clear),
+                                ),
+                                iconButton(
+                                  size: 34,
+                                  iconSize: 19,
+                                  tooltip: '确定',
+                                  onPressed: () => Get.back(result: initV),
+                                  iconColor: colorScheme.onSecondaryContainer,
+                                  bgColor: colorScheme.secondaryContainer,
+                                  icon: const Icon(Icons.check),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }
+                if (res != null) {
+                  if (!context.mounted) return;
+                  final duration = parseSegmentTime(res);
+                  if (duration == null) {
+                    SmartDialog.showToast('请输入有效时间，例如 01:23.500');
+                  } else if (duration > videoDuration) {
+                    SmartDialog.showToast('时间不能超过视频时长');
+                  } else {
+                    updateSegment(
+                      isFirst: isFirst,
+                      item: item,
+                      value: duration,
+                    );
+                    (context as Element).markNeedsBuild();
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (item.category != SegmentType.poi_highlight) {
+      return Wrap(
+        runSpacing: 8,
+        spacing: 16,
+        children: [segment(true), segment(false)],
+      );
+    }
+    return segment(true);
+  }
+}
+
+class _PostPanelState extends State<PostPanel>
+    with SingleTickerProviderStateMixin, CommonSlideMixin {
+  late final String _bvid;
+  late final int _cid;
+  bool _posting = false;
+  late final VideoDetailController videoDetailController =
+      widget.videoDetailController;
+  late final PlPlayerController plPlayerController = widget.plPlayerController;
+  late final List<PostSegmentModel> list = videoDetailController.postList;
+
+  double get videoDuration => plPlayerController.durationInMilliseconds / 1000;
+
+  double currentPos() => plPlayerController.positionInMilliseconds / 1000;
+
+  late double bottom;
+
+  @override
+  void initState() {
+    super.initState();
+    _bvid = videoDetailController.bvid;
+    _cid = videoDetailController.cid.value;
+  }
+
+  @override
+  Widget buildPage(ThemeData theme) {
+    return SimpleScaffold(
+      appBar: SizedBox(
+        height: 45,
+        child: Row(
+          children: [
+            const SizedBox(width: 16),
+            const Expanded(child: Text('提交片段', style: TextStyle(fontSize: 16))),
+            iconButton(
+              size: 32,
+              context: context,
+              tooltip: '添加片段',
+              onPressed: _posting
+                  ? null
+                  : () {
+                      setState(() {
+                        list.insert(
+                          0,
+                          PostSegmentModel(
+                            segment: Pair(
+                              first: 0,
+                              second: currentPos(),
+                            ),
+                            category: SegmentType.sponsor,
+                            actionType: ActionType.skip,
+                          ),
+                        );
+                      });
+                    },
+              icon: const Icon(Icons.add),
+            ),
+            const SizedBox(width: 10),
+            iconButton(
+              size: 32,
+              context: context,
+              tooltip: '关闭',
+              onPressed: Get.back,
+              icon: const Icon(Icons.close),
+            ),
+            const SizedBox(width: 16),
+          ],
+        ),
+      ),
+      body: AbsorbPointer(
+        absorbing: _posting,
+        child: enableSlide ? slideList(theme) : buildList(theme),
+      ),
+      fab: list.isEmpty
+          ? null
+          : Padding(
+              padding: .only(
+                right: kFloatingActionButtonMargin,
+                bottom: kFloatingActionButtonMargin + bottom,
+              ),
+              child: FloatingActionButton(
+                tooltip: _posting ? '提交中' : '提交',
+                onPressed: _posting
+                    ? null
+                    : () => showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('确定无误再提交'),
+                          actions: [
+                            TextButton(
+                              onPressed: Get.back,
+                              child: Text(
+                                '取消',
+                                style: TextStyle(
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => _onPost(context),
+                              child: const Text('确定提交'),
+                            ),
+                          ],
+                        ),
+                      ),
+                child: Icon(_posting ? Icons.hourglass_top : Icons.check),
+              ),
+            ),
+    );
+  }
+
+  late Key _key;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = PrimaryScrollController.of(context);
+    _key = ValueKey(controller.hashCode);
+    bottom = MediaQuery.viewPaddingOf(context).bottom;
+  }
+
+  @override
+  Widget buildList(ThemeData theme) {
+    if (list.isEmpty) {
+      return scrollableError;
+    }
+    return ListView.builder(
+      key: _key,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(bottom: 88 + bottom),
+      itemCount: list.length,
+      itemBuilder: (context, index) {
+        return _buildItem(theme, index, list[index]);
+      },
+    );
+  }
+
+  Future<void> _onPost(BuildContext confirmationContext) async {
+    if (_posting) return;
+    Navigator.of(confirmationContext).pop();
+    bool currentVideo() =>
+        !videoDetailController.isClosed &&
+        videoDetailController.bvid == _bvid &&
+        videoDetailController.cid.value == _cid;
+    if (!currentVideo()) {
+      SmartDialog.showToast('视频已切换，请重新打开提交面板');
+      return;
+    }
+    final route = ModalRoute.of(context);
+    final submitted = List<PostSegmentModel>.of(list);
+    setState(() => _posting = true);
+    try {
+      final res = await SponsorBlock.postSkipSegments(
+        bvid: _bvid,
+        cid: _cid,
+        videoDuration: videoDuration,
+        segments: submitted,
+      );
+      if (res case Success(:final response)) {
+        SmartDialog.showToast('提交成功');
+        if (!mounted || !currentVideo()) return;
+        list.removeWhere(submitted.contains);
+        await videoDetailController.handleSBData(response);
+        if (!mounted || !currentVideo()) return;
+        if (videoDetailController.blockListener == null) {
+          videoDetailController.initSkip();
+        }
+        if (mounted && currentVideo() && route?.isCurrent == true) {
+          Navigator.of(context).pop();
+        }
+      } else {
+        res.toast();
+      }
+    } finally {
+      if (mounted) setState(() => _posting = false);
+    }
+  }
+
+  Widget _buildItem(ThemeData theme, int index, PostSegmentModel item) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 5,
+          ),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.onInverseSurface,
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+          ),
+          child: Builder(
+            builder: (context) => Column(
+              spacing: 8,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (item.actionType != ActionType.full)
+                  PostPanel.segmentWidget(
+                    theme,
+                    item: item,
+                    currentPos: currentPos,
+                    videoDuration: videoDuration,
+                  ),
+                Wrap(
+                  runSpacing: 8,
+                  spacing: 16,
+                  children: [
+                    PopupMenuText(
+                      title: '分类',
+                      value: () => item.category,
+                      onSelected: (e) {
+                        bool flag = false;
+                        if (item.category == SegmentType.exclusive_access ||
+                            item.category == SegmentType.poi_highlight) {
+                          flag = true;
+                        }
+                        item.category = e;
+                        List<ActionType> constraintList = e.toActionType;
+                        if (!constraintList.contains(item.actionType)) {
+                          item.actionType = constraintList.first;
+                          flag = true;
+                        }
+                        switch (e) {
+                          case SegmentType.poi_highlight:
+                            PostPanel.updateSegment(
+                              isFirst: false,
+                              item: item,
+                              value: item.segment.first,
+                            );
+                            break;
+                          case SegmentType.exclusive_access:
+                            PostPanel.updateSegment(
+                              isFirst: true,
+                              item: item,
+                              value: 0,
+                            );
+                            break;
+                          default:
+                        }
+                        if (flag) {
+                          (context as Element).markNeedsBuild();
+                        }
+                        return flag;
+                      },
+                      itemBuilder: (context) => SegmentType.values
+                          .map(
+                            (e) => AppPopupMenuItem(
+                              value: e,
+                              child: Text(e.title),
+                            ),
+                          )
+                          .toList(),
+                      getSelectTitle: (category) => category.title,
+                    ),
+                    PopupMenuText(
+                      title: '行为类别',
+                      value: () => item.actionType,
+                      onSelected: (e) {
+                        bool flag = false;
+                        if (item.actionType == ActionType.full) {
+                          flag = true;
+                        }
+                        item.actionType = e;
+                        if (e == ActionType.full) {
+                          flag = true;
+                          PostPanel.updateSegment(
+                            isFirst: true,
+                            item: item,
+                            value: 0,
+                          );
+                        }
+                        if (flag) {
+                          (context as Element).markNeedsBuild();
+                        }
+                        return flag;
+                      },
+                      itemBuilder: (context) => ActionType.values
+                          .map(
+                            (e) => AppPopupMenuItem(
+                              enabled: item.category.toActionType.contains(e),
+                              value: e,
+                              child: Text(e.title),
+                            ),
+                          )
+                          .toList(),
+                      getSelectTitle: (i) => i.title,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          right: 4,
+          child: iconButton(
+            context: context,
+            size: 26,
+            tooltip: '移除',
+            icon: const Icon(Icons.clear),
+            onPressed: () {
+              setState(() {
+                list.removeAt(index);
+              });
+            },
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 4,
+          child: iconButton(
+            context: context,
+            size: 26,
+            tooltip: '预览',
+            icon: const Icon(Icons.preview_outlined),
+            onPressed: () async {
+              final player = plPlayerController.videoPlayerController;
+              if (player != null) {
+                final start = (item.segment.first * 1000).round();
+                Future<void> seekTo() => plPlayerController.seek(
+                  Duration(milliseconds: (item.segment.second * 1000).round()),
+                );
+                if (start <= 0) {
+                  seekTo();
+                  if (!player.state.playing) {
+                    await plPlayerController.play();
+                  }
+                  return;
+                }
+                final seek = max(0, start - 2000);
+                await plPlayerController.seek(Duration(milliseconds: seek));
+                if (!player.state.playing) {
+                  await plPlayerController.play();
+                }
+                if (start > seek) {
+                  final posSub = player.stream.position.listen(
+                    null,
+                    cancelOnError: true,
+                  );
+                  final timer = Timer(
+                    const Duration(seconds: 10),
+                    posSub.cancel,
+                  );
+                  final duration = Duration(milliseconds: start);
+                  posSub.onData((pos) {
+                    if (pos >= duration) {
+                      seekTo();
+                      timer.cancel();
+                      posSub.cancel();
+                    }
+                  });
+                } else {
+                  seekTo();
+                }
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}

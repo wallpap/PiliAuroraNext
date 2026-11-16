@@ -1,0 +1,263 @@
+import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
+import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
+import 'package:pili_aurora_next/common/widgets/player_bar.dart';
+import 'package:pili_aurora_next/pages/live_room/controller.dart';
+import 'package:pili_aurora_next/pages/live_dm_block/controller.dart'
+    show LiveBlockRulesChanged;
+import 'package:pili_aurora_next/pages/video/widgets/header_mixin.dart';
+import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
+import 'package:pili_aurora_next/plugin/pl_player/models/video_fit_type.dart';
+import 'package:pili_aurora_next/plugin/pl_player/widgets/common_btn.dart';
+import 'package:pili_aurora_next/plugin/pl_player/widgets/play_pause_btn.dart';
+import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_volume_control.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+
+class BottomControl extends StatefulWidget {
+  const BottomControl({
+    super.key,
+    required this.plPlayerController,
+    required this.liveRoomCtr,
+    required this.onRefresh,
+    this.subTitleStyle = const TextStyle(fontSize: 12),
+    this.titleStyle = const TextStyle(fontSize: 14),
+  });
+
+  final PlPlayerController plPlayerController;
+  final LiveRoomController liveRoomCtr;
+  final VoidCallback onRefresh;
+
+  final TextStyle subTitleStyle;
+  final TextStyle titleStyle;
+
+  @override
+  State<BottomControl> createState() => _BottomControlState();
+}
+
+class _BottomControlState extends State<BottomControl> with HeaderMixin {
+  late final LiveRoomController liveRoomCtr = widget.liveRoomCtr;
+  @override
+  late final PlPlayerController plPlayerController = widget.plPlayerController;
+  @override
+  ThemeData get theme => ThemeUtils.darkTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFullScreen = plPlayerController.isFullScreen.value;
+    return Padding(
+      padding: const .symmetric(horizontal: 14, vertical: 13),
+      child: Material(
+        type: .transparency,
+        child: PlayerBar(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlayOrPauseButton(plPlayerController: plPlayerController),
+                if (PlatformUtils.isDesktop)
+                  DesktopVolumeControl(
+                    volume: plPlayerController.volume,
+                    muted: plPlayerController.muted,
+                    maxVolume: plPlayerController.maxVolume,
+                    onChanged: (value) => plPlayerController.setVolume(
+                      value,
+                      showIndicator: false,
+                    ),
+                    onMuteChanged: plPlayerController.setMuted,
+                    onOpened: () =>
+                        plPlayerController.setControlsMenuOpen(true),
+                    onClosed: () =>
+                        plPlayerController.setControlsMenuOpen(false),
+                  ),
+                ComBtn(
+                  height: 30,
+                  tooltip: '刷新',
+                  icon: const Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                  onTap: widget.onRefresh,
+                ),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ComBtn(
+                  height: 30,
+                  tooltip: '屏蔽',
+                  icon: const Icon(
+                    size: 18,
+                    Icons.block,
+                    color: Colors.white,
+                  ),
+                  onTap: () {
+                    if (kDebugMode || liveRoomCtr.isLogin) {
+                      final account = Accounts.main;
+                      final roomId = liveRoomCtr.roomId;
+                      Get.toNamed(
+                        '/liveDmBlockPage',
+                        parameters: {
+                          'roomId': liveRoomCtr.roomId.toString(),
+                        },
+                        arguments: ((keywords, uids) {
+                          if (!liveRoomCtr.isClosed &&
+                              liveRoomCtr.roomId == roomId &&
+                              identical(account, Accounts.main)) {
+                            liveRoomCtr.updateBlockRules(keywords, uids);
+                          }
+                        }) as LiveBlockRulesChanged,
+                      );
+                    } else {
+                      SmartDialog.showToast('账号未登录');
+                    }
+                  },
+                ),
+                const SizedBox(width: 3),
+                Obx(
+                  () {
+                    final enableShowLiveDanmaku =
+                        plPlayerController.enableShowLiveDanmaku.value;
+                    return ComBtn(
+                      height: 30,
+                      tooltip: "${enableShowLiveDanmaku ? '关闭' : '开启'}弹幕",
+                      icon: enableShowLiveDanmaku
+                          ? const Icon(
+                              size: 18,
+                              CustomIcons.dm_on,
+                              color: Colors.white,
+                            )
+                          : const Icon(
+                              size: 18,
+                              CustomIcons.dm_off,
+                              color: Colors.white,
+                            ),
+                      onTap: () {
+                        final newVal = !enableShowLiveDanmaku;
+                        plPlayerController.enableShowLiveDanmaku.value = newVal;
+                        if (!plPlayerController.tempPlayerConf) {
+                          GStorage.setting.put(
+                            SettingBoxKey.enableShowLiveDanmaku,
+                            newVal,
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+                ComBtn(
+                  height: 30,
+                  tooltip: '弹幕设置',
+                  icon: const Icon(
+                    size: 18,
+                    CustomIcons.dm_settings,
+                    color: Colors.white,
+                  ),
+                  onTap: () => showSetDanmaku(isLive: true),
+                ),
+                Obx(
+                  () => PopupMenuButton<VideoFitType>(
+                    tooltip: '画面比例',
+                    initialValue: plPlayerController.videoFit.value,
+                    itemBuilder: (context) {
+                      return VideoFitType.values
+                          .map(
+                            (boxFit) => AppPopupMenuItem<VideoFitType>(
+                              height: 35,
+                              value: boxFit,
+                              selected:
+                                  boxFit == plPlayerController.videoFit.value,
+                              onTap: () =>
+                                  plPlayerController.toggleVideoFit(boxFit),
+                              child: Text(
+                                boxFit.desc,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          )
+                          .toList();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        plPlayerController.videoFit.value.desc,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Obx(
+                  () => PopupMenuButton<int>(
+                    tooltip: '画质',
+                    padding: EdgeInsets.zero,
+                    initialValue: liveRoomCtr.currentQn,
+                    itemBuilder: (context) {
+                      return liveRoomCtr.acceptQnList
+                          .map(
+                            (e) => AppPopupMenuItem<int>(
+                              height: 35,
+                              value: e.code,
+                              selected: e.code == liveRoomCtr.currentQn,
+                              onTap: () => liveRoomCtr.changeQn(e.code),
+                              child: Text(
+                                e.desc,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          )
+                          .toList();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        liveRoomCtr.currentQnDesc.value,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (!plPlayerController.isDesktopPip)
+                  ComBtn(
+                    height: 30,
+                    tooltip: isFullScreen ? '退出全屏' : '全屏',
+                    icon: isFullScreen
+                        ? const Icon(
+                            Icons.fullscreen_exit,
+                            size: 24,
+                            color: Colors.white,
+                          )
+                        : const Icon(
+                            Icons.fullscreen,
+                            size: 24,
+                            color: Colors.white,
+                          ),
+                    onTap: () => plPlayerController.triggerFullScreen(
+                      status: !isFullScreen,
+                    ),
+                    onSecondaryTap: () => plPlayerController.triggerFullScreen(
+                      status: !isFullScreen,
+                      inAppFullScreen: true,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

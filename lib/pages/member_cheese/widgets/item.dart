@@ -1,0 +1,129 @@
+import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/common/widgets/badge.dart';
+import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/models/remote/space/space_cheese/item.dart';
+import 'package:pili_aurora_next/utils/date_utils.dart';
+import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:material_ui/material_ui.dart';
+
+class MemberCheeseItem extends StatelessWidget {
+  const MemberCheeseItem({
+    super.key,
+    required this.item,
+    this.onRemove,
+  });
+
+  final SpaceCheeseItem item;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final createdAt = int.tryParse(item.ctime ?? '');
+    Widget child = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.title!,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (item.status != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            item.status!,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        if (createdAt != null &&
+            createdAt > 0 &&
+            createdAt <= 8640000000000) ...[
+          const Spacer(),
+          Text(
+            '收藏于${DateFormatUtils.dateFormat(createdAt)}',
+            style: TextStyle(
+              fontSize: 12,
+              color: theme.colorScheme.outline,
+            ),
+          ),
+        ],
+      ],
+    );
+    if (onRemove != null) {
+      child = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          child,
+          Positioned(
+            right: 0,
+            bottom: -8,
+            child: iconButton(
+              tooltip: '移除',
+              onPressed: onRemove,
+              icon: const Icon(Icons.clear),
+              iconColor: theme.colorScheme.outline,
+            ),
+          ),
+        ],
+      );
+    }
+    void onLongPress() => imageSaveDialog(title: item.title, cover: item.cover);
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: () => PageUtils.viewPugv(seasonId: item.seasonId),
+        onLongPress: onLongPress,
+        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Style.safeSpace,
+            vertical: 5,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: Style.aspectRatio,
+                child: LayoutBuilder(
+                  builder: (context, boxConstraints) {
+                    Widget child = NetworkImgLayer(
+                      src: item.cover,
+                      width: boxConstraints.maxWidth,
+                      height: boxConstraints.maxHeight,
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(4),
+                      ),
+                    );
+                    if (item.marks?.isNotEmpty == true) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          child,
+                          PBadge(
+                            right: 6,
+                            top: 6,
+                            text: item.marks!.join('|'),
+                          ),
+                        ],
+                      );
+                    }
+                    return child;
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

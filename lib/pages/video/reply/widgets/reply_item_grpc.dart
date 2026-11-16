@@ -1,0 +1,1287 @@
+import 'dart:math';
+
+import 'package:pili_aurora_next/common/assets.dart';
+import 'package:pili_aurora_next/common/constants.dart';
+import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/common/widgets/badge.dart';
+import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
+import 'package:pili_aurora_next/common/widgets/emote_tooltip.dart';
+import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart';
+import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
+import 'package:pili_aurora_next/common/widgets/text_ellipsis/text_ellipsis.dart';
+import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
+import 'package:pili_aurora_next/common/widgets/translucent_row.dart';
+import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+    show ReplyInfo, ReplyControl, Content, Url, ReplyControl_VoteOption, Emote;
+import 'package:pili_aurora_next/grpc/reply.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/reply.dart';
+import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
+import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
+import 'package:pili_aurora_next/pages/save_panel/view.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
+import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/app_scheme.dart';
+import 'package:pili_aurora_next/utils/bili_utils.dart';
+import 'package:pili_aurora_next/utils/color_utils.dart';
+import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/utils/date_utils.dart';
+import 'package:pili_aurora_next/utils/extension/context_ext.dart';
+import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/utils/extension/num_ext.dart';
+import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';
+import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/utils/image_utils.dart';
+import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/utils/url_utils.dart';
+import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:collection/collection.dart' show IterableExtension;
+import 'package:fixnum/fixnum.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:protobuf/protobuf.dart';
+
+part 'package:pili_aurora_next/common/widgets/context_menu/reply_menu_helper.dart';
+
+class ReplyItemGrpc extends StatelessWidget {
+  const ReplyItemGrpc({
+    super.key,
+    required this.replyItem,
+    required this.replyLevel,
+    this.replyReply,
+    this.needDivider = true,
+    this.onReply,
+    this.onDelete,
+    this.upMid,
+    this.showDialogue,
+    this.getTag,
+    this.onViewImage,
+    this.onCheckReply,
+    this.onToggleTop,
+    this.jumpToDialogue,
+    this.onUpdate,
+  });
+  final ReplyInfo replyItem;
+  final int replyLevel;
+  final Function(ReplyInfo replyItem, int? rpid)? replyReply;
+  final bool needDivider;
+  final ValueChanged<ReplyInfo>? onReply;
+  final Function(ReplyInfo replyItem, int? subIndex)? onDelete;
+  final Int64? upMid;
+  final VoidCallback? showDialogue;
+  final Function? getTag;
+  final VoidCallback? onViewImage;
+  final ValueChanged<ReplyInfo>? onCheckReply;
+  final ValueChanged<ReplyInfo>? onToggleTop;
+  final VoidCallback? jumpToDialogue;
+  final VoidCallback? onUpdate;
+
+  static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
+  static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
+  static bool enableWordRe = Pref.enableWordRe;
+  static int? replyLengthLimit = Pref.replyLengthLimit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.of(context);
+
+    void showMore() => showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxWidth: min(640, context.mediaQueryShortestSide),
+      ),
+      builder: (_) {
+        return morePanel(
+          context: context,
+          item: replyItem,
+          onDelete: () => onDelete?.call(replyItem, null),
+          isSubReply: false,
+        );
+      },
+    );
+
+    Widget child = Padding(
+      padding: const .fromLTRB(12, 14, 8, 5),
+      child: _buildContent(context, colorScheme),
+    );
+    if (needDivider) {
+      child = Column(
+        mainAxisSize: .min,
+        children: [
+          child,
+          Divider(
+            indent: 55,
+            endIndent: 15,
+            height: 0.3,
+            color: colorScheme.outline.withValues(alpha: 0.08),
+          ),
+        ],
+      );
+    }
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: () => replyReply?.call(replyItem, null),
+        onLongPress: showMore,
+        onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
+    final member = replyItem.member;
+    Widget header = GestureDetector(
+      onTap: () {
+        feedBack();
+        Get.toNamed('/member?mid=${replyItem.mid}');
+      },
+      child: TranslucentRow(
+        spacing: 12,
+        extraWidth: 46,
+        children: [
+          PendantAvatar(
+            member.face,
+            size: 34,
+            badgeSize: 14,
+            vipStatus: member.vipStatus.toInt(),
+            officialType: member.officialVerifyType.toInt(),
+            pendantImage: member.hasGarbPendantImage()
+                ? member.garbPendantImage
+                : null,
+          ),
+          Flexible(
+            child: Column(
+              mainAxisSize: .min,
+              crossAxisAlignment: .start,
+              children: [
+                Row(
+                  spacing: 6,
+                  mainAxisSize: .min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        member.name,
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: TextStyle(
+                          color: (member.vipStatus > 0 && member.vipType == 2)
+                              ? colorScheme.vipColor
+                              : colorScheme.outline,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    BiliUtils.levelPicture(
+                      member.level.toInt(),
+                      isSeniorMember: member.isSeniorMember == 1,
+                      height: 11,
+                    ),
+                    if (replyItem.mid == upMid)
+                      const PBadge(
+                        text: 'UP',
+                        size: .small,
+                        isStack: false,
+                        fontSize: 9,
+                      )
+                    else if (GlobalData().showMedal &&
+                        member.hasFansMedalLevel())
+                      MedalWidget(
+                        medalName: member.fansMedalName,
+                        level: member.fansMedalLevel.toInt(),
+                        backgroundColor: DmUtils.decimalToColor(
+                          member.fansMedalColor.toInt(),
+                        ),
+                        nameColor: DmUtils.decimalToColor(
+                          member.fansMedalColorName.toInt(),
+                        ),
+                        padding: const .symmetric(horizontal: 6, vertical: 1.5),
+                      ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: .min,
+                  children: [
+                    Text(
+                      replyLevel == 0
+                          ? DateFormatUtils.format(
+                              replyItem.ctime.toInt(),
+                              format: DateFormatUtils.longFormatDs,
+                            )
+                          : DateFormatUtils.dateFormat(replyItem.ctime.toInt()),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                    if (replyItem.replyControl.hasLocation())
+                      Text(
+                        ' • ${replyItem.replyControl.location}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (PendantAvatar.showDecorate) {
+      final garb = replyItem.memberV2.garb;
+      if (garb.hasCardImage()) {
+        const double height = 38.0;
+        return Stack(
+          clipBehavior: .none,
+          children: [
+            Positioned(
+              top: 0,
+              right: 0,
+              height: height,
+              child: CachedImage(
+                height: height,
+                memCacheHeight: height.cacheSize(context),
+                imageUrl: ImageUtils.safeThumbnailUrl(garb.cardImage),
+                placeholder: (_, _) => const SizedBox.shrink(),
+              ),
+            ),
+            if (garb.hasCardNumber())
+              Positioned(
+                top: 0,
+                right: 0,
+                height: height,
+                child: Center(
+                  child: Text(
+                    '${garb.fanNumPrefix}\n${garb.cardNumber}',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontFamily: Assets.digitalNum,
+                      color: ColourUtils.parseColor(garb.cardFanColor),
+                    ),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const .only(right: 80),
+              child: header,
+            ),
+          ],
+        );
+      }
+    }
+    return header;
+  }
+
+  Widget _buildVoteOption(
+    ColorScheme colorScheme,
+    ReplyControl_VoteOption voteOption,
+  ) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          switch (voteOption.labelKind) {
+            .RED => TextSpan(
+              text: '红方  ',
+              style: TextStyle(color: colorScheme.vipColor),
+            ),
+            .BLUE => TextSpan(
+              text: '蓝方  ',
+              style: TextStyle(color: colorScheme.blue),
+            ),
+            _ => TextSpan(
+              text: '投票  ',
+              style: TextStyle(color: colorScheme.outline),
+            ),
+          },
+          TextSpan(text: voteOption.desc),
+        ],
+      ),
+      style: TextStyle(
+        height: 1.75,
+        fontSize: 12,
+        color: colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, ColorScheme colorScheme) {
+    final replyControl = replyItem.replyControl;
+    final padding = EdgeInsets.only(left: replyLevel == 0 ? 6 : 45, right: 6);
+    return Column(
+      mainAxisSize: .min,
+      crossAxisAlignment: .start,
+      children: [
+        _buildHeader(context, colorScheme),
+        const SizedBox(height: 10),
+        if (replyControl.hasVoteOption())
+          Padding(
+            padding: padding,
+            child: _buildVoteOption(colorScheme, replyControl.voteOption),
+          ),
+        Padding(
+          padding: padding,
+          child: TextMore.rich(
+            primary: colorScheme.primary,
+            style: const TextStyle(height: 1.75, fontSize: 14),
+            maxLines: replyLevel == 1 ? replyLengthLimit : null,
+            TextSpan(
+              children: [
+                if (replyControl.isUpTop) ...[
+                  const WidgetSpan(
+                    alignment: .middle,
+                    child: PBadge(
+                      text: 'TOP',
+                      size: .small,
+                      isStack: false,
+                      type: .line_primary,
+                      fontSize: 9,
+                      textScaleFactor: 1,
+                    ),
+                  ),
+                  const TextSpan(text: ' '),
+                ],
+                _buildMessage(
+                  context,
+                  colorScheme,
+                  replyControl.showTranslation
+                      ? replyItem.translatedContent
+                      : replyItem.content,
+                  replyControl,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (replyItem.content.pictures.isNotEmpty) ...[
+          Padding(
+            padding: padding,
+            child: ImageGridView(
+              picArr: replyItem.content.pictures
+                  .map(
+                    (item) => ImageModel(
+                      width: item.imgWidth,
+                      height: item.imgHeight,
+                      url: item.imgSrc,
+                    ),
+                  )
+                  .toList(),
+              onViewImage: onViewImage,
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        if (replyLevel != 0) ...[
+          const SizedBox(height: 4),
+          buttonAction(context, colorScheme, replyControl),
+        ],
+        if (replyLevel == 1 && replyItem.count > Int64.ZERO) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 5, bottom: 12),
+            child: replyItemRow(context, colorScheme, replyItem.replies),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTranslateBtn(
+    BuildContext context,
+    ColorScheme colorScheme,
+    ReplyControl replyControl,
+    TextStyle textStyle,
+    ButtonStyle buttonStyle,
+  ) {
+    late bool isProcessing = false;
+    final color = replyControl.showTranslation
+        ? colorScheme.primary
+        : colorScheme.outline.withValues(alpha: 0.8);
+    return SizedBox(
+      height: 32,
+      child: TextButton(
+        style: buttonStyle,
+        onPressed: () async {
+          if (replyControl.showTranslation) {
+            replyControl.showTranslation = false;
+            (context as Element).markNeedsBuild();
+          } else {
+            if (isProcessing) {
+              return;
+            }
+            if (replyItem.hasTranslatedContent()) {
+              replyControl.showTranslation = true;
+              (context as Element).markNeedsBuild();
+              return;
+            }
+            isProcessing = true;
+            final account = Accounts.main;
+            final owner = context.widget;
+            final res = await ReplyGrpc.translateReply(
+              account: account,
+              type: replyItem.type,
+              oid: replyItem.oid,
+              rpid: replyItem.id,
+            );
+            isProcessing = false;
+            if (!context.mounted ||
+                !identical(account, Accounts.main) ||
+                !identical(owner, context.widget)) {
+              return;
+            }
+            if (res case Success(:final response)) {
+              final item = response.translatedReplies[replyItem.id];
+              if (item != null && item.hasTranslatedContent()) {
+                replyControl.showTranslation = true;
+                replyItem.translatedContent = item.translatedContent;
+                if (context.mounted) {
+                  (context as Element).markNeedsBuild();
+                }
+              } else {
+                SmartDialog.showToast('翻译结果为空');
+              }
+            } else if (res case Error(:final errMsg)) {
+              SmartDialog.showToast('翻译失败: $errMsg');
+            }
+          }
+        },
+        child: Row(
+          spacing: 3,
+          mainAxisSize: .min,
+          children: [
+            Icon(Icons.translate, size: 16, color: color),
+            Text(
+              replyControl.showTranslation ? '原文' : '翻译',
+              style: textStyle.copyWith(color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buttonAction(
+    BuildContext context,
+    ColorScheme colorScheme,
+    ReplyControl replyControl,
+  ) {
+    final textStyle = TextStyle(
+      height: 1,
+      fontSize: 12,
+      fontWeight: .normal,
+      color: colorScheme.outline,
+    );
+    const buttonStyle = ButtonStyle(
+      visualDensity: .compact,
+      tapTargetSize: .shrinkWrap,
+      padding: WidgetStatePropertyAll(.zero),
+    );
+
+    Widget? dialogBtn;
+    if (replyLevel == 2 && needDivider && replyItem.id != replyItem.dialog) {
+      dialogBtn = SizedBox(
+        height: 32,
+        child: TextButton(
+          onPressed: showDialogue,
+          style: buttonStyle,
+          child: Text('查看对话', style: textStyle),
+        ),
+      );
+    } else if (replyLevel == 3 && replyItem.parent != replyItem.root) {
+      dialogBtn = SizedBox(
+        height: 32,
+        child: TextButton(
+          onPressed: jumpToDialogue,
+          style: buttonStyle,
+          child: Text('跳转回复', style: textStyle),
+        ),
+      );
+    }
+    return Row(
+      children: [
+        const SizedBox(width: 36),
+        SizedBox(
+          height: 32,
+          child: TextButton(
+            style: buttonStyle,
+            onPressed: () {
+              feedBack();
+              onReply?.call(replyItem);
+            },
+            child: Row(
+              spacing: 3,
+              mainAxisSize: .min,
+              children: [
+                Icon(
+                  Icons.reply,
+                  size: 18,
+                  color: colorScheme.outline.withValues(alpha: 0.8),
+                ),
+                Text('回复', style: textStyle),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 2),
+        if (replyControl.translationSwitch ==
+            .TRANSLATION_SWITCH_SHOW_TRANSLATION) ...[
+          _buildTranslateBtn(
+            context,
+            colorScheme,
+            replyControl,
+            textStyle,
+            buttonStyle,
+          ),
+          const SizedBox(width: 2),
+        ] else if (replyControl.cardLabels.isNotEmpty) ...[
+          Flexible(
+            fit: FlexFit.tight,
+            child: Text(
+              dialogBtn != null
+                  ? replyControl.cardLabels.first.textContent
+                  : replyControl.cardLabels
+                        .map((e) => e.textContent)
+                        .join('  '),
+              style: textStyle.copyWith(color: colorScheme.secondary),
+              maxLines: 1,
+              overflow: .ellipsis,
+            ),
+          ),
+          const SizedBox(width: 2),
+        ],
+        ?dialogBtn,
+        const Spacer(),
+        ZanButtonGrpc(replyItem: replyItem, onUpdate: onUpdate),
+        const SizedBox(width: 5),
+      ],
+    );
+  }
+
+  Widget replyItemRow(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<ReplyInfo> replies,
+  ) {
+    final extraRow = replies.length < replyItem.count.toInt();
+    final length = replies.length + (extraRow ? 1 : 0);
+    return Padding(
+      padding: const .only(left: 42, right: 4),
+      child: Material(
+        animationDuration: .zero,
+        color: colorScheme.onInverseSurface,
+        borderRadius: const .all(.circular(6)),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          children: [
+            if (replies.isNotEmpty)
+              ...replies.mapIndexed((index, childReply) {
+                final EdgeInsets padding;
+                BorderRadius? borderRadius;
+                if (length == 1) {
+                  padding = const .fromLTRB(8, 5, 8, 5);
+                  borderRadius = const .all(.circular(6));
+                } else {
+                  if (index == 0) {
+                    padding = const .fromLTRB(8, 8, 8, 4);
+                    borderRadius = const .vertical(top: .circular(6));
+                  } else if (index == length - 1) {
+                    padding = const .fromLTRB(8, 4, 8, 8);
+                    borderRadius = const .vertical(bottom: .circular(6));
+                  } else {
+                    padding = const .fromLTRB(8, 4, 8, 4);
+                  }
+                }
+                void showMore() => showModalBottomSheet(
+                  context: context,
+                  useSafeArea: true,
+                  isScrollControlled: true,
+                  constraints: BoxConstraints(
+                    maxWidth: min(640, context.mediaQueryShortestSide),
+                  ),
+                  builder: (_) {
+                    return morePanel(
+                      context: context,
+                      item: childReply,
+                      onDelete: () {
+                        final currentIndex = replyItem.replies.indexWhere(
+                          (reply) => reply.id == childReply.id,
+                        );
+                        if (currentIndex >= 0) {
+                          onDelete?.call(replyItem, currentIndex);
+                        }
+                      },
+                      isSubReply: true,
+                    );
+                  },
+                );
+                return InkWell(
+                  borderRadius: borderRadius,
+                  onTap: () =>
+                      replyReply?.call(replyItem, childReply.id.toInt()),
+                  onLongPress: showMore,
+                  onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
+                  child: Padding(
+                    padding: padding,
+                    child: TextEllipsis.rich(
+                      style: TextStyle(
+                        height: 1.6,
+                        fontSize: 14,
+                        color: colorScheme.onSurface.withValues(alpha: 0.85),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: childReply.member.name,
+                            style: TextStyle(color: colorScheme.primary),
+                            recognizer: NoDeadlineTapGestureRecognizer()
+                              ..onTap = () {
+                                feedBack();
+                                Get.toNamed(
+                                  '/member?mid=${childReply.member.mid}',
+                                );
+                              },
+                          ),
+                          if (childReply.mid == upMid) ...[
+                            const TextSpan(text: ' '),
+                            const WidgetSpan(
+                              alignment: .middle,
+                              child: PBadge(
+                                text: 'UP',
+                                size: .small,
+                                isStack: false,
+                                fontSize: 9,
+                                textScaleFactor: 1,
+                              ),
+                            ),
+                            const TextSpan(text: ' '),
+                          ],
+                          TextSpan(
+                            text: childReply.root == childReply.parent
+                                ? ': '
+                                : childReply.mid == upMid
+                                ? ''
+                                : ' ',
+                          ),
+                          _buildMessage(
+                            context,
+                            colorScheme,
+                            childReply.content,
+                            childReply.replyControl,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            if (extraRow)
+              InkWell(
+                onTap: () => replyReply?.call(replyItem, null),
+                borderRadius: length == 1
+                    ? const .all(.circular(6))
+                    : const .vertical(bottom: .circular(6)),
+                child: Padding(
+                  padding: length == 1
+                      ? const .fromLTRB(8, 6, 8, 6)
+                      : const .fromLTRB(8, 5, 8, 8),
+                  child: Text.rich(
+                    TextSpan(
+                      style: const TextStyle(fontSize: 12),
+                      children: [
+                        if (replyItem.replyControl.upReply)
+                          TextSpan(
+                            text: 'UP主等人 ',
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.85,
+                              ),
+                            ),
+                          ),
+                        TextSpan(
+                          text: '共${replyItem.count}条回复',
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InlineSpan _buildMessage(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Content content,
+    ReplyControl replyControl,
+  ) {
+    final List<InlineSpan> spanChildren = <InlineSpan>[];
+    bool hasNote = false;
+
+    final urlKeys = content.urls.keys;
+    // 构建正则表达式
+    final List<String> specialTokens = [
+      ...content.emotes.keys,
+      ...content.topics.keys.map((e) => '#$e#'),
+      ...content.atNameToMid.keys.map((e) => '@$e'),
+      ...urlKeys,
+    ];
+    String patternStr = [
+      ...specialTokens.map(RegExp.escape),
+      r'(?:\d+[:：])?\d+[:：]\d+',
+      r'\{vote:\d+?\}',
+      Constants.urlRegex.pattern,
+    ].join('|');
+    final RegExp pattern = RegExp(patternStr);
+
+    late List<String> matchedUrls = [];
+
+    void addPlainTextSpan(str) {
+      spanChildren.add(TextSpan(text: str));
+    }
+
+    void addUrl(String matchStr, Url url, {bool addPlainText = false}) {
+      if (url.extra.isWordSearch && !enableWordRe) {
+        if (addPlainText) {
+          addPlainTextSpan(matchStr);
+        }
+        return;
+      }
+      final isCv = url.clickReport.startsWith('{"cvid');
+      if (isCv) {
+        hasNote = true;
+      }
+      final children = [
+        if (!isCv && url.hasPrefixIcon())
+          WidgetSpan(
+            child: CachedImage(
+              height: 19,
+              memCacheHeight: 19.cacheSize(context),
+              color: colorScheme.primary,
+              imageUrl: ImageUtils.thumbnailUrl(url.prefixIcon),
+              placeholder: (_, _) => const SizedBox.shrink(),
+            ),
+          ),
+        TextSpan(
+          text: isCv ? '[笔记] ' : url.title,
+          style: TextStyle(color: colorScheme.primary),
+          recognizer: NoDeadlineTapGestureRecognizer()
+            ..onTap = () {
+              if (url.appUrlSchema.isEmpty) {
+                if (RegExp(
+                  r'^(av|bv)',
+                  caseSensitive: false,
+                ).hasMatch(matchStr)) {
+                  UrlUtils.matchUrlPush(matchStr, '');
+                } else {
+                  RegExpMatch? match = RegExp(
+                    r'^cv(\d+)$|/read/cv(\d+)|note-app/view\?cvid=(\d+)',
+                    caseSensitive: false,
+                  ).firstMatch(matchStr);
+                  String? cvid =
+                      match?.group(1) ?? match?.group(2) ?? match?.group(3);
+                  if (cvid != null) {
+                    Get.toNamed(
+                      '/articlePage',
+                      parameters: {
+                        'id': cvid,
+                        'type': 'read',
+                      },
+                    );
+                    return;
+                  }
+                  PageUtils.handleWebview(matchStr);
+                }
+              } else {
+                if (url.extra.isWordSearch) {
+                  Get.toNamed(
+                    '/searchResult',
+                    parameters: {'keyword': url.title},
+                  );
+                } else {
+                  PageUtils.handleWebview(matchStr);
+                }
+              }
+            },
+        ),
+      ];
+      if (isCv) {
+        spanChildren.insertAll(0, children);
+      } else {
+        spanChildren.addAll(children);
+      }
+    }
+
+    // 分割文本并处理每个部分
+    content.message.splitMapJoin(
+      pattern,
+      onMatch: (Match match) {
+        String matchStr = match[0]!;
+        late final name = matchStr.substring(1);
+        late final topic = matchStr.substring1;
+        if (content.emotes.containsKey(matchStr)) {
+          // 处理表情
+          final emote = content.emotes[matchStr]!;
+          final size = emote.size.toInt() * 20.0;
+          final url = emote.hasWebpUrl()
+              ? emote.webpUrl
+              : emote.hasGifUrl()
+              ? emote.gifUrl
+              : emote.url;
+          spanChildren.add(
+            WidgetSpan(
+              child: emoteTooltipBuilder(
+                url: url,
+                emote: matchStr,
+                triggerMode: .tap,
+                jumpUrl: emote.hasJumpUrl() ? emote.jumpUrl : null,
+                colorScheme: colorScheme,
+                child: NetworkImgLayer(
+                  src: url,
+                  type: .emote,
+                  width: size,
+                  height: size,
+                ),
+              ),
+            ),
+          );
+        } else if (matchStr.startsWith("@") &&
+            content.atNameToMid.containsKey(name)) {
+          // 处理@用户
+          spanChildren.add(
+            TextSpan(
+              text: matchStr,
+              style: TextStyle(color: colorScheme.primary),
+              recognizer: NoDeadlineTapGestureRecognizer()
+                ..onTap = () =>
+                    Get.toNamed('/member?mid=${content.atNameToMid[name]}'),
+            ),
+          );
+        } else if (_voteRegExp.hasMatch(matchStr)) {
+          spanChildren.add(
+            TextSpan(
+              text: '投票: ${content.vote.title}',
+              style: TextStyle(color: colorScheme.primary),
+              recognizer: NoDeadlineTapGestureRecognizer()
+                ..onTap = () =>
+                    showVoteDialog(context, content.vote.id.toInt()),
+            ),
+          );
+        } else if (_timeRegExp.hasMatch(matchStr)) {
+          matchStr = matchStr.replaceAll('：', ':');
+          final args = Get.arguments;
+          final tagValue =
+              getTag?.call() ?? (args is Map ? args['heroTag'] : null);
+          final tag = tagValue is String ? tagValue : null;
+          VideoDetailController? controller;
+          int? timeLength;
+          if (tag != null &&
+              Get.isRegistered<VideoDetailController>(tag: tag)) {
+            controller = Get.find<VideoDetailController>(tag: tag);
+            if (!controller.isClosed) {
+              try {
+                // 地址尚未解析时 data 仍未初始化。
+                timeLength = controller.data.timeLength;
+              } catch (_) {
+                timeLength = null;
+              }
+            }
+          }
+          var secondsValue = BigInt.zero;
+          for (final part in matchStr.split(':')) {
+            final value = BigInt.tryParse(part);
+            if (value == null) {
+              secondsValue = BigInt.from(-1);
+              break;
+            }
+            secondsValue = secondsValue * BigInt.from(60) + value;
+          }
+          final isValid =
+              controller != null &&
+              !controller.isClosed &&
+              timeLength != null &&
+              timeLength > 0 &&
+              secondsValue >= BigInt.zero &&
+              secondsValue <= BigInt.from(timeLength ~/ 1000);
+          final target = controller;
+          spanChildren.add(
+            TextSpan(
+              text: isValid ? ' $matchStr ' : matchStr,
+              style: isValid ? TextStyle(color: colorScheme.primary) : null,
+              recognizer: isValid
+                  ? (NoDeadlineTapGestureRecognizer()
+                      ..onTap = () {
+                        if (target == null ||
+                            target.isClosed ||
+                            !Get.isRegistered<VideoDetailController>(
+                              tag: tag,
+                            ) ||
+                            !identical(
+                              Get.find<VideoDetailController>(tag: tag),
+                              target,
+                            )) {
+                          return;
+                        }
+                        SmartDialog.showToast('跳转至：$matchStr');
+                        target.plPlayerController.seekTo(
+                          Duration(seconds: secondsValue.toInt()),
+                          isSeek: false,
+                        );
+                      })
+                  : null,
+            ),
+          );
+        } else {
+          final url = content.urls[matchStr];
+          if (url != null && !matchedUrls.contains(matchStr)) {
+            addUrl(matchStr, url, addPlainText: true);
+            // 只显示一次
+            matchedUrls.add(matchStr);
+          } else if (matchStr.length > 1 && content.topics[topic] != null) {
+            spanChildren.add(
+              TextSpan(
+                text: matchStr,
+                style: TextStyle(color: colorScheme.primary),
+                recognizer: NoDeadlineTapGestureRecognizer()
+                  ..onTap = () {
+                    Get.toNamed(
+                      '/searchResult',
+                      parameters: {'keyword': topic},
+                    );
+                  },
+              ),
+            );
+          } else if (Constants.urlRegex.hasMatch(matchStr)) {
+            spanChildren.add(
+              TextSpan(
+                text: matchStr,
+                style: TextStyle(color: colorScheme.primary),
+                recognizer: NoDeadlineTapGestureRecognizer()
+                  ..onTap = () => PageUtils.handleWebview(matchStr),
+              ),
+            );
+          } else {
+            addPlainTextSpan(matchStr);
+          }
+        }
+        return '';
+      },
+      onNonMatch: (String nonMatchStr) {
+        addPlainTextSpan(nonMatchStr);
+        return nonMatchStr;
+      },
+    );
+
+    if (!hasNote && replyControl.isNote && replyControl.isNoteV2) {
+      final Color color;
+      NoDeadlineTapGestureRecognizer? recognizer;
+
+      final hasClickUrl = content.richText.note.hasClickUrl();
+      if (hasClickUrl || content.richText.opus.hasOpusId()) {
+        color = colorScheme.primary;
+        recognizer = NoDeadlineTapGestureRecognizer()
+          ..onTap = () => hasClickUrl
+              ? PiliScheme.routePushFromUrl(content.richText.note.clickUrl)
+              : Get.toNamed(
+                  '/articlePage',
+                  parameters: {
+                    'id': content.richText.opus.opusId.toString(),
+                    'type': 'opus',
+                  },
+                );
+      } else {
+        color = colorScheme.secondary;
+      }
+      spanChildren.insert(
+        0,
+        TextSpan(
+          text: '[笔记] ',
+          style: TextStyle(color: color),
+          recognizer: recognizer,
+        ),
+      );
+    }
+
+    return TextSpan(children: spanChildren);
+  }
+
+  Widget morePanel({
+    required BuildContext context,
+    required ReplyInfo item,
+    required VoidCallback onDelete,
+    required bool isSubReply,
+  }) {
+    late String message = item.content.message;
+    final account = Accounts.main;
+    final owner = context.widget;
+    final oid = item.oid;
+    final rpid = item.id;
+    bool isCurrent() =>
+        context.mounted &&
+        identical(owner, context.widget) &&
+        identical(account, Accounts.main) &&
+        item.oid == oid &&
+        item.id == rpid;
+    final ownerMid = Int64(account.mid);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final errorColor = colorScheme.error;
+    final style = theme.textTheme.titleSmall!;
+
+    return Padding(
+      padding: .only(
+        bottom: MediaQuery.viewPaddingOf(context).bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: Get.back,
+            borderRadius: Style.bottomSheetRadius,
+            child: SizedBox(
+              height: 35,
+              child: Center(
+                child: Container(
+                  width: 32,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outline,
+                    borderRadius: const BorderRadius.all(Radius.circular(3)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (kDebugMode && GStorage.reply != null) ...[
+            ListTile(
+              onTap: () {
+                Get.back();
+                GStorage.reply!.put(
+                  item.id.toString(),
+                  (item.deepCopy()
+                        ..unknownFields.clear()
+                        ..replies.clear()
+                        ..clearTrackInfo())
+                      .writeToBuffer(),
+                );
+              },
+              title: Text(
+                'save to local',
+                style: style.copyWith(color: colorScheme.primary),
+              ),
+            ),
+            ListTile(
+              onTap: () {
+                Get.back();
+                onDelete();
+                GStorage.reply!.delete(item.id.toString());
+              },
+              title: Text(
+                'remove from local',
+                style: style.copyWith(color: colorScheme.primary),
+              ),
+            ),
+            ListTile(
+              onTap: () {
+                Get.back();
+                final oid = item.oid.toInt();
+                final data =
+                    (item.deepCopy()
+                          ..unknownFields.clear()
+                          ..replies.clear()
+                          ..clearTrackInfo())
+                        .writeToBuffer();
+                GStorage.reply!.putAll({
+                  for (var i = oid; i < oid + 1000; i++) i.toString(): data,
+                });
+              },
+              title: Text(
+                'save to local (x1000)',
+                style: style.copyWith(color: colorScheme.primary),
+              ),
+            ),
+          ],
+          if (ownerMid == upMid || ownerMid == item.member.mid)
+            ListTile(
+              onTap: () {
+                Get.back();
+                if (!isCurrent()) return;
+                showDeleteReplyDialog(
+                  context,
+                  account: account,
+                  item: item,
+                  isCurrent: isCurrent,
+                  onDelete: onDelete,
+                );
+              },
+              minLeadingWidth: 0,
+              leading: Icon(Icons.delete_outlined, color: errorColor, size: 19),
+              title: Text('删除', style: style.copyWith(color: errorColor)),
+            ),
+          if (ownerMid != Int64.ZERO)
+            ListTile(
+              onTap: () {
+                Get.back();
+
+                final oid = item.oid;
+                final rpid = item.id;
+
+                autoWrapReportDialog(
+                  context,
+                  ReportOptions.commentReport,
+                  isCurrent: isCurrent,
+                  withContent: ReportOptions.withContentReply,
+                  contentRequired: ReportOptions.contentRequiredReply,
+                  reportUrl:
+                      'https://www.bilibili.com/h5/comment/report?oid=$oid&pageType=${item.type}&rpid=$rpid&platform=android&build=8430300&${ThemeUtils.themeUrl(colorScheme.isDark)}',
+                  (reasonType, reasonDesc, banUid) async {
+                    if (!isCurrent()) {
+                      return const Error('评论已变化，请重新打开举报页面');
+                    }
+                    final res = await ReplyHttp.report(
+                      account: account,
+                      rpid: rpid,
+                      oid: oid,
+                      reasonType: reasonType,
+                      reasonDesc: reasonDesc,
+                      banUid: banUid,
+                    );
+                    if (res.isSuccess && isCurrent()) {
+                      try {
+                        onDelete();
+                      } catch (error, stackTrace) {
+                        logger.w(
+                          '评论举报成功，页面更新失败',
+                          error: error.runtimeType,
+                          stackTrace: stackTrace,
+                        );
+                      }
+                    }
+                    return res;
+                  },
+                );
+              },
+              minLeadingWidth: 0,
+              leading: Icon(Icons.error_outline, color: errorColor, size: 19),
+              title: Text('举报', style: style.copyWith(color: errorColor)),
+            ),
+          if (account.isLogin &&
+              item.member.mid > Int64.ZERO &&
+              item.member.mid != ownerMid)
+            ListTile(
+              onTap: () async {
+                Get.back();
+                if (!isCurrent()) return;
+                final confirmed = await showConfirmDialog(
+                  context: context,
+                  title: const Text('拉黑用户'),
+                  content: Text(
+                    '确定拉黑 ${item.member.name}？\n可在黑名单管理中解除。',
+                  ),
+                );
+                if (!confirmed || !isCurrent()) return;
+                final res = await VideoHttp.relationMod(
+                  account: account,
+                  mid: item.member.mid.toInt(),
+                  act: 5,
+                  reSrc: 11,
+                );
+                if (!isCurrent()) return;
+                if (res.isSuccess) {
+                  SmartDialog.showToast('拉黑成功');
+                } else {
+                  res.toast();
+                }
+              },
+              minLeadingWidth: 0,
+              leading: Icon(
+                Icons.person_off_outlined,
+                color: errorColor,
+                size: 19,
+              ),
+              title: Text('拉黑用户', style: style.copyWith(color: errorColor)),
+            ),
+          if (replyLevel == 1 && !isSubReply && ownerMid == upMid)
+            ListTile(
+              onTap: () {
+                Get.back();
+                onToggleTop?.call(item);
+              },
+              minLeadingWidth: 0,
+              leading: const Icon(Icons.vertical_align_top, size: 19),
+              title: Text(
+                '${replyItem.replyControl.isUpTop ? '取消' : ''}置顶',
+                style: style,
+              ),
+            ),
+          ListTile(
+            onTap: () {
+              Get.back();
+              Utils.copyText(message);
+            },
+            minLeadingWidth: 0,
+            leading: const Icon(Icons.copy_all_outlined, size: 19),
+            title: Text('复制全部', style: style),
+          ),
+          ListTile(
+            onTap: () {
+              Get.back();
+              showReplyCopyDialog(context, message, item.content.emotes);
+            },
+            minLeadingWidth: 0,
+            leading: const Icon(Icons.copy_outlined, size: 19),
+            title: Text('自由复制', style: style),
+          ),
+          ListTile(
+            onTap: () {
+              Get.back();
+              SavePanel.toSavePanel(upMid: upMid, item: item);
+            },
+            minLeadingWidth: 0,
+            leading: const Icon(Icons.save_alt, size: 19),
+            title: Text('保存评论', style: style),
+          ),
+          if (kDebugMode || item.mid == ownerMid)
+            ListTile(
+              onTap: () {
+                Get.back();
+                onCheckReply?.call(item);
+              },
+              minLeadingWidth: 0,
+              leading: const Icon(CustomIcons.shield_reply, size: 19),
+              title: Text('检查评论', style: style),
+            ),
+        ],
+      ),
+    );
+  }
+}

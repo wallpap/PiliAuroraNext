@@ -1,0 +1,17 @@
+{
+  "version": "0.41.0-1434-g46787be25",
+  "repository": "https://github.com/mpv-player/mpv",
+  "commit": "46787be250",
+  "builder": "https://github.com/shinchiro/mpv-winbuild-cmake",
+  "release": "20261104",
+  "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261104/mpv-dev-x86_64-20261104-git-46787be250.7z",
+  "sha256": "5ae0aaa85b2e690e9c574a44e10a86f3d5fe4b406ef6dfa684f5ab25e6bf6306",
+  "patches": [],
+  "source_url": "https://github.com/mpv-player/mpv/tree/46787be250",
+  "build_recipes": "https://github.com/shinchiro/mpv-winbuild-cmake/tree/20261104",
+  "angle_url": "https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES/releases/tag/v1.0.1",
+  "notice_manifest": "NOTICE_SOURCES.json",
+  "ffmpeg": "200a98d5b (same-release binary-reported revision)",
+  "angle_revision": "2693b03eba82 (PE ProductVersion)",
+  "dependency_revisions": "Some static dependency revisions are not recorded by upstream; notice references are not binary source revisions."
+}

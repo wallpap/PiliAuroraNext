@@ -1,0 +1,98 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/pages/search_panel/article/controller.dart';
+import 'package:pili_aurora_next/pages/search_panel/article/widgets/item.dart';
+import 'package:pili_aurora_next/pages/search_panel/view.dart';
+import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:material_ui/material_ui.dart';
+
+class SearchArticlePanel extends CommonSearchPanel {
+  const SearchArticlePanel({
+    super.key,
+    required super.keyword,
+    required super.tag,
+    required super.searchType,
+    super.toTop,
+    super.onCount,
+  });
+
+  @override
+  ConsumerState<SearchArticlePanel> createState() => _SearchArticlePanelState();
+}
+
+class _SearchArticlePanelState
+    extends
+        CommonSearchPanelState<
+          SearchArticlePanel,
+          SearchArticleData,
+          SearchArticleItemModel
+        >
+    with GridMixin {
+  @override
+  late final SearchArticleController controller = SearchArticleController(
+    keyword: widget.keyword,
+    searchType: widget.searchType,
+    tag: widget.tag,
+  );
+
+  @override
+  Widget buildHeader() {
+    return SliverFloatingHeaderWidget(
+      backgroundColor: colorScheme.surface,
+      child: Padding(
+        padding: const .fromLTRB(25, 0, 12, 4),
+        child: Row(
+          children: [
+            Builder(
+              builder: (_) => Text(
+                '排序: ${controller.articleOrderType.label}',
+                maxLines: 1,
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+            const Spacer(),
+            Builder(
+              builder: (_) => Text(
+                '分区: ${controller.articleZoneType!.label}',
+                maxLines: 1,
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: IconButton(
+                tooltip: '筛选',
+                style: const ButtonStyle(
+                  padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                ),
+                onPressed: () => controller.onShowFilterDialog(context),
+                icon: Icon(
+                  Icons.filter_list_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget buildList(List<SearchArticleItemModel> list) {
+    return SliverGrid.builder(
+      gridDelegate: gridDelegate,
+      itemBuilder: (context, index) {
+        return SearchArticleItem(item: list[index]);
+      },
+      itemCount: list.length,
+    );
+  }
+
+  @override
+  Widget get buildLoading => gridSkeleton;
+}

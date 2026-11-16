@@ -1,0 +1,130 @@
+import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import java.util.Properties
+
+plugins {
+    id("com.android.application")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("dev.flutter.flutter-gradle-plugin")
+}
+
+val agpMajorVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
+    .substringBefore('.')
+    .toInt()
+val builtInKotlinProperty = providers.gradleProperty("android.builtInKotlin").orNull
+val isBuiltInKotlinEnabled = agpMajorVersion >= 9 &&
+        (builtInKotlinProperty == null || builtInKotlinProperty.toBoolean())
+if (!isBuiltInKotlinEnabled) {
+    apply(plugin = "org.jetbrains.kotlin.android")
+}
+
+val isTestRelease = providers.environmentVariable("PILIAURORANEXT_TEST_RELEASE")
+    .map { it == "true" }.getOrElse(false)
+val isDevBuild = project.hasProperty("dev") || isTestRelease
+
+android {
+    namespace = "com.wallpap.piliauroranext"
+    compileSdk = 37
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+    }
+
+    defaultConfig {
+        applicationId = "com.wallpap.piliauroranext"
+        minSdk = flutter.minSdkVersion
+        targetSdk = 37
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+        if (isTestRelease) {
+            ndk.abiFilters.add("arm64-v8a")
+        }
+    }
+
+    packagingOptions.jniLibs.useLegacyPackaging = true
+    if (isTestRelease) {
+        // Flutter 插件会补入其他 ABI 的预编译库，测试产物统一排除它们。
+        packagingOptions.jniLibs.excludes.addAll(
+            listOf("lib/armeabi-v7a/**", "lib/x86/**", "lib/x86_64/**")
+        )
+    }
+
+    val keyProperties = Properties().also {
+        val properties = rootProject.file("key.properties")
+        if (properties.exists()) {
+            properties.inputStream().use { stream -> it.load(stream) }
+        }
+    }
+
+    val config = keyProperties.getProperty("storeFile")?.let {
+        signingConfigs.create("release") {
+            storeFile = file(it)
+            storePassword = keyProperties.getProperty("storePassword")
+            keyAlias = keyProperties.getProperty("keyAlias")
+            keyPassword = keyProperties.getProperty("keyPassword")
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
+    buildFeatures {
+        if (isDevBuild) {
+            resValues = true
+        }
+    }
+
+    val releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+        taskName.substringAfterLast(":").contains("release", ignoreCase = true)
+    }
+    if (releaseTaskRequested && config == null) {
+        throw GradleException(
+            "Release signing configuration is missing. " +
+                "Provide android/key.properties and the referenced keystore."
+        )
+    }
+
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs["debug"]
+            applicationIdSuffix = ".debug"
+        }
+        named("profile") {
+            // 性能测试包必须与 GitHub 正式包并存，避免覆盖或卸载正式安装。
+            applicationIdSuffix = ".profile"
+        }
+        release {
+            signingConfig = config
+            if (isDevBuild) {
+                applicationIdSuffix = ".dev"
+                resValue(
+                    type = "string",
+                    name = "app_name",
+                    value = "PiliAuroraNext dev",
+                )
+            }
+//            proguardFiles(
+//                getDefaultProguardFile("proguard-android-optimize.txt"),
+//                "proguard-rules.pro"
+//            )
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.forEach { output ->
+            (output as ApkVariantOutputImpl).versionCodeOverride = flutter.versionCode
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
+    }
+}
+
+flutter {
+    source = "../.."
+}

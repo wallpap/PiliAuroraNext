@@ -1,0 +1,14 @@
+# 仅忽略本地包开发/构建产物，不忽略生产源码。
+.dart_tool/
+build/
+.gradle/
+.cxx/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+**/android/local.properties
+**/android/gradle/wrapper/gradle-wrapper.jar
+
+# Windows 本地插件沿用仓库固定的依赖解析。
+!/flutter_inappwebview_windows/pubspec.lock
+!/media_kit_libs_windows_video/pubspec.lock

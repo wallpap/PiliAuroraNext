@@ -1,0 +1,367 @@
+import 'dart:async' show unawaited;
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:pili_aurora_next/services/diagnostics/http_diagnostics.dart';
+import 'package:pili_aurora_next/services/download/response_adapter.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/api_response.dart';
+import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/retry_interceptor.dart';
+import 'package:pili_aurora_next/http/response_decoder.dart';
+import 'package:pili_aurora_next/http/response_transformer.dart';
+import 'package:pili_aurora_next/http/user.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:dio_http2_adapter/dio_http2_adapter.dart';
+
+/// 创建应用共享的 Dio 客户端，并接入账号、重试、诊断和响应转换逻辑。
+class Request {
+  static final Request _instance = Request._internal();
+  static late AccountManager accountManager;
+  static final _enableHttp2 = Pref.enableHttp2;
+  static late final Dio dio;
+  static Dio? _http11Dio;
+
+  /// 返回 HTTP/1.1 客户端，HTTP/2 开启时复用其 fallback adapter。
+  static Dio get http11Dio =>
+      _http11Dio ??= _enableHttp2 ? _cloneHttp11Dio() : dio;
+  factory Request() => _instance;
+
+  /// 设置cookie
+  static void setCookie({bool syncWebView = true}) {
+    accountManager = AccountManager();
+    dio.interceptors.add(accountManager);
+    unawaited(
+      Accounts.refresh().catchError((Object error, StackTrace stackTrace) {
+        logger.w('后台账号初始化失败', error: error.runtimeType, stackTrace: stackTrace);
+      }),
+    );
+    if (syncWebView) {
+      unawaited(
+        LoginUtils.setWebCookie().catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          logger.w(
+            '启动网页 Cookie 同步失败',
+            error: error.runtimeType,
+            stackTrace: stackTrace,
+          );
+          return false;
+        }),
+      );
+    }
+
+    if (Accounts.main.isLogin) {
+      final coin = Pref.userInfoCache?.money;
+      if (coin == null) {
+        unawaited(
+          setCoin().catchError((Object error, StackTrace stackTrace) {
+            logger.w(
+              '启动余额同步失败',
+              error: error.runtimeType,
+              stackTrace: stackTrace,
+            );
+          }),
+        );
+      } else {
+        GlobalData().coins = coin;
+      }
+    }
+  }
+
+  static Future<void> setCoin() async {
+    final account = Accounts.main;
+    final res = await UserHttp.getCoin(account: account);
+    if (!identical(account, Accounts.main)) return;
+    if (res case Success(:final response)) {
+      GlobalData().coins = response;
+    }
+  }
+
+  static Future<void> buvidActive(Account account) async {
+    // 这样线程不安全, 但仍按预期进行
+    if (account.activated) return;
+    account.activated = true;
+    try {
+      final String randPngEnd = base64.encode([
+        ...Iterable<int>.generate(32, (_) => Utils.random.nextInt(256)),
+        0,
+        0,
+        0,
+        0,
+        73,
+        69,
+        78,
+        68,
+        ...Iterable<int>.generate(4, (_) => Utils.random.nextInt(256)),
+      ]);
+
+      final jsonData = json.encode({
+        '3064': 1,
+        '39c8': '333.1387.fp.risk',
+        '3c43': {
+          'adca': 'Linux',
+          'bfe9': randPngEnd.substring(randPngEnd.length - 50),
+        },
+      });
+
+      await Request().post(
+        Api.activateBuvidApi,
+        data: {'payload': jsonData},
+        options: Options(
+          extra: {'account': account},
+          contentType: Headers.jsonContentType,
+        ),
+      );
+    } catch (_) {}
+  }
+
+  static Dio _cloneHttp11Dio() {
+    final h11 = dio.clone(
+      httpClientAdapter:
+          (dio.httpClientAdapter as Http2Adapter).fallbackAdapter,
+    );
+    final interceptors = h11.interceptors;
+    for (var i = 0; i < interceptors.length; i++) {
+      final elem = interceptors[i];
+      if (elem is RetryInterceptor) {
+        interceptors[i] = elem.copyWith(client: h11);
+        break;
+      }
+    }
+    return h11;
+  }
+
+  static (HttpClientAdapter, ConnectionManager?) _createPool() {
+    final bool enableSystemProxy;
+    late final String systemProxyHost;
+    late final int? systemProxyPort;
+    if (Pref.enableSystemProxy) {
+      systemProxyHost = Pref.systemProxyHost;
+      systemProxyPort = int.tryParse(Pref.systemProxyPort);
+      enableSystemProxy = systemProxyPort != null && systemProxyHost.isNotEmpty;
+    } else {
+      enableSystemProxy = false;
+    }
+
+    final http11Adapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final client = HttpClient()
+          ..idleTimeout = const Duration(seconds: 15)
+          ..autoUncompress =
+              false // 与 HTTP/2 的解压行为保持一致。
+          ..badCertificateCallback = Pref.badCertificateCallback
+              ? (cert, host, port) => true
+              : null;
+        if (enableSystemProxy) {
+          client.findProxy = (_) => 'PROXY $systemProxyHost:$systemProxyPort';
+        }
+        return client;
+      },
+    );
+
+    final connectionManager = _enableHttp2
+        ? ConnectionManager(
+            idleTimeout: const Duration(seconds: 15),
+            onClientCreate: (_, config) {
+              if (enableSystemProxy) {
+                config.proxy = Uri(
+                  scheme: 'http',
+                  host: systemProxyHost,
+                  port: systemProxyPort,
+                );
+              }
+              config.onBadCertificate = Pref.badCertificateCallback
+                  ? (_) => true
+                  : null;
+            },
+          )
+        : null;
+    return (DownloadResponseAdapter(http11Adapter), connectionManager);
+  }
+
+  /*
+   * config it and create
+   */
+  Request._internal() {
+    //BaseOptions、Options、RequestOptions 都可以配置参数，优先级别依次递增，且可以根据优先级别覆盖参数
+    BaseOptions options = BaseOptions(
+      //请求基地址,可以包含子路径
+      baseUrl: HttpString.apiBaseUrl,
+      //连接服务器超时时间，单位是毫秒.
+      connectTimeout: const Duration(milliseconds: 10000),
+      //响应流上前后两次接受到数据的间隔，单位为毫秒。
+      receiveTimeout: const Duration(milliseconds: 10000),
+      //Http请求头.
+      headers: {
+        'user-agent': 'Dart/3.6 (dart:io)', // Http2Adapter不会自动添加标头
+        if (!_enableHttp2) 'connection': 'keep-alive',
+        'accept-encoding': 'br,gzip',
+      },
+      persistentConnection: true,
+    );
+
+    final (h11, connectionManager) = _createPool();
+
+    dio = Dio(options)
+      ..httpClientAdapter = _enableHttp2
+          ? Http2Adapter(connectionManager, fallbackAdapter: h11)
+          : h11;
+
+    // 先于其他Interceptor
+    if (Pref.retryCount != 0) {
+      dio.interceptors.add(
+        RetryInterceptor(dio, Pref.retryCount, Pref.retryDelay),
+      );
+    }
+
+    dio.interceptors.add(DiagnosticHttpInterceptor());
+
+    dio
+      ..transformer = CompressedResponseTransformer()
+      ..options.validateStatus = (int? status) {
+        return status != null && status >= 200 && status < 300;
+      };
+  }
+
+  /// 领域接口显式声明查询或写入，解析和传输失败均沿返回结果交付。
+  /// 特殊 HTTP 方法可通过 options.method 指定；写入始终关闭自动重试。
+  Future<LoadingState<T>> requestApi<T>(
+    String url, {
+    required ApiCallKind kind,
+    required ApiResponseDecoder<T> decode,
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    Map<int, String> errorMessages = const {},
+  }) async {
+    if (cancelToken?.isCancelled ?? false) {
+      final error = cancelToken!.cancelError;
+      return Error('请求已取消', cause: error, stackTrace: error?.stackTrace);
+    }
+    final requestOptions = (options ?? Options()).copyWith(
+      method: options?.method ?? (kind == ApiCallKind.query ? 'GET' : 'POST'),
+      extra: {
+        ...?options?.extra,
+        'account':
+            options?.extra?['account'] ?? AccountManager.resolveAccount(url),
+        'noRetry':
+            kind == ApiCallKind.mutation || options?.extra?['noRetry'] == true,
+      },
+    );
+    try {
+      final response = await dio.request<dynamic>(
+        url,
+        data: data,
+        queryParameters: queryParameters,
+        options: requestOptions,
+        cancelToken: cancelToken,
+      );
+      return decodeApiResponse(
+        response,
+        kind: kind,
+        decode: decode,
+        errorMessages: errorMessages,
+      );
+    } on DioException catch (error, stackTrace) {
+      return decodeApiException(
+        error,
+        stackTrace,
+        kind: kind,
+        errorMessages: errorMessages,
+      );
+    }
+  }
+
+  /*
+   * get请求
+   */
+  Future<Response> get<T>(
+    String url, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await dio.get<T>(
+        url,
+        queryParameters: queryParameters,
+        options: options,
+        cancelToken: cancelToken,
+      );
+    } on DioException catch (e) {
+      return _failureResponse(e);
+    }
+  }
+
+  /*
+   * post请求
+   */
+  Future<Response> post<T>(
+    String url, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await dio.post<T>(
+        url,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+        cancelToken: cancelToken,
+      );
+    } on DioException catch (e) {
+      AccountManager.toast(e);
+      return _failureResponse(e);
+    }
+  }
+
+  /*
+   * 下载文件
+   */
+  Future<Response> downloadFile(
+    String urlPath,
+    String savePath, {
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await dio.download(
+        urlPath,
+        savePath,
+        cancelToken: cancelToken,
+      );
+    } on DioException catch (e) {
+      return _failureResponse(e);
+    }
+  }
+
+  static Future<Response> _failureResponse(DioException error) async =>
+      Response(
+        data: {'message': await AccountManager.dioError(error)},
+        statusCode: error.response?.statusCode ?? -1,
+        requestOptions: error.requestOptions,
+      );
+
+  static List<int> responseBytesDecoder(
+    List<int> responseBytes,
+    Map<String, List<String>> headers,
+  ) => ResponseBodyDecoder.decompress(
+    responseBytes,
+    headers['content-encoding']?.firstOrNull,
+  );
+}

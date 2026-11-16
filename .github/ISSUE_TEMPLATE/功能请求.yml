@@ -1,0 +1,38 @@
+name: 功能请求
+description: 提出 PiliAuroraNext 的功能建议
+labels: [enhancement]
+title: "[FR] "
+body:
+  - type: markdown
+    attributes:
+      value: 请先搜索已有 Issue，并检查设置中是否已有该功能。公开内容请勿包含账号、凭证或私信。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 使用场景
+      description: 请描述你遇到的需求或问题。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 功能建议
+      description: 请描述你希望增加或调整的功能。
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 涉及平台
+      options:
+        - Android 和 Windows
+        - Android
+        - Windows
+        - 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 可提供相关示例或脱敏截图。

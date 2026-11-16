@@ -1,0 +1,383 @@
+import 'package:pili_aurora_next/common/skeleton/msg_feed_top.dart';
+import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
+import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
+import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pbenum.dart'
+    show IMSettingType;
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/models/remote/msg/msg_like/item.dart';
+import 'package:pili_aurora_next/pages/msg_feed_top/like_me/controller.dart';
+import 'package:pili_aurora_next/pages/whisper_settings/widgets/reminder_dialog.dart';
+import 'package:pili_aurora_next/services/messaging/feed.dart';
+import 'package:pili_aurora_next/utils/app_scheme.dart';
+import 'package:pili_aurora_next/utils/date_utils.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart' hide ListTile;
+
+class LikeMePage extends ConsumerStatefulWidget {
+  const LikeMePage({super.key});
+
+  @override
+  ConsumerState<LikeMePage> createState() => _LikeMePageState();
+}
+
+class _LikeMePageState extends ConsumerState<LikeMePage> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final feed = ref.watch(likeMeFeedProvider);
+    final controller = ref.read(likeMeFeedProvider.notifier);
+    return SimpleScaffold(
+      appBar: AppBar(
+        title: const Text('收到的赞'),
+        actions: [
+          MessageReminderButton(
+            type: IMSettingType.SETTING_TYPE_OLD_RECEIVE_LIKE,
+            title: '收到的赞提醒',
+            icon: Icon(
+              size: 20,
+              Icons.settings,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
+      body: refreshIndicator(
+        onRefresh: controller.refresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+              ),
+              sliver: _buildBody(theme, feed.loadingState, controller),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    ThemeData theme,
+    LoadingState<PairLikeItems> loadingState,
+    LikeMeFeedNotifier controller,
+  ) {
+    switch (loadingState) {
+      case Loading():
+        return const SliverPrototypeExtentList(
+          prototypeItem: MsgFeedTopSkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 12,
+            child: MsgFeedTopSkeleton(),
+          ),
+        );
+      case Success(:final response):
+        final divider = Divider(
+          indent: 72,
+          endIndent: 20,
+          height: 6,
+          color: Colors.grey.withValues(alpha: 0.1),
+        );
+        return Builder(
+          builder: (context) {
+            List<MsgLikeItem> latest = response.latest;
+            List<MsgLikeItem> total = response.total;
+            if (latest.isNotEmpty || total.isNotEmpty) {
+              return SliverMainAxisGroup(
+                slivers: [
+                  if (latest.isNotEmpty) ...[
+                    _buildHeader(theme, '最新'),
+                    SliverList.separated(
+                      itemBuilder: (context, index) {
+                        if (total.isEmpty && index == latest.length - 1) {
+                          controller.loadMore();
+                        }
+                        return _buildItem(
+                          theme,
+                          latest[index],
+                          (id) => _removeLike(controller, id, latest: true),
+                          controller,
+                        );
+                      },
+                      itemCount: latest.length,
+                      separatorBuilder: (context, index) => divider,
+                    ),
+                  ],
+                  if (total.isNotEmpty) ...[
+                    _buildHeader(theme, '累计'),
+                    SliverList.separated(
+                      itemBuilder: (context, index) {
+                        if (index == total.length - 1) {
+                          controller.loadMore();
+                        }
+                        return _buildItem(
+                          theme,
+                          total[index],
+                          (id) => _removeLike(controller, id, latest: false),
+                          controller,
+                        );
+                      },
+                      itemCount: total.length,
+                      separatorBuilder: (context, index) => divider,
+                    ),
+                  ],
+                ],
+              );
+            }
+            return HttpError(onReload: controller.refresh);
+          },
+        );
+      case Error(:final errMsg):
+        return HttpError(
+          errMsg: errMsg,
+          onReload: controller.refresh,
+        );
+    }
+  }
+
+  Widget _buildHeader(ThemeData theme, String title) {
+    return SliverSafeArea(
+      top: false,
+      bottom: false,
+      sliver: SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Text(
+            title,
+            style: theme.textTheme.labelLarge!.copyWith(
+              color: theme.colorScheme.secondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeLike(
+    LikeMeFeedNotifier controller,
+    int? id, {
+    required bool latest,
+  }) async {
+    if (id == null) return;
+    final result = await controller.remove(id, latest: latest);
+    if (result.isSuccess) {
+      SmartDialog.showToast('删除成功');
+    } else {
+      result.toast();
+    }
+  }
+
+  Widget _buildItem(
+    ThemeData theme,
+    MsgLikeItem item,
+    ValueChanged<int?> onRemove,
+    LikeMeFeedNotifier controller,
+  ) {
+    final firstUser = item.users!.first;
+    Widget avatar;
+    if (item.users!.length == 1) {
+      avatar = GestureDetector(
+        onTap: () => Get.toNamed('/member?mid=${firstUser.mid}'),
+        child: NetworkImgLayer(
+          width: 45,
+          height: 45,
+          type: ImageType.avatar,
+          src: firstUser.avatar,
+        ),
+      );
+    } else {
+      avatar = SizedBox(
+        width: 45,
+        height: 45,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var j = 0; j < item.users!.length && j < 4; j++) ...[
+              Positioned(
+                left: 15.0 * (j % 2),
+                top: 15.0 * (j ~/ 2),
+                child: NetworkImgLayer(
+                  width: 30,
+                  height: 30,
+                  type: ImageType.avatar,
+                  src: item.users![j].avatar,
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    void onLongPress() => showDialog(
+      context: context,
+      builder: (context) {
+        final isNotice = item.noticeState == 0;
+        return SimpleDialog(
+          clipBehavior: Clip.hardEdge,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          children: [
+            DialogOption(
+              onPressed: () {
+                Get.back();
+                showConfirmDialog(
+                  context: context,
+                  title: const Text('删除'),
+                  content: const Text('该条通知删除后，当有新点赞时会重新出现在列表，是否继续？'),
+                  onConfirm: () => onRemove(item.id),
+                );
+              },
+              child: const Text('删除', style: TextStyle(fontSize: 14)),
+            ),
+            DialogOption(
+              onPressed: () {
+                Get.back();
+                if (isNotice) {
+                  showConfirmDialog(
+                    context: context,
+                    title: const Text('不再通知'),
+                    content: const Text('这条内容的点赞将不再通知，但仍可在列表内查看，是否继续？'),
+                    onConfirm: () => _setNotice(controller, item, isNotice),
+                  );
+                } else {
+                  _setNotice(controller, item, isNotice);
+                }
+              },
+              child: Text(
+                isNotice ? '不再通知' : '接收通知',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return ListTile(
+      safeArea: true,
+      onTap: () {
+        String? nativeUri = item.item?.nativeUri;
+        bool isInvalid =
+            nativeUri == null || nativeUri.isEmpty || nativeUri.startsWith('?');
+        if (item.counts! > 1) {
+          Get.toNamed(
+            'msgLikeDetail',
+            arguments: {
+              'id': item.id!.toString(),
+              if (!isInvalid) 'uri': nativeUri,
+              'counts': item.counts,
+            },
+          );
+          return;
+        }
+        if (isInvalid) {
+          return;
+        }
+        PiliScheme.routePushFromUrl(nativeUri);
+      },
+      onLongPress: onLongPress,
+      onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+      leading: avatar,
+      title: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: firstUser.nickname,
+              style: theme.textTheme.titleSmall!.copyWith(
+                height: 1.5,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            if (item.counts! > 1)
+              TextSpan(
+                text: ' 等${item.counts}人',
+                style: theme.textTheme.titleSmall!.copyWith(
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+            TextSpan(
+              text: ' 赞了我的${item.item?.business}',
+              style: theme.textTheme.titleSmall!.copyWith(
+                height: 1.5,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (item.item?.title?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text(
+              item.item!.title!,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium!.copyWith(
+                color: theme.colorScheme.outline,
+                height: 1.5,
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            DateFormatUtils.dateFormat(item.likeTime),
+            style: theme.textTheme.bodyMedium!.copyWith(
+              fontSize: 13,
+              color: theme.colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (item.item?.image?.isNotEmpty == true)
+            NetworkImgLayer(
+              width: 45,
+              height: 45,
+              src: item.item!.image,
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
+            ),
+          if (item.noticeState == 1) ...[
+            if (item.item?.image?.isNotEmpty == true) const SizedBox(width: 4),
+            Icon(
+              size: 18,
+              Icons.notifications_off,
+              color: theme.colorScheme.outline,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setNotice(
+    LikeMeFeedNotifier controller,
+    MsgLikeItem item,
+    bool isNotice,
+  ) async {
+    final id = item.id;
+    if (id == null) return;
+    final result = await controller.setNotice(id, isNotice);
+    if (result.isSuccess) {
+      SmartDialog.showToast('设置成功');
+    } else {
+      result.toast();
+    }
+  }
+}

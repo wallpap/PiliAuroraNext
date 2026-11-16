@@ -1,0 +1,643 @@
+import 'dart:async' show unawaited;
+import 'dart:typed_data';
+
+import 'package:pili_aurora_next/common/assets.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/common/constants.dart';
+import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
+import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
+import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+    show ReplyInfo;
+import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
+import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
+import 'package:pili_aurora_next/pages/music/controller.dart';
+import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
+import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
+import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:pili_aurora_next/utils/date_utils.dart';
+import 'package:pili_aurora_next/utils/extension/num_ext.dart';
+import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/utils/image_utils.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart' show DateFormat;
+import 'package:material_ui/material_ui.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
+import 'package:share_plus/share_plus.dart';
+
+class SavePanel extends StatefulWidget {
+  const SavePanel({
+    required this.item,
+    // reply
+    this.upMid,
+    super.key,
+  });
+
+  final dynamic upMid;
+  final dynamic item;
+
+  @override
+  State<SavePanel> createState() => _SavePanelState();
+
+  static void toSavePanel({dynamic upMid, dynamic item}) {
+    Get.key.currentState!.push(
+      PublishRoute(
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return SavePanel(upMid: upMid, item: item);
+        },
+        transitionDuration: const Duration(milliseconds: 255),
+        transitionBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation.drive(CurveTween(curve: Curves.easeInOut)),
+            child: child,
+          );
+        },
+        settings: RouteSettings(arguments: Get.arguments),
+      ),
+    );
+  }
+}
+
+class _SavePanelState extends State<SavePanel> {
+  final boundaryKey = GlobalKey();
+
+  bool showBottom = true;
+  bool _savingPicture = false;
+
+  // item
+  Object get _item => widget.item;
+  late String viewType = '查看';
+  late String itemType = '内容';
+
+  //reply
+  String? cover;
+  _CoverType coverType = _CoverType.def16_9;
+  String? title;
+  int? pubdate;
+  DateFormat dateFormat = DateFormatUtils.longFormatDs;
+  String? uname;
+
+  String uri = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (_item case final ReplyInfo i) {
+      _parseReply(i);
+    } else if (_item case final DynamicItemModel i) {
+      uri = _parseDyn(i);
+      logger.d(uri);
+    }
+  }
+
+  void _parseReply(ReplyInfo reply) {
+    itemType = '评论';
+    final currentRoute = Get.currentRoute;
+    late final hasRoot = reply.hasRoot();
+
+    if (currentRoute == '/videoV') {
+      final rootId = hasRoot ? reply.root : reply.id;
+
+      uri =
+          'https://www.bilibili.com/video/av${reply.oid}?comment_on=1&comment_root_id=$rootId${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
+      try {
+        final heroTag = Get.arguments['heroTag'];
+        final videoType = Get.arguments['videoType'];
+        if (videoType == VideoType.pgc || videoType == VideoType.pugv) {
+          final ctr = Get.find<PgcIntroController>(tag: heroTag);
+          final pgcItem = ctr.pgcItem;
+          final cid = ctr.cid.value;
+          final episode = pgcItem.episodes!.firstWhere(
+            (e) => e.cid == cid,
+          );
+          cover = episode.cover;
+          title =
+              episode.shareCopy ??
+              '${pgcItem.title} ${episode.showTitle ?? episode.longTitle ?? ''}';
+          pubdate = episode.pubTime;
+          uname = pgcItem.upInfo?.uname;
+
+          final oid = reply.oid;
+          final type = reply.type.toInt();
+          final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
+          uri =
+              'bilibili://comment/detail/$type/$oid/$rootId/?${anchor}enterUri=bilibili://pgc/season/ep/${ctr.epId}';
+        } else {
+          final ctr = Get.find<UgcIntroController>(tag: heroTag);
+          final videoDetail = ctr.videoDetail.value;
+          cover = videoDetail.pic;
+          title = videoDetail.title;
+          pubdate = videoDetail.pubdate;
+          uname = videoDetail.owner?.name;
+
+          final cid = ctr.cid.value;
+          final part =
+              ctr.videoDetail.value.pages?.indexWhere((i) => i.cid == cid) ??
+              -1;
+          if (part > 0) uri += '&p=${part + 1}';
+        }
+      } catch (_) {}
+    } else if (currentRoute.startsWith('/dynamicDetail')) {
+      DynamicItemModel? dynItem;
+      try {
+        dynItem = Get.arguments['item'] as DynamicItemModel;
+        uname = dynItem.modules.moduleAuthor?.name;
+      } catch (_) {}
+      final type = reply.type.toInt();
+      final oid = reply.oid;
+      final rootId = hasRoot ? reply.root : reply.id;
+
+      if (type == 1) {
+        uri =
+            'https://www.bilibili.com/video/av$oid?comment_on=1&comment_root_id=$rootId${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
+      } else {
+        final enterUri = dynItem == null
+            ? ''
+            : 'enterUri=${_parseDyn(dynItem)}';
+        uri =
+            'bilibili://comment/detail/$type/$oid/$rootId/?${hasRoot ? 'anchor=${reply.id}&' : ''}$enterUri';
+      }
+    } else if (currentRoute.startsWith('/Scaffold')) {
+      try {
+        final type = reply.type.toInt();
+        final oid = Get.arguments['oid'] ?? reply.oid;
+        final rootId = hasRoot ? reply.root : reply.id;
+        if (type == 1) {
+          uri =
+              'https://www.bilibili.com/video/av$oid?comment_on=1&comment_root_id=$rootId${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
+        } else {
+          String enterUri = Get.arguments['enterUri'] ?? '';
+          if (enterUri.isNotEmpty) {
+            enterUri = 'enterUri=${Uri.encodeComponent(enterUri)}';
+          } else if (const [11, 12, 17].contains(type)) {
+            enterUri = 'enterUri=bilibili://following/detail/$oid';
+          }
+          uri =
+              'bilibili://comment/detail/$type/$oid/$rootId/?${hasRoot ? 'anchor=${reply.id}&' : ''}$enterUri';
+        }
+      } catch (_) {}
+    } else if (currentRoute.startsWith('/articlePage')) {
+      try {
+        final type = reply.type.toInt();
+        final oid = reply.oid;
+        final rootId = hasRoot ? reply.root : reply.id;
+        final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
+        final enterUri =
+            'bilibili://following/detail/${Get.parameters['id'] ?? Get.arguments?['id']}';
+        uri =
+            'bilibili://comment/detail/$type/$oid/$rootId/?${anchor}enterUri=$enterUri';
+      } catch (_) {}
+    } else if (currentRoute.startsWith('/musicDetail')) {
+      final type = reply.type.toInt();
+      final oid = reply.oid;
+      final rootId = hasRoot ? reply.root : reply.id;
+      final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
+      String enterUri = '';
+      try {
+        final ctr = Get.find<MusicDetailController>(
+          tag: Get.parameters['musicId'],
+        );
+        enterUri = 'enterUri=${Uri.encodeComponent(ctr.shareUrl)}'; // official client cannot parse it
+        final data = ctr.infoState.value.dataOrNull;
+        if (data != null) {
+          coverType = _CoverType.square;
+          cover = data.mvCover;
+          title = data.musicTitle;
+          if (data.musicPublish != null) {
+            final time = DateTime.tryParse(
+              data.musicPublish!,
+            )?.millisecondsSinceEpoch;
+            if (time != null) {
+              pubdate = time ~/ 1000;
+              dateFormat = DateFormatUtils.longFormat;
+            }
+          }
+        }
+      } catch (_) {}
+      uri = 'bilibili://comment/detail/$type/$oid/$rootId/?$anchor$enterUri';
+    }
+
+    logger.d(uri);
+  }
+
+  String _parseDyn(DynamicItemModel item) {
+    String uri = '';
+    try {
+      switch (item.type) {
+        case 'DYNAMIC_TYPE_AV':
+          viewType = '观看';
+          itemType = '视频';
+          uri = 'bilibili://video/${item.basic!.commentIdStr}';
+          break;
+
+        case 'DYNAMIC_TYPE_ARTICLE':
+          itemType = '专栏';
+          uri = 'bilibili://following/detail/${item.idStr}';
+          break;
+
+        case 'DYNAMIC_TYPE_LIVE_RCMD':
+          viewType = '观看';
+          itemType = '直播';
+          final roomId = item.modules.moduleDynamic!.major!.liveRcmd!.roomId;
+          uri = 'bilibili://live/$roomId';
+          break;
+
+        case 'DYNAMIC_TYPE_UGC_SEASON':
+          viewType = '观看';
+          itemType = '合集';
+          final aid = item.modules.moduleDynamic!.major!.ugcSeason!.aid;
+          uri = 'bilibili://video/$aid';
+          break;
+
+        case 'DYNAMIC_TYPE_PGC':
+        case 'DYNAMIC_TYPE_PGC_UNION':
+          viewType = '观看';
+          itemType =
+              item.modules.moduleDynamic?.major?.pgc?.badge?.text ?? '番剧';
+          final epid = item.modules.moduleDynamic!.major!.pgc!.epid;
+          uri = 'bilibili://pgc/season/ep/$epid';
+          break;
+
+        // https://www.bilibili.com/medialist/detail/ml12345678
+        case 'DYNAMIC_TYPE_MEDIALIST':
+          itemType = '收藏夹';
+          final mediaId = item.modules.moduleDynamic!.major!.medialist!.id;
+          uri = 'bilibili://medialist/detail/$mediaId';
+          break;
+
+        default:
+          itemType = '动态';
+          uri = 'bilibili://following/detail/${item.idStr}';
+          break;
+      }
+    } catch (_) {}
+    return uri;
+  }
+
+  Future<void> _onSaveOrSharePic([bool isShare = false]) async {
+    if (_savingPicture) return;
+    _savingPicture = true;
+    final route = ModalRoute.of(context);
+    final item = widget.item;
+    bool cancelled = false;
+    bool current() =>
+        mounted &&
+        !cancelled &&
+        identical(item, widget.item) &&
+        route?.isCurrent == true;
+    final loadingTag = 'save-panel-screenshot-${UniqueKey()}';
+    bool loadingShown = false;
+    Future<void> closeLoading() async {
+      if (!loadingShown) return;
+      loadingShown = false;
+      try {
+        await SmartDialog.dismiss(tag: loadingTag);
+      } catch (error, stackTrace) {
+        logger.w('关闭截图提示失败', error: error.runtimeType, stackTrace: stackTrace);
+      }
+    }
+
+    void onNavigation() {
+      if (identical(routeObserver.currentRoute, route)) return;
+      cancelled = true;
+      unawaited(closeLoading());
+    }
+
+    routeObserver.addNavigationListener(onNavigation);
+    try {
+      if (!isShare &&
+          PlatformUtils.isMobile &&
+          !await ImageUtils.checkPermissionDependOnSdkInt()) {
+        return;
+      }
+      if (!current()) return;
+      loadingShown = true;
+      SmartDialog.show<void>(
+        tag: loadingTag,
+        builder: (_) => const LoadingWidget('正在生成截图'),
+        debounce: false,
+        clickMaskDismiss: false,
+        backType: SmartBackType.normal,
+        onDismiss: () {
+          if (loadingShown) cancelled = true;
+        },
+      );
+      final boundary = boundaryKey.currentContext?.findRenderObject();
+      if (boundary is! RenderRepaintBoundary) {
+        throw StateError('图片截图尚未就绪');
+      }
+      final image = await boundary.toImage(pixelRatio: 3);
+      late final Uint8List pngBytes;
+      try {
+        final byteData = await image.toByteData(format: .png);
+        if (byteData == null) throw StateError('图片截图编码未返回数据');
+        pngBytes = byteData.buffer.asUint8List();
+      } finally {
+        image.dispose();
+      }
+      if (!current()) return;
+      final picName =
+          "${Constants.appName}_${itemType}_${DateFormatUtils.only0_9.format(DateTime.now())}";
+      await closeLoading();
+      if (!current()) return;
+      if (isShare) {
+        final result = await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                pngBytes,
+                name: picName,
+                mimeType: 'image/png',
+              ),
+            ],
+          ),
+        );
+        if (current() && result.status == ShareResultStatus.success) Get.back();
+      } else {
+        final result = await ImageUtils.saveByteImg(
+          bytes: pngBytes,
+          fileName: picName,
+          showLoading: false,
+          needToast: false,
+        );
+        if (!current()) return;
+        if (result?.isSuccess == true) {
+          SmartDialog.showToast(' 已保存 ');
+          Get.back();
+        } else if (result != null) {
+          SmartDialog.showToast('保存失败，请检查相册权限后重试');
+        }
+      }
+    } catch (error, stackTrace) {
+      logger.w('图片保存或分享失败', error: error.runtimeType, stackTrace: stackTrace);
+      if (current()) SmartDialog.showToast('图片保存或分享失败，请重试');
+    } finally {
+      routeObserver.removeNavigationListener(onNavigation);
+      await closeLoading();
+      _savingPicture = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.of(context);
+    final padding = MediaQuery.viewPaddingOf(context);
+    final maxWidth = MediaQuery.sizeOf(context).shortestSide;
+    late final coverSize = MediaQuery.textScalerOf(context).scale(65);
+    return Stack(
+      clipBehavior: .none,
+      alignment: .center,
+      children: [
+        SingleChildScrollView(
+          hitTestBehavior: .deferToChild,
+          padding: .only(
+            top: 12 + padding.top,
+            bottom: 80 + padding.bottom,
+          ),
+          child: Container(
+            width: maxWidth,
+            padding: const .symmetric(horizontal: 12),
+            child: RepaintBoundary(
+              key: boundaryKey,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: const .all(.circular(12)),
+                ),
+                child: AnimatedSize(
+                  curve: Curves.easeInOut,
+                  alignment: .topCenter,
+                  duration: const Duration(milliseconds: 255),
+                  child: Column(
+                    mainAxisSize: .min,
+                    crossAxisAlignment: .start,
+                    children: [
+                      IgnorePointer(
+                        child: switch (_item) {
+                          ReplyInfo reply => ReplyItemGrpc(
+                            replyItem: reply,
+                            replyLevel: 0,
+                            needDivider: false,
+                            upMid: widget.upMid,
+                          ),
+                          DynamicItemModel dyn => DynamicPanel(
+                            item: dyn,
+                            isDetail: true,
+                            isSave: true,
+                          ),
+                          _ => throw UnsupportedError(_item.toString()),
+                        },
+                      ),
+                      if (cover?.isNotEmpty == true &&
+                          title?.isNotEmpty == true)
+                        Container(
+                          height: 81,
+                          margin: const .symmetric(horizontal: 12),
+                          padding: const .all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.onInverseSurface,
+                            borderRadius: const .all(.circular(8)),
+                          ),
+                          child: Row(
+                            spacing: 10,
+                            children: [
+                              NetworkImgLayer(
+                                src: cover!,
+                                height: coverSize,
+                                width: coverType == .def16_9
+                                    ? coverSize * Style.aspectRatio16x9
+                                    : coverSize,
+                                quality: 100,
+                                borderRadius: const .all(.circular(6)),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: .start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '$title\n',
+                                        maxLines: 2,
+                                        overflow: .ellipsis,
+                                      ),
+                                    ),
+                                    if (pubdate != null)
+                                      Text(
+                                        DateFormatUtils.format(
+                                          pubdate,
+                                          format: dateFormat,
+                                        ),
+                                        style: TextStyle(
+                                          color: colorScheme.outline,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      showBottom
+                          ? Stack(
+                              clipBehavior: .none,
+                              children: [
+                                if (uri.isNotEmpty)
+                                  Align(
+                                    alignment: .centerRight,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            mainAxisSize: .min,
+                                            crossAxisAlignment: .end,
+                                            spacing: 4,
+                                            children: [
+                                              if (uname?.isNotEmpty == true)
+                                                Text(
+                                                  '@$uname',
+                                                  maxLines: 1,
+                                                  overflow: .ellipsis,
+                                                  style: TextStyle(
+                                                    color: colorScheme.primary,
+                                                  ),
+                                                ),
+                                              Text(
+                                                '识别二维码，$viewType$itemType',
+                                                textAlign: .end,
+                                                style: TextStyle(
+                                                  color: colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                              ),
+                                              Text(
+                                                DateFormatUtils.longFormatDs
+                                                    .format(.now()),
+                                                textAlign: .end,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: colorScheme.outline,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () => Utils.copyText(uri),
+                                          child: Container(
+                                            width: 88,
+                                            height: 88,
+                                            margin: const .all(12),
+                                            padding: const .all(3),
+                                            color: colorScheme.isDark
+                                                ? Colors.white
+                                                : colorScheme.surface,
+                                            child: PrettyQrView.data(
+                                              data: uri,
+                                              decoration:
+                                                  const PrettyQrDecoration(
+                                                    shape:
+                                                        PrettyQrSquaresSymbol(),
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                Align(
+                                  alignment: .centerLeft,
+                                  child: Image.asset(
+                                    Assets.logo2,
+                                    width: 100,
+                                    cacheWidth: 100.cacheSize(context),
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: .topCenter,
+                end: .bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black54,
+                ],
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: padding.left,
+                right: padding.right,
+                bottom: 25 + padding.bottom,
+              ),
+              child: Row(
+                spacing: 40,
+                mainAxisAlignment: .center,
+                children: [
+                  iconButton(
+                    size: 42,
+                    tooltip: '关闭',
+                    icon: const Icon(Icons.clear),
+                    onPressed: Get.back,
+                    bgColor: colorScheme.onInverseSurface,
+                    iconColor: colorScheme.onSurfaceVariant,
+                  ),
+                  iconButton(
+                    size: 42,
+                    tooltip: showBottom ? '隐藏' : '显示',
+                    context: context,
+                    icon: showBottom
+                        ? const Icon(Icons.visibility_off)
+                        : const Icon(Icons.visibility),
+                    onPressed: () => setState(() {
+                      showBottom = !showBottom;
+                    }),
+                  ),
+                  if (PlatformUtils.isMobile)
+                    iconButton(
+                      size: 42,
+                      tooltip: '分享',
+                      context: context,
+                      icon: const Icon(Icons.share),
+                      onPressed: () => _onSaveOrSharePic(true),
+                    ),
+                  iconButton(
+                    size: 42,
+                    tooltip: '保存',
+                    context: context,
+                    icon: const Icon(Icons.save_alt),
+                    onPressed: _onSaveOrSharePic,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _CoverType { def16_9, square }

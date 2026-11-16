@@ -1,0 +1,445 @@
+import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
+import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
+import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
+import 'package:pili_aurora_next/common/widgets/selection_text.dart';
+import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/models/common/pgc_review_type.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_review/list.dart';
+import 'package:pili_aurora_next/pages/pgc_review/child/controller.dart';
+import 'package:pili_aurora_next/pages/pgc_review/post/view.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/bili_utils.dart';
+import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+
+class PgcReviewChildPage extends StatefulWidget {
+  const PgcReviewChildPage({
+    super.key,
+    required this.type,
+    required this.name,
+    required this.mediaId,
+    this.controllerTag,
+  });
+
+  final PgcReviewType type;
+  final String name;
+  final Object? mediaId;
+  final String? controllerTag;
+
+  @override
+  State<PgcReviewChildPage> createState() => _PgcReviewChildPageState();
+}
+
+class _PgcReviewChildPageState extends State<PgcReviewChildPage>
+    with AutomaticKeepAliveClientMixin {
+  late final String _tag;
+  late final PgcReviewController _controller;
+  late final isLongReview = widget.type == PgcReviewType.long;
+
+  @override
+  void initState() {
+    super.initState();
+    _tag =
+        widget.controllerTag ??
+        '${widget.mediaId}${widget.type.name}#${identityHashCode(this)}';
+    _controller = Get.put(
+      PgcReviewController(type: widget.type, mediaId: widget.mediaId),
+      tag: _tag,
+    );
+  }
+
+  @override
+  void dispose() {
+    Get.delete<PgcReviewController>(tag: _tag);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final theme = Theme.of(context);
+    return refreshIndicator(
+      onRefresh: _controller.onRefresh,
+      child: CustomScrollView(
+        controller: _controller.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          _buildHeader(theme),
+          SliverPadding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+            ),
+            sliver: Obx(
+              () => _buildBody(theme, _controller.loadingState.value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    ThemeData theme,
+    LoadingState<List<PgcReviewItemModel>?> loadingState,
+  ) {
+    switch (loadingState) {
+      case Loading():
+        return const SliverPrototypeExtentList(
+          prototypeItem: VideoReplySkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 8,
+            child: VideoReplySkeleton(),
+          ),
+        );
+      case Success(:final response):
+        if (response != null && response.isNotEmpty) {
+          final divider = Divider(
+            height: 1,
+            color: theme.colorScheme.outline.withValues(alpha: 0.1),
+          );
+          return SliverList.separated(
+            itemBuilder: (context, index) {
+              if (index == response.length - 1) {
+                _controller.onLoadMore();
+              }
+              return _itemWidget(theme, index, response[index]);
+            },
+            itemCount: response.length,
+            separatorBuilder: (context, index) => divider,
+          );
+        }
+        return HttpError(onReload: _controller.onReload);
+      case Error(:final errMsg):
+        return HttpError(
+          errMsg: errMsg,
+          onReload: _controller.onReload,
+        );
+    }
+  }
+
+  Widget _itemWidget(ThemeData theme, int index, PgcReviewItemModel item) {
+    final author = item.author;
+    final account = Accounts.main;
+    final list = _controller.loadingState.value.dataOrNull;
+    bool isCurrent() =>
+        mounted &&
+        identical(account, Accounts.main) &&
+        identical(list, _controller.loadingState.value.dataOrNull) &&
+        list?.contains(item) == true;
+    void showMore() => showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        clipBehavior: Clip.hardEdge,
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        children: [
+          if (Accounts.main.isLogin &&
+              author?.mid == Accounts.main.mid &&
+              item.reviewId != null) ...[
+            DialogOption(
+              child: const Text('编辑', style: TextStyle(fontSize: 14)),
+              onPressed: () {
+                Get.back();
+                if (!isCurrent()) return;
+                showModalBottomSheet(
+                  context: context,
+                  useSafeArea: true,
+                  isScrollControlled: true,
+                  builder: (context) {
+                    return PgcReviewPostPanel(
+                      name: widget.name,
+                      mediaId: widget.mediaId,
+                      reviewId: item.reviewId,
+                      content: item.content,
+                      score: item.score,
+                    );
+                  },
+                );
+              },
+            ),
+            DialogOption(
+              child: const Text('删除', style: TextStyle(fontSize: 14)),
+              onPressed: () {
+                Get.back();
+                if (!isCurrent()) return;
+                showConfirmDialog(
+                  context: context,
+                  title: const Text('删除短评，同时删除评分？'),
+                  onConfirm: () {
+                    if (isCurrent()) _controller.onDel(item.reviewId!);
+                  },
+                );
+              },
+            ),
+          ],
+          if (item.reviewId != null)
+            DialogOption(
+              child: const Text('举报', style: TextStyle(fontSize: 14)),
+              onPressed: () => Get
+                ..back()
+                ..toNamed(
+                  '/webview',
+                  parameters: {
+                    'url':
+                        'https://www.bilibili.com/appeal/?reviewId=${item.reviewId}&type=shortComment&mediaId=${widget.mediaId}',
+                  },
+                ),
+            ),
+        ],
+      ),
+    );
+
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: isLongReview && item.articleId != null
+            ? () => Get.toNamed(
+                '/articlePage',
+                parameters: {
+                  'id': item.articleId!.toString(),
+                  'type': 'read',
+                },
+              )
+            : null,
+        onLongPress: !isLongReview ? showMore : null,
+        onSecondaryTap: !isLongReview && !PlatformUtils.isMobile
+            ? showMore
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: author?.mid == null
+                    ? null
+                    : () => Get.toNamed('/member?mid=${author!.mid}'),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NetworkImgLayer(
+                      height: 34,
+                      width: 34,
+                      src: author?.avatar,
+                      type: ImageType.avatar,
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      spacing: 2,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          spacing: 6,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              author?.uname ?? '匿名用户',
+                              style: TextStyle(
+                                color:
+                                    author?.vip != null &&
+                                        author!.vip!.status > 0 &&
+                                        author.vip!.type == 2
+                                    ? theme.colorScheme.vipColor
+                                    : theme.colorScheme.outline,
+                                fontSize: 13,
+                              ),
+                            ),
+                            BiliUtils.levelPicture(
+                              author?.level ?? 0,
+                              height: 11,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            if (item.pushTimeStr != null) ...[
+                              Text(
+                                item.pushTimeStr!,
+                                style: TextStyle(
+                                  color: theme.colorScheme.outline,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            ...List.generate(
+                              5,
+                              (index) {
+                                if (index <= item.score - 1) {
+                                  return const Icon(
+                                    CustomIcons.star_favorite_solid,
+                                    size: 13,
+                                    color: Color(0xFFFFAD35),
+                                  );
+                                }
+                                return const Icon(
+                                  CustomIcons.star_favorite_line,
+                                  size: 14,
+                                  color: Colors.grey,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 5),
+              if (item.title != null)
+                Text(
+                  item.title!,
+                  style: const TextStyle(
+                    height: 1.75,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              if (isLongReview)
+                Text(
+                  item.content ?? '',
+                  style: const TextStyle(height: 1.75),
+                )
+              else
+                SelectionText(
+                  item.content ?? '',
+                  style: const TextStyle(height: 1.75),
+                ),
+              Obx(
+                () {
+                  final pending =
+                      _controller.pendingReviews.contains(item.reviewId) ||
+                      item.reviewId == null;
+                  final Color color = theme.colorScheme.outline;
+                  final Color primary = theme.colorScheme.primary;
+                  final ButtonStyle style = TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  );
+                  final isLike = item.stat?.liked == 1;
+                  late final isDislike = item.stat?.disliked == 1;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (!isLongReview)
+                        SizedBox(
+                          height: 32,
+                          child: TextButton(
+                            style: const ButtonStyle(
+                              visualDensity: .compact,
+                              tapTargetSize: .shrinkWrap,
+                              padding: WidgetStatePropertyAll(.zero),
+                              minimumSize: WidgetStatePropertyAll(.square(40)),
+                            ),
+                            onPressed: pending
+                                ? null
+                                : () => _controller.onDislike(item),
+                            child: Icon(
+                              isDislike
+                                  ? FontAwesomeIcons.solidThumbsDown.data
+                                  : FontAwesomeIcons.thumbsDown.data,
+                              size: 16,
+                              color: isDislike ? primary : color,
+                            ),
+                          ),
+                        ),
+                      SizedBox(
+                        height: 32,
+                        child: TextButton(
+                          style: style,
+                          onPressed: isLongReview || pending
+                              ? null
+                              : () => _controller.onLike(item),
+                          child: Row(
+                            spacing: 4,
+                            children: [
+                              Icon(
+                                isLike
+                                    ? FontAwesomeIcons.solidThumbsUp.data
+                                    : FontAwesomeIcons.thumbsUp.data,
+                                size: 16,
+                                color: isLike ? primary : color,
+                              ),
+                              Text(
+                                item.stat?.likes == null
+                                    ? '赞'
+                                    : NumUtils.numFormat(item.stat!.likes),
+                                style: TextStyle(
+                                  color: isLike ? primary : color,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme) => SliverFloatingHeaderWidget(
+    backgroundColor: theme.colorScheme.surface,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2.5, 6, 2.5),
+      child: Row(
+        mainAxisAlignment: .spaceBetween,
+        children: [
+          Obx(
+            () {
+              final count = _controller.count.value;
+              return count == null
+                  ? const SizedBox.shrink()
+                  : Text(
+                      '${NumUtils.numFormat(count)}条点评',
+                      style: const TextStyle(fontSize: 13),
+                    );
+            },
+          ),
+          TextButton.icon(
+            style: Style.buttonStyle,
+            onPressed: _controller.queryBySort,
+            icon: Icon(
+              Icons.sort,
+              size: 16,
+              color: theme.colorScheme.secondary,
+            ),
+            label: Obx(
+              () => Text(
+                _controller.sortType.value.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: theme.colorScheme.secondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  @override
+  bool get wantKeepAlive => true;
+}

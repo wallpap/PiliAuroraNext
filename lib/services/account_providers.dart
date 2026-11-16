@@ -1,0 +1,42 @@
+import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+
+/// 按账号对象身份发布切换，登录账号之间切换也会使依赖状态重建。
+final mainAccountProvider = NotifierProvider<MainAccountNotifier, Account>(
+  MainAccountNotifier.new,
+  isAutoDispose: true,
+);
+
+class MainAccountNotifier extends Notifier<Account> {
+  Account get currentAccount => Accounts.main;
+  ValueListenable<int> get accountChanges => Accounts.mainChanges;
+  @override
+  Account build() {
+    final accounts = accountChanges;
+    void changed() => state = currentAccount;
+    accounts.addListener(changed);
+    ref.onDispose(() => accounts.removeListener(changed));
+    return currentAccount;
+  }
+
+  // 同一 mid 的新凭据也是独立账号对象，不能沿用 Account 的值相等语义。
+  @override
+  bool updateShouldNotify(Account previous, Account next) =>
+      !identical(previous, next);
+}
+
+final recommendAccountProvider =
+    NotifierProvider<RecommendAccountNotifier, Account>(
+      RecommendAccountNotifier.new,
+      isAutoDispose: true,
+    );
+
+class RecommendAccountNotifier extends MainAccountNotifier {
+  @override
+  Account get currentAccount => Accounts.get(AccountType.recommend);
+  @override
+  ValueListenable<int> get accountChanges => Accounts.recommendChanges;
+}
