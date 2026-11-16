@@ -1,3 +1,8 @@
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:pili_aurora_next/services/download/download_repository.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/app/desktop_playback_launch.dart';
 import 'package:pili_aurora_next/app/desktop_theme.dart';
@@ -28,6 +33,22 @@ class PiliAuroraNextApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final (light, dark) = ThemeUtils.getAllTheme();
     return ProviderScope(
+      overrides: [
+        downloadRepositoryProvider.overrideWith(
+          (ref) => DownloadRepository(
+            rootPath: () => downloadPath,
+            onReadError: (path, error, stack) => logger.w(
+              '下载元数据读取或恢复异常: $path',
+              error: error.runtimeType,
+              stackTrace: stack,
+            ),
+          ),
+        ),
+        downloadClientProvider.overrideWithValue(Request.http11Dio),
+        downloadBackgroundErrorProvider.overrideWithValue(
+          SmartDialog.showToast,
+        ),
+      ],
       child: GetMaterialApp(
         title: Constants.appName,
         theme: light,

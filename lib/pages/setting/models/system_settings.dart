@@ -12,7 +12,8 @@ import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/clear_cache_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/doc_provider_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/slider_dialog.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/filtering_text.dart';
@@ -145,7 +146,10 @@ Future<void> _setDownloadPath(
   if (_changingDownloadPath || nextPath == downloadPath) return;
   _changingDownloadPath = true;
   try {
-    final service = Get.find<DownloadService>();
+    final service = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(downloadServiceProvider);
     final pause = await service.cancelDownload(
       isDelete: false,
       downloadNext: false,

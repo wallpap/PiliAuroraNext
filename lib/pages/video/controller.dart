@@ -55,7 +55,8 @@ import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
@@ -1863,7 +1864,10 @@ class VideoDetailController extends GetxController
       }
     }
     if (episodes != null && episodes.isNotEmpty) {
-      final downloadService = Get.find<DownloadService>();
+      final downloadService = ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(downloadServiceProvider);
       final initialization = await downloadService.waitForInitialization;
       if (!context.mounted) {
         return;

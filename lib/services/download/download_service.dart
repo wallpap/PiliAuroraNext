@@ -25,8 +25,6 @@ import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
 import 'package:synchronized/synchronized.dart';
 
@@ -41,10 +39,11 @@ class DownloadCancelled extends Error {
 ///
 /// 目录与 JSON 由 [DownloadRepository] 管理，单路媒体传输由
 /// [DownloadManager] 管理。服务只维护一个当前下载项及其可选的音频任务。
-class DownloadService extends GetxService {
+class DownloadService extends ChangeNotifier {
   DownloadService({
     required this._repository,
     required this._downloadClient,
+    this.onBackgroundError,
     @visibleForTesting
     Future<List<int>> Function(BiliDownloadEntryInfo)? prepareDanmaku,
     @visibleForTesting
@@ -52,6 +51,8 @@ class DownloadService extends GetxService {
   }) : _prepareDanmakuOverride = prepareDanmaku,
        _prepareMediaOverride = prepareMedia;
 
+  final void Function(String)? onBackgroundError;
+  bool _closed = false;
   final DownloadRepository _repository;
   final Dio _downloadClient;
   final Future<List<int>> Function(BiliDownloadEntryInfo)?
@@ -65,20 +66,19 @@ class DownloadService extends GetxService {
   final _danmakuOperations = <String, Object>{};
   Object? _operation;
   int _initializationGeneration = 0;
-  final initializationState = Rx<LoadingState<void>>(LoadingState.loading());
+  int get generation => _initializationGeneration;
+  LoadingState<void> initializationState = LoadingState.loading();
 
-  final flagNotifier = SetNotifier();
-  final waitDownloadQueue = RxList<BiliDownloadEntryInfo>();
+  final waitDownloadQueue = <BiliDownloadEntryInfo>[];
   final downloadList = <BiliDownloadEntryInfo>[];
 
   int? _curCid;
   int? get curCid => _curCid;
-  final curDownload = Rxn<BiliDownloadEntryInfo>();
+  BiliDownloadEntryInfo? curDownload;
   void _updateCurStatus(DownloadStatus status) {
-    if (curDownload.value != null) {
-      curDownload
-        ..value!.status = status
-        ..refresh();
+    if (curDownload != null) {
+      curDownload!.status = status;
+      _publish();
     }
   }
 
@@ -90,7 +90,7 @@ class DownloadService extends GetxService {
     unawaited(
       _repository.save(entry).catchError((Object error, StackTrace stack) {
         logger.e('下载进度保存失败', error: error.runtimeType, stackTrace: stack);
-        SmartDialog.showToast('下载进度保存失败，请检查磁盘空间和目录权限');
+        onBackgroundError?.call('下载进度保存失败，请检查磁盘空间和目录权限');
       }),
     );
   }
@@ -98,15 +98,36 @@ class DownloadService extends GetxService {
   /// 初始化与重读均返回结果；失败保留旧服务快照，由页面显示重试入口。
   late Future<LoadingState<void>> waitForInitialization;
 
-  @override
-  void onInit() {
-    super.onInit();
-    initDownloadList();
+  void _publish() {
+    if (!_closed) notifyListeners();
+  }
+
+  /// 根 ProviderScope 释放时停止传输；页面订阅释放不触发关闭。
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    _initializationGeneration++;
+    _operation = null;
+    _danmakuOperations.clear();
+    try {
+      await _lock.synchronized(() async {
+        await _downloadManager?.cancel(isDelete: false);
+        await _audioDownloadManager?.cancel(isDelete: false);
+        if (curDownload case final entry?) {
+          entry.status = DownloadStatus.pause;
+          await _repository.save(entry);
+        }
+      });
+    } finally {
+      super.dispose();
+    }
   }
 
   Future<LoadingState<void>> initDownloadList() {
+    if (_closed) return Future.value(const DownloadCancelled());
     final generation = ++_initializationGeneration;
-    initializationState.value = LoadingState.loading();
+    initializationState = LoadingState.loading();
+    _publish();
     return waitForInitialization = _readDownloadList(generation);
   }
 
@@ -126,7 +147,7 @@ class DownloadService extends GetxService {
           return const DownloadCancelled();
         }
         final pending = entries.where((entry) => !entry.isCompleted).toList();
-        var current = curDownload.value;
+        var current = curDownload;
         if (current != null &&
             !pending.any(
               (entry) => entry.entryDirPath == current!.entryDirPath,
@@ -136,7 +157,7 @@ class DownloadService extends GetxService {
             return const DownloadCancelled();
           }
           _curCid = null;
-          curDownload.value = null;
+          curDownload = null;
           current = null;
         }
         downloadList
@@ -144,20 +165,23 @@ class DownloadService extends GetxService {
           ..addAll(entries.where((entry) => entry.isCompleted))
           ..sort((a, b) => b.timeUpdateStamp.compareTo(a.timeUpdateStamp));
         // 同一目录重读复用当前对象；新目录不能继承同 CID 的旧任务状态。
-        waitDownloadQueue.assignAll(
-          pending.map(
-            (entry) =>
-                current?.entryDirPath == entry.entryDirPath ? current! : entry,
-          ),
-        );
-        initializationState.value = const Success(null);
+        waitDownloadQueue
+          ..clear()
+          ..addAll(
+            pending.map(
+              (entry) => current?.entryDirPath == entry.entryDirPath
+                  ? current!
+                  : entry,
+            ),
+          );
+        initializationState = const Success(null);
         _publishDeletion(true);
         return const Success<void>(null);
       });
     } catch (error, stack) {
       final result = _failure('下载记录读取失败，请检查目录权限后重试', error, stack);
       if (generation == _initializationGeneration) {
-        initializationState.value = result;
+        initializationState = result;
         _publishDeletion(true);
       }
       return result;
@@ -301,7 +325,8 @@ class DownloadService extends GetxService {
   Future<LoadingState<void>> _createDownload(
     BiliDownloadEntryInfo entry,
   ) async {
-    if (_initializationGeneration > 0 && !initializationState.value.isSuccess) {
+    if (_closed ||
+        (_initializationGeneration > 0 && !initializationState.isSuccess)) {
       return const Error('下载记录尚未读取成功，请先重试');
     }
     final generation = _initializationGeneration;
@@ -324,7 +349,8 @@ class DownloadService extends GetxService {
         }
         entry.status = DownloadStatus.wait;
         waitDownloadQueue.add(entry);
-        if (curDownload.value?.status.isDownloading != true) {
+        _publish();
+        if (curDownload?.status.isDownloading != true) {
           unawaited(_startAndNotify(entry));
         }
         return const Success<void>(null);
@@ -339,8 +365,8 @@ class DownloadService extends GetxService {
   /// 成功表示准备完成并启动传输，最终完成状态由当前任务与列表通知交付。
   Future<LoadingState<void>> startDownload(BiliDownloadEntryInfo entry) async {
     try {
-      if (_initializationGeneration > 0 &&
-          !initializationState.value.isSuccess) {
+      if (_closed ||
+          (_initializationGeneration > 0 && !initializationState.isSuccess)) {
         return const Error('下载记录尚未读取成功，请先重试');
       }
       final operation = await _lock.synchronized(() async {
@@ -353,7 +379,7 @@ class DownloadService extends GetxService {
         await _audioDownloadManager?.cancel(isDelete: false);
         _downloadManager = null;
         _audioDownloadManager = null;
-        if (curDownload.value case final curEntry?) {
+        if (curDownload case final curEntry?) {
           if (curEntry.status.isDownloading) {
             _updateCurStatus(DownloadStatus.pause);
           }
@@ -361,8 +387,8 @@ class DownloadService extends GetxService {
         }
 
         _curCid = entry.cid;
-        curDownload.value = entry;
-        waitDownloadQueue.refresh();
+        curDownload = entry;
+        _publish();
         final operation = Object();
         _operation = operation;
         return operation;
@@ -380,17 +406,16 @@ class DownloadService extends GetxService {
   }
 
   Future<void> _startAndNotify(BiliDownloadEntryInfo entry) async {
-    final before = curDownload.value;
+    final before = curDownload;
     final result = await startDownload(entry);
     if (!result.isSuccess &&
         result is! DownloadCancelled &&
-        (identical(curDownload.value, entry) ||
-            identical(curDownload.value, before))) {
-      result.toast();
+        (identical(curDownload, entry) || identical(curDownload, before))) {
+      onBackgroundError?.call(result.toString());
     }
   }
 
-  bool _owns(Object operation) => identical(_operation, operation);
+  bool _owns(Object operation) => !_closed && identical(_operation, operation);
 
   Future<List<int>> _fetchDanmaku(
     BiliDownloadEntryInfo entry,
@@ -429,7 +454,7 @@ class DownloadService extends GetxService {
     final generation = _initializationGeneration;
     try {
       if (_initializationGeneration > 0 &&
-          (!initializationState.value.isSuccess ||
+          (!initializationState.isSuccess ||
               !(downloadList.contains(entry) ||
                   waitDownloadQueue.contains(entry)))) {
         return const Error('下载记录已变化，请重新读取后重试');
@@ -442,7 +467,7 @@ class DownloadService extends GetxService {
         path.join(entry.entryDirPath, PathUtils.danmakuName),
       );
       if (isUpdate || !danmakuFile.existsSync()) {
-        if (!isUpdate && identical(curDownload.value, entry)) {
+        if (!isUpdate && identical(curDownload, entry)) {
           _updateCurStatus(DownloadStatus.getDanmaku);
         }
         bool active() =>
@@ -464,7 +489,7 @@ class DownloadService extends GetxService {
               !identical(_danmakuOperations[entryPath], token))) {
         return const DownloadCancelled();
       }
-      if (!isUpdate && identical(curDownload.value, entry)) {
+      if (!isUpdate && identical(curDownload, entry)) {
         _updateCurStatus(DownloadStatus.failDanmaku);
       }
       return _failure('弹幕更新失败，请检查网络或目录权限后重试', error, stack);
@@ -632,7 +657,7 @@ class DownloadService extends GetxService {
   }
 
   void _onReceive(int progress, int total) {
-    if (curDownload.value case final entry?) {
+    if (curDownload case final entry?) {
       entry
         ..downloadedBytes = progress
         ..status = DownloadStatus.downloading;
@@ -640,14 +665,14 @@ class DownloadService extends GetxService {
         entry.totalBytes = total;
         _saveProgress(entry);
       }
-      curDownload.refresh();
+      _publish();
     }
   }
 
   void _onDone(Object operation, [Object? error]) {
     if (error != null) {
       _updateCurStatus(_downloadManager?.status ?? DownloadStatus.pause);
-      if (curDownload.value case final entry?) _saveProgress(entry);
+      if (curDownload case final entry?) _saveProgress(entry);
       return;
     }
 
@@ -660,7 +685,7 @@ class DownloadService extends GetxService {
     };
     _updateCurStatus(status);
 
-    if (curDownload.value case final curEntryInfo?) {
+    if (curDownload case final curEntryInfo?) {
       curEntryInfo.downloadedBytes = curEntryInfo.totalBytes;
       if (status == DownloadStatus.completed) {
         _completeDownload(operation);
@@ -681,13 +706,13 @@ class DownloadService extends GetxService {
               ? DownloadStatus.failDownloadAudio
               : status,
         );
-        if (curDownload.value case final entry?) _saveProgress(entry);
+        if (curDownload case final entry?) _saveProgress(entry);
       }
     }
   }
 
   Future<void> _completeDownload(Object operation) async {
-    final entry = curDownload.value;
+    final entry = curDownload;
     if (entry == null || !_completing.add(entry)) {
       return;
     }
@@ -708,10 +733,11 @@ class DownloadService extends GetxService {
         }
         _publishDeletion(true);
         // 保存期间可能已切换任务，旧完成回调不能清空新任务。
-        if (identical(curDownload.value, entry)) {
+        if (identical(curDownload, entry)) {
           _operation = null;
           _curCid = null;
-          curDownload.value = null;
+          curDownload = null;
+          _publish();
           _downloadManager = null;
           _audioDownloadManager = null;
           nextDownload();
@@ -720,9 +746,9 @@ class DownloadService extends GetxService {
         entry
           ..isCompleted = false
           ..status = DownloadStatus.failDownload;
-        curDownload.refresh();
+        _publish();
         logger.e('下载完成记录保存失败', error: error.runtimeType, stackTrace: stack);
-        SmartDialog.showToast('下载文件已保留，但完成记录保存失败，请检查磁盘后重试');
+        onBackgroundError?.call('下载文件已保留，但完成记录保存失败，请检查磁盘后重试');
       } finally {
         _completing.remove(entry);
       }
@@ -730,7 +756,7 @@ class DownloadService extends GetxService {
   }
 
   void nextDownload() {
-    if (waitDownloadQueue.isNotEmpty) {
+    if (!_closed && waitDownloadQueue.isNotEmpty) {
       unawaited(_startAndNotify(waitDownloadQueue.first));
     }
   }
@@ -742,7 +768,7 @@ class DownloadService extends GetxService {
     bool refresh = true,
     bool downloadNext = true,
   }) => _lock.synchronized(() async {
-    final current = curDownload.value;
+    final current = curDownload;
     final isCurrent = current?.entryDirPath == entry.entryDirPath;
     try {
       if (isCurrent) {
@@ -775,7 +801,7 @@ class DownloadService extends GetxService {
     required String pageDirPath,
     bool refresh = true,
   }) => _lock.synchronized(() async {
-    final current = curDownload.value;
+    final current = curDownload;
     final isCurrent = current?.pageDirPath == pageDirPath;
     try {
       if (isCurrent) {
@@ -804,14 +830,7 @@ class DownloadService extends GetxService {
 
   void _publishDeletion(bool refresh) {
     if (!refresh) return;
-    // 文件删除已确认，订阅方错误不能把成功结果改成可重试的删除失败。
-    for (final listener in flagNotifier.toList()) {
-      try {
-        listener();
-      } catch (error, stack) {
-        logger.e('下载列表刷新失败', error: error.runtimeType, stackTrace: stack);
-      }
-    }
+    _publish();
   }
 
   Future<LoadingState<void>> cancelDownload({
@@ -838,29 +857,20 @@ class DownloadService extends GetxService {
     if (!isDelete) _updateCurStatus(DownloadStatus.pause);
     if (!isDelete) {
       // 暂停保留已写入的字节数，后续由 DownloadManager 发送 Range 请求续传。
-      final entry = curDownload.value;
+      final entry = curDownload;
       if (entry != null) {
         await _repository.save(entry);
       }
     }
     if (isDelete) {
       _curCid = null;
-      curDownload.value = null;
+      curDownload = null;
+      _publish();
     } else {
       _updateCurStatus(DownloadStatus.pause);
     }
     if (downloadNext) {
       nextDownload();
-    }
-  }
-}
-
-typedef SetNotifier = Set<VoidCallback>;
-
-extension SetNotifierExt on SetNotifier {
-  void refresh() {
-    for (final i in this) {
-      i();
     }
   }
 }

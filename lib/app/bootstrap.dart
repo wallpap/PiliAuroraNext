@@ -18,8 +18,6 @@ import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/app_icon.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
@@ -27,7 +25,6 @@ import 'package:pili_aurora_next/utils/font_utils.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as font_result;
 import 'package:pili_aurora_next/services/diagnostics/report_handler.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -155,21 +152,7 @@ Future<void> _bootstrapApplication(
       }
     }),
   ]);
-  Get
-    ..lazyPut(AccountService.new)
-    ..lazyPut(
-      () => DownloadService(
-        repository: DownloadRepository(
-          rootPath: () => downloadPath,
-          onReadError: (path, error, stackTrace) => logger.w(
-            '下载元数据读取或恢复异常: $path',
-            error: error,
-            stackTrace: stackTrace,
-          ),
-        ),
-        downloadClient: Request.http11Dio,
-      ),
-    );
+  Get.lazyPut(AccountService.new);
   HttpOverrides.global = _CustomHttpOverrides();
   if (Pref.badCertificateCallback) {
     logger.w('已显式禁用 TLS 证书验证，仅应用于受控调试；请在调试结束后恢复验证');

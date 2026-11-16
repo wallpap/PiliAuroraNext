@@ -13,16 +13,13 @@ import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
 import 'package:pili_aurora_next/pages/download/downloading/view.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
@@ -32,26 +29,30 @@ class DetailItem extends StatelessWidget {
     super.key,
     required this.entry,
     this.progress,
-    required this.downloadService,
+    this.onToggle,
+    this.onUpdate,
     this.onDelete,
     required this.showTitle,
     this.isCurr = false,
     //
-    required this.controller,
+    this.enableMultiSelect = false,
     this.checked,
     this.onSelect,
+    this.playlist = const [],
   });
 
   final BiliDownloadEntryInfo entry;
   final ChangeNotifier? progress;
-  final DownloadService downloadService;
+  final Future<void> Function()? onToggle;
+  final Future<void> Function()? onUpdate;
   final VoidCallback? onDelete;
   final bool showTitle;
   final bool isCurr;
   //
-  final MultiSelectBase controller;
+  final bool enableMultiSelect;
   final bool? checked;
   final ValueChanged<BiliDownloadEntryInfo>? onSelect;
+  final List<BiliDownloadEntryInfo> playlist;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +60,7 @@ class DetailItem extends StatelessWidget {
     final outline = theme.colorScheme.outline;
     final cid = entry.source?.cid ?? entry.pageData?.cid;
     final canDel = onDelete != null;
-    final enableMultiSelect = controller.enableMultiSelect.value;
+
     void onLongPress() => canDel && !enableMultiSelect
         ? showDialog(
             context: context,
@@ -81,16 +82,7 @@ class DetailItem extends StatelessWidget {
                 DialogOption(
                   onPressed: () async {
                     Get.back();
-                    final res = await downloadService.downloadDanmaku(
-                      entry: entry,
-                      isUpdate: true,
-                    );
-                    if (!context.mounted) return;
-                    if (res.isSuccess) {
-                      SmartDialog.showToast('更新成功');
-                    } else if (res is! DownloadCancelled) {
-                      res.toast();
-                    }
+                    await onUpdate?.call();
                   },
                   child: const Text('更新弹幕', style: TextStyle(fontSize: 14)),
                 ),
@@ -108,7 +100,7 @@ class DetailItem extends StatelessWidget {
             return;
           }
           if (enableMultiSelect) {
-            (onSelect ?? controller.onSelect).call(entry);
+            onSelect?.call(entry);
             return;
           }
           if (entry.isCompleted) {
@@ -121,6 +113,7 @@ class DetailItem extends StatelessWidget {
               extraArguments: {
                 'sourceType': SourceType.file,
                 'entry': entry,
+                'offlineEntries': playlist,
                 'dirPath': entry.entryDirPath,
               },
             );
@@ -133,28 +126,7 @@ class DetailItem extends StatelessWidget {
               });
             }
           } else {
-            final curDownload = downloadService.curDownload.value;
-            if (curDownload != null &&
-                curDownload.cid == cid &&
-                curDownload.status.isDownloading) {
-              final result = await downloadService.cancelDownload(
-                isDelete: false,
-                downloadNext: false,
-              );
-              if (context.mounted && !result.isSuccess) result.toast();
-            } else {
-              final result = await downloadService.startDownload(entry);
-              if (context.mounted &&
-                  !result.isSuccess &&
-                  result is! DownloadCancelled &&
-                  (identical(downloadService.curDownload.value, entry) ||
-                      identical(
-                        downloadService.curDownload.value,
-                        curDownload,
-                      ))) {
-                result.toast();
-              }
-            }
+            await onToggle?.call();
           }
         },
         onLongPress: onLongPress,
@@ -280,7 +252,7 @@ class DetailItem extends StatelessWidget {
                   Positioned.fill(
                     child: selectMask(
                       theme.colorScheme,
-                      checked ?? entry.checked,
+                      checked ?? false,
                     ),
                   ),
                 ],
@@ -356,40 +328,7 @@ class DetailItem extends StatelessWidget {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: isCurr
-                            ? RepaintBoundary(
-                                child: Obx(
-                                  () {
-                                    final curDownload =
-                                        downloadService.curDownload.value;
-                                    if (curDownload != null) {
-                                      final status = curDownload.status;
-                                      final color =
-                                          status != DownloadStatus.pause
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.outline;
-                                      return progressWidget(
-                                        statusMsg: status.message,
-                                        progressStr:
-                                            status ==
-                                                    DownloadStatus
-                                                        .downloading ||
-                                                status == DownloadStatus.pause
-                                            ? '${CacheManager.formatSize(curDownload.downloadedBytes)}/${CacheManager.formatSize(curDownload.totalBytes)}'
-                                            : '',
-                                        progress: curDownload.totalBytes == 0
-                                            ? 0
-                                            : curDownload.downloadedBytes /
-                                                  curDownload.totalBytes,
-                                        color: color,
-                                        highlightColor: theme.highlightColor,
-                                      );
-                                    }
-                                    return entryProgress(theme);
-                                  },
-                                ),
-                              )
-                            : entryProgress(theme),
+                        child: entryProgress(theme),
                       ),
                   ],
                 ),

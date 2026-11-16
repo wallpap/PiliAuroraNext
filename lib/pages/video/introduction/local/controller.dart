@@ -1,7 +1,6 @@
 import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/download/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
@@ -56,19 +55,24 @@ class LocalIntroController extends CommonIntroController {
       this.index.value = 0;
       return;
     }
-    final controller = Get.find<DownloadPageController>();
-    final list = <BiliDownloadEntryInfo>[];
-    for (final e in controller.pages) {
-      final items = e.entries..sort((a, b) => a.sortKey.compareTo(b.sortKey));
-      final completed = items.where((e) => e.isCompleted);
-      list.addAllIf(completed.isNotEmpty, completed);
-      if (completed.length == 1) {
-        aidSet.add(e.pageId);
-      }
+    // 离线入口固定播放列表，播放页不再依赖下载首页的存活与注册。
+    final supplied = videoDetailCtr.args['offlineEntries'];
+    final list = supplied is List<BiliDownloadEntryInfo> && supplied.isNotEmpty
+        ? supplied.toList()
+        : <BiliDownloadEntryInfo>[videoDetailCtr.entry];
+    final counts = <String, int>{};
+    for (final entry in list) {
+      counts.update(entry.pageId, (count) => count + 1, ifAbsent: () => 1);
     }
+    aidSet.addAll(
+      counts.entries
+          .where((entry) => entry.value == 1)
+          .map((entry) => entry.key),
+    );
     this.list.value = list;
     final currCid = videoDetailCtr.cid.value;
-    final index = list.indexWhere((e) => e.cid == currCid);
+    final found = list.indexWhere((e) => e.cid == currCid);
+    final index = found < 0 ? 0 : found;
     this.index.value = index;
     if (PlatformUtils.isMobile) {
       onVideoDetailChange(list[index]);

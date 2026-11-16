@@ -2,11 +2,12 @@ import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info
 
 /// 页面只读取副本；命令凭原始对象身份核对记录，避免同路径重建后操作新任务。
 class DownloadTask {
-  DownloadTask.capture(BiliDownloadEntryInfo entry)
+  DownloadTask.capture(BiliDownloadEntryInfo entry, {this.generation = 0})
     : identity = entry,
       _entry = _copy(entry);
 
   final Object identity;
+  final int generation;
   final BiliDownloadEntryInfo _entry;
 
   String get key => _entry.entryDirPath;
@@ -32,6 +33,7 @@ class DownloadTask {
 
 class DownloadSnapshot {
   DownloadSnapshot({
+    this.generation = 0,
     required Iterable<DownloadTask> completed,
     required Iterable<DownloadTask> queued,
     required this.current,
@@ -39,6 +41,7 @@ class DownloadSnapshot {
        queued = List.unmodifiable(queued);
 
   final List<DownloadTask> completed;
+  final int generation;
   final List<DownloadTask> queued;
   final DownloadTask? current;
 

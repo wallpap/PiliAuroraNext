@@ -21,6 +21,8 @@ import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
@@ -38,7 +40,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_select_field.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-class DownloadPanel extends StatefulWidget {
+class DownloadPanel extends ConsumerStatefulWidget {
   const DownloadPanel({
     super.key,
     required this.index,
@@ -63,11 +65,13 @@ class DownloadPanel extends StatefulWidget {
   final Set<int> cidSet;
 
   @override
-  State<DownloadPanel> createState() => _DownloadPanelState();
+  ConsumerState<DownloadPanel> createState() => _DownloadPanelState();
 }
 
-class _DownloadPanelState extends State<DownloadPanel> {
-  final DownloadService _downloadService = Get.find<DownloadService>();
+class _DownloadPanelState extends ConsumerState<DownloadPanel> {
+  late final DownloadService _downloadService = ref.read(
+    downloadServiceProvider,
+  );
   final ListController _listController = ListController();
 
   late final cidSet = widget.cidSet;

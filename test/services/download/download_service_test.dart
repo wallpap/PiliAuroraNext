@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
@@ -5,7 +6,6 @@ import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -159,12 +159,12 @@ void main() {
     expect((result as Error).cause, same(failure));
     expect(result.stackTrace, isNotNull);
     expect(result.toString(), isNot(contains('private-initialization')));
-    expect(pending.initializationState.value, same(result));
+    expect(pending.initializationState, same(result));
     expect(pending.downloadList, [old]);
     final fresh = downloadEntry(cid: 22, completed: true);
     repo.read = () async => [fresh];
     expect((await pending.initDownloadList()).isSuccess, true);
-    expect(pending.initializationState.value.isSuccess, true);
+    expect(pending.initializationState.isSuccess, true);
     expect(pending.downloadList, [fresh]);
   });
 
@@ -187,7 +187,7 @@ void main() {
     reads[1].complete([entry]);
     expect((await fresh).isSuccess, true);
     expect(pending.downloadList, [entry]);
-    expect(pending.initializationState.value.isSuccess, true);
+    expect(pending.initializationState.isSuccess, true);
   });
 
   test('切换目录时相同 CID 不继承旧目录的当前任务状态', () async {
@@ -201,10 +201,10 @@ void main() {
     repo.read = () async => [fresh];
     final pending = DownloadService(repository: repo, downloadClient: client);
     pending.waitDownloadQueue.add(old);
-    pending.curDownload.value = old;
+    pending.curDownload = old;
     expect((await pending.initDownloadList()).isSuccess, true);
     expect(old.status, DownloadStatus.pause);
-    expect(pending.curDownload.value, isNull);
+    expect(pending.curDownload, isNull);
     expect(pending.curCid, isNull);
     expect(pending.waitDownloadQueue.single, same(fresh));
     expect(fresh.downloadedBytes, 0);
@@ -312,7 +312,7 @@ void main() {
       repo.saveFailure = failure;
       final pending = DownloadService(repository: repo, downloadClient: client);
       pending.waitDownloadQueue.addAll([old, next]);
-      pending.curDownload.value = old;
+      pending.curDownload = old;
       final result = switching
           ? await pending.startDownload(next)
           : await pending.cancelDownload(isDelete: false, downloadNext: false);
@@ -321,7 +321,7 @@ void main() {
       expect(result.stackTrace, isNotNull);
       expect(result.toString(), isNot(contains('private-save')));
       expect(old.status, DownloadStatus.pause);
-      expect(pending.curDownload.value, same(old));
+      expect(pending.curDownload, same(old));
       expect(pending.waitDownloadQueue, [old, next]);
     });
   }
@@ -448,7 +448,7 @@ void main() {
       await repo.create(next);
       pending.waitDownloadQueue.addAll([entry, next]);
       pending.downloadList.add(completed);
-      pending.curDownload.value = entry;
+      pending.curDownload = entry;
       entry.status = DownloadStatus.downloading;
       Future<LoadingState<void>> remove() => wholePage
           ? pending.deletePage(pageDirPath: entry.pageDirPath)
@@ -479,16 +479,20 @@ void main() {
     await repository.create(entry);
     service.downloadList.add(entry);
     var notified = false;
-    service.flagNotifier.addAll([
-      () => throw StateError('observer failure'),
-      () => notified = true,
-    ]);
+    final previousHandler = FlutterError.onError;
+    final errors = <FlutterErrorDetails>[];
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = previousHandler);
+    service
+      ..addListener(() => throw StateError('observer failure'))
+      ..addListener(() => notified = true);
     expect(
       (await service.deleteDownload(entry: entry, removeList: true)).isSuccess,
       isTrue,
     );
     expect(service.downloadList, isEmpty);
     expect(notified, isTrue);
+    expect(errors, hasLength(1));
   });
 
   test('删除期间的重新启动等待删除确认，不会重建已删除任务', () async {
@@ -503,7 +507,7 @@ void main() {
     repo.release.complete();
     expect((await deletion).isSuccess, isTrue);
     await start;
-    expect(pending.curDownload.value, isNull);
+    expect(pending.curDownload, isNull);
     expect(Directory(entry.entryDirPath).existsSync(), isFalse);
   });
 
@@ -549,14 +553,14 @@ void main() {
       );
       await repository.create(entry);
       pending.waitDownloadQueue.addAll([entry, next]);
-      pending.curDownload.value = entry;
+      pending.curDownload = entry;
       await pending.deleteDownload(
         entry: entry,
         removeQueue: true,
         downloadNext: entry.status.isDownloading,
       );
       expect(pending.started, [22]);
-      expect(pending.curDownload.value, isNull);
+      expect(pending.curDownload, isNull);
     });
   }
 
@@ -674,9 +678,18 @@ void main() {
       },
     );
     pending.waitDownloadQueue.add(entry);
-    final completed = pending.curDownload.stream.firstWhere(
-      (current) => current == null && pending.downloadList.isNotEmpty,
-    );
+    final completion = Completer<void>();
+    void changed() {
+      if (pending.curDownload == null &&
+          pending.downloadList.isNotEmpty &&
+          !completion.isCompleted) {
+        completion.complete();
+      }
+    }
+
+    pending.addListener(changed);
+    addTearDown(() => pending.removeListener(changed));
+    final completed = completion.future;
     await pending.startDownload(entry);
     await completed.timeout(const Duration(seconds: 5));
     expect(entry.isCompleted, true);
@@ -757,7 +770,7 @@ void main() {
     await newStarted.future;
     pendingRequests[oldEntry.cid]!.completeError(StateError('旧请求失败'));
     expect(await oldStart, isA<DownloadCancelled>());
-    expect(pending.curDownload.value, same(newEntry));
+    expect(pending.curDownload, same(newEntry));
     expect(newEntry.status, DownloadStatus.getDanmaku);
     await pending.cancelDownload(isDelete: false, downloadNext: false);
     pendingRequests[newEntry.cid]!.complete([]);
@@ -777,7 +790,7 @@ void main() {
       expect(service.downloadList.map((entry) => entry.cid), [22, 11]);
       expect(service.waitDownloadQueue.map((entry) => entry.cid), [33]);
       expect(service.waitDownloadQueue.single.status, DownloadStatus.wait);
-      expect(service.curDownload.value, isNull);
+      expect(service.curDownload, isNull);
     },
   );
 
@@ -805,7 +818,7 @@ void main() {
       final current = service.waitDownloadQueue.single
         ..status = DownloadStatus.downloading
         ..downloadedBytes = 42;
-      service.curDownload.value = current;
+      service.curDownload = current;
       await reload();
       expect(service.waitDownloadQueue.single, same(current));
       expect(service.waitDownloadQueue.single.downloadedBytes, 42);
@@ -843,7 +856,7 @@ void main() {
       downloadClient: client,
     );
     schedulingService.waitDownloadQueue.addAll([active, sibling, remaining]);
-    schedulingService.curDownload.value = active;
+    schedulingService.curDownload = active;
 
     await schedulingService.deletePage(pageDirPath: active.pageDirPath);
 
@@ -862,11 +875,11 @@ void main() {
       downloadClient: client,
     );
     schedulingService.waitDownloadQueue.add(active);
-    schedulingService.curDownload.value = active;
+    schedulingService.curDownload = active;
 
     await schedulingService.deletePage(pageDirPath: removed.pageDirPath);
 
-    expect(schedulingService.curDownload.value, same(active));
+    expect(schedulingService.curDownload, same(active));
     expect(schedulingService.started, isEmpty);
     expect((await repository.load()).map((entry) => entry.cid), [11]);
   });

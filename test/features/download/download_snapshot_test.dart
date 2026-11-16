@@ -33,11 +33,10 @@ void main() {
     expect(snapshot.entriesFor(entry.pageId), hasLength(1));
     expect(snapshot.search(entry.title.toUpperCase()), hasLength(1));
     expect(snapshot.search('不存在'), isEmpty);
-    expect(() => snapshot.completed.clear(), throwsUnsupportedError);
+    expect(snapshot.completed.clear, throwsUnsupportedError);
     expect(
       () => snapshot.entriesFor(entry.pageId).clear(),
       throwsUnsupportedError,
     );
   });
 }
-
