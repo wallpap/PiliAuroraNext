@@ -21,6 +21,8 @@ PiliAuroraNext 是面向 Android 和 Windows x64 的 Bilibili 第三方客户端
 
 新仓库以迁移时的源码快照建立独立提交历史，原提交历史留存于原仓库。现有功能和定制依赖的修改继续保留，本地定制包统一从 `+piliauroranext.1` 开始计数，详见[依赖维护说明](third_party/README.md#版本与来源)。原有版权、许可证及上游来源说明继续保留。
 
+`1.0.0` 是迁移至 PiliAuroraNext 后的首个版本，也是新仓库独立版本序列的起点。版本记录见[更新日志](CHANGELOG.md)，安装包与发布状态以 Releases 页面为准。
+
 ## 适配平台与下载
 
 在 [GitHub Releases](https://github.com/wallpap/PiliAuroraNext/releases/latest) 选择对应设备的安装包。已发布版本以 Releases 页面为准。

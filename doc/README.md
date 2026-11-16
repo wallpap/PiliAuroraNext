@@ -2,6 +2,8 @@
 
 下载与更新见[中文 README](../README.md#适配平台与下载)；另有 [English README](../README.en.md)。详细指南以中文提供。
 
+版本记录见[更新日志](../CHANGELOG.md)；`1.0.0` 为迁移至 PiliAuroraNext 后的首个版本。
+
 ## 使用指南
 
 | 任务 | 文档 |

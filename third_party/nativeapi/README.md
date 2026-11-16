@@ -8,4 +8,6 @@
 
 校验入口：`python third_party/nativeapi/package.py verify`。CMake 在应用构建时核对源码、脚本、归档与交付文件摘要。许可随应用安装到 `nativeapi-licenses/`。
 
+`tool/check-tooling.ps1` 也执行上述校验。迁移、重命名或仅修改源码注释后，构建输入摘要仍会变化，需通过本目录的构建入口重新编译打包，再校验源码与产物一致性。
+
 预编译包使用本目录的 `build.ps1` 在本地重建，普通 Windows 发布构建只校验并使用仓库中的产物。WinUI3 和非 x64 架构保留源码路径。实际窗口、托盘与系统交互需要目标设备验证。

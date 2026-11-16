@@ -21,6 +21,8 @@ This project has moved from [PiliAurora](https://github.com/wallpap/PiliAurora) 
 
 The new repository starts an independent commit history from the migrated source snapshot. Earlier commits remain in the original repository. Existing features and dependency changes are carried forward; local customized packages start their new revision sequence at `+piliauroranext.1`, as described in the [dependency maintenance guide](third_party/README.md#版本与来源). Existing copyright, license, and upstream provenance notices are preserved.
 
+`1.0.0` is the first version after the migration to PiliAuroraNext and starts the new repository's independent version sequence. See the [changelog](CHANGELOG.md) for version history and the Releases page for packages and publication status.
+
 ## Supported platforms and downloads
 
 Choose the package for your device from [GitHub Releases](https://github.com/wallpap/PiliAuroraNext/releases/latest). The Releases page lists the versions available to download.

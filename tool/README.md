@@ -125,7 +125,7 @@ fvm flutter test --no-pub test/architecture/dependency_policy_test.dart
 pwsh -NoProfile -File tool/check-tooling.ps1
 ```
 
-入口通过锁定的 Python 环境运行 Ruff 和编译检查，再扫描 `tool/` 与 `lib/scripts/` 的 PowerShell 脚本，包含本地签名脚本（存在时）。PSScriptAnalyzer 1.25.0 首次运行时缓存到 `build/tooling/modules/`；可用 `-AnalyzerModulePath` 指定已有模块清单。规则配置位于根目录 `pyproject.toml` 与 `PSScriptAnalyzerSettings.psd1`。PowerShell 7 使用 UTF-8 无 BOM，故排除仅面向 Windows PowerShell 5.1 的 BOM 建议；其余 Warning 和 Error 均使检查失败。
+入口通过锁定的 Python 环境运行 Ruff 和编译检查，核对 cnativeapi 预编译包、构建输入与交付文件的摘要，再扫描 `tool/` 与 `lib/scripts/` 的 PowerShell 脚本，包含本地签名脚本（存在时）。PSScriptAnalyzer 1.25.0 首次运行时缓存到 `build/tooling/modules/`；可用 `-AnalyzerModulePath` 指定已有模块清单。规则配置位于根目录 `pyproject.toml` 与 `PSScriptAnalyzerSettings.psd1`。PowerShell 7 使用 UTF-8 无 BOM，故排除仅面向 Windows PowerShell 5.1 的 BOM 建议；其余 Warning 和 Error 均使检查失败。
 
 更新 Android 快捷方式图标时，先替换 `android/app/src/main/res/drawable[-night]-mdpi/` 中的两份源图，再运行 `uv run --locked python tool/export_shortcut_icons.py`，同步其他密度的资源。
 

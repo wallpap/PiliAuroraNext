@@ -10,6 +10,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Python Ruff 检查失败。' }
     & uv run --locked python -m compileall -q tool
     if ($LASTEXITCODE -ne 0) { throw 'Python 编译检查失败。' }
+    & uv run --locked python third_party/nativeapi/package.py verify
+    if ($LASTEXITCODE -ne 0) {
+        throw 'cnativeapi 预编译包与当前源码不一致，请运行 third_party/nativeapi/build.ps1 重建。'
+    }
 
     # 模块只缓存到 build，不改变用户的 PowerShell 模块环境。
     if (-not $AnalyzerModulePath) {
