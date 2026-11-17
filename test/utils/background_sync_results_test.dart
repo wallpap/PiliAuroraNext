@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as result;
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';

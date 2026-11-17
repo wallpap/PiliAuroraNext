@@ -6,7 +6,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/pgc/controller.dart';
 import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

@@ -10,7 +10,7 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/member_favorite/controller.dart';
 import 'package:pili_aurora_next/models/remote/space/space_fav/data.dart';
 import 'package:pili_aurora_next/services/account_service.dart';

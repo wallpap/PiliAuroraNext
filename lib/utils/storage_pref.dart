@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/setting/pages/fullscreen_sc_size.dart'
     show kFullScreenSCWidth;
 import 'package:pili_aurora_next/plugin/pl_player/models/audio_output_type.dart';

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:get/get.dart';
 

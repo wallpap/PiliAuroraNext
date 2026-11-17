@@ -1,7 +1,7 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';

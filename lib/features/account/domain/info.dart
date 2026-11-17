@@ -113,6 +113,35 @@ class UserInfoData {
     isSeniorMember = json['is_senior_member'];
   }
 
+  /// 发布新的展示快照，避免编辑时原地修改缓存和其他页面持有的资料。
+  UserInfoData withDisplay({String? name, String? avatar}) => UserInfoData(
+    isLogin: isLogin,
+    emailVerified: emailVerified,
+    face: avatar,
+    levelInfo: levelInfo,
+    mid: mid,
+    mobileVerified: mobileVerified,
+    money: money,
+    moral: moral,
+    official: official,
+    officialVerify: officialVerify,
+    pendant: pendant,
+    scores: scores,
+    uname: name,
+    vipDueDate: vipDueDate,
+    vipStatus: vipStatus,
+    vipType: vipType,
+    vipPayType: vipPayType,
+    vipThemeType: vipThemeType,
+    vipLabel: vipLabel,
+    vipAvatarSub: vipAvatarSub,
+    vipNicknameColor: vipNicknameColor,
+    wallet: wallet,
+    hasShop: hasShop,
+    shopUrl: shopUrl,
+    isSeniorMember: isSeniorMember,
+  );
+
   @override
   int get hashCode => Object.hash(mid, uname, face, money, vipStatus);
 

@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

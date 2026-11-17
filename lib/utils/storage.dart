@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:pili_aurora_next/models/model_owner.dart';
 import 'package:pili_aurora_next/models/user/danmaku_rule_adapter.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account_adapter.dart';
 import 'package:pili_aurora_next/utils/accounts/account_type_adapter.dart';
