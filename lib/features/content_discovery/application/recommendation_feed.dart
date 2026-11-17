@@ -5,7 +5,9 @@ import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
-import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
+export 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart'
+    show discoveryFilterProvider, cooperativeAuthorsProvider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_state.dart';
@@ -44,12 +46,6 @@ class _RecommendationQuery {
 
 final recommendationRepositoryProvider = Provider<RecommendationRepository>(
   (ref) => const RecommendationRepository(),
-);
-final discoveryFilterProvider = Provider<DiscoveryFilter>(
-  (ref) => const DiscoveryFilter(),
-);
-final cooperativeAuthorsProvider = Provider<CooperativeAuthors>(
-  (ref) => CooperativeAuthors.shared,
 );
 final recommendationFeedProvider =
     NotifierProvider.autoDispose<RecommendationFeed, RecommendationState>(

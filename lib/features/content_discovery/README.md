@@ -1,6 +1,6 @@
 # 内容发现模块
 
-首页推荐的查询调度和展示由本模块持有。入口 `pages/rcmd/view.dart` 只适配旧首页壳的滚动与刷新注册；热门、排行、动态等历史列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
+首页推荐的查询调度和展示由本模块持有。入口 `pages/rcmd/view.dart` 只适配旧首页壳的滚动与刷新注册；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。排行、动态等历史列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
 
 ## 状态与依赖
 
@@ -29,3 +29,9 @@ fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/dis
 ```
 
 测试覆盖模拟时序、真实角色通知与 Hive 偏好、页面释放、历史位置、有序并发和卡片子树保留；均纳入 `tool/run-ci-tests.ps1`。HTTP 显式账号与签名等待回归见 `test/http/video_query_results_test.dart`。封面下载/解码由图片模块独立验证；真实推荐服务、Android/Windows 滚动与探针性能仍需设备验收。
+
+## 发现列表迁移
+
+`application/discovery_listing.dart` 统一负责主账号屏蔽与推荐账号身份、查询代次、分页互斥、合作作者检查、过滤补读和页尾重试。刷新与任一账号对象替换立即隐藏旧内容；失败保留已完成列表和原页码。连续五页无增长后暂停自动读取，用户可显式继续。总数按过滤前条目累计，页面移除不改变远端游标。旧响应不提交列表或元数据。
+
+热门通过 `data/hot_repository.dart` 固定请求账号，首页壳仅持有 Widget 注册的滚动／刷新句柄；卸载按句柄身份注销。共享回归位于 `test/features/content_discovery/discovery_listing_test.dart`，已接入 CI。

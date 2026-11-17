@@ -3,7 +3,6 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
-import 'package:pili_aurora_next/pages/hot/controller.dart';
 import 'package:pili_aurora_next/pages/popular_precious/controller.dart';
 import 'package:pili_aurora_next/pages/popular_series/controller.dart';
 import 'package:pili_aurora_next/pages/rank/zone/controller.dart';
@@ -46,7 +45,6 @@ void main() {
     await interceptor.close();
   });
   final cases = <String, DiscoveryListController Function()>{
-    '热门': HotController.new,
     '入站必刷': PopularPreciousController.new,
     '每周必看': () => PopularSeriesController()..number = 1,
     '分区排行榜': () => ZoneController(rid: 1),

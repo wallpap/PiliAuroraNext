@@ -182,8 +182,9 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<HotVideoItemModel>>> hotVideoList({
     required int pn,
     required int ps,
+    Account? account,
   }) async {
-    final account = Accounts.get(AccountType.recommend);
+    account ??= Accounts.get(AccountType.recommend);
 
     return await Request().requestApi(
       Api.hotList,
