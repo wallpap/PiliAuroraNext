@@ -19,11 +19,10 @@ import 'package:pili_aurora_next/models/dynamics/result.dart' show PicModel;
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/features/community/domain/reserve.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_reserve/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
-import 'package:pili_aurora_next/pages/dynamics_select_topic/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/view.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -125,9 +124,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   @override
   void dispose() {
     _titleEditCtr.dispose();
-    Get
-      ..delete<SelectTopicController>()
-      ..delete<DynMentionController>();
     super.dispose();
   }
 
@@ -854,13 +850,16 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   }
 
   double _topicOffset = 0;
+  final _topicMemory = CommunityPickerMemory<void>();
   Future<void> _onSelectTopic() async {
+    final account = Accounts.main;
     TopicItem? res = await SelectTopicPanel.onSelectTopic(
       context,
+      memory: _topicMemory,
       offset: _topicOffset,
       onCachePos: (offset) => _topicOffset = offset,
     );
-    if (mounted && res != null) {
+    if (mounted && identical(account, Accounts.main) && res != null) {
       _topic.value = Pair(first: res.id, second: res.name);
     }
   }

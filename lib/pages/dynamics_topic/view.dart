@@ -9,7 +9,6 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
-import 'package:pili_aurora_next/http/constants.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/fold_card_item.dart';
@@ -18,7 +17,13 @@ import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/top_det
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_topic/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/topic_queries.dart';
+import 'package:pili_aurora_next/features/community/application/topic_header.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
@@ -26,31 +31,107 @@ import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
-class DynTopicPage extends StatefulWidget {
-  const DynTopicPage({super.key});
+class DynTopicPage extends ConsumerStatefulWidget {
+  const DynTopicPage({super.key, required this.topicId, this.name = ''});
+  final String topicId;
+  final String name;
 
   @override
-  State<DynTopicPage> createState() => _DynTopicPageState();
+  ConsumerState<DynTopicPage> createState() => _DynTopicPageState();
 }
 
-class _DynTopicPageState extends State<DynTopicPage>
+class _DynTopicPageState extends ConsumerState<DynTopicPage>
     with DynMixin, SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
   late EdgeInsets padding;
   late ColorScheme colorScheme;
-  final DynTopicController _controller = Get.put(
-    DynTopicController(),
-    tag: Utils.generateRandomString(8),
-  );
+  final _owner = Object();
+  final _scroll = ScrollController();
+  int _sort = 0;
+  double? _appbarOffset;
+  TopicQuery get _query => (owner: _owner, id: widget.topicId, sort: _sort);
+  TopicFeed get _actions => ref.read(topicFeedProvider(_query).notifier);
+  TopicHeader get _header =>
+      ref.read(topicHeaderProvider(widget.topicId).notifier);
+  TopicHeaderState get _top => ref.read(topicHeaderProvider(widget.topicId));
+  String get _topicName =>
+      _top.loading.dataOrNull?.topicItem?.name ?? widget.name;
+  bool get _isLogin => ref.read(mainAccountProvider).isLogin;
+  bool get _isLike => _top.loading.dataOrNull?.topicItem?.isLike ?? false;
+  bool get _isFav => _top.loading.dataOrNull?.topicItem?.isFav ?? false;
+  @override
+  void didUpdateWidget(covariant DynTopicPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.topicId != widget.topicId) {
+      _sort = 0;
+      _appbarOffset = null;
+      _scroll.jumpToTop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([_header.refresh(), _actions.onRefresh()]);
+  }
+
+  Future<void> _reload() {
+    _scrollToFeed();
+    return _actions.onReload();
+  }
+
+  void _scrollToFeed() {
+    if (_appbarOffset == null) {
+      _scroll.jumpToTop();
+    } else if (_scroll.hasClients && _scroll.offset > _appbarOffset!) {
+      _scroll.jumpTo(_appbarOffset!);
+    }
+  }
+
+  void _onSort(int sort) {
+    _scrollToFeed();
+    if (_sort == sort) {
+      _actions.onReload();
+      return;
+    }
+    setState(() => _sort = sort);
+  }
+
+  Future<void> _write(bool favorite) async {
+    final id = widget.topicId;
+    final account = ref.read(mainAccountProvider);
+    final result = await _header.toggle(favorite: favorite);
+    if (!mounted ||
+        id != widget.topicId ||
+        !identical(account, ref.read(mainAccountProvider))) {
+      return;
+    }
+    if (!result.isSuccess) result.toast();
+  }
+
+  Future<void> _unfold() async {
+    final query = _query;
+    final source = ref.read(topicFeedProvider(query)).source;
+    final result = await _actions.unfold();
+    if (!mounted ||
+        query != _query ||
+        !identical(source, ref.read(topicFeedProvider(query)).source)) {
+      return;
+    }
+    if (!result.isSuccess) result.toast();
+  }
 
   @override
   void didChangeDependencies() {
@@ -61,25 +142,28 @@ class _DynTopicPageState extends State<DynTopicPage>
 
   @override
   Widget build(BuildContext context) {
+    final provider = topicFeedProvider(_query);
+    final snapshot = ref.watch(provider);
+    final top = ref.watch(topicHeaderProvider(widget.topicId));
+    final allSortBy = snapshot.metadata?.sort?.allSortBy;
     return SimpleScaffold(
       body: refreshIndicator(
-        onRefresh: _controller.onRefresh,
+        onRefresh: _refresh,
         child: fabAnimWrapper(
-          child: CustomScrollView(
-            controller: _controller.scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              Obx(
-                () => _buildAppBar(
-                  colorScheme,
-                  padding,
-                  _controller.topState.value,
-                ),
-              ),
-              Obx(() {
-                final allSortBy = _controller.topicSortByConf.value?.allSortBy;
-                if (allSortBy != null && allSortBy.isNotEmpty) {
-                  return SliverPinnedHeader(
+          child: FeedPagination(
+            controller: _scroll,
+            dataSource: snapshot.source,
+            dataRevision: snapshot,
+            canLoadMore: () => ref.read(provider).canLoadMore,
+            onLoadMore: _actions.onLoadMore,
+            child: CustomScrollView(
+              controller: _scroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _buildAppBar(colorScheme, padding, top.loading),
+                DiscoveryFooter(error: top.error, retry: _header.refresh),
+                if (allSortBy != null && allSortBy.isNotEmpty)
+                  SliverPinnedHeader(
                     backgroundColor: colorScheme.surface,
                     child: Padding(
                       padding: EdgeInsets.only(
@@ -99,11 +183,15 @@ class _DynTopicPageState extends State<DynTopicPage>
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             borderRadius: const .all(.circular(25)),
                             onPressed: (index) {
-                              _controller.onSort(allSortBy[index].sortBy!);
-                              (context as Element).markNeedsBuild();
+                              _onSort(allSortBy[index].sortBy!);
                             },
                             isSelected: allSortBy
-                                .map((e) => e.sortBy == _controller.sortBy)
+                                .map(
+                                  (e) =>
+                                      e.sortBy ==
+                                      (snapshot.metadata?.sort?.showSortBy ??
+                                          _sort),
+                                )
                                 .toList(),
                             children: allSortBy.map((e) {
                               return Text(
@@ -124,21 +212,20 @@ class _DynTopicPageState extends State<DynTopicPage>
                         },
                       ),
                     ),
-                  );
-                }
-                return const SliverToBoxAdapter();
-              }),
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  left: padding.left,
-                  right: padding.right,
-                  bottom: padding.bottom + 100,
+                  ),
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    left: padding.left,
+                    right: padding.right,
+                    bottom: padding.bottom + 100,
+                  ),
+                  sliver: buildPage(
+                    _buildBody(snapshot.loading),
+                  ),
                 ),
-                sliver: buildPage(
-                  Obx(() => _buildBody(_controller.loadingState.value)),
-                ),
-              ),
-            ],
+                DiscoveryFooter(error: snapshot.error, retry: _actions.retry),
+              ],
+            ),
           ),
         ),
       ),
@@ -151,12 +238,12 @@ class _DynTopicPageState extends State<DynTopicPage>
           ),
           child: FloatingActionButton.extended(
             onPressed: () {
-              if (_controller.isLogin) {
+              if (_isLogin) {
                 CreateDynPanel.onCreateDyn(
                   context,
                   topic: Pair(
-                    first: int.parse(_controller.topicId),
-                    second: _controller.topicName,
+                    first: int.parse(widget.topicId),
+                    second: _topicName,
                   ),
                 );
               } else {
@@ -176,11 +263,18 @@ class _DynTopicPageState extends State<DynTopicPage>
     EdgeInsets padding,
     LoadingState<TopDetails?> topState,
   ) {
+    final id = widget.topicId;
+    final name = _topicName;
+    final account = ref.read(mainAccountProvider);
+    bool current() =>
+        mounted &&
+        id == widget.topicId &&
+        identical(account, ref.read(mainAccountProvider));
     return switch (topState) {
       Loading() => const SliverAppBar(),
       Success(:final response) when response != null => DynamicSliverAppBar.medium(
-        onPerformLayout: (value) => _controller.appbarOffset =
-            value.height - kToolbarHeight - padding.top,
+        onPerformLayout: (value) =>
+            _appbarOffset = value.height - kToolbarHeight - padding.top,
         title: IgnorePointer(child: Text(response.topicItem!.name)),
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -203,40 +297,41 @@ class _DynTopicPageState extends State<DynTopicPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: kToolbarHeight,
-                alignment: Alignment.centerLeft,
-                margin: const EdgeInsets.only(left: 45, right: 78),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Get.toNamed(
-                    '/member?mid=${response.topicCreator!.uid}',
-                  ),
-                  child: Row(
-                    spacing: 10,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      NetworkImgLayer(
-                        width: 28,
-                        height: 28,
-                        src: response.topicCreator!.face!,
-                        type: ImageType.avatar,
-                      ),
-                      Flexible(
-                        child: Text(
-                          response.topicCreator!.name!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              if (response.topicCreator != null)
+                Container(
+                  height: kToolbarHeight,
+                  alignment: Alignment.centerLeft,
+                  margin: const EdgeInsets.only(left: 45, right: 78),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Get.toNamed(
+                      '/member?mid=${response.topicCreator!.uid}',
+                    ),
+                    child: Row(
+                      spacing: 10,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        NetworkImgLayer(
+                          width: 28,
+                          height: 28,
+                          src: response.topicCreator!.face!,
+                          type: ImageType.avatar,
                         ),
-                      ),
-                      Text(
-                        ' 发起',
-                        style: TextStyle(color: colorScheme.outline),
-                      ),
-                    ],
+                        Flexible(
+                          child: Text(
+                            response.topicCreator!.name!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          ' 发起',
+                          style: TextStyle(color: colorScheme.outline),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               Text(
                 response.topicItem!.name,
                 style: const TextStyle(
@@ -246,7 +341,7 @@ class _DynTopicPageState extends State<DynTopicPage>
               ),
               const SizedBox(height: 6),
               SelectionText(
-                response.topicItem!.description!,
+                response.topicItem!.description ?? '',
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 10),
@@ -266,7 +361,7 @@ class _DynTopicPageState extends State<DynTopicPage>
                         width: 1,
                         color: colorScheme.outline.withValues(alpha: 0.2),
                       ),
-                      foregroundColor: _controller.isLike.value
+                      foregroundColor: _isLike
                           ? null
                           : colorScheme.onSurfaceVariant,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -276,8 +371,8 @@ class _DynTopicPageState extends State<DynTopicPage>
                       ),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    onPressed: _controller.onLike,
-                    icon: _controller.isLike.value
+                    onPressed: _top.savingLike ? null : () => _write(false),
+                    icon: _isLike
                         ? Icon(FontAwesomeIcons.solidThumbsUp.data, size: 13)
                         : Icon(FontAwesomeIcons.thumbsUp.data, size: 13),
                     label: Text(
@@ -293,15 +388,15 @@ class _DynTopicPageState extends State<DynTopicPage>
                         width: 1,
                         color: colorScheme.outline.withValues(alpha: 0.2),
                       ),
-                      foregroundColor: _controller.isFav.value
+                      foregroundColor: _isFav
                           ? null
                           : colorScheme.onSurfaceVariant,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       visualDensity: const .new(horizontal: -4, vertical: -4),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    onPressed: _controller.onFav,
-                    icon: _controller.isFav.value
+                    onPressed: _top.savingFav ? null : () => _write(true),
+                    icon: _isFav
                         ? Icon(FontAwesomeIcons.solidStar.data, size: 13)
                         : Icon(FontAwesomeIcons.star.data, size: 13),
                     label: Text(
@@ -319,29 +414,32 @@ class _DynTopicPageState extends State<DynTopicPage>
         actions: [
           IconButton(
             onPressed: () => ShareUtils.shareText(
-              '${_controller.topicName} https://m.bilibili.com/topic-detail?topic_id=${_controller.topicId}',
+              '$name https://m.bilibili.com/topic-detail?topic_id=$id',
             ),
-            // https://www.bilibili.com/v/topic/detail?topic_id=${_controller.topicId}
+            // https://www.bilibili.com/v/topic/detail?topic_id=${widget.topicId}
             icon: const Icon(MdiIcons.share),
           ),
           PopupMenuButton(
             itemBuilder: (context) {
               return [
                 AppPopupMenuItem(
-                  onTap: _controller.onFav,
+                  onTap: () {
+                    if (current()) _write(true);
+                  },
                   child: Text(
-                    '${_controller.isFav.value ? '取消' : ''}收藏',
+                    '${_isFav ? '取消' : ''}收藏',
                   ),
                 ),
                 AppPopupMenuItem(
                   child: const Text('举报'),
                   onTap: () {
-                    if (!_controller.isLogin) {
+                    if (!current()) return;
+                    if (!_isLogin) {
                       SmartDialog.showToast('账号未登录');
                       return;
                     }
                     PageUtils.inAppWebview(
-                      '${HttpString.baseUrl}/h5/topic-active/topic-report?topic_id=${_controller.topicId}&topic_name=${_controller.topicName}&${ThemeUtils.themeUrl(colorScheme.isDark)}',
+                      'https://www.bilibili.com/h5/topic-active/topic-report?topic_id=$id&topic_name=$name&${ThemeUtils.themeUrl(colorScheme.isDark)}',
                     );
                   },
                 ),
@@ -353,7 +451,14 @@ class _DynTopicPageState extends State<DynTopicPage>
       ),
       _ => SliverAppBar(
         pinned: true,
-        title: Text(_controller.topicName),
+        title: Text(_topicName),
+        actions: [
+          IconButton(
+            tooltip: '重试话题信息',
+            onPressed: _header.refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
     };
   }
@@ -376,19 +481,15 @@ class _DynTopicPageState extends State<DynTopicPage>
                           _itemBuilder(response, index),
                       itemCount: response.length,
                     )
-            : HttpError(onReload: _controller.onReload),
+            : HttpError(onReload: _reload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: _reload,
       ),
     };
   }
 
   Widget _itemBuilder(List<TopicCardItem> list, int index) {
-    if (index == list.length - 1) {
-      _controller.onLoadMore();
-    }
-
     final item = list[index];
 
     if (item.dynamicCardItem case final dynamicCardItem?) {
@@ -408,7 +509,7 @@ class _DynTopicPageState extends State<DynTopicPage>
       child: Material(
         color: colorScheme.outline.withValues(alpha: .05),
         child: InkWell(
-          onTap: _controller.topicFold,
+          onTap: _unfold,
           child: Padding(
             padding: const .symmetric(vertical: 10),
             child: Row(

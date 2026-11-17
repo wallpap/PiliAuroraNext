@@ -63,7 +63,7 @@ void main() {
     expect((await result).data.hasMore, false);
   });
 
-  test('话题游标重复时结束，空详情不能冒充成功', () async {
+  test('话题游标重复时结束，详情保留无数据与协议损坏的区别', () async {
     final first = repository.feed(account, '42', 1, null);
     await interceptor.waitForRequests(1);
     requests[0].reply.complete({
@@ -87,6 +87,13 @@ void main() {
     final top = repository.top(account, '42');
     await interceptor.waitForRequests(3);
     requests[2].reply.complete({'code': 0, 'data': {}});
-    expect(await top, isA<Error>());
+    expect((await top).data, isNull);
+    final malformed = repository.top(account, '42');
+    await interceptor.waitForRequests(4);
+    requests[3].reply.complete({
+      'code': 0,
+      'data': {'top_details': {}},
+    });
+    expect(await malformed, isA<Error>());
   });
 }

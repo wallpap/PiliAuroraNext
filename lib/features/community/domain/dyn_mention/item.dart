@@ -1,5 +1,4 @@
 class MentionItem {
-  bool checked = false;
   final String? face;
   final int? fans;
   final String? name;

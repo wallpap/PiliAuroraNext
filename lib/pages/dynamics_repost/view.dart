@@ -10,7 +10,6 @@ import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -84,12 +83,6 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
         '';
 
     _uname = widget.uname ?? modules?.moduleAuthor?.name;
-  }
-
-  @override
-  void dispose() {
-    Get.delete<DynMentionController>();
-    super.dispose();
   }
 
   @override

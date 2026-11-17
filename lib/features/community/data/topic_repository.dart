@@ -17,7 +17,8 @@ class TopicRepository {
   const TopicRepository();
   Future<LoadingState<TopDetails?>> top(Account account, String id) async {
     final result = await DynamicsHttp.topicTop(account: account, topicId: id);
-    if (result case Success(:final response) when response?.topicItem == null) {
+    if (result case Success(:final response)
+        when response != null && response.topicItem == null) {
       return const Error('话题信息不完整，请重试');
     }
     return result;
@@ -50,7 +51,7 @@ class TopicRepository {
           metadata: TopicCursor(
             offset,
             Set.unmodifiable(seen),
-            response.topicSortByConf,
+            response.topicSortByConf ?? cursor?.sort,
           ),
           hasMore: more,
         ),

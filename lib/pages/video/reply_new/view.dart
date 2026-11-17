@@ -19,7 +19,6 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart' show FilePicModel;
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/view.dart';
@@ -72,12 +71,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   final heroTag = Get.arguments?['heroTag'];
 
   final RxBool _latexOn = false.obs;
-
-  @override
-  void dispose() {
-    Get.delete<DynMentionController>();
-    super.dispose();
-  }
 
   @override
   void initTheme() {

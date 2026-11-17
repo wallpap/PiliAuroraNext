@@ -8,11 +8,13 @@ class DynMentionItem extends StatelessWidget {
   const DynMentionItem({
     super.key,
     required this.item,
+    required this.selected,
     required this.onTap,
     required this.onCheck,
   });
 
   final MentionItem item;
+  final bool selected;
   final VoidCallback onTap;
   final ValueChanged<bool?> onCheck;
 
@@ -40,12 +42,8 @@ class DynMentionItem extends StatelessWidget {
         ),
         trailing: Checkbox(
           tristate: false,
-          value: item.checked,
-          onChanged: (value) {
-            item.checked = value!;
-            (context as Element).markNeedsBuild();
-            onCheck(value);
-          },
+          value: selected,
+          onChanged: onCheck,
         ),
       ),
     );

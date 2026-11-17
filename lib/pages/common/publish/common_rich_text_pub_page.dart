@@ -12,7 +12,9 @@ import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart'
     show PicModel, FilePicModel, OpusPicModel;
 import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
-import 'package:pili_aurora_next/features/community/domain/emote/emote.dart' as e;
+import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart'
+    as e;
 import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_publish_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/view.dart';
@@ -344,18 +346,21 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   }
 
   late double _mentionOffset = 0;
+  final _mentionMemory = CommunityPickerMemory<MentionItem>();
   Future<void>? onMention([bool fromClick = false]) async {
+    final account = Accounts.main;
     final res = await DynMentionPanel.onDynMention(
       context,
+      memory: _mentionMemory,
       offset: _mentionOffset,
       onCachePos: (offset) => _mentionOffset = offset,
     );
-    if (mounted && res != null) {
+    if (mounted && identical(account, Accounts.main) && res != null) {
       if (res is MentionItem) {
         _onInsertUser(res, fromClick);
       } else if (res is Set<MentionItem>) {
         for (final e in res) {
-          _onInsertUser(e..checked = false, fromClick);
+          _onInsertUser(e, fromClick);
           fromClick = true;
         }
         res.clear();

@@ -164,7 +164,13 @@ class Routes {
     GetPage(name: '/editProfile', page: () => const EditProfilePage()),
     GetPage(name: '/settingsSearch', page: () => const SettingsSearchPage()),
     GetPage(name: '/searchTrending', page: () => const SearchTrendingPage()),
-    GetPage(name: '/dynTopic', page: () => const DynTopicPage()),
+    GetPage(
+      name: '/dynTopic',
+      page: () => DynTopicPage(
+        topicId: Get.parameters['id']!,
+        name: Get.parameters['name'] ?? '',
+      ),
+    ),
     GetPage(name: '/articleList', page: () => const ArticleListPage()),
     GetPage(name: '/barSetting', page: () => const BarSetPage()),
     GetPage(name: '/upowerRank', page: () => const UpowerRankPage()),
