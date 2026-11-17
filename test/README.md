@@ -349,3 +349,5 @@ CI 显式选择弹幕生产链路与帧计划的核心回归，完整弹幕测�
 `features/history/history_library_test.dart` 覆盖历史账号角色与同 UID 换凭据、分类游标和搜索分页、删除互斥、暂停旧查询竞争、缓存失败及页面选择；旧 history controller 回归由此替换。`utils/history_status_lifecycle_test.dart` 与 `background_sync_results_test.dart` 继续验证真实 HTTP Adapter 和登录同步的落盘等待。
 
 `features/subscriptions/` 覆盖订阅 Riverpod 查询、账号对象身份、页面释放、列表与详情的成功写入失效、取消/清理互斥，以及本地隐藏记录的隔离。所有文件均列入 `tool/run-ci-tests.ps1`；原 subscription/subscription_detail controller 测试已由这些 Interface 回归替换。
+
+`features/account/` 覆盖资料查询与编辑发布、同 UID 凭据替换、页面释放、登录确认与刷新竞争、缓存隔离和串行写入、真实角色通知、临时及永久无痕、主题偏好观察，以及个人中心 Widget 的跨入口更新与切号展示。两个测试文件均已加入 CI；夹具位于同目录 `profile_fixture.dart`。`utils/account_profile_lifecycle_test.dart`、`background_sync_results_test.dart` 和原个人资料编辑回归继续验证真实 HTTP 与已确认写入语义。

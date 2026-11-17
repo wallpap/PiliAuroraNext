@@ -12,7 +12,7 @@
 | 弹幕与评论 | `danmaku/`、`danmaku_block/`、`main_reply/`、`my_reply/`、`video/reply/` | `danmaku.dart`、`reply.dart`；远端同名模型 | `test/pages/danmaku/`、`test/pages/danmaku_block/`、`test/pages/community/` |
 | 表情包 | `emote/manage.dart`、`preview.dart` | `ReplyHttp`；兼容详情 `emotes` 与列表 `emote` | `test/pages/community/`、`test/http/community_response_test.dart` |
 | 直播 | `live/`、`live_room/`、`live_follow/`、`live_search/`、`live_dm_block/` | `live.dart`；`lib/services/live_stream/` | `test/pages/live/`、`test/pages/live_room/`、`test/pages/live_follow/` |
-| 账号、登录、会员 | `login/`、`login_devices/`、`log_table/`、`member/`、`member_profile/` | `login.dart`、`member.dart`、`member_profile.dart`、`user.dart`；`lib/services/account_service.dart`、`lib/utils/accounts/` | `test/pages/login/`、`test/pages/account_queries/`、`test/pages/member_profile/`、`test/utils/accounts/` |
+| 账号、登录、会员 | `login/`、`login_devices/`、`log_table/`、`member/`、`member_profile/` | `login.dart`、`member.dart`、`member_profile.dart`、`user.dart`；[共享账号资料与个人中心](../../lib/features/account/README.md)、`lib/utils/accounts/` | `test/pages/login/`、`test/pages/account_queries/`、`test/pages/member_profile/`、`test/features/account/`、`test/utils/accounts/` |
 | 动态、关注、粉丝 | `dynamics*`、`follow/`、`follow_type/` | `dynamics.dart`、`follow.dart`、`fan.dart` | `test/pages/dynamics/`、`test/pages/follow/`、`test/pages/follow_type/` |
 | 消息、私信、分享 | `msg_feed_top/`、`whisper*`、`share/` | [消息模块](../../lib/services/messaging/README.md)；`msg.dart`、`lib/grpc/im.dart` | `test/services/messaging/` |
 | 收藏管理 | `lib/features/favorites/presentation/` | [收藏模块](../../lib/features/favorites/README.md)；账号查询、收藏夹与视频收藏写入 | `test/features/favorites/` |

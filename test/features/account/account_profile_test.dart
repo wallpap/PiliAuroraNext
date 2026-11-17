@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
@@ -12,45 +10,7 @@ import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 
 import '../../support/memory_box.dart';
-
-class FakeProfiles extends ProfileRepository {
-  final requests = <Completer<LoadingState<UserInfoData>>>[];
-  final owners = <Account>[];
-  final saved = <UserInfoData>[];
-  UserInfoData? cache;
-  bool failCache = false;
-
-  @override
-  UserInfoData? cached(Account account) =>
-      cache?.mid == account.mid ? cache : null;
-  @override
-  Future<LoadingState<UserInfoData>> profile(Account account) {
-    owners.add(account);
-    final pending = Completer<LoadingState<UserInfoData>>();
-    requests.add(pending);
-    return pending.future;
-  }
-
-  @override
-  Future<void> save(Account account, UserInfoData info) async {
-    if (failCache) throw StateError('fixture');
-    saved.add(info);
-    cache = info;
-  }
-}
-
-LoginAccount login(int mid) => LoginAccount(
-  BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': 'fixture'}),
-  null,
-  null,
-);
-UserInfoData info(int mid, String name) => UserInfoData(
-  mid: mid,
-  uname: name,
-  face: '$name.png',
-  isLogin: true,
-  money: 12,
-);
+import 'profile_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -161,6 +121,25 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(repository.saved, isEmpty);
     expect(GlobalData().coins, 0);
+  });
+
+  test('provider 旧刷新返回时仍等待较新刷新，不能提前结束加载', () async {
+    final container = ProviderContainer(
+      overrides: [
+        accountProfileModuleProvider.overrideWithValue(module),
+      ],
+    )..listen(accountProfileProvider, (_, _) {});
+    addTearDown(container.dispose);
+    await Future<void>.delayed(Duration.zero);
+    final newer = container.read(accountProfileProvider.notifier).refresh();
+    repository.requests.first.complete(Success(info(1, 'old')));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(accountProfileProvider).loading, isTrue);
+    expect(container.read(accountProfileProvider).info, isNull);
+    repository.requests.last.complete(Success(info(1, 'newer')));
+    await newer;
+    expect(container.read(accountProfileProvider).loading, isFalse);
+    expect(container.read(accountProfileProvider).info?.uname, 'newer');
   });
 
   test('账号资料身份不符和未登录结果不能写入', () async {

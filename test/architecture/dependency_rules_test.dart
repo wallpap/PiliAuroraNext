@@ -102,6 +102,7 @@ void main() {
     },
   );
   for (final feature in [
+    'account',
     'watch_later',
     'content_library',
     'history',
@@ -169,6 +170,35 @@ void main() {
       for (final uri in dependencies(file)) {
         final target = localDependency(file, uri);
         if (target != null && legacy.any(target.startsWith)) {
+          violations.add('$source -> $uri');
+        }
+      }
+    }
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
+  test('account identity and profile have no legacy GetX state or page dependencies', () {
+    const removed = [
+      'services/account_service.dart',
+      'pages/mine/controller.dart',
+      'pages/mine/widgets/',
+      'models/user/info.dart',
+      'models/user/stat.dart',
+    ];
+    final violations = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      final source = path
+          .relative(file.path, from: 'lib')
+          .replaceAll('\\', '/');
+      if (removed.any(source.startsWith)) violations.add(source);
+      for (final uri in dependencies(file)) {
+        final target = localDependency(file, uri);
+        if (target == null) continue;
+        if (removed.any(target.startsWith) ||
+            ((source == 'utils/accounts.dart' ||
+                    source == 'utils/login_utils.dart' ||
+                    source == 'services/account_providers.dart') &&
+                target.startsWith('pages/'))) {
           violations.add('$source -> $uri');
         }
       }

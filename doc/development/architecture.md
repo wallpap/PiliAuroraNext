@@ -53,6 +53,7 @@ flowchart LR
 | `lib/app/` | 启动装配、路径准备、平台初始化、根 Widget 与返回导航 | `bootstrap.dart`、`platform_setup.dart`、`app.dart` |
 | `lib/router/` | 集中注册 GetX 路由及页面入口 | `app_pages.dart` 与页面构造参数 |
 | `lib/features/download/` | 下载领域模型、数据适配、应用状态与展示的垂直边界 | [下载模块](../../lib/features/download/README.md) |
+| `lib/features/account/` | 账号共享资料、个人中心、无痕和主题观察；角色身份仍由 Accounts 持有 | [账号模块](../../lib/features/account/README.md) |
 | `lib/features/subscriptions/` | 订阅列表、合集详情、取消和清理的领域、数据、应用与展示层 | [订阅模块](../../lib/features/subscriptions/README.md) |
 | `lib/pages/` | 按用户功能组织 view、controller 和局部组件 | 路由、controller、对应测试 |
 | `lib/http/` | 业务 API 与请求层横切逻辑 | API 调用方、响应模型、`init.dart` |
