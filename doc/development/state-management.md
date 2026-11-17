@@ -10,6 +10,7 @@
 | 消息、私信、未读、分享 | 主账号 Session，页面订阅或租约 | [消息模块](../../lib/services/messaging/README.md) |
 | 账号共享资料、个人中心统计 | 主账号对象身份与查询代次；登录和编辑通过同一模块发布快照 | [账号模块](../../lib/features/account/README.md) |
 | 无痕与主题 | 心跳角色及持久化主题偏好；临时无痕也发布角色通知 | `lib/features/account/application/account_preferences.dart` |
+| 首页推荐、视口补位与历史位置 | 主账号与推荐账号对象身份、App/Web 来源及查询代次；Widget 持有滚动与活动状态 | [内容发现模块](../../lib/features/content_discovery/README.md) |
 | 当前主账号/推荐账号 | 分别订阅 Accounts 的角色通知，按账号对象身份发布 | `lib/services/account_providers.dart` |
 | 收藏各分类、详情/搜索与写入 | 主账号对象身份、页面与筛选；确认写入统一失效，选择和排序草稿由 Widget 持有 | [收藏模块](../../lib/features/favorites/README.md) |
 | 历史列表、搜索与暂停状态 | 历史账号（心跳账号或主账号回退）对象身份；成功写入统一失效 | [历史模块](../../lib/features/history/README.md) |
@@ -32,6 +33,8 @@
 主账号与推荐账号按对象身份判断。同 UID 的新凭据也会使依赖重建；仅推荐账号变化时保留主账号查询及消息 Session。查询角色须显式绑定：直播搜索、推荐和 PGC 结果使用推荐账号，空间查询、隐私和屏蔽使用主账号；综合搜索的请求与屏蔽分别使用相应角色。
 
 ## 查询与分页
+
+首页推荐由 `recommendationFeedProvider` 统一拥有调度。共用账号换凭据时立即撤销旧查询，合并同一轮角色通知后重读；后台换号先隐藏旧内容，返回前不启动请求。App/Web、保留历史和提示偏好直接订阅存储，旧首页壳只使用 Widget 注册的滚动/刷新句柄。
 
 - 输入变化在防抖前使旧联想失效；清空、关闭或禁用联想均丢弃旧结果。提交关键词和筛选生成独立查询，页签计数来自当前有效快照。
 - 刷新、切号、替换查询或释放后，迟到结果不回写。`AsyncValue` 错误或加载期间可能保留旧 `value`，显示计数、自动分页和写入资格须同时检查 `isLoading`、`hasError`，切号期间隐藏旧内容。

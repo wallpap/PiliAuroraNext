@@ -1,4 +1,7 @@
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
+import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
@@ -25,6 +28,22 @@ void main() {
     Get
       ..deleteAll(force: true)
       ..reset();
+  });
+
+  testWidgets('首页刷新使用当前注册，旧页面卸载不移除新句柄', (tester) async {
+    final controller = Get.put<HomeController>(HomeController());
+    final old = _PageHandle(), next = _PageHandle();
+    addTearDown(old.scrollController.dispose);
+    addTearDown(next.scrollController.dispose);
+    final removeOld = controller.registerPage(HomeTabType.rcmd, old);
+    final removeNext = controller.registerPage(HomeTabType.rcmd, next);
+    removeOld();
+    expect(controller.controller, same(next));
+    await controller.onRefresh();
+    expect(old.refreshes, 0);
+    expect(next.refreshes, 1);
+    removeNext();
+    expect(controller.registeredPage(HomeTabType.rcmd), isNull);
   });
 
   testWidgets('Get 删除首页控制器时注销诊断源', (tester) async {
@@ -66,4 +85,14 @@ class _TickerHomeController extends HomeController {
   @override
   Ticker createTicker(TickerCallback onTick) =>
       ticker = super.createTicker(onTick);
+}
+
+class _PageHandle with ScrollOrRefreshMixin {
+  @override
+  final scrollController = ScrollController();
+  int refreshes = 0;
+  @override
+  Future<void> onRefresh() async {
+    refreshes++;
+  }
 }

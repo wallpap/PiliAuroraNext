@@ -96,6 +96,7 @@ class RecommendationFeed extends Notifier<RecommendationState> {
   @override
   RecommendationState build() {
     _disposed = false;
+    _refreshScheduled = false;
     _query = null;
     _historyStart = null;
     // 角色通知更新查询归属，同时保留 Widget 提供的视口和后台标签状态。
@@ -155,15 +156,22 @@ class RecommendationFeed extends Notifier<RecommendationState> {
   bool get isEnd => _query?.stopped ?? false;
   bool get canLoadMore => !isEnd && loadingState.dataOrNull != null;
 
+  bool _refreshScheduled = false;
   void _onAccountChanged() {
     if (_query case final query? when !_current(query)) {
       _invalidate(query);
-      if (_active) {
-        unawaited(onRefresh());
-      } else {
-        _query = null;
-        _historyStart = null;
-        _emit(LoadingState.loading());
+      _query = null;
+      _historyStart = null;
+      _emit(LoadingState.loading());
+      if (_active && !_refreshScheduled) {
+        // 共用凭据会依次发布主账号与推荐角色；同步撤销旧查询，合并本轮重读。
+        _refreshScheduled = true;
+        final owner = ref;
+        scheduleMicrotask(() {
+          if (!owner.mounted) return;
+          _refreshScheduled = false;
+          if (_active && _query == null) unawaited(onRefresh());
+        });
       }
     }
   }

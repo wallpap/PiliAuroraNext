@@ -105,6 +105,7 @@ void main() {
     'account',
     'watch_later',
     'content_library',
+    'content_discovery',
     'history',
     'favorites',
     'subscriptions',
@@ -154,6 +155,33 @@ void main() {
       expect(violations, isEmpty, reason: violations.join('\n'));
     });
   }
+  test('recommendation state has no legacy controller or settings-to-page dependency', () {
+    const removed = ['pages/rcmd/controller.dart', 'pages/rcmd/viewport.dart'];
+    final violations = <String>[];
+    for (final root in ['lib', 'tool']) {
+      for (final file in Directory(root).listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final source = path
+            .relative(file.path, from: root)
+            .replaceAll('\\', '/');
+        if (root == 'lib' && removed.contains(source)) violations.add(source);
+        for (final uri in dependencies(file)) {
+          final target = localDependency(file, uri);
+          final settingsToPage =
+              source == 'pages/setting/models/recommend_settings.dart' &&
+              target?.startsWith('pages/rcmd/') == true;
+          final enumDispatch =
+              source == 'models/common/home_tab_type.dart' &&
+              (uri.startsWith('package:get/') ||
+                  target?.endsWith('/controller.dart') == true);
+          if (removed.contains(target) || settingsToPage || enumDispatch) {
+            violations.add('$root/$source -> $uri');
+          }
+        }
+      }
+    }
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
   test('subscription legacy entries stay removed', () {
     const legacy = [
       'pages/subscription/',

@@ -39,6 +39,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 | 目录 | 范围 |
 | --- | --- |
+| `features/content_discovery/` | 推荐 Riverpod 查询、视口、卡片揭示、偏好与账号/页面生命周期。 |
 | `architecture/` | 依赖政策、模块边界和发布工作流约束。 |
 | `common/widgets/` | 通用控件、图片、手势和进度条。 |
 | `grpc/`、`http/` | 协议解码、请求转换和 API 选择规则。 |
@@ -194,7 +195,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `services/desktop_playback_windows_test.dart` 使用真实回环连接、临时 Hive 和进程替身检查提前退出、握手损坏、超时、连接重试、并发 ID、凭证只使用一次、断连和清理错误交付；`desktop_playback_layout_test.dart` 检查尺寸校验及旧配置回退。原生窗口显示与进程声音交接需设备验收。
 
-`pages/rcmd/` 覆盖首页实际视口容量与字体缩放、页脚留白、连续下载、Web 有界并发与有序去重、合作卡片骨架与渐进揭示、历史位置保留、分页重试，以及刷新、账号切换和退出时的旧查询隔离。时序用例使用模拟延迟，覆盖数据交付；封面下载与解码沿用图片模块的独立验证。
+`features/content_discovery/` 覆盖首页实际视口容量与字体缩放、页脚留白、连续下载、Web 有界并发与有序去重、合作卡片骨架与渐进揭示、历史位置保留、分页重试，以及刷新、账号切换和退出时的旧查询隔离。生命周期用例使用真实角色通知及 Hive 偏好，检查同 UID 换凭据、角色通知合并、后台换号、来源切换、最后订阅释放、provider 重建和首页句柄注销。时序用例使用模拟延迟，覆盖数据交付；封面下载与解码沿用图片模块的独立验证。
 
 `pages/common/discovery_list_controller_test.dart` 与 `discovery_account_results_test.dart` 检查主账号屏蔽规则与推荐账号内容的复合归属，覆盖请求准备、合作作者等待、同 UID 换凭据和分页换号后从首页重读。真实 HTTP 适配器替换响应，核对热门、入站必刷、每周必看和三种排行榜的账号参数；纯主账号动态保留原归属。
 
