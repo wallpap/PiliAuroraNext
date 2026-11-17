@@ -51,13 +51,18 @@ abstract class DiscoveryListing<T, M>
   M? get queryMetadata => _owner.metadata;
   bool get paginated => true;
   bool get filterAuthors => true;
+  bool get usesMainAccount => false;
+  Object itemKey(T item) =>
+      MediaAuthorFilter.contentKey(item) ?? item as Object;
   Future<LoadingState<DiscoveryPage<T, M>>> fetch(Account account, int page);
 
   @override
   DiscoveryListingState<T, M> build() {
     final owner = _owner = _Owner<M>(
       filterAuthors ? ref.watch(mainAccountProvider) : null,
-      ref.watch(recommendAccountProvider),
+      ref.watch(
+        usesMainAccount ? mainAccountProvider : recommendAccountProvider,
+      ),
     );
     ref.onDispose(() => owner.disposed = true);
     scheduleMicrotask(() {
@@ -72,7 +77,12 @@ abstract class DiscoveryListing<T, M>
       identical(owner, _owner) &&
       (owner.main == null ||
           identical(owner.main, ref.read(mainAccountProvider))) &&
-      identical(owner.account, ref.read(recommendAccountProvider));
+      identical(
+        owner.account,
+        ref.read(
+          usesMainAccount ? mainAccountProvider : recommendAccountProvider,
+        ),
+      );
 
   /// 多步读取在每一步之前检查同一所有者，离页或刷新后停止后续请求。
   bool Function() captureQuery() {
@@ -84,7 +94,9 @@ abstract class DiscoveryListing<T, M>
     _owner.disposed = true;
     final owner = _owner = _Owner<M>(
       filterAuthors ? ref.read(mainAccountProvider) : null,
-      ref.read(recommendAccountProvider),
+      ref.read(
+        usesMainAccount ? mainAccountProvider : recommendAccountProvider,
+      ),
     );
     state = DiscoveryListingState(source: owner);
     return _load(owner);
@@ -99,7 +111,7 @@ abstract class DiscoveryListing<T, M>
   void remove(T item) {
     final items = state.loading.dataOrNull;
     if (items == null || !items.any((value) => identical(value, item))) return;
-    _owner.removed.add(MediaAuthorFilter.contentKey(item) ?? item as Object);
+    _owner.removed.add(itemKey(item));
     state = DiscoveryListingState(
       source: _owner,
       loading: Success(
@@ -146,11 +158,12 @@ abstract class DiscoveryListing<T, M>
         }
         if (!_current(owner)) return;
         items = List<T>.of(state.loading.dataOrNull ?? items);
+        final seen = items.map(itemKey).toSet();
         final candidates = page.items
             .where(
-              (item) => !owner.removed.contains(
-                MediaAuthorFilter.contentKey(item) ?? item,
-              ),
+              (item) =>
+                  !owner.removed.contains(itemKey(item)) &&
+                  seen.add(itemKey(item)),
             )
             .toList();
         final accepted = filterAuthors

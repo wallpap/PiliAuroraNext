@@ -106,6 +106,7 @@ $ciTests = @(
     "test/http/pgc_follow_results_test.dart",
     "test/pages/pgc/follow_results_test.dart",
     "test/pages/pgc/operation_results_test.dart",
+    "test/pages/pgc/account_lifecycle_test.dart",
     "test/http/metadata_response_test.dart",
     "test/http/sponsor_block_response_test.dart",
     "test/http/user_response_test.dart",

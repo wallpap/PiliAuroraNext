@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/pages/pgc/controller.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/init.dart';
@@ -52,7 +51,7 @@ class HomeController extends GetxController
           HomeTabType.hot => throw StateError('热门页尚未挂载'),
           HomeTabType.rank => throw StateError('排行榜尚未挂载'),
           HomeTabType.bangumi ||
-          HomeTabType.cinema => Get.find<PgcController>(tag: type.name),
+          HomeTabType.cinema => throw StateError('PGC 页尚未挂载'),
         };
   }
 

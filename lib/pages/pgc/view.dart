@@ -15,7 +15,12 @@ import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_pgc/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
-import 'package:pili_aurora_next/pages/pgc/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/pgc_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/widgets/pgc_card_v.dart';
 import 'package:pili_aurora_next/pages/pgc/widgets/pgc_card_v_timeline.dart';
 import 'package:pili_aurora_next/pages/pgc_index/view.dart';
@@ -24,7 +29,7 @@ import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class PgcPage extends StatefulWidget {
+class PgcPage extends ConsumerStatefulWidget {
   const PgcPage({
     super.key,
     required this.tabType,
@@ -33,19 +38,48 @@ class PgcPage extends StatefulWidget {
   final HomeTabType tabType;
 
   @override
-  State<PgcPage> createState() => _PgcPageState();
+  ConsumerState<PgcPage> createState() => _PgcPageState();
 }
 
-class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
-  late final PgcController controller;
-
+class _PgcPageState extends ConsumerState<PgcPage>
+    with AutomaticKeepAliveClientMixin {
+  final _owner = Object();
+  final _scroll = ScrollController(), _followScroll = ScrollController();
+  PgcQuery get _query =>
+      (owner: _owner, cinema: widget.tabType == HomeTabType.cinema);
+  PgcFeed get controller => ref.read(pgcFeedProvider(_query).notifier);
+  PgcFollows get follows => ref.read(pgcFollowsProvider(_query).notifier);
+  Future<void> _refresh() => Future.wait([
+    controller.onRefresh(),
+    follows.onRefresh(),
+    if (ref.read(showPgcTimelineProvider) &&
+        widget.tabType == HomeTabType.bangumi)
+      ref.read(pgcTimelineProvider(_owner).notifier).onRefresh(),
+  ]);
+  Future<void> _timelineRefresh() =>
+      ref.read(pgcTimelineProvider(_owner).notifier).onRefresh();
+  VoidCallback? _unregister;
   @override
   void initState() {
-    controller = Get.put(
-      PgcController(tabType: widget.tabType),
-      tag: widget.tabType.name,
-    );
     super.initState();
+    if (Get.isRegistered<HomeController>()) {
+      _unregister = Get.find<HomeController>().registerPage(
+        widget.tabType,
+        DiscoveryPageHandle(
+          () => _scroll,
+          _refresh,
+          readSnapshot: () => ref.read(pgcFeedProvider(_query)),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    _scroll.dispose();
+    _followScroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -55,37 +89,51 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context);
     final ThemeData theme = Theme.of(context);
+    final state = ref.watch(pgcFeedProvider(_query));
+    final showTimeline =
+        widget.tabType == HomeTabType.bangumi &&
+        ref.watch(showPgcTimelineProvider);
     return refreshIndicator(
-      onRefresh: controller.onRefresh,
-      child: CustomScrollView(
-        controller: controller.scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          _buildFollow(theme),
-          if (controller.showPgcTimeline)
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height:
-                    Grid.smallCardWidth / 2 / 0.75 +
-                    MediaQuery.textScalerOf(context).scale(96),
-                child: Obx(
-                  () => _buildTimeline(theme, controller.timelineState.value),
+      onRefresh: _refresh,
+      child: FeedPagination(
+        controller: _scroll,
+        dataSource: state.source,
+        dataRevision: state,
+        canLoadMore: () => state.canLoadMore,
+        onLoadMore: controller.onLoadMore,
+        prefetchExtent: () => 300,
+        child: CustomScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            _buildFollow(theme),
+            if (showTimeline)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height:
+                      Grid.smallCardWidth / 2 / 0.75 +
+                      MediaQuery.textScalerOf(context).scale(96),
+                  child: _buildTimeline(
+                    theme,
+                    ref.watch(pgcTimelineProvider(_owner)).loading,
+                  ),
                 ),
               ),
-            ),
-          ..._buildRcmd(theme),
-        ],
+            ..._buildRcmd(theme),
+            DiscoveryFooter(error: state.error, retry: controller.retry),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTimeline(
     ThemeData theme,
-    LoadingState<List<TimelineResult>?> loadingState,
+    LoadingState<List<TimelineResult>> loadingState,
   ) => switch (loadingState) {
     Loading() => m3eLoading,
     Success(:final response) =>
-      response != null && response.isNotEmpty
+      response.isNotEmpty
           ? Builder(
               builder: (context) {
                 final initialIndex = max(
@@ -155,14 +203,12 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                           ),
                         ],
                       ),
-                      Obx(
-                        () => controller.timelineWarning.value == null
-                            ? const SizedBox.shrink()
-                            : TextButton(
-                                onPressed: controller.queryPgcTimeline,
-                                child: Text(controller.timelineWarning.value!),
-                              ),
-                      ),
+                      if (ref.watch(pgcTimelineProvider(_owner)).metadata
+                          case final warning?)
+                        TextButton(
+                          onPressed: _timelineRefresh,
+                          child: Text(warning),
+                        ),
                       Expanded(
                         child: TabBarView(
                           physics: const NeverScrollableScrollPhysics(),
@@ -202,7 +248,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
           : const SizedBox.shrink(),
     Error(:final errMsg) => GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: controller.queryPgcTimeline,
+      onTap: _timelineRefresh,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
@@ -222,9 +268,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
         right: Style.safeSpace,
         bottom: 100,
       ),
-      sliver: Obx(
-        () => _buildRcmdBody(controller.loadingState.value),
-      ),
+      sliver: _buildRcmdBody(ref.watch(pgcFeedProvider(_query)).loading),
     ),
   ];
 
@@ -267,18 +311,15 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
     mainAxisExtent: MediaQuery.textScalerOf(context).scale(50),
   );
 
-  Widget _buildRcmdBody(LoadingState<List<PgcIndexItem>?> loadingState) {
+  Widget _buildRcmdBody(LoadingState<List<PgcIndexItem>> loadingState) {
     return switch (loadingState) {
       Loading() => const SliverToBoxAdapter(),
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? InactiveFeedSliver(
                 sliver: SliverGrid.builder(
                   gridDelegate: gridDelegate,
                   itemBuilder: (context, index) {
-                    if (index == response.length - 1) {
-                      controller.onLoadMore();
-                    }
                     return PgcCardVPgcIndex(item: response[index]);
                   },
                   itemCount: response.length,
@@ -302,8 +343,8 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                   height:
                       Grid.smallCardWidth / 2 / 0.75 +
                       MediaQuery.textScalerOf(context).scale(50),
-                  child: Obx(
-                    () => _buildFollowBody(controller.followState.value),
+                  child: _buildFollowBody(
+                    ref.watch(pgcFollowsProvider(_query)).loading,
                   ),
                 ),
               ],
@@ -316,16 +357,14 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
     padding: const EdgeInsets.only(left: 16),
     child: Row(
       children: [
-        Obx(
-          () => Text(
-            '最近${widget.tabType == HomeTabType.bangumi ? '追番' : '追剧'}${controller.followCount.value == -1 ? '' : ' ${controller.followCount.value}'}',
-            style: theme.textTheme.titleMedium,
-          ),
+        Text(
+          '最近${widget.tabType == HomeTabType.bangumi ? '追番' : '追剧'}${(ref.watch(pgcFollowsProvider(_query)).metadata ?? -1) < 0 ? '' : ' ${ref.watch(pgcFollowsProvider(_query)).metadata}'}',
+          style: theme.textTheme.titleMedium,
         ),
         const Spacer(),
         IconButton(
           tooltip: '刷新',
-          onPressed: controller.queryPgcFollow,
+          onPressed: follows.onRefresh,
           icon: const Icon(
             Icons.refresh,
             size: 20,
@@ -353,41 +392,59 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
     ),
   );
 
-  Widget _buildFollowBody(LoadingState<List<FavPgcItemModel>?> loadingState) {
+  Widget _buildFollowBody(LoadingState<List<FavPgcItemModel>> loadingState) {
     return switch (loadingState) {
       Loading() => m3eLoading,
       Success(:final response) =>
-        response != null && response.isNotEmpty
-            ? ListView.builder(
-                controller: controller.followController,
-                scrollDirection: Axis.horizontal,
-                itemCount: response.length,
-                padding: EdgeInsets.zero,
-                itemBuilder: (context, index) {
-                  if (index == response.length - 1) {
-                    controller.queryPgcFollow(false);
-                  }
-                  return Container(
-                    width: Grid.smallCardWidth / 2,
-                    margin: EdgeInsets.only(
-                      left: Style.safeSpace,
-                      right: index == response.length - 1 ? Style.safeSpace : 0,
+        response.isNotEmpty
+            ? FeedPagination(
+                controller: _followScroll,
+                dataSource: ref.watch(pgcFollowsProvider(_query)).source,
+                dataRevision: ref.watch(pgcFollowsProvider(_query)),
+                canLoadMore: () =>
+                    ref.read(pgcFollowsProvider(_query)).canLoadMore,
+                onLoadMore: follows.onLoadMore,
+                prefetchExtent: () => 150,
+                child: Column(
+                  children: [
+                    if (ref.watch(pgcFollowsProvider(_query)).error
+                        case final error?)
+                      TextButton(
+                        onPressed: follows.retry,
+                        child: Text('$error · 重试'),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _followScroll,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: response.length,
+                        padding: EdgeInsets.zero,
+                        itemBuilder: (context, index) {
+                          return Container(
+                            width: Grid.smallCardWidth / 2,
+                            margin: EdgeInsets.only(
+                              left: Style.safeSpace,
+                              right: index == response.length - 1
+                                  ? Style.safeSpace
+                                  : 0,
+                            ),
+                            child: PgcCardV(item: response[index]),
+                          );
+                        },
+                      ),
                     ),
-                    child: PgcCardV(item: response[index]),
-                  );
-                },
+                  ],
+                ),
               )
             : Center(
                 child: Text(
                   '还没有${widget.tabType == HomeTabType.bangumi ? '追番' : '追剧'}',
                 ),
               ),
-      Error(:final errMsg) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
-        child: Text(
-          errMsg ?? '',
-          textAlign: TextAlign.center,
+      Error(:final errMsg) => Center(
+        child: TextButton(
+          onPressed: follows.retry,
+          child: Text('${errMsg ?? ''} · 重试'),
         ),
       ),
     };

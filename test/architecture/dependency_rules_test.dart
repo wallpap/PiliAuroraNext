@@ -167,6 +167,7 @@ void main() {
       'pages/rank/zone/controller.dart',
       'pages/popular_series/controller.dart',
       'pages/popular_precious/controller.dart',
+      'pages/pgc/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -204,6 +205,7 @@ void main() {
       'live/view.dart',
       'live_area_detail/view.dart',
       'live_area_detail/child/view.dart',
+      'pgc/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {

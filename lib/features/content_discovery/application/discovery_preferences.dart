@@ -12,3 +12,11 @@ final hotEntrancesProvider = Provider.autoDispose<bool>((ref) {
   ref.onDispose(() => unawaited(subscription.cancel()));
   return Pref.showHotRcmd;
 });
+
+final showPgcTimelineProvider = Provider.autoDispose<bool>((ref) {
+  final subscription = GStorage.setting
+      .watch(key: SettingBoxKey.showPgcTimeline)
+      .listen((_) => ref.invalidateSelf());
+  ref.onDispose(() => unawaited(subscription.cancel()));
+  return Pref.showPgcTimeline;
+});

@@ -24,6 +24,8 @@
 
 ## 验证
 
+PGC 首页通过 `pgcFeedProvider`、`pgcFollowsProvider`、`pgcTimelineProvider` 独立持有推荐目录、追番与时间表。推荐目录只依赖推荐账号，另两项只依赖主账号；时间表按日期合并，部分失败保留已确认日期并交付重试提示。横向追番与推荐目录使用实际视口分页，失败重试原页；Tab 与滚动归 Widget，首页壳只持有窄句柄。回归见 `test/pages/pgc/account_lifecycle_test.dart`、`operation_results_test.dart`。
+
 ```powershell
 fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/discovery_list_controller_test.dart test/pages/common/discovery_account_results_test.dart test/pages/home/controller_lifecycle_test.dart test/architecture/dependency_rules_test.dart
 ```
