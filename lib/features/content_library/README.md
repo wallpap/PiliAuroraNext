@@ -9,6 +9,8 @@
 
 `FeedState.source` 是一次有效查询的身份，分页保留它，刷新或切号替换它。延迟确认须同时核对来源和账号；结果展示另核对页面与账号，不能因成功写入引发查询失效就误判写入失败。
 
+列表与详情标题通过 `PagedFeed.displayState` 展示同账号刷新期间保留的快照，刷新失败在原列表旁提供重试。依赖重载或账号替换时隐藏旧快照；保留展示不授予写入或自动分页资格，两者仍须通过 `isCurrent`。
+
 空页预算默认结束查询。订阅设置 `endOnEmptyBudget = false`，预算耗尽时保留游标并通过 `FeedState.error` 暂停自动分页；显式 `loadMore(retry: true)` 才继续，避免连续隐藏内容触发无限请求。
 
 测试通过各领域 provider 和写入 Interface 验证这些行为；不为共享 Implementation 叠加一套镜像测试。领域源码入口见[功能地图](../../../doc/development/features.md)。

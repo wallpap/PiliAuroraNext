@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/content_library/presentation/feed_view.dart';
 import 'package:pili_aurora_next/features/subscriptions/application/subscription_library.dart';
 import 'package:pili_aurora_next/features/subscriptions/data/hidden_media.dart';
 import 'package:pili_aurora_next/features/subscriptions/data/subscription_repository.dart';
@@ -460,35 +461,84 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets('详情标题随查询更新，换凭据加载期间隐藏旧标题', (tester) async {
-    repository.total = 0;
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: SubDetailPage(id: 7)),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('合集 7'), findsWidgets);
-    final pending = Completer<LoadingState<SubDetailData>>();
-    repository.readDetail = (_, _, _) => pending.future;
-    Accounts.replaceCredentials(login('replacement'));
-    await tester.pump();
-    expect(find.text('合集 7'), findsNothing);
-    pending.complete(
-      Success(
-        SubDetailData(
-          info: SubItemModel(id: 7, title: '新合集', mediaCount: 0),
-          medias: [],
+  // 两种视图执行同一行为契约，领域仓库只提供内容，断言不依赖卡片类型或 Element 身份。
+  for (final detailPage in [false, true]) {
+    testWidgets('${detailPage ? '订阅详情' : '通用内容库'}刷新契约：保留、重试、替换与切号隔离', (
+      tester,
+    ) async {
+      repository.total = 1;
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: detailPage
+                ? const SubDetailPage(id: 7)
+                : Scaffold(
+                    body: Consumer(
+                      builder: (_, ref, _) => LibraryFeedView(
+                        value: ref.watch(subscriptionFeedProvider(detail)),
+                        feed: ref.read(
+                          subscriptionFeedProvider(detail).notifier,
+                        ),
+                        itemBuilder: (_, item, _) =>
+                            Text((item as SubDetailItemModel).title!),
+                      ),
+                    ),
+                  ),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('新合集'), findsWidgets);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
-    container.dispose();
-    container = ProviderContainer();
-    await tester.pump(const Duration(milliseconds: 1));
-  });
+      );
+      await tester.pumpAndSettle();
+      void expectContent(String title) {
+        expect(find.text('视频 1'), findsOneWidget);
+        if (detailPage) expect(find.text(title), findsWidgets);
+      }
+
+      expectContent('合集 7');
+      var pending = Completer<LoadingState<SubDetailData>>();
+      repository.readDetail = (_, _, _) => pending.future;
+      final operation = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      await tester.pump();
+      expectContent('合集 7');
+      pending.complete(const Error('离线'));
+      await operation;
+      await tester.pumpAndSettle();
+      expectContent('合集 7');
+      expect(find.textContaining('离线'), findsOneWidget);
+      repository.readDetail = (_, _, _) async => Success(
+        SubDetailData(
+          info: SubItemModel(id: 7, title: '新合集', mediaCount: 1),
+          medias: [
+            SubDetailItemModel(id: 2, title: '视频 2', cover: '', duration: 10),
+          ],
+        ),
+      );
+      await tester.tap(find.textContaining('离线'));
+      await tester.pumpAndSettle();
+      expect(repository.requests.last.page, 1);
+      expect(find.text('视频 1'), findsNothing);
+      expect(find.text('视频 2'), findsOneWidget);
+      expect(find.textContaining('离线'), findsNothing);
+      if (detailPage) expect(find.text('新合集'), findsWidgets);
+
+      pending = Completer();
+      repository.readDetail = (_, _, _) => pending.future;
+      Accounts.replaceCredentials(login('replacement'));
+      await tester.pump();
+      expect(find.text('新合集'), findsNothing);
+      expect(find.text('视频 2'), findsNothing);
+      pending.complete(const Error('新账号离线'));
+      await tester.pumpAndSettle();
+      expect(find.text('新合集'), findsNothing);
+      expect(find.text('视频 2'), findsNothing);
+      expect(find.textContaining('新账号离线'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
+      container = ProviderContainer();
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+  }
 }

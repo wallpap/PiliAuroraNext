@@ -80,7 +80,7 @@ class _FavoritePanelState extends ConsumerState<FavoritePanel>
     final provider = favoriteFeedProvider(widget.query);
     final value = ref.watch(provider);
     final feed = ref.read(provider.notifier);
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = feed.displayState;
     if (!identical(_source, data?.source)) {
       _source = data?.source;
       _selected.clear();
@@ -164,8 +164,7 @@ class _FavoritePanelState extends ConsumerState<FavoritePanel>
           Expanded(
             child: LibraryFeedView(
               value: value,
-              refresh: feed.refresh,
-              loadMore: feed.loadMore,
+              feed: feed,
               itemBuilder: (context, item, index) {
                 final selecting = _selected.isNotEmpty;
                 final checked = _selected.contains(favoriteKey(item));

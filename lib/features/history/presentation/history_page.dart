@@ -182,7 +182,7 @@ class _HistoryPanelState extends ConsumerState<HistoryPanel> {
     final provider = historyFeedProvider(widget.query);
     final value = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = notifier.displayState;
     if (!identical(_source, data?.source)) {
       _source = data?.source;
       _selected.clear();
@@ -233,8 +233,7 @@ class _HistoryPanelState extends ConsumerState<HistoryPanel> {
           Expanded(
             child: LibraryFeedView(
               value: value,
-              refresh: notifier.refresh,
-              loadMore: notifier.loadMore,
+              feed: notifier,
               itemBuilder: (context, item, _) => HistoryItem(
                 item: item,
                 selecting: _selected.isNotEmpty,

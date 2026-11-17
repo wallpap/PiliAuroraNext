@@ -28,7 +28,7 @@ PGC 首页通过 `pgcFeedProvider`、`pgcFollowsProvider`、`pgcTimelineProvider
 
 ## 共享发现列表
 
-`application/discovery_listing.dart` 统一负责主账号屏蔽与推荐账号身份、查询代次、分页互斥、合作作者检查、过滤补读和页尾重试。刷新与任一账号对象替换立即隐藏旧内容；失败保留已完成列表和原页码。连续五页无增长后暂停自动读取，用户可显式继续。总数按过滤前条目累计，页面移除不改变远端游标。旧响应不提交列表或元数据。
+`application/discovery_listing.dart` 统一负责主账号屏蔽与推荐账号身份、查询代次、分页互斥、合作作者检查、过滤补读和页尾重试。同账号、同查询刷新期间保留列表和元数据，首包成功后整体替换；刷新失败保留快照，重试从首包开始。查询或任一所属账号对象替换立即隐藏旧内容；分页失败保留已完成列表和原页码。连续五页无增长后暂停自动读取，用户可显式继续。总数按过滤前条目累计，页面移除不改变远端游标。旧响应不提交列表或元数据。
 
 热门通过 `data/hot_repository.dart` 固定请求账号，入口偏好由 `discovery_preferences.dart` 订阅 Hive，最后一个订阅退出后释放；首页壳仅持有 Widget 注册的滚动／刷新句柄；卸载按句柄身份注销。共享回归位于 `test/features/content_discovery/discovery_listing_test.dart`。`discovery_pages_test.dart` 验证偏好订阅、首页句柄与滚动资源释放。
 

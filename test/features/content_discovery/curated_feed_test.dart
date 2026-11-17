@@ -148,7 +148,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(container.read(next).metadata?.config?.mediaId, 2);
   });
-  test('入站必刷保留媒体身份，刷新错误不继续展示旧播放列表', () async {
+  test('入站必刷刷新等待及失败保留同一份列表与媒体身份', () async {
     final provider = preciousFeedProvider(Object());
     container
       ..listen(provider, (_, _) {})
@@ -161,11 +161,12 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(container.read(provider).metadata?.mediaId, 7);
     final refresh = container.read(provider.notifier).onRefresh();
-    expect(container.read(provider).metadata, isNull);
+    expect(container.read(provider).metadata?.mediaId, 7);
     await interceptor.waitForRequests(2);
     requests[1].reply.complete({'code': -1, 'message': '失败'});
     await refresh;
-    expect(container.read(provider).loading, isA<Error>());
-    expect(container.read(provider).metadata, isNull);
+    expect(container.read(provider).loading, isA<Success>());
+    expect(container.read(provider).error, isA<Error>());
+    expect(container.read(provider).metadata?.mediaId, 7);
   });
 }

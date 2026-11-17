@@ -37,7 +37,7 @@ class _Repository extends DynamicsRepository {
   }) async => author == null
       ? Success(
           FollowUpModel.fromUpList(null)
-            ..upList = []
+            ..upList = [UpItem(mid: 2, uname: '关注作者')]
             ..hasMore = false,
         )
       : author!.future;
@@ -49,8 +49,25 @@ class _Repository extends DynamicsRepository {
     Set<int> banned,
     DynamicCursor? cursor,
   ) async => listing == null
-      ? const Success(
-          DiscoveryPage([], metadata: DynamicCursor(null, {}), hasMore: false),
+      ? Success(
+          DiscoveryPage(
+            [
+              DynamicItemModel.fromJson({
+                'id_str': 'old',
+                'type': 'DYNAMIC_TYPE_WORD',
+                'modules': {
+                  'module_author': {'mid': 1, 'name': '卡片作者'},
+                  'module_stat': {
+                    'forward': {'count': 0},
+                    'comment': {'count': 0},
+                    'like': {'count': 0, 'status': false},
+                  },
+                },
+              }),
+            ],
+            metadata: const DynamicCursor(null, {}),
+            hasMore: false,
+          ),
         )
       : listing!.future;
 }
@@ -130,8 +147,14 @@ void main() {
     final source = container.read(provider).source;
     Accounts.accountMode[AccountType.recommend.index] = account('recommend');
     expect(container.read(provider).source, same(source));
+    Accounts.replaceCredentials(account('third'));
+    expect(container.read(provider).loading, isA<Loading>());
+    await interceptor.waitForRequests(3);
+    requests[2].reply.complete(page(['third'], '', more: false));
+    await tick();
+    expect(container.read(provider).loading.data.single.idStr, 'third');
   });
-  test('分页互斥、失败重试原游标，重复游标结束且去重', () async {
+  test('分页互斥、失败重试原游标，重复游标结束，刷新后使用新游标', () async {
     final provider = dynamicsFeedProvider(query());
     container.listen(provider, (_, _) {});
     final controller = container.read(provider.notifier);
@@ -154,6 +177,20 @@ void main() {
       '2',
     ]);
     expect(container.read(provider).hasMore, isFalse);
+    final refresh = controller.onRefresh();
+    await interceptor.waitForRequests(4);
+    expect(requests.last.options.queryParameters['offset'], isNull);
+    requests.last.reply.complete(page(['3'], 'fresh-next'));
+    await refresh;
+    final next = controller.onLoadMore();
+    await interceptor.waitForRequests(5);
+    expect(requests.last.options.queryParameters['offset'], 'fresh-next');
+    requests.last.reply.complete(page(['4'], '', more: false));
+    await next;
+    expect(container.read(provider).loading.data.map((item) => item.idStr), [
+      '3',
+      '4',
+    ]);
   });
   test('删除按 ID 互斥、失败保留，分页不复活已删除动态', () async {
     final provider = dynamicsFeedProvider(query());
@@ -235,7 +272,7 @@ void main() {
     await refresh;
     expect(requests, hasLength(2));
   });
-  testWidgets('父刷新等待作者与分类，活动 Tab 和滚动在卸载时释放', (tester) async {
+  testWidgets('父刷新保持可见内容并等待作者与分类，离页释放活动资源', (tester) async {
     final repository = _Repository();
     await GStorage.setting.put(SettingBoxKey.navBarSort, [1]);
     await GStorage.setting.put(SettingBoxKey.autoUpdate, false);
@@ -249,6 +286,8 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(main.dynamicController, isNotNull);
+    expect(find.text('卡片作者'), findsOneWidget);
+    expect(find.text('关注作者'), findsOneWidget);
     repository
       ..author = Completer()
       ..listing = Completer();
@@ -256,18 +295,25 @@ void main() {
     final refresh = main.dynamicController!.onRefresh().then(
       (_) => finished = true,
     );
+    await tester.pump();
+    expect(find.text('卡片作者'), findsOneWidget);
+    expect(find.text('关注作者'), findsOneWidget);
     repository.author!.complete(
       Success(FollowUpModel.fromUpList(null)..upList = []),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(finished, isFalse);
+    expect(find.text('卡片作者'), findsOneWidget);
+    expect(find.text('关注作者'), findsNothing);
     repository.listing!.complete(
       const Success(
         DiscoveryPage([], metadata: DynamicCursor(null, {}), hasMore: false),
       ),
     );
     await refresh;
+    await tester.pump();
     expect(finished, isTrue);
+    expect(find.text('卡片作者'), findsNothing);
     tester.widget<TabBar>(find.byType(TabBar).first).controller!.animateTo(1);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();

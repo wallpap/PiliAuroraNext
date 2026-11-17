@@ -44,7 +44,11 @@ void main() {
     return controller;
   }
 
-  Map<String, dynamic> ups(List<int> ids, [String offset = 'next']) => {
+  Map<String, dynamic> ups(
+    List<int> ids, [
+    String offset = 'next',
+    String? liveGroup,
+  ]) => {
     'code': 0,
     'data': {
       'up_list': {
@@ -52,6 +56,7 @@ void main() {
         'has_more': true,
         'offset': offset,
       },
+      if (liveGroup != null) 'live_users': {'group': liveGroup, 'items': []},
     },
   };
   DynamicItemModel item({bool withSource = true}) => DynamicItemModel.fromJson({
@@ -345,32 +350,56 @@ void main() {
     expect(requests, hasLength(2));
   });
 
-  testWidgets('作者面板刷新等待当前请求，分页游标停滞不追加重复数据', (tester) async {
+  testWidgets('作者与直播资料同批刷新，失败可重试，分页游标停滞不追加', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final provider = dynamicsAuthorsProvider(Object());
     container.listen(provider, (_, _) {});
     final controller = container.read(provider.notifier);
+    void expectAuthors(List<int> ids, [String? liveGroup]) {
+      final data = container.read(provider).loading.data;
+      expect(data.upList?.map((up) => up.mid), ids);
+      expect(data.liveUsers?.group, liveGroup);
+    }
+
     await until(tester, () => requests.length == 1);
-    requests[0].reply.complete(ups([1]));
+    requests[0].reply.complete(ups([1], 'next', '旧直播分组'));
     await tester.pump();
     var completed = false;
     final refresh = controller.onRefresh().then((_) => completed = true);
     await until(tester, () => requests.length == 2);
     await tester.pump();
     expect(completed, isFalse);
-    requests[1].reply.complete(ups([2]));
+    expectAuthors([1], '旧直播分组');
+    expect(container.read(provider).canLoadMore, isFalse);
+    requests[1].reply.complete({'code': -403});
     await refresh;
-    final more = controller.onLoadMore();
+    expect(completed, isTrue);
+    expectAuthors([1], '旧直播分组');
+    expect(container.read(provider).error, isNotNull);
+    final retry = controller.retry();
     await until(tester, () => requests.length == 3);
-    requests[2].reply.complete({
+    expect(requests.last.options.path, Api.followUp);
+    requests.last.reply.complete(ups([2]));
+    await retry;
+    expectAuthors([2]);
+    expect(container.read(provider).error, isNull);
+    final more = controller.onLoadMore();
+    await until(tester, () => requests.length == 4);
+    requests.last.reply.complete({
       'code': 0,
       'data': (ups([2])['data'] as Map)['up_list'],
     });
     await more;
     expect(container.read(provider).loading.data.upList, hasLength(1));
     await controller.onLoadMore();
-    expect(requests, hasLength(3));
+    expect(requests, hasLength(4));
+    Accounts.replaceCredentials(account('new'));
+    expect(container.read(provider).loading.dataOrNull, isNull);
+    await until(tester, () => requests.length == 5);
+    requests.last.reply.complete(ups([3], ''));
+    await tester.pump();
+    expectAuthors([3]);
   });
 
   testWidgets('全部关注分页持续去重，页码只在成功后推进', (tester) async {

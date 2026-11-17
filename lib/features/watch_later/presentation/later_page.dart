@@ -266,7 +266,7 @@ class _LaterPanelState extends ConsumerState<LaterPanel> {
     final provider = laterFeedProvider(widget.query);
     final value = ref.watch(provider);
     final notifier = ref.read(provider.notifier);
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = notifier.displayState;
     if (!identical(_source, data?.source) || !widget.active) {
       _selected.clear();
       _source = data?.source;
@@ -353,8 +353,7 @@ class _LaterPanelState extends ConsumerState<LaterPanel> {
           Expanded(
             child: LibraryFeedView(
               value: value,
-              refresh: notifier.refresh,
-              loadMore: notifier.loadMore,
+              feed: notifier,
               itemBuilder: (context, item, index) => VideoCardHLater(
                 index: index,
                 videoItem: item,

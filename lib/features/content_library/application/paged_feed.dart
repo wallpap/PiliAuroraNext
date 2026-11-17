@@ -53,6 +53,16 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
   bool get endOnEmptyBudget => true;
   Object _generation = Object();
 
+  /// 刷新与失败期间可展示同账号快照；写入和分页仍须通过 isCurrent。
+  FeedState<T, M>? get displayState {
+    final snapshot = state.value;
+    return snapshot != null &&
+            !state.isReloading &&
+            ownsAccount(snapshot.account)
+        ? snapshot
+        : null;
+  }
+
   @override
   Future<FeedState<T, M>> build() async {
     _generation = Object();

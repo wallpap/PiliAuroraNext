@@ -27,7 +27,7 @@ class DynamicsAuthorsState {
 class _Owner {
   _Owner(this.account);
   final Account account;
-  bool disposed = false, dynamicEnd = false;
+  bool disposed = false, dynamicEnd = false, hasSnapshot = false;
   String? offset;
   int page = 1;
   final offsets = <String>{}, read = <int>{};
@@ -56,9 +56,14 @@ class DynamicsAuthors extends Notifier<DynamicsAuthorsState> {
       identical(owner, _owner) &&
       identical(owner.account, ref.read(mainAccountProvider));
   Future<void> onRefresh() {
+    final previous = _current(_owner) ? state : null;
     _owner.disposed = true;
     final owner = _owner = _Owner(ref.read(mainAccountProvider));
-    state = DynamicsAuthorsState(source: owner);
+    state = DynamicsAuthorsState(
+      source: owner,
+      loading: previous?.loading is Success ? previous!.loading : null,
+      hasMore: previous?.hasMore ?? true,
+    );
     return _load(owner);
   }
 
@@ -101,7 +106,8 @@ class DynamicsAuthors extends Notifier<DynamicsAuthorsState> {
       loadingMore: true,
       hasMore: state.hasMore,
     );
-    var data = state.loading.dataOrNull;
+    // 同账号刷新期间保留面板，首包成功后再替换旧作者与直播资料。
+    var data = owner.hasSnapshot ? state.loading.dataOrNull : null;
     var hasMore = state.hasMore;
     Error? error;
     final all = ref.read(dynamicsPreferencesProvider).allFollowed;
@@ -169,6 +175,7 @@ class DynamicsAuthors extends Notifier<DynamicsAuthorsState> {
         data = FollowUpModel.fromUpList(null)
           ..upList = List.unmodifiable(ordered)
           ..liveUsers = response.liveUsers ?? data?.liveUsers;
+        owner.hasSnapshot = true;
         if (added > 0 || !hasMore) break;
         if (attempt == 4) error = const Error('连续多页无新增作者，点击继续加载');
       }
@@ -179,7 +186,9 @@ class DynamicsAuthors extends Notifier<DynamicsAuthorsState> {
     state = DynamicsAuthorsState(
       source: owner,
       loading: data == null && error != null
-          ? error
+          ? state.loading is Success
+                ? state.loading
+                : error
           : Success(data ?? FollowUpModel.fromUpList(null)),
       hasMore: hasMore,
       error: error,

@@ -46,13 +46,17 @@ class _SubscriptionFeedViewState extends State<SubscriptionFeedView>
   @override
   Widget build(BuildContext context) {
     final value = widget.value;
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = widget.feed.displayState;
     final padding = MediaQuery.viewPaddingOf(context);
     return FeedPagination(
       controller: _scroll,
       dataSource: data?.source,
       dataRevision: data,
-      canLoadMore: () => widget.enabled && (data?.canLoadMore ?? false),
+      canLoadMore: () =>
+          widget.enabled &&
+          !value.isLoading &&
+          !value.hasError &&
+          (data?.canLoadMore ?? false),
       onLoadMore: widget.feed.loadMore,
       child: RefreshIndicator(
         onRefresh: _refresh,
@@ -68,9 +72,9 @@ class _SubscriptionFeedViewState extends State<SubscriptionFeedView>
                   child: Text(widget.progress),
                 ),
               ),
-            if (value.isLoading)
+            if (data == null && value.isLoading)
               gridSkeleton
-            else if (value.hasError)
+            else if (data == null && value.hasError)
               HttpError(errMsg: value.error.toString(), onReload: _refresh)
             else if (data == null || data.items.isEmpty)
               HttpError(onReload: _refresh)
@@ -88,7 +92,14 @@ class _SubscriptionFeedViewState extends State<SubscriptionFeedView>
                       widget.itemBuilder(data.items[index]),
                 ),
               ),
-            if (data?.loadingMore == true)
+            if (data != null && value.hasError)
+              SliverToBoxAdapter(
+                child: TextButton(
+                  onPressed: _refresh,
+                  child: Text('${value.error}，点击重试'),
+                ),
+              )
+            else if (!value.isLoading && data?.loadingMore == true)
               const SliverToBoxAdapter(
                 child: Center(
                   child: Padding(

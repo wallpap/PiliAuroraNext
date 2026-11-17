@@ -9,13 +9,11 @@ class LibraryFeedView<T, M> extends StatefulWidget {
   const LibraryFeedView({
     super.key,
     required this.value,
-    required this.refresh,
-    required this.loadMore,
+    required this.feed,
     required this.itemBuilder,
   });
   final AsyncValue<FeedState<T, M>> value;
-  final Future<void> Function() refresh;
-  final Future<void> Function({bool retry}) loadMore;
+  final PagedFeed<T, M> feed;
   final Widget Function(BuildContext, T, int) itemBuilder;
   @override
   State<LibraryFeedView<T, M>> createState() => _LibraryFeedViewState<T, M>();
@@ -34,7 +32,7 @@ class _LibraryFeedViewState<T, M> extends State<LibraryFeedView<T, M>>
   bool get wantKeepAlive => true;
   Future<void> _refresh() async {
     try {
-      await widget.refresh();
+      await widget.feed.refresh();
     } catch (_) {
       // 查询状态持有错误，按钮和下拉入口均消费同一个失败 Future。
     }
@@ -44,22 +42,23 @@ class _LibraryFeedViewState<T, M> extends State<LibraryFeedView<T, M>>
   Widget build(BuildContext context) {
     super.build(context);
     final value = widget.value;
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = widget.feed.displayState;
     return FeedPagination(
       controller: _scroll,
       dataSource: data?.source,
       dataRevision: data,
-      canLoadMore: () => data?.canLoadMore ?? false,
-      onLoadMore: () => widget.loadMore(retry: false),
+      canLoadMore: () =>
+          !value.isLoading && !value.hasError && (data?.canLoadMore ?? false),
+      onLoadMore: () => widget.feed.loadMore(retry: false),
       child: RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
           controller: _scroll,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            if (value.isLoading)
+            if (data == null && value.isLoading)
               gridSkeleton
-            else if (value.hasError)
+            else if (data == null && value.hasError)
               HttpError(
                 errMsg: value.error.toString(),
                 onReload: _refresh,
@@ -76,7 +75,14 @@ class _LibraryFeedViewState<T, M> extends State<LibraryFeedView<T, M>>
                       widget.itemBuilder(context, data.items[index], index),
                 ),
               ),
-            if (data?.loadingMore == true)
+            if (data != null && value.hasError)
+              SliverToBoxAdapter(
+                child: TextButton(
+                  onPressed: _refresh,
+                  child: Text('${value.error}，点击重试'),
+                ),
+              )
+            else if (!value.isLoading && data?.loadingMore == true)
               const SliverToBoxAdapter(
                 child: Center(
                   child: Padding(
@@ -88,7 +94,7 @@ class _LibraryFeedViewState<T, M> extends State<LibraryFeedView<T, M>>
             else if (data?.error case final error?)
               SliverToBoxAdapter(
                 child: TextButton(
-                  onPressed: () => widget.loadMore(retry: true),
+                  onPressed: () => widget.feed.loadMore(retry: true),
                   child: Text('$error，点击重试'),
                 ),
               ),

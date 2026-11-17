@@ -52,6 +52,7 @@ abstract class DiscoveryListing<T, M>
   bool get paginated => true;
   bool get filterAuthors => true;
   bool get usesMainAccount => false;
+
   Object itemKey(T item) =>
       MediaAuthorFilter.contentKey(item) ?? item as Object;
   Future<LoadingState<DiscoveryPage<T, M>>> fetch(Account account, int page);
@@ -91,6 +92,7 @@ abstract class DiscoveryListing<T, M>
   }
 
   Future<void> onRefresh() {
+    final previous = _current(_owner) ? state : null;
     _owner.disposed = true;
     final owner = _owner = _Owner<M>(
       filterAuthors ? ref.read(mainAccountProvider) : null,
@@ -98,7 +100,12 @@ abstract class DiscoveryListing<T, M>
         usesMainAccount ? mainAccountProvider : recommendAccountProvider,
       ),
     );
-    state = DiscoveryListingState(source: owner);
+    state = DiscoveryListingState(
+      source: owner,
+      loading: previous?.loading is Success ? previous!.loading : null,
+      metadata: previous?.metadata,
+      hasMore: previous?.hasMore ?? true,
+    );
     return _load(owner);
   }
 
@@ -142,7 +149,11 @@ abstract class DiscoveryListing<T, M>
     );
     final filter = ref.read(discoveryFilterProvider);
     final authors = ref.read(cooperativeAuthorsProvider);
-    var items = List<T>.of(state.loading.dataOrNull ?? []);
+    // 刷新保留的快照只用于展示，首包必须替换，不能与旧列表合并。
+    final replacing = owner.page == 1;
+    var items = List<T>.of(
+      replacing ? <T>[] : state.loading.dataOrNull ?? [],
+    );
     M? metadata = state.metadata;
     var hasMore = state.hasMore;
     Error? error;
@@ -164,7 +175,9 @@ abstract class DiscoveryListing<T, M>
           }
         }
         if (!_current(owner)) return;
-        items = List<T>.of(state.loading.dataOrNull ?? items);
+        if (!replacing) {
+          items = List<T>.of(state.loading.dataOrNull ?? items);
+        }
         final seen = items.map(itemKey).toSet();
         final candidates = page.items
             .where(
@@ -195,7 +208,9 @@ abstract class DiscoveryListing<T, M>
     state = DiscoveryListingState(
       source: owner,
       loading: error != null && owner.page == 1
-          ? error
+          ? state.loading is Success
+                ? state.loading
+                : error
           : Success(List.unmodifiable(items)),
       metadata: metadata,
       hasMore: hasMore,

@@ -63,17 +63,22 @@ class _Feed extends DiscoveryListing<int, String> {
     return result.future;
   }
 
-  void reply(int index, List<int> items, {int? total, bool? hasMore}) =>
-      requests[index].result.complete(
-        Success(
-          DiscoveryPage(
-            items,
-            metadata: 'page${requests[index].page}',
-            total: total,
-            hasMore: hasMore,
-          ),
-        ),
-      );
+  void reply(
+    int index,
+    List<int> items, {
+    String? metadata,
+    int? total,
+    bool? hasMore,
+  }) => requests[index].result.complete(
+    Success(
+      DiscoveryPage(
+        items,
+        metadata: metadata ?? 'page${requests[index].page}',
+        total: total,
+        hasMore: hasMore,
+      ),
+    ),
+  );
 }
 
 Future<void> tick() => Future<void>.delayed(Duration.zero);
@@ -104,6 +109,55 @@ void main() {
           ..read(provider);
   });
   tearDown(() => container.dispose());
+  for (final initial in [
+    <int>[],
+    [1, 2],
+  ]) {
+    test('刷新契约：${initial.isEmpty ? '空' : '非空'}快照保留、失败重试和替换', () async {
+      await tick();
+      feed.reply(0, initial, metadata: 'before', hasMore: initial.isNotEmpty);
+      await tick();
+      void expectSnapshot(List<int> items, String metadata) {
+        final value = container.read(provider);
+        expect(value.loading.dataOrNull, items);
+        expect(value.metadata, metadata);
+      }
+
+      final refresh = feed.onRefresh();
+      await tick();
+      expectSnapshot(initial, 'before');
+      expect(container.read(provider).canLoadMore, isFalse);
+      await feed.onLoadMore();
+      expect(feed.requests, hasLength(2));
+      feed.requests[1].result.complete(const Error('离线'));
+      await refresh;
+      expectSnapshot(initial, 'before');
+      expect(container.read(provider).error, isNotNull);
+      final retry = feed.retry();
+      await tick();
+      expect(feed.requests[2].page, 1);
+      feed.reply(2, [3, 4], metadata: 'after');
+      await retry;
+      expectSnapshot([3, 4], 'after');
+      expect(container.read(provider).error, isNull);
+
+      final oldPage = feed.onLoadMore();
+      await tick();
+      final replacement = feed.onRefresh();
+      await tick();
+      feed.reply(4, [5], metadata: 'latest');
+      await replacement;
+      feed.reply(3, [99], metadata: 'late');
+      await oldPage;
+      expectSnapshot([5], 'latest');
+      final more = feed.onLoadMore();
+      await tick();
+      expect(feed.requests[5].page, 2);
+      feed.reply(5, [6], hasMore: false);
+      await more;
+      expect(container.read(provider).loading.data, [5, 6]);
+    });
+  }
   test('刷新撤销旧请求，分页失败保留快照和页码，显式重试串行执行', () async {
     await tick();
     final old = feed.onRefresh();

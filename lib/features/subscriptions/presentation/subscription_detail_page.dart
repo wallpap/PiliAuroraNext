@@ -47,7 +47,7 @@ class _SubDetailPageState extends ConsumerState<SubDetailPage> {
     final account = ref.watch(mainAccountProvider);
     final value = ref.watch(subscriptionFeedProvider(_query));
     final feed = ref.read(subscriptionFeedProvider(_query).notifier);
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = feed.displayState;
     final info =
         data?.metadata ??
         (identical(account, _initialAccount) &&

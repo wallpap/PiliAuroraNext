@@ -75,7 +75,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     final refresh = controller.onRefresh();
     await interceptor.waitForRequests(3);
-    expect(container.read(provider).loading, isA<Loading>());
+    expect(container.read(provider).loading.data.single.currentCover, 'new');
     requests.last.reply.complete(emotes('refreshed'));
     await refresh;
     requests.first.reply.complete(emotes('old'));

@@ -1,4 +1,9 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:pili_aurora_next/features/community/data/bubble_repository.dart';
+import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
+    as refresh;
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/bubble/category_list.dart';
@@ -24,6 +29,7 @@ class _Repository extends BubbleRepository {
   _Repository({this.itemCount = 0});
   final int itemCount;
   final queries = <String>[];
+  Future<void>? rootRefresh;
   @override
   Future<LoadingState<DiscoveryPage<DynList, BubbleCatalog>>> page(
     Account account, {
@@ -34,11 +40,13 @@ class _Repository extends BubbleRepository {
     BubbleCatalog? previous,
   }) async {
     queries.add('$tribeId/$categoryId');
+    if (categoryId == null) await rootRefresh;
     return Success(
       DiscoveryPage(
         List.generate(
           itemCount,
-          (index) => DynList(dynId: '$index', title: '$index'),
+          (index) =>
+              DynList(dynId: '$index', title: '${categoryId ?? 'all'}:$index'),
         ),
         hasMore: false,
         metadata:
@@ -189,7 +197,7 @@ void main() {
     expect(tabs.animation, isNull);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('重复点击当前分类滚动到顶，切换分类保留独立滚动', (tester) async {
+  testWidgets('目录刷新保留当前分类与各自滚动，重复点击分类回顶', (tester) async {
     final repository = _Repository(itemCount: 100);
     await tester.pumpWidget(
       ProviderScope(
@@ -198,28 +206,50 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final first =
-        tester
-              .widget<CustomScrollView>(find.byType(CustomScrollView))
-              .controller!
-          ..jumpTo(200);
+    Future<Offset> scrollToAnchor(String category) async {
+      final before = tester.getTopLeft(find.text('$category:10'));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(
+            find.byType(CustomScrollView).hitTestable(),
+          ),
+          scrollDelta: const Offset(0, 200),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final after = tester.getTopLeft(find.text('$category:10'));
+      expect(after.dy, lessThan(before.dy));
+      return after;
+    }
+
+    final first = await scrollToAnchor('all');
+    final gate = Completer<void>();
+    repository.rootRefresh = gate.future;
+    final operation = tester
+        .widget<refresh.RefreshIndicator>(find.byType(refresh.RefreshIndicator))
+        .onRefresh();
     await tester.pump();
+    expect(tester.getTopLeft(find.text('all:10')), first);
+    await tester.tap(find.text('同名分类'));
+    await tester.pumpAndSettle();
+    final second = await scrollToAnchor('same');
+    gate.complete();
+    await operation;
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('same:10')), second);
+    expect(find.text('same:0').hitTestable(), findsNothing);
     await tester.tap(find.text('全部'));
     await tester.pumpAndSettle();
-    expect(first.offset, 0);
-    first.jumpTo(150);
+    expect(tester.getTopLeft(find.text('all:10')), first);
+    await tester.tap(find.text('全部'));
+    await tester.pumpAndSettle();
+    expect(find.text('all:0').hitTestable(), findsOneWidget);
     await tester.tap(find.text('同名分类'));
     await tester.pumpAndSettle();
-    final second = tester
-        .widget<CustomScrollView>(find.byType(CustomScrollView).last)
-        .controller!;
-    expect(second, isNot(same(first)));
-    second.jumpTo(250);
-    await tester.pump();
+    expect(tester.getTopLeft(find.text('same:10')), second);
     await tester.tap(find.text('同名分类'));
     await tester.pumpAndSettle();
-    expect(second.offset, 0);
-    expect(first.offset, 150);
+    expect(find.text('same:0').hitTestable(), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

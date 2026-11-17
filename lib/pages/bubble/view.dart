@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/features/community/domain/bubble_catalog.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/bubble/dyn_list.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:get/route_manager.dart';
@@ -55,7 +56,11 @@ class _BubblePageState extends ConsumerState<BubblePage>
         child: catalog == null || catalog.categories.isEmpty
             ? child
             : _BubbleTabs(
-                key: ObjectKey(catalog),
+                key: ValueKey((
+                  ref.watch(mainAccountProvider),
+                  _query,
+                  catalog.categories.map((category) => category.id).join(','),
+                )),
                 query: _query,
                 catalog: catalog,
               ),
@@ -206,7 +211,12 @@ class _BubbleListingState extends ConsumerState<_BubbleListing>
     final state = ref.watch(bubbleFeedProvider(widget.query));
     ref.listen(
       bubbleFeedProvider(widget.query).select((value) => value.source),
-      (_, _) => _scroll.jumpToTop(),
+      (_, _) {
+        // 同查询刷新保留滚动；账号替换的加载态才立即回顶。
+        if (ref.read(bubbleFeedProvider(widget.query)).loading is Loading) {
+          _scroll.jumpToTop();
+        }
+      },
     );
     return refreshIndicator(
       onRefresh: controller.onRefresh,

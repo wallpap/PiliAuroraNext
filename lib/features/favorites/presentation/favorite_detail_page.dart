@@ -124,9 +124,9 @@ class _FavoriteDetailPageState extends ConsumerState<FavoriteDetailPage> {
   Widget build(BuildContext context) {
     ref.watch(playAllProvider);
     final query = _query;
-    final value = ref.watch(favoriteFeedProvider(query));
+    ref.watch(favoriteFeedProvider(query));
     final feed = ref.read(favoriteFeedProvider(query).notifier);
-    final data = !value.isLoading && !value.hasError ? value.value : null;
+    final data = feed.displayState;
     final folder = data?.metadata.folder;
     final owner = data != null && folder?.mid == data.account.mid;
     return Scaffold(
