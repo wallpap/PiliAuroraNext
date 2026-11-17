@@ -22,7 +22,7 @@ import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/features/account/presentation/account_dashboard.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 
@@ -273,11 +273,12 @@ Future<void> main(List<String> arguments) async {
       final controller = find();
       if (controller == null) throw StateError('controller unavailable');
       controllerIdentities[name] = identityHashCode(controller);
-      final stateController = controller is RankController
-          ? controller.controller
-          : controller;
-      if (stateController is CommonController) {
-        final state = stateController.loadingState.value;
+      final state = switch (controller) {
+        CommonController() => controller.loadingState.value,
+        DiscoveryPageHandle() => controller.snapshot?.loading,
+        _ => null,
+      };
+      if (state != null) {
         final data = state.dataOrNull;
         final items = data is List ? data.length : null;
         entry.addAll({

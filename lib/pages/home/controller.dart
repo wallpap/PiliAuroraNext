@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/pages/live/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/controller.dart';
@@ -103,6 +105,17 @@ class HomeController extends GetxController
           Error() => 'error',
         };
         result['items'] = snapshot.loading.dataOrNull?.length ?? 0;
+      } else if (active is DiscoveryPageHandle) {
+        final snapshot = active.snapshot;
+        if (snapshot != null) {
+          result['requestPending'] = snapshot.loadingMore;
+          result['state'] = switch (snapshot.loading) {
+            Loading() => 'loading',
+            Success() => 'success',
+            Error() => 'error',
+          };
+          result['items'] = snapshot.loading.dataOrNull?.length ?? 0;
+        }
       } else if (active is CommonController) {
         result['requestPending'] = active.isLoading;
         result['state'] = switch (active.loadingState.value) {

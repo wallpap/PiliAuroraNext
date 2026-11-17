@@ -162,6 +162,8 @@ void main() {
       'pages/hot/controller.dart',
       'pages/rank/controller.dart',
       'pages/rank/zone/controller.dart',
+      'pages/popular_series/controller.dart',
+      'pages/popular_precious/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {

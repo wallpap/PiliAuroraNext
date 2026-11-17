@@ -37,3 +37,5 @@ fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/dis
 热门通过 `data/hot_repository.dart` 固定请求账号，首页壳仅持有 Widget 注册的滚动／刷新句柄；卸载按句柄身份注销。共享回归位于 `test/features/content_discovery/discovery_listing_test.dart`，已接入 CI。
 
 排行榜由 `rankFeedProvider` 按页面实例和分类隔离，UGC／番剧／影视三个 Adapter 路径均使用查询捕获的推荐账号。榜单为单次快照，禁止自动分页；分类 Tab、滚动与重复点击回顶由 Widget 持有，子页通过窄句柄注册，不再互找控制器。真实 HTTP 换凭据与双页面回归见 `rank_feed_test.dart`。
+
+精选合集由 `weeklyFeedProvider`（页面实例／期数）与 `preciousFeedProvider`（页面实例）持有。目录和详情固定同一推荐账号，多步查询在刷新、换凭据和释放后停止后续调度；列表、期数、说明和播放列表 ID 原子发布。切换期数由 Widget 更新查询键，迟到的选择弹窗按查询所有者失效。入站必刷接入实际视口分页及页尾重试。回归见 `curated_feed_test.dart` 与原发现账号测试（现通过 Riverpod 入口验证）。

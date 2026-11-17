@@ -53,7 +53,7 @@ $ciTests = @(
     "test/http/video_reporting_results_test.dart",
     "test/pages/video/interaction_results_test.dart",
     "test/pages/video/pay_coins/pay_coins_test.dart",
-    "test/pages/popular_series/controller_test.dart",
+    "test/features/content_discovery/curated_feed_test.dart",
     "test/common/widgets/video_feedback_results_test.dart",
     "test/http/member_mutation_results_test.dart",
     "test/http/member_query_results_test.dart",

@@ -98,8 +98,7 @@ void main() {
         discoveryFilterProvider.overrideWithValue(_Filter()),
         provider.overrideWith(() => feed),
       ],
-    );
-    container
+    )
       ..listen(provider, (_, _) {})
       ..read(provider);
   });

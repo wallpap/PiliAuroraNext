@@ -33,6 +33,7 @@ class _RankPageState extends State<RankPage>
         DiscoveryPageHandle(
           () => _current?.scrollController ?? _fallbackScroll,
           () => _current?.onRefresh() ?? Future.value(),
+          readSnapshot: () => (_current as DiscoveryPageHandle?)?.snapshot,
         ),
       );
     }

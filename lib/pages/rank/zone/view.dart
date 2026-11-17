@@ -40,6 +40,7 @@ class _ZonePageState extends ConsumerState<ZonePage>
       DiscoveryPageHandle(
         () => _scrollController,
         () => controller.onRefresh(),
+        readSnapshot: () => ref.read(rankFeedProvider(_query)),
       ),
     );
   }

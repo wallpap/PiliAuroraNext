@@ -44,6 +44,7 @@ class _HotPageState extends ConsumerState<HotPage>
         DiscoveryPageHandle(
           () => _scrollController,
           () => controller.onRefresh(),
+          readSnapshot: () => ref.read(hotFeedProvider(_owner)),
         ),
       );
     }

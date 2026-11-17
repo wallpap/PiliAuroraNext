@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
@@ -178,12 +178,12 @@ Future<void> main(List<String> arguments) async {
         await pause(5000);
         final source = diagnostics.readSources(prefix: 'homePage');
         final controller = home.controller;
-        final stateController = controller is RankController
-            ? controller.controller
-            : controller;
-        final loaded =
-            stateController is CommonController &&
-            stateController.loadingState.value.isSuccess;
+        final loaded = switch (controller) {
+          CommonController() => controller.loadingState.value.isSuccess,
+          DiscoveryPageHandle() =>
+            controller.snapshot?.loading.isSuccess ?? false,
+          _ => false,
+        };
         visits.add({'tab': tab.name, 'source': source, 'loaded': loaded});
         final scroll = home.controller.scrollController;
         if (scroll.hasClients && scroll.positions.length == 1) {

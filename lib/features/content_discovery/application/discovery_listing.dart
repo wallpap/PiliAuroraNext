@@ -70,6 +70,12 @@ abstract class DiscoveryListing<T, M>
       identical(owner.main, ref.read(mainAccountProvider)) &&
       identical(owner.account, ref.read(recommendAccountProvider));
 
+  /// 多步读取在每一步之前检查同一所有者，离页或刷新后停止后续请求。
+  bool Function() captureQuery() {
+    final owner = _owner;
+    return () => _current(owner);
+  }
+
   Future<void> onRefresh() {
     _owner.disposed = true;
     final owner = _owner = _Owner(

@@ -1207,10 +1207,11 @@ abstract final class VideoHttp {
     );
   }
 
-  static Future<LoadingState<List<PopularSeriesListItem>?>>
-  popularSeriesList() async {
+  static Future<LoadingState<List<PopularSeriesListItem>?>> popularSeriesList({
+    Account? account,
+  }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.popularSeriesList,
@@ -1240,6 +1241,7 @@ abstract final class VideoHttp {
 
   static Future<LoadingState<PopularSeriesOneData>> popularSeriesOne({
     required int number,
+    Account? account,
   }) async {
     try {
       final account = Accounts.get(AccountType.recommend);
@@ -1270,6 +1272,7 @@ abstract final class VideoHttp {
 
   static Future<LoadingState<PopularPreciousData>> popularPrecious({
     required int page,
+    Account? account,
   }) async {
     try {
       final account = Accounts.get(AccountType.recommend);
