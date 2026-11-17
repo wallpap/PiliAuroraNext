@@ -117,7 +117,7 @@ class UserInfoData {
   UserInfoData withDisplay({String? name, String? avatar}) => UserInfoData(
     isLogin: isLogin,
     emailVerified: emailVerified,
-    face: avatar,
+    face: avatar ?? face,
     levelInfo: levelInfo,
     mid: mid,
     mobileVerified: mobileVerified,
@@ -127,7 +127,7 @@ class UserInfoData {
     officialVerify: officialVerify,
     pendant: pendant,
     scores: scores,
-    uname: name,
+    uname: name ?? uname,
     vipDueDate: vipDueDate,
     vipStatus: vipStatus,
     vipType: vipType,

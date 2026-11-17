@@ -8,7 +8,6 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/pgc/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -44,7 +43,6 @@ void main() {
   setUp(() {
     adapter = ControlledHttpAdapter();
     Request.dio.httpClientAdapter = adapter;
-    Get.put(AccountService()).isLogin.value = true;
   });
   tearDown(() {
     adapter.close();

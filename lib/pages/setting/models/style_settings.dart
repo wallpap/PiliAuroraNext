@@ -36,7 +36,6 @@ import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
@@ -1013,9 +1012,6 @@ Future<void> _setThemeType(ThemeType value, VoidCallback setState) async {
     key: SettingBoxKey.themeMode,
     write: () => GStorage.setting.put(SettingBoxKey.themeMode, value.index),
     apply: () {
-      try {
-        Get.find<MineController>().themeType.value = value;
-      } catch (_) {}
       Get.changeThemeMode(ThemeUtils.themeMode = value.toThemeMode);
       setState();
     },

@@ -16,7 +16,6 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/build_config.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/app_icon.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
@@ -152,7 +151,6 @@ Future<void> _bootstrapApplication(
       }
     }),
   ]);
-  Get.lazyPut(AccountService.new);
   HttpOverrides.global = _CustomHttpOverrides();
   if (Pref.badCertificateCallback) {
     logger.w('已显式禁用 TLS 证书验证，仅应用于受控调试；请在调试结束后恢复验证');

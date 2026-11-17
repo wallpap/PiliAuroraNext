@@ -84,8 +84,14 @@ abstract final class Pref {
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;
 
-  static UserInfoData? get userInfoCache =>
-      GStorage.userInfo.get('userInfoCache');
+  static UserInfoData? get userInfoCache {
+    final account = Accounts.main;
+    if (!account.isLogin) return null;
+    final info =
+        GStorage.userInfo.get('userInfoCache:${account.mid}') ??
+        GStorage.userInfo.get('userInfoCache');
+    return info?.mid == account.mid ? info : null;
+  }
 
   static List<double> get dynamicDetailRatio => List<double>.from(
     _setting.get(

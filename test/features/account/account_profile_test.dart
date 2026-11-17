@@ -93,6 +93,30 @@ void main() {
     expect(repository.saved.length, 1);
   });
 
+  test('页面刷新淘汰登录资料快照，仍交付同账号登录成功以完成原生同步', () async {
+    final login = module.confirmLogin(owner);
+    final latest = module.refresh(owner);
+    repository.requests[1].complete(Success(info(1, 'latest')));
+    await latest;
+    repository.requests[0].complete(Success(info(1, 'login')));
+    expect((await login)?.result.isSuccess, isTrue);
+    expect(module.cached(owner)?.uname, 'latest');
+    expect(repository.saved.single.uname, 'latest');
+  });
+
+  test('被新查询淘汰的登录失败和换凭据后的登录成功均不再交付', () async {
+    final old = module.confirmLogin(owner);
+    final latest = module.refresh(owner);
+    repository.requests[1].complete(Success(info(1, 'latest')));
+    await latest;
+    repository.requests[0].complete(const Error('账号未登录'));
+    expect(await old, isNull);
+    final renewed = module.confirmLogin(owner);
+    owner = login(1);
+    repository.requests.last.complete(Success(info(1, 'old credentials')));
+    expect(await renewed, isNull);
+  });
+
   test('确认编辑废弃在途查询并复制快照，本地失败保留远端成功', () async {
     repository.cache = info(1, 'before');
     final original = repository.cache!;
@@ -129,8 +153,7 @@ void main() {
       overrides: [
         accountProfileModuleProvider.overrideWithValue(module),
       ],
-    );
-    container.listen(accountProfileProvider, (_, _) {});
+    )..listen(accountProfileProvider, (_, _) {});
     await Future<void>.delayed(Duration.zero);
     expect(repository.requests.length, 1);
     container.dispose();

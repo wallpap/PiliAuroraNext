@@ -19,7 +19,9 @@ import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_dashboard.dart';
 import 'package:pili_aurora_next/pages/rank/controller.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
@@ -374,7 +376,30 @@ Future<void> main(List<String> arguments) async {
       requireItems: true,
     );
     select(NavigationBarType.mine);
-    await visit('mine', Get.find<MineController>);
+    await Future<void>.delayed(Duration(seconds: dwell));
+    Element? dashboard;
+    void findDashboard(Element element) {
+      if (element.widget is AccountDashboard) dashboard = element;
+      element.visitChildren(findDashboard);
+    }
+
+    final root = WidgetsBinding.instance.rootElement;
+    if (root != null) findDashboard(root);
+    final profile = dashboard == null
+        ? null
+        : ProviderScope.containerOf(dashboard!).read(accountProfileProvider);
+    visits.add({
+      'tab': 'mine',
+      'elapsedMs': clock.elapsedMilliseconds,
+      'state': profile?.loading == true
+          ? 'loading'
+          : profile?.error?.runtimeType.toString() ?? 'success',
+      'loaded':
+          profile?.info != null &&
+          profile?.loading == false &&
+          profile?.error == null,
+    });
+    await record('visit:mine', 'switchTabAndReadAccountProfile');
     report['validWorkload'] =
         visits.length == 8 && visits.every((entry) => entry['loaded'] == true);
     // 不await路由Future：它在设置页pop时才结束。

@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -17,7 +18,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/desc_v2.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat.dart';
 import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
+import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
@@ -921,13 +922,16 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             color: colorScheme.outline,
           ),
         ),
-        if (MineController.anonymity.value)
-          Icon(
-            MdiIcons.incognito,
-            size: 15,
-            color: colorScheme.outline,
-            semanticLabel: '无痕',
-          ),
+        Consumer(
+          builder: (context, ref, _) => ref.watch(incognitoProvider)
+              ? Icon(
+                  MdiIcons.incognito,
+                  size: 15,
+                  color: colorScheme.outline,
+                  semanticLabel: '无痕',
+                )
+              : const SizedBox.shrink(),
+        ),
         if (introController.isShowOnlineTotal)
           Obx(
             () => Text(

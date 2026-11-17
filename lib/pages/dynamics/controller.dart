@@ -6,7 +6,6 @@ import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/common/common_data_controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -34,7 +33,6 @@ class DynamicsController
 
   final upPanelPosition = Pref.upPanelPosition;
 
-  final AccountService accountService = Get.find<AccountService>();
 
   @override
   Object get queryContext => Accounts.main;

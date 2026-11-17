@@ -9,7 +9,6 @@ import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/about_settings.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -188,7 +187,6 @@ Commit Hash: ${BuildConfig.commitHash}''',
                 );
                 await Accounts.account.putAll(res);
                 await Accounts.refresh();
-                MineController.anonymity.value = !Accounts.heartbeat.isLogin;
                 if (Accounts.main.isLogin) {
                   await LoginUtils.onLoginMain();
                 }

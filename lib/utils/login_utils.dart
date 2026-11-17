@@ -2,12 +2,10 @@ import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -17,7 +15,6 @@ import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show Digest;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 
 abstract final class LoginUtils {
   static Future<void> _webCookieTail = Future.value();
@@ -70,10 +67,14 @@ abstract final class LoginUtils {
 
   static Future<void> onLoginMain() async {
     final account = Accounts.main;
-    final res = await UserHttp.userInfo(account: account);
+    final receipt = await AccountProfile.legacy.confirmLogin(account);
+    if (receipt == null) return;
+    final res = receipt.result;
     if (!identical(account, Accounts.main)) return;
     if (res case Success(:final response)) {
-      GlobalData().coins = response.money;
+      if (receipt.cacheError case final error?) {
+        logger.w('登录资料缓存保存失败', error: error.runtimeType);
+      }
       unawaited(
         setWebCookie(account).catchError((Object error, StackTrace stackTrace) {
           logger.w(
@@ -97,19 +98,7 @@ abstract final class LoginUtils {
         }),
       );
       if (response.isLogin == true) {
-        final accountService = Get.find<AccountService>()
-          ..face.value = response.face!;
-
-        if (accountService.isLogin.value) {
-          accountService.isLogin.refresh();
-        } else {
-          accountService.isLogin.value = true;
-        }
-
         SmartDialog.showToast('main登录成功');
-        if (response != Pref.userInfoCache) {
-          await GStorage.userInfo.put('userInfoCache', response);
-        }
       }
     } else {
       // 获取用户信息失败
@@ -128,9 +117,6 @@ abstract final class LoginUtils {
 
   static Future<void> onLogoutMain() {
     final owner = Accounts.main;
-    Get.find<AccountService>()
-      ..face.value = ''
-      ..isLogin.value = false;
 
     return Future.wait([
       _queueWebCookies(

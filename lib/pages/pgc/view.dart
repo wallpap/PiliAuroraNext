@@ -1,3 +1,6 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
+
 import 'dart:math';
 
 import 'package:pili_aurora_next/common/style.dart';
@@ -290,8 +293,8 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildFollow(ThemeData theme) => SliverToBoxAdapter(
-    child: Obx(
-      () => controller.accountService.isLogin.value
+    child: Consumer(
+      builder: (context, ref, _) => ref.watch(mainAccountProvider).isLogin
           ? Column(
               children: [
                 _buildFollowTitle(theme),
@@ -328,8 +331,8 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
             size: 20,
           ),
         ),
-        Obx(
-          () => controller.accountService.isLogin.value
+        Consumer(
+          builder: (context, ref, _) => ref.watch(mainAccountProvider).isLogin
               ? Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: moreTextButton(

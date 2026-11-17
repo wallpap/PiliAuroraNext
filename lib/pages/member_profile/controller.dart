@@ -1,19 +1,16 @@
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/member_profile.dart';
 import 'package:pili_aurora_next/models/common/member/profile_type.dart';
 import 'package:pili_aurora_next/models/remote/account_myinfo/data.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 页面持有资料快照；查询和写入均按账号对象及快照隔离。
 class MemberProfileController extends ChangeNotifier {
@@ -188,25 +185,13 @@ class MemberProfileController extends ChangeNotifier {
   Future<void> _publish(Account owner, AccountMyInfoData info) async {
     if (!owns(owner, info)) return;
     try {
-      if (Get.isRegistered<AccountService>()) {
-        Get.find<AccountService>().face.value = info.face ?? '';
-      }
-      final cached = Pref.userInfoCache;
-      if (cached?.mid == owner.mid) {
-        cached!
-          ..uname = info.name
-          ..face = info.face;
-        await GStorage.userInfo.put('userInfoCache', cached);
-      }
-      if (!owns(owner, info)) return;
-      if (Get.isRegistered<MineController>()) {
-        final mine = Get.find<MineController>();
-        if (mine.userInfo.value.mid == owner.mid) {
-          mine.userInfo
-            ..value.uname = info.name
-            ..value.face = info.face
-            ..refresh();
-        }
+      final receipt = await AccountProfile.legacy.updateDisplay(
+        owner,
+        name: info.name,
+        avatar: info.face,
+      );
+      if (receipt?.cacheError case final error?) {
+        logger.w('账号资料本地同步失败', error: error.runtimeType);
       }
     } catch (error, stackTrace) {
       // 远端资料已经确认，次要缓存同步失败不能诱导用户重复付费改名。

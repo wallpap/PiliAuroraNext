@@ -9,7 +9,6 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as result;
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/login_utils.dart';
@@ -115,7 +114,6 @@ void main() {
       ..onSet = (() async => true)
       ..onDelete = (() async => true);
     select(account(123));
-    Get.put(AccountService());
   });
   tearDown(() {
     adapter.close();
@@ -280,7 +278,7 @@ void main() {
     adapter.json(1, {'code': 0, 'data': true});
     await until(() => historyFailed.isCompleted);
     await tester.pump();
-    expect(Get.find<AccountService>().isLogin.value, isTrue);
+    expect(Accounts.main.isLogin, isTrue);
     expect(Pref.userInfoCache?.mid, 123);
     expect(cache.data, isEmpty);
     final dismissal = SmartDialog.dismiss(status: SmartStatus.allToast);

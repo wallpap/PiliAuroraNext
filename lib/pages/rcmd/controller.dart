@@ -3,14 +3,12 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
-import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/blocked_authors.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
@@ -53,7 +51,6 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
   late bool savedRcmdTip = Pref.savedRcmdTip;
 
   _RecommendationQuery? _query;
-  StreamSubscription<bool>? _accountChanges;
   final _cardListeners = HashMap<Object, Set<void Function()>>.identity();
   bool _disposed = false, _active = true;
   int _viewportItems = 0, _columns = 1;
@@ -93,19 +90,20 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     super.onInit();
     page = 0;
     // 首次布局提供容量后启动，Web 首包也能按实际窗口大小请求。
-    if (Get.isRegistered<AccountService>()) {
-      _accountChanges = Get.find<AccountService>().isLogin.listen((_) {
-        if (_query case final query? when !_current(query)) {
-          _invalidate(query);
-          if (_active) {
-            unawaited(onRefresh());
-          } else {
-            _query = null;
-            lastRefreshAt = null;
-            loadingState.value = LoadingState.loading();
-          }
-        }
-      });
+    Accounts.mainChanges.addListener(_onAccountChanged);
+    Accounts.recommendChanges.addListener(_onAccountChanged);
+  }
+
+  void _onAccountChanged() {
+    if (_query case final query? when !_current(query)) {
+      _invalidate(query);
+      if (_active) {
+        unawaited(onRefresh());
+      } else {
+        _query = null;
+        lastRefreshAt = null;
+        loadingState.value = LoadingState.loading();
+      }
     }
   }
 
@@ -501,8 +499,8 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
   void onClose() {
     _disposed = true;
     _cardListeners.clear();
-    unawaited(_accountChanges?.cancel());
-    _accountChanges = null;
+    Accounts.mainChanges.removeListener(_onAccountChanged);
+    Accounts.recommendChanges.removeListener(_onAccountChanged);
     if (_query case final query?) _invalidate(query);
     super.onClose();
   }

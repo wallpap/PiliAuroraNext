@@ -14,7 +14,6 @@ import 'package:pili_aurora_next/pages/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/pgc_review/child/controller.dart';
 import 'package:pili_aurora_next/pages/pgc_review/child/view.dart';
 import 'package:pili_aurora_next/pages/pgc_review/post/view.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -52,7 +51,6 @@ void main() {
     original = account(1);
     Accounts.accountMode[AccountType.main.index] = original;
     requests.clear();
-    Get.put(AccountService());
   });
   tearDown(() {
     for (final controller in controllers) {

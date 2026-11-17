@@ -2,9 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/features/account/domain/info.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
@@ -55,7 +53,6 @@ void main() {
     adapter.requests.clear();
     adapter.pending.clear();
     GlobalData().coins = 30;
-    Get.put(AccountService());
   });
   tearDown(() {
     Accounts.accountMode[mainIndex] = previousAccount;
@@ -91,54 +88,44 @@ void main() {
     Accounts.accountMode[mainIndex] = account(456);
     adapter.json(0, info());
     await pending;
-    expect(Get.find<AccountService>().isLogin.value, isFalse);
     expect(profile.data, isEmpty);
     expect(GlobalData().coins, 30);
   });
 
-  test('个人页忽略切号或释放后的资料结果', () async {
+  test('真实 HTTP 资料查询忽略切号或释放后的结果', () async {
     for (final close in [false, true]) {
       adapter.requests.clear();
       adapter.pending.clear();
-      final controller = MineController();
-      final pending = controller.queryUserInfo();
+      var active = true;
+      final pending = AccountProfile.legacy.refresh(
+        first,
+        isActive: () => active,
+      );
       await dispatched(1);
       if (close) {
-        controller.onDelete();
+        active = false;
       } else {
         Accounts.accountMode[mainIndex] = account(456);
       }
       adapter.json(0, info());
-      await pending;
-      expect(controller.userInfo.value.mid, isNull);
+      expect(await pending, isNull);
       expect(profile.data, isEmpty);
       expect(GlobalData().coins, 30);
       expect(adapter.requests, hasLength(1));
-      if (!close) controller.onDelete();
       Accounts.accountMode[mainIndex] = first;
     }
   });
 
-  test('个人页同账号最新查询优先，旧未登录响应不能触发登出', () async {
-    final controller = MineController();
-    addTearDown(controller.onDelete.call);
-    final old = controller.queryUserInfo();
-    final latest = controller.queryUserInfo();
+  test('同账号最新查询优先，旧未登录响应不能触发登出', () async {
+    final old = AccountProfile.legacy.refresh(first);
+    final latest = AccountProfile.legacy.refresh(first);
     await dispatched(2);
     adapter.json(1, info(money: 12));
-    await latest;
-    await dispatched(3);
-    adapter.json(2, {
-      'code': 0,
-      'data': {'follower': 7},
-    });
-    await Future<void>.delayed(Duration.zero);
+    expect((await latest)?.result.data.money, 12);
     adapter.json(0, {'code': -101, 'message': '账号未登录'});
-    await old;
+    expect(await old, isNull);
     expect(Accounts.main, same(first));
-    expect(controller.userInfo.value.money, 12);
-    expect(controller.userStat.value.follower, 7);
-    expect(profile.data['userInfoCache']!.mid, 123);
+    expect(profile.data['userInfoCache:123']!.mid, 123);
     expect(GlobalData().coins, 12);
   });
 }

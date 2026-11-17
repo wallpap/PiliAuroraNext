@@ -9,7 +9,6 @@ import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/mine/view.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/overview.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
@@ -26,10 +25,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MainController extends GetxController
-    with GetSingleTickerProviderStateMixin, AccountMixin {
-  @override
-  final AccountService accountService = Get.find<AccountService>();
-
+    with GetSingleTickerProviderStateMixin {
   List<NavigationBarType> navigationBars = <NavigationBarType>[];
 
   RxDouble? barOffset;
@@ -80,6 +76,7 @@ class MainController extends GetxController
   @override
   void onInit() {
     super.onInit();
+    Accounts.mainChanges.addListener(_onMainChanged);
     _shouldCheckUpdate = Pref.autoUpdate;
 
     setNavBarConfig();
@@ -143,7 +140,7 @@ class MainController extends GetxController
 
   Future<void> queryUnreadMsg([bool isChangeType = false]) async {
     updateMessageBadge();
-    if (!accountService.isLogin.value ||
+    if (!Accounts.main.isLogin ||
         !hasHome ||
         msgUnReadTypes.isEmpty ||
         msgBadgeMode == DynamicBadgeMode.hidden) {
@@ -153,7 +150,7 @@ class MainController extends GetxController
   }
 
   void getUnreadDynamic() {
-    if (!accountService.isLogin.value || !hasDyn) {
+    if (!Accounts.main.isLogin || !hasDyn) {
       return;
     }
     final generation = ++_dynamicGeneration;
@@ -162,7 +159,7 @@ class MainController extends GetxController
       if (!isClosed &&
           generation == _dynamicGeneration &&
           identical(account, Accounts.main) &&
-          accountService.isLogin.value &&
+          Accounts.main.isLogin &&
           res != null) {
         setDynCount(res);
       }
@@ -177,7 +174,7 @@ class MainController extends GetxController
 
   void checkUnreadDynamic() {
     if (!hasDyn ||
-        !accountService.isLogin.value ||
+        !Accounts.main.isLogin ||
         dynamicBadgeMode == DynamicBadgeMode.hidden ||
         !checkDynamic) {
       return;
@@ -221,7 +218,7 @@ class MainController extends GetxController
   }
 
   void checkUnread([bool shouldCheck = false]) {
-    if (accountService.isLogin.value &&
+    if (Accounts.main.isLogin &&
         hasHome &&
         msgBadgeMode != DynamicBadgeMode.hidden) {
       if (shouldCheck &&
@@ -309,6 +306,7 @@ class MainController extends GetxController
 
   @override
   void onClose() {
+    Accounts.mainChanges.removeListener(_onMainChanged);
     _dynamicGeneration++;
     _unregisterPageDiagnostics();
     barOffset?.close();
@@ -316,8 +314,10 @@ class MainController extends GetxController
     super.onClose();
   }
 
-  @override
+  void _onMainChanged() => onChangeAccount(Accounts.main.isLogin);
+
   void onChangeAccount(bool isLogin) {
+    _dynamicGeneration++;
     setDynCount();
     if (isLogin) {
       queryUnreadMsg();

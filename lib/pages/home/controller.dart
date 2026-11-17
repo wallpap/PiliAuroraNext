@@ -8,7 +8,6 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -35,8 +34,6 @@ class HomeController extends GetxController
 
   @override
   ScrollController get scrollController => controller.scrollController;
-
-  AccountService accountService = Get.find<AccountService>();
 
   @override
   void onInit() {

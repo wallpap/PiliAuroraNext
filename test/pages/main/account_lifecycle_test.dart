@@ -1,3 +1,5 @@
+import 'package:pili_aurora_next/models/common/account_type.dart';
+
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -10,7 +12,6 @@ import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -37,7 +38,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Adapter adapter;
   late List<Account> originals;
-  late AccountService service;
   setUpAll(() async {
     GStorage.setting = await Hive.openBox(
       'final-audit-settings',
@@ -63,7 +63,11 @@ void main() {
   setUp(() {
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
-    service = Get.put(AccountService())..isLogin.value = true;
+    Accounts.accountMode[AccountType.main.index] = LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'fixture'}),
+      null,
+      null,
+    );
   });
   tearDown(() {
     adapter.close();
@@ -88,7 +92,7 @@ void main() {
         ..getUnreadDynamic();
       await flush();
       expect(adapter.pending, hasLength(1));
-      service.isLogin.value = false;
+      Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
       controller.onChangeAccount(false);
       expect(controller.dynCount.value, 0);
       adapter.red(0, 7);

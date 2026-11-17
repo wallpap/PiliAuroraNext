@@ -8,7 +8,6 @@ import 'package:pili_aurora_next/features/favorites/domain/fav_pgc/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -25,8 +24,6 @@ class PgcController
 
   late final showPgcTimeline =
       tabType == HomeTabType.bangumi && Pref.showPgcTimeline;
-
-  final accountService = Get.find<AccountService>();
 
   @override
   void onInit() {

@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/accounts/account_adapter.dart';
 import 'package:pili_aurora_next/utils/login_utils.dart';
@@ -29,6 +28,19 @@ abstract final class Accounts {
   }
 
   static Account get video => accountMode[AccountType.video.index];
+  static Account? _temporaryHeartbeatOwner;
+  static final _heartbeatChanges = ValueNotifier(0);
+  static ValueListenable<int> get heartbeatChanges => _heartbeatChanges;
+
+  /// 临时无痕只替换运行时角色，并通知历史查询使旧请求失效。
+  static void setTemporaryHeartbeat(Account account) {
+    _temporaryHeartbeatOwner ??= heartbeat;
+    final previousHistory = history;
+    accountMode[AccountType.heartbeat.index] = account;
+    _heartbeatChanges.value++;
+    if (!identical(previousHistory, history)) _historyChanges.value++;
+  }
+
   static Account get heartbeat => accountMode[AccountType.heartbeat.index];
   static final _historyChanges = ValueNotifier(0);
   static ValueListenable<int> get historyChanges => _historyChanges;
@@ -45,7 +57,12 @@ abstract final class Accounts {
   static void replaceCredentials(LoginAccount account) {
     final previousHistory = history;
     final previousMain = main;
+    final previousHeartbeat = heartbeat;
     final previousRecommend = get(AccountType.recommend);
+    if (_temporaryHeartbeatOwner?.mid == account.mid) {
+      _temporaryHeartbeatOwner = account;
+      account.type.add(AccountType.heartbeat);
+    }
     for (final type in AccountType.values) {
       if (accountMode[type.index].mid == account.mid) {
         accountMode[type.index] = account;
@@ -53,6 +70,7 @@ abstract final class Accounts {
       }
     }
     if (!identical(previousMain, main)) _onMainChanged();
+    if (!identical(previousHeartbeat, heartbeat)) _heartbeatChanges.value++;
     if (!identical(previousRecommend, get(AccountType.recommend))) {
       _recommendChanges.value++;
     }
@@ -77,6 +95,7 @@ abstract final class Accounts {
   }
 
   static Future<void> refresh() {
+    _temporaryHeartbeatOwner = null;
     for (final a in account.values) {
       for (final t in a.type) {
         accountMode[t.index] = a;
@@ -85,6 +104,7 @@ abstract final class Accounts {
     _onMainChanged();
     _recommendChanges.value++;
     _historyChanges.value++;
+    _heartbeatChanges.value++;
     return Future.wait(
       (accountMode.toSet()..removeWhere((i) => i.activated)).map(
         Request.buvidActive,
@@ -94,12 +114,14 @@ abstract final class Accounts {
 
   static Future<void> clear() async {
     await account.clear();
+    _temporaryHeartbeatOwner = null;
     for (int i = 0; i < AccountType.values.length; i++) {
       accountMode[i] = AnonymousAccount();
     }
     _onMainChanged();
     _recommendChanges.value++;
     _historyChanges.value++;
+    _heartbeatChanges.value++;
     await AnonymousAccount().delete();
     Request.buvidActive(AnonymousAccount());
   }
@@ -122,6 +144,10 @@ abstract final class Accounts {
     }
     if (!identical(previousHistory, history)) _historyChanges.value++;
     await Future.wait(accounts.map((i) => i.delete()));
+    if (accounts.contains(_temporaryHeartbeatOwner)) {
+      _temporaryHeartbeatOwner = null;
+    }
+    _heartbeatChanges.value++;
     if (isLoginMain && !Accounts.main.isLogin) {
       await LoginUtils.onLogoutMain();
     }
@@ -129,10 +155,16 @@ abstract final class Accounts {
 
   static Future<void> set(AccountType key, Account account) async {
     final previousHistory = history;
-    final oldAccount = accountMode[key.index]..type.remove(key);
+    final oldAccount =
+        (key == AccountType.heartbeat
+              ? _temporaryHeartbeatOwner ?? accountMode[key.index]
+              : accountMode[key.index])
+          ..type.remove(key);
+    if (key == AccountType.heartbeat) _temporaryHeartbeatOwner = null;
     accountMode[key.index] = account..type.add(key);
     if (key == AccountType.main) _onMainChanged();
     if (key == AccountType.recommend) _recommendChanges.value++;
+    if (key == AccountType.heartbeat) _heartbeatChanges.value++;
     if (!identical(previousHistory, history)) _historyChanges.value++;
     await Future.wait([?account.onChange(), ?oldAccount.onChange()]);
     if (!account.activated) await Request.buvidActive(account);
@@ -142,9 +174,7 @@ abstract final class Accounts {
             ? LoginUtils.onLoginMain()
             : LoginUtils.onLogoutMain());
         break;
-      case AccountType.heartbeat:
-        MineController.anonymity.value = !account.isLogin;
-        break;
+
       default:
         break;
     }

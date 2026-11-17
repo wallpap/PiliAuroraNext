@@ -5,7 +5,8 @@ import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/home/rcmd/result.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
+import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
+import 'package:pili_aurora_next/features/account/presentation/incognito_action.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/video_feedback.dart';
 import 'package:pili_aurora_next/pages/video/ai_conclusion/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
@@ -183,11 +184,11 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                   ),
                 ],
                 _VideoCustomAction(
-                  "${MineController.anonymity.value ? '退出' : '进入'}无痕模式",
-                  MineController.anonymity.value
+                  "${AccountPrivacy.enabled ? '退出' : '进入'}无痕模式",
+                  AccountPrivacy.enabled
                       ? const Icon(MdiIcons.incognitoOff, size: 16)
                       : const Icon(MdiIcons.incognito, size: 16),
-                  MineController.onChangeAnonymity,
+                  toggleIncognito,
                 ),
               ]
               .map(

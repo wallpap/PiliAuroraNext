@@ -1,3 +1,7 @@
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/models/common/account_type.dart';
+
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -14,7 +18,6 @@ import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/rcmd/controller.dart';
 import 'package:pili_aurora_next/pages/rcmd/view.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
@@ -583,13 +586,25 @@ void main() {
 
   testWidgets('账号事件主动取消旧请求并重载，无需等待滚动或窗口布局', (tester) async {
     Get.testMode = true;
-    final service = Get.put(AccountService());
     addTearDown(Get.reset);
+    final previous = Accounts.accountMode[AccountType.main.index];
+    Accounts.accountMode[AccountType.main.index] = LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'fixture'}),
+      null,
+      null,
+    );
+    addTearDown(() => Accounts.accountMode[AccountType.main.index] = previous);
     feed
       ..onInit()
       ..updateViewport(itemCount: 1, columns: 1, active: true)
       ..account = Object();
-    service.isLogin.value = true;
+    Accounts.replaceCredentials(
+      LoginAccount(
+        BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'renewed'}),
+        null,
+        null,
+      ),
+    );
     await tester.idle();
     expect(feed.tokens.first.isCancelled, isTrue);
     expect(feed.indices, [0, 0]);

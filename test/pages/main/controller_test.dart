@@ -8,7 +8,6 @@ import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -18,6 +17,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() {
     GStorage.setting = MemoryBox<dynamic>();
+    GStorage.localCache = MemoryBox<dynamic>();
     GStorage.userInfo = MemoryBox<UserInfoData>();
   });
 
@@ -28,13 +28,11 @@ void main() {
       SettingBoxKey.autoUpdate: false,
       SettingBoxKey.hideBottomBar: false,
     });
-    Get.put(AccountService()).isLogin.value = true;
   });
 
   tearDown(() {
     Get
       ..delete<MainController>(force: true)
-      ..delete<AccountService>(force: true)
       ..reset();
   });
 

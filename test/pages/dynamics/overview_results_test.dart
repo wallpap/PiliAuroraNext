@@ -18,7 +18,6 @@ import 'package:pili_aurora_next/pages/common/dyn/repost_list/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -107,7 +106,6 @@ void main() {
     original = account();
     Accounts.accountMode[AccountType.main.index] = original;
     await GStorage.setting.put(SettingBoxKey.dynamicsShowAllFollowedUp, false);
-    Get.put(AccountService());
     requests.clear();
   });
   tearDown(() {

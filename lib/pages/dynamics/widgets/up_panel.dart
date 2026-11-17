@@ -1,10 +1,12 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/live_follow/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
@@ -105,13 +107,13 @@ class _UpPanelState extends State<UpPanel> {
           child: upItemBuild(theme, UpItem(face: '', uname: '全部动态', mid: -1)),
         ),
         SliverToBoxAdapter(
-          child: Obx(
-            () => upItemBuild(
+          child: Consumer(
+            builder: (context, ref, _) => upItemBuild(
               theme,
               UpItem(
                 uname: '我',
-                face: controller.accountService.face.value,
-                mid: Accounts.main.mid,
+                face: ref.watch(accountProfileProvider).info?.face ?? '',
+                mid: ref.watch(mainAccountProvider).mid,
               ),
             ),
           ),

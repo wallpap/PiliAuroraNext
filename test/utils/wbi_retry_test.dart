@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -42,7 +41,6 @@ void main() {
   setUp(() {
     adapter = ControlledHttpAdapter();
     Request.dio.httpClientAdapter = adapter;
-    Get.put(AccountService()).isLogin.value = true;
   });
   tearDown(() {
     adapter.close();

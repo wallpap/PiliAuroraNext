@@ -4,12 +4,15 @@ import 'package:pili_aurora_next/services/messaging/preferences.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/custom_height_widget.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
@@ -209,9 +212,11 @@ Widget userAvatar({
 }) {
   return Semantics(
     label: "我的",
-    child: Obx(
-      () {
-        if (mainController.accountService.isLogin.value) {
+    child: Consumer(
+      builder: (context, ref, child) {
+        final info = ref.watch(accountProfileProvider).info;
+        final incognito = ref.watch(incognitoProvider);
+        if (ref.watch(mainAccountProvider).isLogin) {
           return Stack(
             clipBehavior: .none,
             children: [
@@ -219,7 +224,7 @@ Widget userAvatar({
                 type: .avatar,
                 width: 34,
                 height: 34,
-                src: mainController.accountService.face.value,
+                src: info?.face ?? '',
               ),
               Positioned.fill(
                 child: Material(
@@ -236,8 +241,8 @@ Widget userAvatar({
               Positioned(
                 right: -4,
                 bottom: -4,
-                child: Obx(
-                  () => MineController.anonymity.value
+                child: Builder(
+                  builder: (context) => incognito
                       ? IgnorePointer(
                           child: Container(
                             padding: const .all(2),
@@ -285,10 +290,11 @@ Widget msgBadge(MainController mainController) {
     builder: (context, ref, child) {
       final unread = ref.watch(overviewProvider);
       final disableLike = ref.watch(disableLikeMessagesProvider);
+      final isLogin = ref.watch(mainAccountProvider).isLogin;
       return Obx(
         () {
           mainController.msgBadgeRevision.value;
-          if (mainController.accountService.isLogin.value) {
+          if (isLogin) {
             final total = unread.total(
               mainController.msgUnReadTypes,
               disableLike: disableLike,
