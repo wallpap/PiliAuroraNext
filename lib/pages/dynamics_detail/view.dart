@@ -24,9 +24,10 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
-import 'package:pili_aurora_next/pages/common/dyn/like_list/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/pages/common/dyn/like_list/view.dart';
-import 'package:pili_aurora_next/pages/common/dyn/repost_list/controller.dart';
 import 'package:pili_aurora_next/pages/common/dyn/repost_list/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
@@ -60,8 +61,10 @@ class _DynamicDetailPageState
     extends CommonDynPageMultiState<DynamicDetailPage> {
   @override
   late final DynamicDetailController controller;
-  late final DynRepostController _repostController;
-  late final DynLikeController _likeController;
+  final _activityOwner = Object();
+  final _openingAccount = Accounts.main;
+  DynamicActivityQuery get _activityQuery =>
+      (owner: _activityOwner, id: controller.dynItem.idStr.toString());
 
   late final RxBool _isRefreshing = false.obs;
 
@@ -90,14 +93,6 @@ class _DynamicDetailPageState
     final stat = item.modules.moduleStat;
     controller = Get.putOrFind<DynamicDetailController>(
       () => DynamicDetailController(count: stat?.comment?.count ?? -1),
-      tag: id,
-    );
-    _repostController = Get.putOrFind<DynRepostController>(
-      () => DynRepostController(id, count: stat?.forward?.count ?? -1),
-      tag: id,
-    );
-    _likeController = Get.putOrFind<DynLikeController>(
-      () => DynLikeController(id, count: stat?.like?.count ?? -1),
       tag: id,
     );
   }
@@ -302,54 +297,77 @@ class _DynamicDetailPageState
   );
 
   Widget _buildTabBar() {
-    return SizedBox(
-      height: 40,
-      child: DynTabBar(
-        padding: .zero,
-        // isScrollable: true,
-        indicatorSize: .tab,
-        tabAlignment: .start,
-        controller: tabController,
-        labelPadding: const .symmetric(horizontal: 12),
-        dividerColor: theme.colorScheme.outline.withValues(alpha: 0.1),
-        onTap: (value) {
-          if (!tabController.indexIsChanging) {
-            final positions = PrimaryScrollController.of(context).positions;
-            if (positions.length == 1) {
-              final postion = positions.single;
-              if (postion.pixels >= postion.maxScrollExtent) {
-                postion.jumpTo(postion.pixels);
+    return Consumer(
+      builder: (context, ref, _) {
+        final query = _activityQuery;
+        final sameAccount = identical(
+          _openingAccount,
+          ref.watch(mainAccountProvider),
+        );
+        final stat = controller.dynItem.modules.moduleStat;
+        final repostCount =
+            ref.watch(dynamicRepostsProvider(query)).metadata?.total ??
+            (sameAccount ? stat?.forward?.count ?? -1 : -1);
+        final likeCount =
+            ref.watch(dynamicLikesProvider(query)).metadata?.total ??
+            (sameAccount ? stat?.like?.count ?? -1 : -1);
+        Widget label(DynType type, int count) => Text(
+          '${type.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
+        );
+        return SizedBox(
+          height: 40,
+          child: DynTabBar(
+            padding: .zero,
+            // isScrollable: true,
+            indicatorSize: .tab,
+            tabAlignment: .start,
+            controller: tabController,
+            labelPadding: const .symmetric(horizontal: 12),
+            dividerColor: theme.colorScheme.outline.withValues(alpha: 0.1),
+            onTap: (value) {
+              if (!tabController.indexIsChanging) {
+                final positions = PrimaryScrollController.of(context).positions;
+                if (positions.length == 1) {
+                  final postion = positions.single;
+                  if (postion.pixels >= postion.maxScrollExtent) {
+                    postion.jumpTo(postion.pixels);
+                  }
+                  switch (value) {
+                    case 0:
+                      _onRefresh(
+                        ref
+                            .read(dynamicRepostsProvider(query).notifier)
+                            .onRefresh(),
+                      );
+                    case 1:
+                      _onRefresh(controller.onRefresh());
+                    case 2:
+                      _onRefresh(
+                        ref
+                            .read(dynamicLikesProvider(query).notifier)
+                            .onRefresh(),
+                      );
+                  }
+                } else if (positions.length > 1) {
+                  positions.elementAt(1).jumpTo(0);
+                }
               }
-              switch (value) {
-                case 0:
-                  _onRefresh(_repostController.onRefresh());
-                case 1:
-                  _onRefresh(controller.onRefresh());
-                case 2:
-                  _onRefresh(_likeController.onRefresh());
-              }
-            } else if (positions.length > 1) {
-              positions.elementAt(1).jumpTo(0);
-            }
-          }
-        },
-        tabs: DynType.values
-            .map(
-              (e) => Tab(
-                child: Obx(() {
-                  final count = switch (e) {
-                    .repost => _repostController.count.value,
-                    .reply => controller.count.value,
-                    .like => _likeController.count.value,
-                  };
-                  return Text(
-                    '${e.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
-                  );
-                }),
-              ),
-            )
-            .toList(),
-      ),
+            },
+            tabs: DynType.values
+                .map(
+                  (e) => Tab(
+                    child: e == DynType.reply
+                        ? Obx(() => label(e, controller.count.value))
+                        : label(
+                            e,
+                            e == DynType.repost ? repostCount : likeCount,
+                          ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
     );
   }
 
@@ -380,14 +398,12 @@ class _DynamicDetailPageState
             (e) => switch (e) {
               .repost => DynRepostPage(
                 isPortrait: isPortrait,
-                id: controller.dynItem.idStr,
-                controller: _repostController,
+                query: _activityQuery,
               ),
               .reply => reply,
               .like => DynLikePage(
                 isPortrait: isPortrait,
-                id: controller.dynItem.idStr,
-                controller: _likeController,
+                query: _activityQuery,
               ),
             },
           )

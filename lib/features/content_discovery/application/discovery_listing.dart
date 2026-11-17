@@ -52,6 +52,7 @@ abstract class DiscoveryListing<T, M>
   bool get paginated => true;
   bool get filterAuthors => true;
   bool get usesMainAccount => false;
+  bool get loadOnBuild => true;
 
   Object itemKey(T item) =>
       MediaAuthorFilter.contentKey(item) ?? item as Object;
@@ -67,7 +68,7 @@ abstract class DiscoveryListing<T, M>
     );
     ref.onDispose(() => owner.disposed = true);
     scheduleMicrotask(() {
-      if (_current(owner)) unawaited(_load(owner));
+      if (loadOnBuild && _current(owner)) unawaited(_load(owner));
     });
     return DiscoveryListingState(source: owner);
   }

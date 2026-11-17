@@ -3,8 +3,7 @@ import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
     show ModuleAuthor;
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
 class DynLikeItem extends StatelessWidget {

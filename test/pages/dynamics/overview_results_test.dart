@@ -11,8 +11,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/pages/common/dyn/like_list/controller.dart';
-import 'package:pili_aurora_next/pages/common/dyn/repost_list/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_authors.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
@@ -32,18 +31,12 @@ void main() {
     }),
   );
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
   late LoginAccount original;
   LoginAccount account([String csrf = 'fixture']) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': csrf}),
     null,
     null,
   )..activated = true;
-  T own<T extends GetxController>(T controller) {
-    controllers.add(controller);
-    return controller;
-  }
-
   Map<String, dynamic> ups(
     List<int> ids, [
     String offset = 'next',
@@ -90,13 +83,7 @@ void main() {
     await GStorage.setting.put(SettingBoxKey.dynamicsShowAllFollowedUp, false);
     requests.clear();
   });
-  tearDown(() {
-    for (final controller in controllers.reversed) {
-      if (!controller.isClosed) controller.onDelete();
-    }
-    controllers.clear();
-    Get.reset();
-  });
+  tearDown(Get.reset);
   tearDownAll(() async {
     Request.dio.close(force: true);
     await interceptor.close();
@@ -436,14 +423,16 @@ void main() {
 
   for (final likes in [true, false]) {
     testWidgets('${likes ? '点赞' : '转发'}列表固定账号并淘汰旧结果，重复游标终止分页', (tester) async {
-      final controller = own(
-        likes ? DynLikeController('12') : DynRepostController('12'),
-      );
-      controller.onStart();
-      // 两类列表共享查询生命周期，响应仍使用各自的 protobuf 模型。
-      Future<void> query() => likes
-          ? (controller as DynLikeController).queryData()
-          : (controller as DynRepostController).queryData();
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final query = (owner: Object(), id: '12');
+      final provider = likes
+          ? dynamicLikesProvider(query)
+          : dynamicRepostsProvider(query);
+      container.listen(provider, (_, _) {});
+      final DynamicActivity<Object> notifier = likes
+          ? container.read(dynamicLikesProvider(query).notifier)
+          : container.read(dynamicRepostsProvider(query).notifier);
       dynamic response(int id) => GrpcReq.compressProtobuf(
         likes
             ? LikeListReply(
@@ -458,38 +447,28 @@ void main() {
                 list: [DynamicItem(extend: Extend(dynIdStr: '$id'))],
               ).writeToBuffer(),
       );
-      final old = query();
+      final old = notifier.activate();
       await until(tester, () => requests.length == 1);
       final replacement = account('new');
       Accounts.replaceCredentials(replacement);
       await until(tester, () => requests.length == 2);
       expect(requests[1].options.extra['account'], same(replacement));
       requests[1].reply.complete(response(2));
-      await until(
-        tester,
-        () => likes
-            ? !(controller as DynLikeController).isLoading
-            : !(controller as DynRepostController).isLoading,
-      );
+      await until(tester, () => !container.read(provider).loadingMore);
       requests[0].reply.complete(response(1));
       await old;
-      final more = likes
-          ? (controller as DynLikeController).onLoadMore()
-          : (controller as DynRepostController).onLoadMore();
+      final more = notifier.onLoadMore();
       await until(tester, () => requests.length == 3);
       requests[2].reply.complete(response(2));
       await more;
+      final state = container.read(provider);
       if (likes) {
-        final list = controller as DynLikeController;
-        expect(list.loadingState.value.data!.single.mid, Int64(2));
-        expect(list.isEnd, isTrue);
-        await list.onLoadMore();
+        expect((state.loading.data.single as ModuleAuthor).mid, Int64(2));
       } else {
-        final list = controller as DynRepostController;
-        expect(list.loadingState.value.data!.single.extend.dynIdStr, '2');
-        expect(list.isEnd, isTrue);
-        await list.onLoadMore();
+        expect((state.loading.data.single as DynamicItem).extend.dynIdStr, '2');
       }
+      expect(state.hasMore, isFalse);
+      await notifier.onLoadMore();
       expect(requests, hasLength(3));
     });
   }

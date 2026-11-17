@@ -68,6 +68,12 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
     return super.build();
   }
 
+  @override
+  Future<void> onRefresh() {
+    _pins.clear();
+    return super.onRefresh();
+  }
+
   static bool isPinned(DynamicItemModel item) =>
       item.modules.moduleAuthor?.isTop == true ||
       item.modules.moduleTag?.text == '置顶';

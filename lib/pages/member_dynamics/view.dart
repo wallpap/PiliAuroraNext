@@ -118,8 +118,9 @@ class _MemberDynamicsPageState extends ConsumerState<MemberDynamicsPage>
       // 删除成功后条目已消失，只核对查询和页面归属再交付提示。
       if (!mounted ||
           query != _query ||
-          !identical(source, ref.read(memberDynamicsProvider(query)).source))
+          !identical(source, ref.read(memberDynamicsProvider(query)).source)) {
         return;
+      }
       if (result.isSuccess) {
         SmartDialog.showToast(
           wasPinned == null
