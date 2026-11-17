@@ -180,6 +180,9 @@ void main() {
       'pages/dynamics_topic_rcmd/controller.dart',
       'pages/dynamics_select_topic/controller.dart',
       'pages/dynamics_mention/controller.dart',
+      'pages/member_dynamics/controller.dart',
+      'pages/common/dyn/like_list/controller.dart',
+      'pages/common/dyn/repost_list/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -229,6 +232,9 @@ void main() {
       'dynamics_topic_rcmd/view.dart',
       'dynamics_select_topic/view.dart',
       'dynamics_mention/view.dart',
+      'member_dynamics/view.dart',
+      'common/dyn/like_list/view.dart',
+      'common/dyn/repost_list/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {
@@ -256,6 +262,39 @@ void main() {
     }
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
+  test(
+    'dynamic timeline management and activity transports have one data owner',
+    () {
+      final violations = <String>[];
+      const owners = {
+        'MemberHttp.memberDynamic(':
+            'features/community/data/dynamics_repository.dart',
+        'MsgHttp.removeDynamic(':
+            'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.setTop(':
+            'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.rmTop(':
+            'features/community/data/dynamics_repository.dart',
+        'DynGrpc.likeList(':
+            'features/community/data/dynamic_activity_repository.dart',
+        'DynGrpc.repostList(':
+            'features/community/data/dynamic_activity_repository.dart',
+      };
+      for (final file in Directory('lib').listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final source = path
+            .relative(file.path, from: 'lib')
+            .replaceAll('\\', '/');
+        final body = file.readAsStringSync();
+        for (final entry in owners.entries) {
+          if (body.contains(entry.key) && source != entry.value) {
+            violations.add('$source calls ${entry.key}');
+          }
+        }
+      }
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    },
+  );
   test('subscription legacy entries stay removed', () {
     const legacy = [
       'pages/subscription/',
