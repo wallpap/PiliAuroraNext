@@ -5,59 +5,50 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/time_picker.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart';
-import 'package:pili_aurora_next/pages/dynamics_create_vote/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/vote_editor.dart';
+import 'package:pili_aurora_next/features/community/application/account_draft_editor.dart';
+import 'package:pili_aurora_next/features/community/domain/vote_draft.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/file_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart' hide showTimePicker;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
-class CreateVotePage extends StatefulWidget {
+class CreateVotePage extends ConsumerStatefulWidget {
   const CreateVotePage({super.key, this.voteId});
 
   final int? voteId;
 
   @override
-  State<CreateVotePage> createState() => _CreateVotePageState();
+  ConsumerState<CreateVotePage> createState() => _CreateVotePageState();
 }
 
-class _CreateVotePageState extends State<CreateVotePage> {
-  late final CreateVoteController _controller;
-  final _tag = Utils.generateRandomString(8);
+class _CreateVotePageState extends ConsumerState<CreateVotePage> {
+  final _owner = Object();
+  VoteEditorQuery get _query => (owner: _owner, id: widget.voteId);
+  VoteEditor get _controller => ref.read(voteEditorProvider(_query).notifier);
+  DraftEditorState<VoteDraft> get _state =>
+      ref.read(voteEditorProvider(_query));
+  VoteDraft get _draft => _state.draft;
   late final imagePicker = ImagePicker();
 
   late TextStyle _leadingStyle;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      CreateVoteController(widget.voteId),
-      tag: _tag,
-    );
-  }
-
-  @override
-  void dispose() {
-    Get.delete<CreateVoteController>(tag: _tag);
-    super.dispose();
-  }
-
   Future<void> _onCreate() async {
     final route = ModalRoute.of(context);
-    final draft = _controller.draft;
-    final result = await _controller.onCreate();
-    if (!mounted || !_controller.isCurrent) return;
+    final query = _query;
+    final editor = _controller;
+    final draft = editor.draft;
+    final result = await editor.onCreate();
+    if (!mounted || query != _query || !editor.isCurrent) return;
     if (result case Success(:final response)) {
-      if (listEquals(draft, _controller.draft) && route?.isCurrent == true) {
+      if (listEquals(draft, editor.draft) && route?.isCurrent == true) {
         Navigator.of(context).pop(response);
       } else {
         SmartDialog.showToast('投票已保存，已保留当前草稿');
@@ -69,6 +60,7 @@ class _CreateVotePageState extends State<CreateVotePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(voteEditorProvider(_query));
     final theme = Theme.of(context);
     _leadingStyle = TextStyle(
       fontSize: 15,
@@ -91,21 +83,23 @@ class _CreateVotePageState extends State<CreateVotePage> {
           bottom: padding.bottom + 100,
         ),
         children: [
-          Obx(() {
-            if (_controller.loading.value) {
-              return const LinearProgressIndicator();
-            }
-            final error = _controller.loadError.value;
-            return error == null
-                ? const SizedBox.shrink()
-                : ListTile(
-                    title: Text(error.toString()),
-                    trailing: TextButton(
-                      onPressed: _controller.queryData,
-                      child: const Text('重试'),
-                    ),
-                  );
-          }),
+          Builder(
+            builder: (_) {
+              if (_state.loading) {
+                return const LinearProgressIndicator();
+              }
+              final error = _state.error;
+              return error == null
+                  ? const SizedBox.shrink()
+                  : ListTile(
+                      title: Text(error.toString()),
+                      trailing: TextButton(
+                        onPressed: _controller.queryData,
+                        child: const Text('重试'),
+                      ),
+                    );
+            },
+          ),
           const Text(
             '投票类型',
             style: TextStyle(fontSize: 14),
@@ -113,60 +107,58 @@ class _CreateVotePageState extends State<CreateVotePage> {
           const SizedBox(height: 12),
           _buildType(theme),
           const SizedBox(height: 40),
-          Obx(
-            () => _buildInput(
+          Builder(
+            builder: (_) => _buildInput(
               theme,
-              key: ValueKey('${_controller.key}title'),
-              initialValue: _controller.title.value,
-              onChanged: (value) => _controller
-                ..title.value = value
-                ..updateCanCreate(),
+              key: ValueKey((_state.inputKey, 'title')),
+              initialValue: _draft.title,
+              onChanged: (value) =>
+                  _controller.update((draft) => draft.copy(title: value)),
               desc: '投票标题',
               hintText: '请填写标题',
               inputFormatters: [LengthLimitingTextInputFormatter(32)],
             ),
           ),
           divider,
-          Obx(
-            () => _buildInput(
+          Builder(
+            builder: (_) => _buildInput(
               theme,
-              key: ValueKey('${_controller.key}desc'),
-              initialValue: _controller.desc.value,
-              onChanged: _controller.desc.call,
+              key: ValueKey((_state.inputKey, 'desc')),
+              initialValue: _draft.description,
+              onChanged: (value) =>
+                  _controller.update((draft) => draft.copy(description: value)),
               desc: '投票说明',
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
             ),
           ),
           divider,
           const SizedBox(height: 40),
-          Obx(
-            () {
-              final showImg = _controller.type.value == 1;
-              final showDel = _controller.options.length > 2;
+          Builder(
+            builder: (_) {
+              final showImg = _draft.type == 1;
+              final showDel = _draft.options.length > 2;
               List<Widget> children = [];
-              for (int i = 0; i < _controller.options.length; i++) {
-                final e = _controller.options[i];
+              for (int i = 0; i < _draft.options.length; i++) {
+                final e = _draft.options[i];
                 children
                   ..add(
                     _buildInput(
                       theme,
-                      key: ObjectKey(e),
+                      key: ObjectKey(e.id),
                       showDel: showDel,
                       onDel: () {
                         FocusManager.instance.primaryFocus?.unfocus();
                         _controller.onDel(i);
                       },
                       showImg: showImg,
-                      imgUrl: e.imgUrl,
+                      imgUrl: e.image,
                       onPickImg: () => ActionThrottle.run(
                         'picImg',
                         const Duration(milliseconds: 500),
                         () => _onPickImg(i),
                       ),
-                      initialValue: e.optDesc,
-                      onChanged: (value) => _controller
-                        ..options[i].optDesc = value
-                        ..updateCanCreate(),
+                      initialValue: e.text,
+                      onChanged: (value) => _controller.optionText(e.id, value),
                       desc: '选项${i + 1}',
                       hintText: '选项内容，最多20字',
                       inputFormatters: [LengthLimitingTextInputFormatter(20)],
@@ -179,11 +171,9 @@ class _CreateVotePageState extends State<CreateVotePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ...children,
-                  if (_controller.options.length < 20)
+                  if (_draft.options.length < 20)
                     FilledButton(
-                      onPressed: () => _controller
-                        ..options.add(Option(optDesc: '', imgUrl: ''))
-                        ..updateCanCreate(),
+                      onPressed: _controller.addOption,
                       style: FilledButton.styleFrom(
                         minimumSize: Size.zero,
                         padding: const EdgeInsets.only(
@@ -220,35 +210,39 @@ class _CreateVotePageState extends State<CreateVotePage> {
                 width: 100,
                 child: Text('单选/多选', style: _leadingStyle),
               ),
-              Obx(() {
-                final choiceCnt = _controller.choiceCnt.value;
-                final choices = List.generate(
-                  _controller.options.length,
-                  (i) => i + 1,
-                );
-                return Listener(
-                  onPointerDown: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
-                  child: PopupMenuButton<int>(
-                    initialValue: choiceCnt,
-                    requestFocus: false,
-                    onSelected: _controller.choiceCnt.call,
-                    itemBuilder: (context) {
-                      return choices
-                          .map(
-                            (e) => AppPopupMenuItem(
-                              value: e,
-                              child: Text(e == 1 ? '单选' : '最多选$e项'),
-                            ),
-                          )
-                          .toList();
-                    },
-                    child: Text(
-                      choiceCnt == 1 ? '单选         ' : '最多选$choiceCnt项',
+              Builder(
+                builder: (_) {
+                  final choiceCnt = _draft.choices;
+                  final choices = List.generate(
+                    _draft.options.length,
+                    (i) => i + 1,
+                  );
+                  return Listener(
+                    onPointerDown: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    child: PopupMenuButton<int>(
+                      initialValue: choiceCnt,
+                      requestFocus: false,
+                      onSelected: (value) => _controller.update(
+                        (draft) => draft.copy(choices: value),
+                      ),
+                      itemBuilder: (context) {
+                        return choices
+                            .map(
+                              (e) => AppPopupMenuItem(
+                                value: e,
+                                child: Text(e == 1 ? '单选' : '最多选$e项'),
+                              ),
+                            )
+                            .toList();
+                      },
+                      child: Text(
+                        choiceCnt == 1 ? '单选         ' : '最多选$choiceCnt项',
+                      ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                },
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -266,7 +260,7 @@ class _CreateVotePageState extends State<CreateVotePage> {
                   FocusManager.instance.primaryFocus?.unfocus();
                   DateTime? newDate = await showDatePicker(
                     context: context,
-                    initialDate: _controller.endtime.value,
+                    initialDate: _draft.deadline,
                     firstDate: _controller.now,
                     lastDate: _controller.end,
                   );
@@ -274,7 +268,7 @@ class _CreateVotePageState extends State<CreateVotePage> {
                     TimeOfDay? newTime = await showTimePicker(
                       context: context,
                       initialTime: TimeOfDay.fromDateTime(
-                        _controller.endtime.value,
+                        _draft.deadline,
                       ),
                     );
                     if (newTime != null && mounted && _controller.isCurrent) {
@@ -287,7 +281,9 @@ class _CreateVotePageState extends State<CreateVotePage> {
                       );
                       if (newEndtime.difference(DateTime.now()) >=
                           const Duration(minutes: 5)) {
-                        _controller.endtime.value = newEndtime;
+                        _controller.update(
+                          (draft) => draft.copy(deadline: newEndtime),
+                        );
                       } else {
                         SmartDialog.showToast('至少选择5分钟之后');
                       }
@@ -296,10 +292,10 @@ class _CreateVotePageState extends State<CreateVotePage> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Obx(
-                    () => Text(
+                  child: Builder(
+                    builder: (_) => Text(
                       DateFormatUtils.longFormatD.format(
-                        _controller.endtime.value,
+                        _draft.deadline,
                       ),
                     ),
                   ),
@@ -309,15 +305,15 @@ class _CreateVotePageState extends State<CreateVotePage> {
           ),
           divider,
           const SizedBox(height: 40),
-          Obx(() {
-            final canCreate = _controller.canCreate.value;
-            return FilledButton.tonal(
-              onPressed: canCreate && !_controller.saving.value
-                  ? _onCreate
-                  : null,
-              child: Text(_controller.saving.value ? '保存中' : '发起投票'),
-            );
-          }),
+          Builder(
+            builder: (_) {
+              final canCreate = _controller.canCreate;
+              return FilledButton.tonal(
+                onPressed: canCreate && !_state.saving ? _onCreate : null,
+                child: Text(_state.saving ? '保存中' : '发起投票'),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -390,14 +386,14 @@ class _CreateVotePageState extends State<CreateVotePage> {
     );
   }
 
-  Widget _buildType(ThemeData theme) => Obx(
-    () {
+  Widget _buildType(ThemeData theme) => Builder(
+    builder: (_) {
       return Row(
         spacing: 16,
         children: List.generate(
           2,
           (index) {
-            final isEnable = index == _controller.type.value;
+            final isEnable = index == _draft.type;
             final style = TextButton.styleFrom(
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
@@ -419,9 +415,8 @@ class _CreateVotePageState extends State<CreateVotePage> {
             );
             Widget child = TextButton(
               style: style,
-              onPressed: () => _controller
-                ..type.value = index
-                ..updateCanCreate(),
+              onPressed: () =>
+                  _controller.update((draft) => draft.copy(type: index)),
               child: Text(
                 '${const ['文字', '图片'][index]}投票',
                 style: const TextStyle(fontSize: 14, height: 1),
@@ -467,7 +462,9 @@ class _CreateVotePageState extends State<CreateVotePage> {
   );
 
   void _onPickImg(int index) {
-    final option = _controller.options[index];
+    final option = _draft.options[index];
+    final query = _query;
+    final editor = _controller;
     ActionThrottle.run(
       'imagePicker',
       const Duration(milliseconds: 500),
@@ -480,14 +477,21 @@ class _CreateVotePageState extends State<CreateVotePage> {
           );
           if (pickedFile != null && mounted) {
             final path = pickedFile.path;
-            _controller.onUpload(option, path).whenComplete(() {
-              if (PlatformUtils.isMobile) {
-                File(path).tryDel();
+            try {
+              if (query != _query || !editor.isCurrent) return;
+              final result = await editor.onUpload(option.id, path);
+              if (mounted &&
+                  query == _query &&
+                  editor.isCurrent &&
+                  !result.isSuccess) {
+                result.toast();
               }
-            });
+            } finally {
+              if (PlatformUtils.isMobile) File(path).tryDel();
+            }
           }
         } catch (e) {
-          SmartDialog.showToast(e.toString());
+          if (mounted) SmartDialog.showToast(e.toString());
         }
       },
     );

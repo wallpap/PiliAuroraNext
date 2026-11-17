@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/style.dart' as common_style;
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart';
+import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/parse_int.dart';
 

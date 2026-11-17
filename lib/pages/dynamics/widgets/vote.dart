@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart';
+import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote_decoration.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

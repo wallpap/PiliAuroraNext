@@ -14,7 +14,8 @@ import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_reserve/controller.dart';
-import 'package:pili_aurora_next/pages/dynamics_create_vote/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/vote_editor.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -110,6 +111,19 @@ void main() {
     await dismissal;
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
+  }
+
+  ({ProviderContainer container, VoteEditor editor, VoteEditorQuery query})
+  voteEditor(int? id) {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final query = (owner: Object(), id: id);
+    container.listen(voteEditorProvider(query), (_, _) {});
+    return (
+      container: container,
+      editor: container.read(voteEditorProvider(query).notifier),
+      query: query,
+    );
   }
 
   Object uploaded() => {
@@ -226,16 +240,22 @@ void main() {
 
   testWidgets('投票保存互斥并返回提交时的选项副本，待确认后允许核对再操作', (tester) async {
     await mount(tester);
-    final controller = CreateVoteController(null)..onInit();
-    addTearDown(controller.onDelete.call);
-    controller.title.value = '原标题';
-    controller.options[0].optDesc = '甲';
-    controller.options[1].optDesc = '乙';
+    final fixture = voteEditor(null);
+    final controller = fixture.editor
+      ..update((draft) => draft.copy(title: '原标题'));
+    final options = fixture.container
+        .read(voteEditorProvider(fixture.query))
+        .draft
+        .options;
+    controller
+      ..optionText(options[0].id, '甲')
+      ..optionText(options[1].id, '乙');
     final pending = controller.onCreate();
     expect(await controller.onCreate(), isA<Error>());
     await until(tester, () => requests.length == 1);
-    controller.title.value = '新标题';
-    controller.options[0].optDesc = '新选项';
+    controller
+      ..update((draft) => draft.copy(title: '新标题'))
+      ..optionText(options[0].id, '新选项');
     requests[0].reply.complete({
       'code': 0,
       'data': {'vote_id': 7},
@@ -245,13 +265,20 @@ void main() {
     expect(result.data.title, '原标题');
     expect(result.data.options.first.optDesc, '甲');
     expect(result.data.voteId, 7);
-    expect(controller.title.value, '新标题');
+    expect(
+      fixture.container.read(voteEditorProvider(fixture.query)).draft.title,
+      '新标题',
+    );
+    expect(controller.voteId, 7);
     final retry = controller.onCreate();
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': '0'});
     await settle(tester);
     expect(await retry, isA<UnknownResult>());
-    expect(controller.saving.value, isFalse);
+    expect(
+      fixture.container.read(voteEditorProvider(fixture.query)).saving,
+      isFalse,
+    );
     await finish(tester);
   });
 
@@ -278,8 +305,7 @@ void main() {
     });
     await settle(tester);
     expect(await stale, isA<Error>());
-    final switched = CreateVoteController(null)..onInit();
-    addTearDown(switched.onDelete.call);
+    final switched = voteEditor(null).editor;
     Accounts.accountMode[AccountType.main.index] = replacement;
     expect(await switched.onCreate(), isA<Error>());
     expect(requests, hasLength(2));
@@ -288,16 +314,18 @@ void main() {
 
   testWidgets('投票与预约详情失败可重试，关闭后拒绝迟到的必需字段', (tester) async {
     await mount(tester);
-    final vote = CreateVoteController(7)..onInit();
+    final voteFixture = voteEditor(7);
+    final vote = voteFixture.editor;
+    final voteProvider = voteEditorProvider(voteFixture.query);
     final reserve = CreateReserveController(8)..onInit();
     await until(tester, () => requests.length == 2);
     for (final request in requests) {
       request.reply.complete({'code': -403, 'message': '加载失败'});
     }
     await settle(tester);
-    expect(vote.loadError.value?.code, -403);
+    expect(voteFixture.container.read(voteProvider).error?.code, -403);
     expect(reserve.loadError.value?.code, -403);
-    expect(vote.canCreate.value, isFalse);
+    expect(vote.canCreate, isFalse);
     expect(reserve.canCreate.value, isFalse);
     final retry = reserve.queryData();
     await until(tester, () => requests.length == 3);
@@ -311,11 +339,11 @@ void main() {
     expect(reserve.canCreate.value, isTrue);
     final stale = vote.queryData();
     await until(tester, () => requests.length == 4);
-    vote.onDelete();
+    voteFixture.container.dispose();
     requests[3].reply.complete({'code': -403, 'message': '旧错误'});
     await settle(tester);
     await stale;
-    expect(vote.loadError.value, isNull);
+    expect(vote.isCurrent, isFalse);
     reserve.onDelete();
     await finish(tester);
   });

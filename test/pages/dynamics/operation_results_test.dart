@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart'
+import 'package:pili_aurora_next/features/community/domain/vote.dart'
     show VoteInfo, Option;
 import 'package:pili_aurora_next/pages/dynamics/widgets/additional_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';

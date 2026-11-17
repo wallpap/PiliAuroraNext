@@ -174,6 +174,7 @@ void main() {
       'pages/bubble/controller.dart',
       'pages/emote/controller.dart',
       'pages/live_emote/controller.dart',
+      'pages/dynamics_create_vote/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -217,6 +218,7 @@ void main() {
       'bubble/view.dart',
       'emote/view.dart',
       'live_emote/view.dart',
+      'dynamics_create_vote/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {
