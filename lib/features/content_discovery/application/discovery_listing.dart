@@ -56,6 +56,9 @@ abstract class DiscoveryListing<T, M>
 
   Object itemKey(T item) =>
       MediaAuthorFilter.contentKey(item) ?? item as Object;
+
+  /// 领域排序作用于完整合并结果，续页中的新置顶也能回到已有条目前。
+  List<T> orderItems(List<T> items) => items;
   Future<LoadingState<DiscoveryPage<T, M>>> fetch(Account account, int page);
 
   @override
@@ -212,7 +215,7 @@ abstract class DiscoveryListing<T, M>
           ? state.loading is Success
                 ? state.loading
                 : error
-          : Success(List.unmodifiable(items)),
+          : Success(List.unmodifiable(orderItems(items))),
       metadata: metadata,
       hasMore: hasMore,
       error: error,

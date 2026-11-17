@@ -23,6 +23,7 @@ final memberDynamicsProvider = NotifierProvider.autoDispose
 class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
   MemberDynamics(this.query);
   final MemberDynamicsQuery query;
+  // 空间只有一个置顶；已确认取消与尚未操作分别表示，显式刷新后采用远端状态。
   bool _hasPinChange = false;
   String? _pinnedId;
   @override
@@ -50,7 +51,7 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
             _applyPin(items);
             state = DiscoveryListingState(
               source: state.source,
-              loading: Success(_ordered(items)),
+              loading: Success(orderItems(items)),
               metadata: state.metadata,
               loadingMore: state.loadingMore,
               hasMore: state.hasMore,
@@ -88,7 +89,8 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
     }
   }
 
-  List<DynamicItemModel> _ordered(Iterable<DynamicItemModel> items) =>
+  @override
+  List<DynamicItemModel> orderItems(List<DynamicItemModel> items) =>
       List.unmodifiable([
         ...items.where((item) => itemKey(item) == _pinnedId),
         ...items.where((item) => itemKey(item) != _pinnedId),
@@ -107,7 +109,7 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
       _applyPin(response.items);
       return Success(
         DiscoveryPage(
-          _ordered(response.items),
+          response.items,
           metadata: response.metadata,
           hasMore: response.hasMore,
         ),

@@ -271,6 +271,62 @@ void main() {
     );
   });
 
+  test('另一空间尚未加载的置顶目标在续页回到首位，取消后迟到旧置顶不复活，刷新重新核对', () async {
+    final notifier = await start();
+    final other = memberDynamicsProvider((owner: Object(), mid: 1));
+    container.listen(other, (_, _) {});
+    await interceptor.waitForRequests(2);
+    requests[1].reply.complete(page(['1'], 'a'));
+    await tick();
+    final item = container.read(provider).loading.data.last;
+    final source = container.read(provider).source;
+    var pin = notifier.setPinned(item, source, false);
+    await interceptor.waitForRequests(3);
+    requests[2].reply.complete({'code': 0});
+    await pin;
+    final otherNotifier = container.read(other.notifier);
+    var more = otherNotifier.onLoadMore();
+    await interceptor.waitForRequests(4);
+    requests[3].reply.complete(page(['3'], 'b'));
+    await more;
+    expect(container.read(other).loading.data.map((item) => item.idStr), [
+      '3',
+      '1',
+    ]);
+    expect(container.read(other).loading.data.first.isPinned, isTrue);
+    pin = notifier.setPinned(item, source, true);
+    await interceptor.waitForRequests(5);
+    requests[4].reply.complete({'code': 0});
+    await pin;
+    more = otherNotifier.onLoadMore();
+    await interceptor.waitForRequests(6);
+    Map<String, dynamic> staleTop() => {
+      'code': 0,
+      'data': {
+        'has_more': false,
+        'items': [
+          {
+            'id_str': '2',
+            'modules': {
+              'module_tag': {'text': '置顶'},
+            },
+          },
+        ],
+      },
+    };
+    requests[5].reply.complete(staleTop());
+    await more;
+    expect(
+      container.read(other).loading.data.any((item) => item.isPinned),
+      isFalse,
+    );
+    final refresh = otherNotifier.onRefresh();
+    await interceptor.waitForRequests(7);
+    requests[6].reply.complete(staleTop());
+    await refresh;
+    expect(container.read(other).loading.data.single.isPinned, isTrue);
+  });
+
   test('页面释放后写入锁保留到请求完成，已确认删除仍通知存活空间', () async {
     final notifier = await start();
     final source = container.read(provider).source;
