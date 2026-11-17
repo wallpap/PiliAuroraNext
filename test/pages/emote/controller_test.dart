@@ -5,8 +5,9 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -14,17 +15,6 @@ import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
-
-class _Emotes extends EmotePanelController {
-  final queries = <Future<void>>[];
-
-  @override
-  Future<void> queryData([bool isRefresh = true]) {
-    final query = super.queryData(isRefresh);
-    queries.add(query);
-    return query;
-  }
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -58,14 +48,16 @@ void main() {
     Request.dio.close(force: true);
     await interceptor.close();
   });
+  setUp(cache.data.clear);
 
   test('评论表情绑定主账号，凭据替换后拒绝旧结果并释放旧页签', () async {
     final original = account('original');
     Accounts.accountMode[AccountType.main.index] = original;
-    final controller = _Emotes()..onInit();
-    addTearDown(() {
-      if (!controller.isClosed) controller.onDelete();
-    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = emotePackagesProvider(Object());
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
     await interceptor.waitForRequests(1);
     expect(requests.single.options.path, Api.myEmote);
     expect(requests.single.options.extra['account'], same(original));
@@ -74,24 +66,20 @@ void main() {
     await interceptor.waitForRequests(2);
     expect(requests.last.options.extra['account'], same(replacement));
     requests.last.reply.complete(emotes('new'));
-    await controller.queries[1];
+    await Future<void>.delayed(Duration.zero);
     final refresh = controller.onRefresh();
     await interceptor.waitForRequests(3);
-    expect(controller.loadingState.value.data?.single.text, 'new');
-    final previousTabs = controller.tabController!;
+    expect(container.read(provider).loading, isA<Loading>());
     requests.last.reply.complete(emotes('refreshed'));
     await refresh;
-    expect(previousTabs.animation, isNull);
     requests.first.reply.complete(emotes('old'));
-    await controller.queries.first;
+    await Future<void>.delayed(Duration.zero);
     expect(
-      controller.loadingState.value.data?.single.text,
+      container.read(provider).loading.data.single.text,
       'refreshed',
     );
-    expect(controller.loadingState.value, isA<Success>());
-    final lastTabs = controller.tabController!;
-    controller.onDelete();
-    expect(lastTabs.animation, isNull);
+    expect(container.read(provider).loading, isA<Success>());
+    container.dispose();
     Accounts.replaceCredentials(account('after-close'));
     expect(requests, hasLength(3));
   });
@@ -106,22 +94,28 @@ void main() {
     test('损坏历史缓存不阻止表情查询：$history', () async {
       requests.clear();
       cache.data[LocalCacheKey.recentEmotes] = history;
-      final controller = _Emotes()..onInit();
+      final container = ProviderContainer();
+      final provider = emotePackagesProvider(Object());
+      container.listen(provider, (_, _) {});
       await interceptor.waitForRequests(1);
       requests.single.reply.complete(emotes('available'));
-      await controller.queries.single;
-      expect(controller.loadingState.value, isA<Success>());
-      expect(controller.recentEmotes.length, history is List ? 1 : 0);
-      controller.onDelete();
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(provider).loading, isA<Success>());
+      expect(
+        container.read(recentEmotesProvider).length,
+        history is List ? 1 : 0,
+      );
+      container.dispose();
     });
   }
 
   test('连续选择按顺序保存各自快照，最后保留最新历史', () async {
     final gate = Completer<void>();
     cache.gate = gate;
-    final controller = _Emotes();
-    final first = controller.recordEmote(Emote(text: 'first'), 24);
-    final second = controller.recordEmote(Emote(text: 'second'), 24);
+    final container = ProviderContainer();
+    final controller = container.read(recentEmotesProvider.notifier);
+    final first = controller.record(Emote(text: 'first'), 24);
+    final second = controller.record(Emote(text: 'second'), 24);
     await Future<void>.delayed(Duration.zero);
     expect(cache.gate, isNull);
     var secondDone = false;
@@ -131,23 +125,37 @@ void main() {
     await Future.wait([first, second]);
     final history = cache.get(LocalCacheKey.recentEmotes) as List;
     expect(history.map((item) => item['text']), ['second', 'first']);
-    controller.onDelete();
+    container.dispose();
   });
 
   test('历史保存失败被消费，后续选择仍可保存', () async {
     cache
       ..failNext = true
       ..writes = 0;
-    final controller = _Emotes();
-    await controller.recordEmote(Emote(text: 'first'), 24);
-    await controller.recordEmote(Emote(text: 'second'), 24);
-    expect(controller.recentEmotes.first.emote.text, 'second');
+    final container = ProviderContainer();
+    final controller = container.read(recentEmotesProvider.notifier);
+    await controller.record(Emote(text: 'first'), 24);
+    await controller.record(Emote(text: 'second'), 24);
+    expect(container.read(recentEmotesProvider).first.emote.text, 'second');
     expect((GStorage.localCache as _FailingCache).writes, 2);
     expect(
       (GStorage.localCache.get(LocalCacheKey.recentEmotes) as List).length,
       2,
     );
-    controller.onDelete();
+    container.dispose();
+  });
+  test('共享历史去重限长，并保存独立于调用方后续修改的快照', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final history = container.read(recentEmotesProvider.notifier);
+    for (var i = 0; i < 45; i++) {
+      await history.record(Emote(text: '$i'), 24);
+    }
+    final item = Emote(text: '44');
+    await history.record(item, 24);
+    item.text = 'modified';
+    expect(container.read(recentEmotesProvider), hasLength(40));
+    expect(container.read(recentEmotesProvider).first.emote.text, '44');
   });
 }
 

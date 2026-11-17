@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
 
 class EmoteSettingPanel {
   final List<Package> userPanelPackages;

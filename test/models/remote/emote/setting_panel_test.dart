@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/remote/emote/setting_panel.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/setting_panel.dart';
 
 void main() {
   test('parses current and available emote packages', () {

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/emote/meta.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/meta.dart';
 
 class Emote {
   String? text;

@@ -7,29 +7,30 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView, platformClampingPhysics;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/recent_emote.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
-class EmotePanel extends StatefulWidget {
+class EmotePanel extends ConsumerStatefulWidget {
   final Function(Emote emote, double? width, double? height) onChoose;
 
   const EmotePanel({super.key, required this.onChoose});
 
   @override
-  State<EmotePanel> createState() => _EmotePanelState();
+  ConsumerState<EmotePanel> createState() => _EmotePanelState();
 }
 
-class _EmotePanelState extends State<EmotePanel>
+class _EmotePanelState extends ConsumerState<EmotePanel>
     with AutomaticKeepAliveClientMixin {
-  final EmotePanelController _emotePanelController = Get.put(
-    EmotePanelController(),
-  );
-
+  final _owner = Object();
+  Future<void> _reload() =>
+      ref.read(emotePackagesProvider(_owner).notifier).onRefresh();
   @override
   bool get wantKeepAlive => true;
 
@@ -37,32 +38,40 @@ class _EmotePanelState extends State<EmotePanel>
   Widget build(BuildContext context) {
     super.build(context);
     final ThemeData theme = Theme.of(context);
-    return Obx(
-      () => _buildBody(theme, _emotePanelController.loadingState.value),
+    final state = ref.watch(emotePackagesProvider(_owner));
+    final packages = state.loading.dataOrNull;
+    if (packages == null || packages.isEmpty) {
+      return _buildBody(theme, state.loading);
+    }
+    return DefaultTabController(
+      key: ObjectKey(packages),
+      length: packages.length + 1,
+      initialIndex: ref.read(recentEmotesProvider).isEmpty ? 1 : 0,
+      child: _buildBody(theme, state.loading),
     );
   }
 
   Widget _buildBody(
     ThemeData theme,
-    LoadingState<List<Package>?> loadingState,
+    LoadingState<List<Package>> loadingState,
   ) {
     return switch (loadingState) {
       Loading() => m3eLoading,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? Column(
                 children: [
                   Expanded(
                     child: tabBarView(
-                      controller: _emotePanelController.tabController,
                       children: [
-                        Obx(() {
-                          final recent = _emotePanelController.recentEmotes
-                              .toList();
-                          return recent.isEmpty
-                              ? const Center(child: Text('暂无历史表情'))
-                              : _buildEmoteGrid(theme, recent, 60);
-                        }),
+                        Builder(
+                          builder: (_) {
+                            final recent = ref.watch(recentEmotesProvider);
+                            return recent.isEmpty
+                                ? const Center(child: Text('暂无历史表情'))
+                                : _buildEmoteGrid(theme, recent, 60);
+                          },
+                        ),
                         ...response.map((package) {
                           final emotes = package.emote;
                           if (emotes == null || emotes.isEmpty) {
@@ -104,7 +113,7 @@ class _EmotePanelState extends State<EmotePanel>
                               .withValues(alpha: 0.8),
                           onPressed: () async {
                             await Get.to(() => const EmoteManagePage());
-                            if (mounted) _emotePanelController.onReload();
+                            if (mounted) _reload();
                           },
                           icon: const Icon(Icons.settings),
                         ),
@@ -112,7 +121,6 @@ class _EmotePanelState extends State<EmotePanel>
                       Expanded(
                         child: HorizontalWheelScroll(
                           child: TabBar(
-                            controller: _emotePanelController.tabController,
                             padding: const EdgeInsets.only(right: 60),
                             dividerColor: Colors.transparent,
                             dividerHeight: 0,
@@ -237,8 +245,8 @@ class _EmotePanelState extends State<EmotePanel>
       child: InkWell(
         borderRadius: const BorderRadius.all(Radius.circular(6)),
         onTap: () {
+          ref.read(recentEmotesProvider.notifier).record(item, entry.width);
           widget.onChoose(item, entry.width, null);
-          _emotePanelController.recordEmote(item, entry.width);
         },
         child: child,
       ),
@@ -247,7 +255,7 @@ class _EmotePanelState extends State<EmotePanel>
 
   Widget _errorWidget([String? errMsg]) => Center(
     child: TextButton.icon(
-      onPressed: _emotePanelController.onReload,
+      onPressed: _reload,
       icon: const Icon(Icons.refresh),
       label: Text(errMsg ?? '没有数据'),
     ),

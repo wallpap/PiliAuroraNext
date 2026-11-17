@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 
 class Package {
   int? id;

@@ -25,7 +25,6 @@ import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/view.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -127,7 +126,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   void dispose() {
     _titleEditCtr.dispose();
     Get
-      ..delete<EmotePanelController>()
       ..delete<SelectTopicController>()
       ..delete<DynMentionController>();
     super.dispose();

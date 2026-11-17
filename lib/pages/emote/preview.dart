@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 
 class EmotePackagePreviewPage extends StatefulWidget {

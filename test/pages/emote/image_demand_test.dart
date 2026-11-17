@@ -4,19 +4,22 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
 
 import '../../support/memory_box.dart';
 
-class _Controller extends EmotePanelController {
-  _Controller(this.package);
+class _Repository extends EmoteRepository {
+  _Repository(this.package);
   final Package package;
   @override
-  Future<LoadingState<List<Package>?>> customGetData() async =>
+  Future<LoadingState<List<Package>?>> packages(Account account) async =>
       Success([package]);
 }
 
@@ -42,21 +45,26 @@ void main() {
           url: 'https://example.test/emote-$index.webp',
         ),
       );
-      final controller = Get.put<EmotePanelController>(
-        _Controller(Package(type: 1, text: 'synthetic', emote: emotes)),
+      final repository = _Repository(
+        Package(type: 1, text: 'synthetic', emote: emotes),
       );
       Emote? chosen;
       await tester.pumpWidget(
         ImageLoadingScope(
           enabled: false,
-          child: MaterialApp(
-            home: Scaffold(
-              body: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 320,
-                  height: 300,
-                  child: EmotePanel(onChoose: (emote, _, _) => chosen = emote),
+          child: ProviderScope(
+            overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 320,
+                    height: 300,
+                    child: EmotePanel(
+                      onChoose: (emote, _, _) => chosen = emote,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -100,8 +108,6 @@ void main() {
       await tester.tap(selectable.first);
       expect(chosen?.url, emotes.last.url);
       await tester.pumpWidget(const SizedBox.shrink());
-      Get.delete<EmotePanelController>(force: true);
-      expect(controller.isClosed, isTrue);
     },
   );
 
@@ -109,24 +115,27 @@ void main() {
     tester,
   ) async {
     final emote = Emote(text: '(synthetic text)');
-    Get.put<EmotePanelController>(
-      _Controller(Package(type: 4, text: 'text', emote: [emote])),
+    final repository = _Repository(
+      Package(type: 4, text: 'text', emote: [emote]),
     );
     Emote? chosen;
     double? chosenWidth = 1;
     await tester.pumpWidget(
       ImageLoadingScope(
         enabled: false,
-        child: MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              height: 300,
-              child: EmotePanel(
-                onChoose: (value, width, _) {
-                  chosen = value;
-                  chosenWidth = width;
-                },
+        child: ProviderScope(
+          overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                height: 300,
+                child: EmotePanel(
+                  onChoose: (value, width, _) {
+                    chosen = value;
+                    chosenWidth = width;
+                  },
+                ),
               ),
             ),
           ),
@@ -138,6 +147,59 @@ void main() {
     expect(chosen, same(emote));
     expect(chosenWidth, isNull);
     await tester.pumpWidget(const SizedBox.shrink());
-    Get.delete<EmotePanelController>(force: true);
+  });
+  testWidgets('多个表情面板拥有独立 Tab，共享历史，单面板卸载不销毁其他面板', (tester) async {
+    final repository = _Repository(
+      Package(type: 4, emote: [Emote(text: '共享历史')]),
+    );
+    final container = ProviderContainer(
+      overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    Widget panels(bool second) => UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        home: Row(
+          children: [
+            Expanded(
+              child: EmotePanel(
+                key: const ValueKey('first'),
+                onChoose: (_, _, _) {},
+              ),
+            ),
+            if (second)
+              Expanded(
+                child: EmotePanel(
+                  key: const ValueKey('second'),
+                  onChoose: (_, _, _) {},
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpWidget(panels(true));
+    await tester.pumpAndSettle();
+    final tabs = tester
+        .widgetList<TabBar>(find.byType(TabBar))
+        .map(
+          (tab) => DefaultTabController.of(tester.element(find.byWidget(tab))),
+        )
+        .toList();
+    expect(tabs, hasLength(2));
+    expect(identical(tabs[0], tabs[1]), isFalse);
+    await tester.tap(find.text('共享历史').first);
+    await tester.pumpAndSettle();
+    expect(container.read(recentEmotesProvider).single.emote.text, '共享历史');
+    tabs[1].animateTo(0);
+    await tester.pump();
+    await tester.pumpWidget(panels(false));
+    await tester.pumpAndSettle();
+    expect(tabs[1].animation, isNull);
+    expect(tabs[0].animation, isNotNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    expect(tabs[0].animation, isNull);
+    expect(tester.takeException(), isNull);
   });
 }
