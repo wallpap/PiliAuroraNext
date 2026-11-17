@@ -159,7 +159,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [bubbleRepositoryProvider.overrideWithValue(repository)],
-        child: GetMaterialApp(
+        child: const GetMaterialApp(
           home: Row(
             children: [
               Expanded(child: BubblePage(tribeId: 'one')),
@@ -169,12 +169,10 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.byType(TabBar), findsNWidgets(2));
-    final tabs = tester.widget<TabBar>(find.byType(TabBar).first).controller!;
-    tabs.animateTo(1);
+    final tabs = tester.widget<TabBar>(find.byType(TabBar).first).controller!
+      ..animateTo(1);
     await tester.pump();
     Accounts.replaceCredentials(login('widget-new'));
     await tester.pump();
