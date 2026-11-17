@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/pages/live/controller.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/controller.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -50,7 +49,7 @@ class HomeController extends GetxController
           HomeTabType.rcmd => throw StateError('推荐页尚未挂载'),
           HomeTabType.live => Get.find<LiveController>(),
           HomeTabType.hot => throw StateError('热门页尚未挂载'),
-          HomeTabType.rank => Get.find<RankController>(),
+          HomeTabType.rank => throw StateError('排行榜尚未挂载'),
           HomeTabType.bangumi ||
           HomeTabType.cinema => Get.find<PgcController>(tag: type.name),
         };

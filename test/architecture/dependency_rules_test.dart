@@ -156,7 +156,13 @@ void main() {
     });
   }
   test('recommendation state has no legacy controller or settings-to-page dependency', () {
-    const removed = ['pages/rcmd/controller.dart', 'pages/rcmd/viewport.dart'];
+    const removed = [
+      'pages/rcmd/controller.dart',
+      'pages/rcmd/viewport.dart',
+      'pages/hot/controller.dart',
+      'pages/rank/controller.dart',
+      'pages/rank/zone/controller.dart',
+    ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
       for (final file in Directory(root).listSync(recursive: true)) {

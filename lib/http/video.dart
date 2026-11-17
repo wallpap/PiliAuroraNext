@@ -1100,10 +1100,11 @@ abstract final class VideoHttp {
 
   // 视频排行
   static Future<LoadingState<List<HotVideoItemModel>>> getRankVideoList(
-    int rid,
-  ) async {
+    int rid, {
+    Account? account,
+  }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.getRankApi,
@@ -1129,6 +1130,7 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<PgcRankItemModel>?>> pgcRankList({
     int day = 3,
     required int seasonType,
+    Account? account,
   }) async {
     try {
       final account = Accounts.get(AccountType.recommend);
@@ -1156,6 +1158,7 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<PgcRankItemModel>?>> pgcSeasonRankList({
     int day = 3,
     required int seasonType,
+    Account? account,
   }) async {
     try {
       final account = Accounts.get(AccountType.recommend);

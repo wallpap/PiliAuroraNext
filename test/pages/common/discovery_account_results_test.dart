@@ -5,7 +5,6 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
 import 'package:pili_aurora_next/pages/popular_precious/controller.dart';
 import 'package:pili_aurora_next/pages/popular_series/controller.dart';
-import 'package:pili_aurora_next/pages/rank/zone/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -47,9 +46,6 @@ void main() {
   final cases = <String, DiscoveryListController Function()>{
     '入站必刷': PopularPreciousController.new,
     '每周必看': () => PopularSeriesController()..number = 1,
-    '分区排行榜': () => ZoneController(rid: 1),
-    '番剧排行榜': () => ZoneController(seasonType: 1),
-    '剧集排行榜': () => ZoneController(seasonType: 2),
   };
   for (final entry in cases.entries) {
     test('${entry.key}固定推荐请求账号，换凭据后丢弃旧响应并能刷新', () async {

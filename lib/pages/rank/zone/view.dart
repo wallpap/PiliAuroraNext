@@ -4,34 +4,51 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/pages/rank/zone/controller.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/rank_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/rank/zone/widget/pgc_rank_item.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class ZonePage extends StatefulWidget {
-  const ZonePage({super.key, this.rid, this.seasonType});
+class ZonePage extends ConsumerStatefulWidget {
+  const ZonePage({super.key, this.rid, this.seasonType, this.register});
 
+  final VoidCallback Function(ScrollOrRefreshMixin handle)? register;
   final int? rid;
   final int? seasonType;
 
   @override
-  State<ZonePage> createState() => _ZonePageState();
+  ConsumerState<ZonePage> createState() => _ZonePageState();
 }
 
-class _ZonePageState extends State<ZonePage>
+class _ZonePageState extends ConsumerState<ZonePage>
     with AutomaticKeepAliveClientMixin, GridMixin {
-  late final ZoneController controller;
-
+  final _owner = Object();
+  final _scrollController = ScrollController();
+  RankQuery get _query =>
+      (owner: _owner, rid: widget.rid, seasonType: widget.seasonType);
+  RankFeed get controller => ref.read(rankFeedProvider(_query).notifier);
+  VoidCallback? _unregister;
   @override
   void initState() {
-    controller = Get.put(
-      ZoneController(rid: widget.rid, seasonType: widget.seasonType),
-      tag: '${widget.rid}${widget.seasonType}',
-    );
     super.initState();
+    _unregister = widget.register?.call(
+      DiscoveryPageHandle(
+        () => _scrollController,
+        () => controller.onRefresh(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -40,27 +57,28 @@ class _ZonePageState extends State<ZonePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final state = ref.watch(rankFeedProvider(_query));
     return refreshIndicator(
       onRefresh: controller.onRefresh,
       child: CustomScrollView(
         scrollCacheExtent: const ScrollCacheExtent.pixels(0),
-        controller: controller.scrollController,
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.only(top: 7, bottom: 100),
-            sliver: Obx(() => _buildBody(controller.loadingState.value)),
+            sliver: _buildBody(state.loading),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBody(LoadingState<List<dynamic>?> loadingState) {
+  Widget _buildBody(LoadingState<List<Object>> loadingState) {
     return switch (loadingState) {
       Loading() => gridSkeleton,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? InactiveFeedSliver(
                 sliver: SliverGrid.builder(
                   gridDelegate: gridDelegate,
@@ -69,12 +87,12 @@ class _ZonePageState extends State<ZonePage>
                     if (item is HotVideoItemModel) {
                       return VideoCardH(
                         videoItem: item,
-                        onRemove: () => controller.loadingState
-                          ..value.data!.removeAt(index)
-                          ..refresh(),
+                        onRemove: () => controller.remove(item),
                       );
                     }
-                    return PgcRankItem(item: item);
+                    return item is PgcRankItemModel
+                        ? PgcRankItem(item: item)
+                        : const SizedBox.shrink();
                   },
                   itemCount: response.length,
                 ),

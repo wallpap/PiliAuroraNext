@@ -15,6 +15,7 @@ Set-Location $Workspace
 $ciTests = @(
     # 架构与账号、数据安全
     "test/features/content_discovery/discovery_listing_test.dart",
+    "test/features/content_discovery/rank_feed_test.dart",
     "test/features/account/account_profile_test.dart",
     "test/features/account/account_lifecycle_test.dart",
     "test/architecture/android_package_identity_test.dart",
