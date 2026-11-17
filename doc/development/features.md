@@ -14,6 +14,7 @@
 | 直播 | `live/`、`live_room/`、`live_follow/`、`live_search/`、`live_dm_block/` | `live.dart`；`lib/services/live_stream/` | `test/pages/live/`、`test/pages/live_room/`、`test/pages/live_follow/` |
 | 账号、登录、会员 | `login/`、`login_devices/`、`log_table/`、`member/`、`member_profile/` | `login.dart`、`member.dart`、`member_profile.dart`、`user.dart`；[共享账号资料与个人中心](../../lib/features/account/README.md)、`lib/utils/accounts/` | `test/pages/login/`、`test/pages/account_queries/`、`test/pages/member_profile/`、`test/features/account/`、`test/utils/accounts/` |
 | 动态、小站、投票与预约 | `dynamics/`、`dynamics_tab/`、`bubble/`、`dynamics_create_vote/`、`dynamics_create_reserve/` | [社区模块](../../lib/features/community/README.md)；作者/分类查询、发布失效与独立编辑草稿 | `test/features/community/`、`test/pages/dynamics/`、`test/pages/bubble/` |
+| 话题浏览与发布选择 | `dynamics_topic/`、`dynamics_topic_rcmd/`、`dynamics_select_topic/`、`dynamics_mention/` | [话题与发布选择](../../lib/features/community/README.md#话题与发布选择)；话题头部、内容分页与选择查询 | `test/features/community/topic_queries_test.dart`、`test/features/community/topic_repository_test.dart`、`test/pages/dynamics/topic_interactions_test.dart` |
 | 关注、粉丝 | `follow/`、`follow_type/` | `follow.dart`、`fan.dart` | `test/pages/follow/`、`test/pages/follow_type/` |
 | 消息、私信、分享 | `msg_feed_top/`、`whisper*`、`share/` | [消息模块](../../lib/services/messaging/README.md)；`msg.dart`、`lib/grpc/im.dart` | `test/services/messaging/` |
 | 收藏管理 | `lib/features/favorites/presentation/` | [收藏模块](../../lib/features/favorites/README.md)；账号查询、收藏夹与视频收藏写入 | `test/features/favorites/` |

@@ -30,7 +30,7 @@
 | 修改下载、离线列表或任务生命周期 | [下载模块](../lib/features/download/README.md) |
 | 修改共享账号资料、个人中心或无痕角色 | [账号模块](../lib/features/account/README.md) |
 | 修改首页推荐、视口补位、作者过滤或推荐偏好 | [内容发现模块](../lib/features/content_discovery/README.md) |
-| 修改动态作者、分类、小站、表情或投票/预约编辑 | [社区模块](../lib/features/community/README.md) |
+| 修改动态作者、分类、话题、发布选择、小站、表情或投票/预约编辑 | [社区模块](../lib/features/community/README.md) |
 | 修改订阅列表、合集详情或失效清理 | [订阅模块](../lib/features/subscriptions/README.md) |
 | 修改消息、私信、未读或分享 | [消息模块](../lib/services/messaging/README.md) |
 | 运行检查、构建或制作发布包 | [构建与测试](development/build-and-test.md)、[测试目录](../test/README.md)、[工具入口](../tool/README.md) |

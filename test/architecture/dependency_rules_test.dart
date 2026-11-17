@@ -176,6 +176,10 @@ void main() {
       'pages/live_emote/controller.dart',
       'pages/dynamics_create_vote/controller.dart',
       'pages/dynamics_create_reserve/controller.dart',
+      'pages/dynamics_topic/controller.dart',
+      'pages/dynamics_topic_rcmd/controller.dart',
+      'pages/dynamics_select_topic/controller.dart',
+      'pages/dynamics_mention/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -221,12 +225,17 @@ void main() {
       'live_emote/view.dart',
       'dynamics_create_vote/view.dart',
       'dynamics_create_reserve/view.dart',
+      'dynamics_topic/view.dart',
+      'dynamics_topic_rcmd/view.dart',
+      'dynamics_select_topic/view.dart',
+      'dynamics_mention/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {
         final target = localDependency(file, uri);
         if ((target?.startsWith('http/') == true &&
                 target != 'http/loading_state.dart') ||
+            target?.contains('/data/') == true ||
             target?.startsWith('utils/storage') == true ||
             target?.startsWith('utils/accounts') == true ||
             (target?.startsWith('pages/common/common_') == true &&
@@ -275,6 +284,10 @@ void main() {
       'models/remote/live/live_emote/',
       'models/dynamics/vote_model.dart',
       'models/remote/dynamic/dyn_reserve_info/',
+      'models/remote/dynamic/dyn_topic_top/',
+      'models/remote/dynamic/dyn_topic_feed/',
+      'models/remote/dynamic/dyn_topic_pub_search/',
+      'models/remote/dynamic/dyn_mention/',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'test', 'tool']) {
