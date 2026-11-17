@@ -16,8 +16,8 @@ import 'package:pili_aurora_next/models/remote/live/live_dm_block/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_info.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_user_list.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_emote/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_emote/datum.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/data.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/datum.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_follow/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_guard_top_list/data.dart';
@@ -169,11 +169,13 @@ abstract final class LiveHttp {
 
   static Future<LoadingState<List<LiveEmoteDatum>?>> getLiveEmoticons({
     required int roomId,
+    Account? account,
   }) async {
     return await Request().requestApi(
       Api.getLiveEmoticons,
       kind: ApiCallKind.query,
       decode: (body) => LiveEmoteData.fromJson(body['data']).data,
+      options: Options(extra: {'account': account}),
       queryParameters: {
         'platform': 'pc',
         'room_id': roomId,

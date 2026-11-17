@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/live/live_emote/datum.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/datum.dart';
 
 class LiveEmoteData {
   List<LiveEmoteDatum>? data;

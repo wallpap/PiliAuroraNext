@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.da
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_emote/emoticon.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/live_emote/view.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';

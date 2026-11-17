@@ -7,11 +7,17 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/datum.dart';
 
 final emoteRepositoryProvider = Provider((ref) => const EmoteRepository());
 
 class EmoteRepository {
   const EmoteRepository();
+  Future<LoadingState<List<LiveEmoteDatum>?>> livePackages(
+    Account account,
+    int roomId,
+  ) => LiveHttp.getLiveEmoticons(account: account, roomId: roomId);
   Future<LoadingState<List<Package>?>> packages(Account account) =>
       ReplyHttp.getEmoteList(account: account, business: 'reply');
   List<RecentEmote> history() {

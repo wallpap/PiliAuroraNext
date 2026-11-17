@@ -15,3 +15,5 @@
 小站由 `bubbleFeedProvider` 按页面、小站、分类与排序持有主账号查询。路由显式传入小站 ID，子分类沿同一资源和排序创建查询，不读取隐式路由参数。目录和列表同轮发布，续页保留目录；目录替换销毁旧 Tab 子树。Widget 持有滚动，实际视口触发分页；失败保留原页码并可重试。`test/pages/bubble/controller_test.dart` 覆盖同 UID 换凭据、排序乱序、失败重试、双小站和活动 Tab 释放。
 
 评论表情包由页面实例的 `emotePackagesProvider` 绑定主账号查询；`DefaultTabController` 随当前包快照释放，编辑器不再创建或删除共享 GetX controller。最近表情由应用级 `recentEmotesProvider` 持有，去重后最多 40 项，复制调用方内容并串行保存各自快照。损坏记录逐条跳过，可选缓存失败由 data 层记录，不影响选择。表情模型统一在 `domain/emote/`，原远端模型入口已移除；管理页仍使用自身已有编辑状态。`test/pages/emote/` 验证凭据替换、多面板共享历史与独立 Tab、保存失败、限长及图片视口需求。
+
+直播表情使用 `liveEmotePackagesProvider`，按面板实例、房间及主账号隔离，HTTP 显式沿查询账号发送。协议对象位于 `domain/live_emote/`；Tab 由 Widget 随包快照释放，发送面板只消费选择或发送意图。`test/pages/live_emote/controller_test.dart` 覆盖同 UID 凭据替换、同房间多面板、不同房间、失败重试与活动 Tab 释放；发送草稿与发送互斥仍由直播房间回归验证。

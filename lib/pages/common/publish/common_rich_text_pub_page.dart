@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/models/dynamics/result.dart'
     show PicModel, FilePicModel, OpusPicModel;
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/emote.dart' as e;
-import 'package:pili_aurora_next/models/remote/live/live_emote/emoticon.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_publish_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

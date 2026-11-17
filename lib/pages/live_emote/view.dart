@@ -7,13 +7,13 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView, platformClampingPhysics;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_emote/datum.dart';
-import 'package:pili_aurora_next/models/remote/live/live_emote/emoticon.dart';
-import 'package:pili_aurora_next/pages/live_emote/controller.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/datum.dart';
+import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/live_emote_panel.dart';
 import 'package:material_ui/material_ui.dart';
 
-class LiveEmotePanel extends StatefulWidget {
+class LiveEmotePanel extends ConsumerStatefulWidget {
   final int roomId;
   final Function(Emoticon emote, double? width, double? height) onChoose;
   final ValueChanged<Emoticon> onSendEmoticonUnique;
@@ -25,42 +25,41 @@ class LiveEmotePanel extends StatefulWidget {
   });
 
   @override
-  State<LiveEmotePanel> createState() => _LiveEmotePanelState();
+  ConsumerState<LiveEmotePanel> createState() => _LiveEmotePanelState();
 }
 
-class _LiveEmotePanelState extends State<LiveEmotePanel>
+class _LiveEmotePanelState extends ConsumerState<LiveEmotePanel>
     with AutomaticKeepAliveClientMixin {
-  late final LiveEmotePanelController _emotePanelController;
-
-  @override
-  void initState() {
-    super.initState();
-    _emotePanelController = Get.put(
-      LiveEmotePanelController(widget.roomId),
-      tag: widget.roomId.toString(),
-    );
-  }
-
+  final _owner = Object();
+  LiveEmoteQuery get _query => (owner: _owner, roomId: widget.roomId);
+  Future<void> _reload() =>
+      ref.read(liveEmotePackagesProvider(_query).notifier).onRefresh();
   @override
   bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Obx(() => _buildBody(_emotePanelController.loadingState.value));
+    final state = ref.watch(liveEmotePackagesProvider(_query));
+    final packages = state.loading.dataOrNull;
+    if (packages == null || packages.isEmpty) return _buildBody(state.loading);
+    return DefaultTabController(
+      key: ObjectKey(packages),
+      length: packages.length,
+      child: _buildBody(state.loading),
+    );
   }
 
-  Widget _buildBody(LoadingState<List<LiveEmoteDatum>?> loadingState) {
+  Widget _buildBody(LoadingState<List<LiveEmoteDatum>> loadingState) {
     late final theme = Theme.of(context);
     return switch (loadingState) {
       Loading() => m3eLoading,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? Column(
                 children: [
                   Expanded(
                     child: tabBarView(
-                      controller: _emotePanelController.tabController,
                       children: response.map(
                         (item) {
                           final emote = item.emoticons;
@@ -134,7 +133,6 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
                     color: theme.dividerColor.withValues(alpha: 0.1),
                   ),
                   TabBar(
-                    controller: _emotePanelController.tabController,
                     padding: const EdgeInsets.only(right: 60),
                     dividerColor: Colors.transparent,
                     dividerHeight: 0,
@@ -163,7 +161,7 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
 
   Widget _errorWidget([String? errMsg]) => Center(
     child: TextButton.icon(
-      onPressed: _emotePanelController.onReload,
+      onPressed: _reload,
       icon: const Icon(Icons.refresh),
       label: Text(errMsg ?? '没有数据'),
     ),

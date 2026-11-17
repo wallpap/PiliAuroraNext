@@ -4,7 +4,6 @@ import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/live_emote/controller.dart';
 import 'package:pili_aurora_next/pages/live_emote/view.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -42,14 +41,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     if (widget.fromEmote) {
       updatePanelType(PanelType.emoji);
     }
-  }
-
-  @override
-  void dispose() {
-    Get.delete<LiveEmotePanelController>(
-      tag: _roomId.toString(),
-    );
-    super.dispose();
   }
 
   @override
