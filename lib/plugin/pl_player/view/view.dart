@@ -1,32 +1,19 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' as ui;
 
-import 'package:pili_aurora_next/utils/volume_utils.dart';
-import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/common/widgets/gesture/immediate_tap_gesture_recognizer.dart';
-import 'package:pili_aurora_next/common/widgets/gesture/mouse_interactive_viewer.dart';
-import 'package:pili_aurora_next/common/widgets/gesture/player_gesture_recognizer.dart';
-import 'package:pili_aurora_next/common/widgets/progress_bar/audio_video_progress_bar.dart';
-import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/danmaku_actions.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/player_gestures.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/player_indicators.dart';
+
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
-    as ugc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/ugc_season.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
-import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/bottom_control.dart'
     as live_bottom;
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
-import 'package:pili_aurora_next/pages/video/widgets/danmaku_like_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/audio_recovery.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_status.dart';
-import 'package:pili_aurora_next/plugin/pl_player/models/double_tap_type.dart';
-import 'package:pili_aurora_next/plugin/pl_player/models/fullscreen_mode.dart';
-import 'package:pili_aurora_next/plugin/pl_player/models/gesture_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_loading.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_subtitle_view.dart';
@@ -34,26 +21,15 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/seek_indicator.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/bottom_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/common_btn.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/rendering.dart' show RenderProxyBox;
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'package:pili_aurora_next/plugin/pl_player/view/danmaku_chart.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/video_progress.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/seek_preview.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/video_controls.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/webp_capture.dart';
@@ -86,15 +62,7 @@ class PLVideoPlayer extends StatefulWidget {
   final Widget? bottomControl;
   final VoidCallback? onRetry;
   final Widget? danmuWidget;
-  final void Function([
-    int?,
-    UgcSeason?,
-    List<ugc.BaseEpisodeItem>?,
-    String?,
-    int?,
-    int?,
-  ])?
-  showEpisodes;
+  final ShowPlayerEpisodes? showEpisodes;
   final VoidCallback? showViewPoints;
   final Color fill;
   final Alignment alignment;
@@ -112,56 +80,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       widget.videoDetailController!;
 
   final _playerKey = GlobalKey();
-  final _videoKey = GlobalKey();
+  late final PlayerDanmakuActions _danmakuActions;
+  late final PlayerGestures _gestures;
   late final PlayerVideoOutput _videoOutput;
-
-  final RxDouble _brightnessValue = 0.0.obs;
-  final RxBool _brightnessIndicator = false.obs;
-  Timer? _brightnessTimer;
-
-  late FullScreenMode mode;
-
-  late final RxBool showRestoreScaleBtn = false.obs;
-
-  GestureType? _gestureType;
-  Offset? _initialFocalPoint;
-
-  StreamSubscription? _brightnessListener;
-  void _onBrightnessChanged(double value) {
-    if (mounted && _gestureType != .left) {
-      _brightnessValue.value = value;
-    }
-  }
-
-  void _getSystemBrightness() {
-    ScreenBrightnessPlatform.instance.system.then((res) {
-      if (mounted) {
-        _brightnessValue.value = res;
-      }
-    });
-  }
-
-  void _getAppBrightness() {
-    ScreenBrightnessPlatform.instance.application.then((res) {
-      if (mounted) {
-        _brightnessValue.value = res;
-      }
-    });
-  }
-
-  void _onVolumeChanged(double value) {
-    if (mounted && !plPlayerController.volumeInterceptEventStream) {
-      plPlayerController.volume.value = roundVolumeRatio(value);
-    }
-  }
-
-  void _getCurrVolume() {
-    FlutterVolumeController.getVolume().then((res) {
-      if (mounted) {
-        plPlayerController.volume.value = roundVolumeRatio(res!);
-      }
-    });
-  }
 
   final _subtitleControlsVisible = ValueNotifier(false);
   StreamSubscription? _controlsListener;
@@ -204,16 +125,26 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void initState() {
     super.initState();
-    plPlayerController.addDanmakuRuleListener(_removeDmAction);
+    _danmakuActions = PlayerDanmakuActions(
+      plPlayerController: plPlayerController,
+      durationMs: () => widget.videoDetailController?.data.timeLength,
+      liveRoomId: () => (widget.bottomControl as live_bottom.BottomControl)
+          .liveRoomCtr
+          .roomId,
+    );
 
     _controlsListener = plPlayerController.showControls.listen(
       _onControlChanged,
     );
 
-    _transformationController = TransformationController();
+    _gestures = PlayerGestures(
+      plPlayerController: plPlayerController,
+      danmakuActions: _danmakuActions,
+      context: () => context,
+    );
     _videoOutput = PlayerVideoOutput(
       plPlayerController: plPlayerController,
-      transformationController: _transformationController,
+      transformationController: _gestures.transformationController,
     );
 
     _animationController = AnimationController(
@@ -237,105 +168,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _onFramePresentationChanged,
     );
     videoController = _videoOutput.videoController;
-    if (PlatformUtils.isMobile) {
-      Future.microtask(() {
-        try {
-          FlutterVolumeController.updateShowSystemUI(true);
-          _getCurrVolume();
-          FlutterVolumeController.addListener(
-            _onVolumeChanged,
-            // The plugin defaults to ambient and overwrites AVAudioSession.
-            // Keep media playback audible regardless of listener/mpv init order.
-            category: AudioSessionCategory.playback,
-            emitOnStart: false,
-          );
-        } catch (_) {}
-
-        try {
-          if (plPlayerController.setSystemBrightness) {
-            _getSystemBrightness();
-            _brightnessListener = ScreenBrightnessPlatform
-                .instance
-                .onSystemScreenBrightnessChanged
-                .listen(_onBrightnessChanged);
-          } else {
-            _getAppBrightness();
-            _brightnessListener = ScreenBrightnessPlatform
-                .instance
-                .onApplicationScreenBrightnessChanged
-                .listen(_onBrightnessChanged);
-          }
-        } catch (_) {}
-      });
-    }
-
-    if (plPlayerController.enableTapDm) {
-      _tapGestureRecognizer = ImmediateTapGestureRecognizer(
-        onTapDown: plPlayerController.enableShowDanmakuAdaptive.value
-            ? _onTapDown
-            : null,
-        onTapUp: _onTapUp,
-        onTapCancel: _removeDmAction,
-      );
-
-      _danmakuListener = plPlayerController.enableShowDanmakuAdaptive.listen((
-        value,
-      ) {
-        if (!value) _removeDmAction();
-        _tapGestureRecognizer.onTapDown = value ? _onTapDown : null;
-      });
-    } else {
-      _tapGestureRecognizer = ImmediateTapGestureRecognizer(onTapUp: _onTapUp);
-    }
-
-    _doubleTapGestureRecognizer = DoubleTapGestureRecognizer()
-      ..onDoubleTapDown = _onDoubleTapDown;
-
-    _scaleGestureRecognizer = PlayerScaleGestureRecognizer(
-      debugOwner: this,
-      dragStartBehavior: .start,
-      allowedButtonsFilter: (buttons) => buttons == kPrimaryButton,
-      trackpadScrollToScaleFactor: const Offset(
-        0,
-        -1 / kDefaultMouseScrollToScaleFactor,
-      ),
-      trackpadScrollCausesScale: false,
-    );
-  }
-
-  Future<void> setBrightness(double value) async {
-    _brightnessValue.value = value;
-    try {
-      if (plPlayerController.setSystemBrightness) {
-        await ScreenBrightnessPlatform.instance.setSystemScreenBrightness(
-          value,
-        );
-      } else {
-        await ScreenBrightnessPlatform.instance.setApplicationScreenBrightness(
-          value,
-        );
-      }
-    } catch (_) {}
-    _brightnessIndicator.value = true;
-    _brightnessTimer?.cancel();
-    _brightnessTimer = Timer(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        _brightnessIndicator.value = false;
-      }
-    });
-    plPlayerController.brightness.value = value;
   }
 
   @override
   void dispose() {
     unawaited(_webpCapture.cancel());
-    plPlayerController.removeDanmakuRuleListener(_removeDmAction);
-    _danmakuListener?.cancel();
-    _tapGestureRecognizer.dispose();
-    _longPressRecognizer?.dispose();
-    _doubleTapGestureRecognizer.dispose();
-    _scaleGestureRecognizer.dispose();
-    _brightnessListener?.cancel();
     _controlsListener?.cancel();
     _loadingListener?.cancel();
     _subtitleControlsVisible.dispose();
@@ -344,11 +181,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     );
     _animationController.dispose();
     _videoOutput.dispose();
-    _transformationController.dispose();
-    _removeDmAction();
-    if (PlatformUtils.isMobile) {
-      FlutterVolumeController.removeListener();
-    }
+    _gestures.dispose();
+    _danmakuActions.dispose();
+
     super.dispose();
   }
 
@@ -356,17 +191,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 
-  late final TransformationController _transformationController;
-
-  late ColorScheme colorScheme;
   double maxWidth = 0;
   double maxHeight = 0;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    colorScheme = ColorScheme.of(context);
-  }
 
   @override
   void didUpdateWidget(covariant PLVideoPlayer oldWidget) {
@@ -383,420 +209,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     }
   }
 
-  double? _gestureVolume;
-  final _scrollVolume = VolumeScrollAdjustment();
-
-  void _onPanStart(ScaleStartDetails details) {
-    _gestureVolume = null;
-    _gestureType = null;
-    _initialFocalPoint = details.localFocalPoint;
-  }
-
-  void _onScaleUpdate(double scale) {
-    showRestoreScaleBtn.value = scale != 1.0;
-  }
-
-  void _onHorizontalDragStart() {
-    plPlayerController.onSeekStart(plPlayerController.position.value);
-  }
-
-  void _onHorizontalDragUpdate(double dx) {
-    final curPos =
-        plPlayerController.seekToPos?.inMilliseconds ??
-        plPlayerController.seekPosition.value * 1000;
-    final posDelta = (plPlayerController.sliderScale * dx / maxWidth).round();
-    final newPos = (curPos + posDelta).clamp(
-      0,
-      plPlayerController.durationInMilliseconds,
-    );
-    final seconds = newPos ~/ 1000;
-    plPlayerController
-      ..seekToPos = Duration(milliseconds: newPos)
-      ..seekPosition.value = seconds;
-    if (!plPlayerController.isFileSource &&
-        plPlayerController.showSeekPreview) {
-      plPlayerController.updatePreviewIndex(seconds);
-    }
-  }
-
-  void _onHorizontalDragEnd() {
-    if (plPlayerController.seekToPos case final seekToPos?) {
-      feedBack();
-      plPlayerController
-        ..position.value = seekToPos.inSeconds
-        ..seekTo(seekToPos, isSeek: false)
-        ..seekToPos = null;
-    } else {
-      plPlayerController.position.value =
-          plPlayerController.videoPlayerController?.state.position.inSeconds ??
-          0;
-    }
-    plPlayerController.onSeekEnd();
-  }
-
-  void _onPanUpdate(ScaleUpdateDetails details) {
-    if (_gestureType == null) {
-      final cumulativeDelta = details.localFocalPoint - _initialFocalPoint!;
-      if (cumulativeDelta.distanceSquared < 1) return;
-      final dx = cumulativeDelta.dx.abs();
-      final dy = cumulativeDelta.dy.abs();
-      if (dx > 3 * dy) {
-        _onHorizontalDragStart();
-        _gestureType = .horizontal;
-      } else if (dy > 3 * dx) {
-        if (!plPlayerController.enableSlideVolumeBrightness &&
-            !plPlayerController.enableSlideFS) {
-          return;
-        }
-
-        final double tapPosition = details.localFocalPoint.dx;
-        final double sectionWidth = maxWidth / 3;
-        if (tapPosition < sectionWidth) {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 左边区域
-          if (PlatformUtils.isDesktop) {
-            _gestureType = .right;
-          } else {
-            _gestureType = .left;
-          }
-        } else if (tapPosition < sectionWidth * 2) {
-          if (!plPlayerController.enableSlideFS) {
-            return;
-          }
-          // 全屏
-          _gestureType = .center;
-        } else {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 右边区域
-          _gestureType = .right;
-        }
-      }
-      return;
-    }
-
-    Offset delta = details.focalPointDelta;
-
-    if (_gestureType == .horizontal) {
-      // live模式下禁用
-      if (plPlayerController.isLive) return;
-
-      final height = maxHeight * 0.125;
-      if (details.localFocalPoint.dy <= height &&
-          (details.localFocalPoint.dx >= maxWidth * 0.875 ||
-              details.localFocalPoint.dx <= maxWidth * 0.125)) {
-        if (!plPlayerController.hasToasted) {
-          plPlayerController
-            ..seekToPos = null
-            ..hasToasted = true;
-          if (plPlayerController.showSeekPreview) {
-            plPlayerController.showPreview.value = false;
-          }
-          SmartDialog.showAttach(
-            targetContext: context,
-            alignment: .center,
-            usePenetrate: true,
-            animationType: .fade,
-            maskColor: Colors.transparent,
-            displayTime: const Duration(milliseconds: 1500),
-            animationTime: const Duration(milliseconds: 200),
-            builder: (context) => Container(
-              padding: const .symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                borderRadius: const .all(.circular(6)),
-                color: colorScheme.secondaryContainer,
-              ),
-              child: Text(
-                '松开手指，取消进退',
-                style: TextStyle(color: colorScheme.onSecondaryContainer),
-              ),
-            ),
-          );
-        }
-        return;
-      } else if (plPlayerController.hasToasted) {
-        plPlayerController.hasToasted = false;
-      }
-
-      _onHorizontalDragUpdate(delta.dx);
-    } else if (_gestureType == .left) {
-      // 左边区域 👈
-      final double level = maxHeight * 3;
-      final double brightness = (_brightnessValue.value - delta.dy / level)
-          .clamp(0.0, 1.0);
-      setBrightness(brightness);
-    } else if (_gestureType == .center) {
-      // 全屏
-      const double threshold = 2.5; // 滑动阈值
-      double cumulativeDy = details.localFocalPoint.dy - _initialFocalPoint!.dy;
-
-      void fullScreenTrigger(bool status) {
-        plPlayerController.triggerFullScreen(status: status);
-      }
-
-      if (cumulativeDy > threshold) {
-        _gestureType = .center_down;
-        if (isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          fullScreenTrigger(
-            plPlayerController.fullScreenGestureReverse,
-          );
-        }
-      } else if (cumulativeDy < -threshold) {
-        _gestureType = .center_up;
-        if (!isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          fullScreenTrigger(
-            !plPlayerController.fullScreenGestureReverse,
-          );
-        }
-      }
-    } else if (_gestureType == .right) {
-      // 右边区域
-      final double level = maxHeight * 0.5;
-      _gestureVolume = clampDouble(
-        (_gestureVolume ?? plPlayerController.volume.value) - delta.dy / level,
-        0,
-        1,
-      );
-      ActionThrottle.run(
-        'setVolume',
-        const Duration(milliseconds: 20),
-        () {
-          final double volume = clampDouble(
-            _gestureVolume!,
-            0.0,
-            plPlayerController.maxVolume,
-          );
-          plPlayerController.setVolume(volume);
-        },
-      );
-    }
-  }
-
-  void _onPanEnd(ScaleEndDetails details) {
-    _gestureVolume = null;
-    if (_gestureType == .horizontal) {
-      _onHorizontalDragEnd();
-    }
-    _initialFocalPoint = null;
-    _gestureType = null;
-  }
-
-  void onDoubleTapDownMobile(TapDownDetails details) {
-    if (plPlayerController.isLive || plPlayerController.controlsLock.value) {
-      return;
-    }
-    final double tapPosition = details.localPosition.dx;
-    final double sectionWidth = maxWidth / 4;
-    DoubleTapType type;
-    if (tapPosition < sectionWidth) {
-      type = DoubleTapType.left;
-    } else if (tapPosition < sectionWidth * 3) {
-      type = DoubleTapType.center;
-    } else {
-      type = DoubleTapType.right;
-    }
-    plPlayerController.doubleTapFuc(type);
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    switch (details.kind) {
-      case ui.PointerDeviceKind.mouse when PlatformUtils.isDesktop:
-        plPlayerController.onDoubleTapCenter();
-      default:
-        if (_suspendedDm == null) {
-          plPlayerController.controls = !plPlayerController.showControls.value;
-        } else if (plPlayerController.danmakuInteraction?.snapshot.any(
-              (item) =>
-                  item.identity == _suspendedDm!.identity && item.selected,
-            ) ??
-            false) {
-          _dmOffset.value = details.localPosition;
-        } else {
-          _suspendedDm = null;
-        }
-    }
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    final interaction = plPlayerController.danmakuInteraction;
-    final item = interaction?.hitTest(details.localPosition);
-    if (item != null &&
-        item.extra != null &&
-        interaction!.select(item.identity)) {
-      _suspendedDm = item;
-    } else {
-      interaction?.clearSelection();
-      _suspendedDm = null;
-      _dmOffset.value = null;
-    }
-  }
-
-  void _onDoubleTapDown(TapDownDetails details) {
-    switch (details.kind) {
-      case ui.PointerDeviceKind.mouse when PlatformUtils.isDesktop:
-        plPlayerController.triggerFullScreen(status: !isFullScreen);
-      default:
-        onDoubleTapDownMobile(details);
-    }
-  }
-
-  LongPressGestureRecognizer? _longPressRecognizer;
-  LongPressGestureRecognizer get longPressRecognizer => _longPressRecognizer ??=
-      LongPressGestureRecognizer(
-          duration: plPlayerController.enableTapDm
-              ? const Duration(milliseconds: 300)
-              : null,
-        )
-        ..onLongPressStart = ((_) =>
-            plPlayerController.setLongPressStatus(true))
-        ..onLongPressEnd = ((_) => plPlayerController.setLongPressStatus(false))
-        ..onLongPressCancel = (() =>
-            plPlayerController.setLongPressStatus(false));
-  late final ImmediateTapGestureRecognizer _tapGestureRecognizer;
-  late final DoubleTapGestureRecognizer _doubleTapGestureRecognizer;
-  late final PlayerScaleGestureRecognizer _scaleGestureRecognizer;
-
-  StreamSubscription<bool>? _danmakuListener;
-
-  static const _kOffsetThreshold = 25.0;
-  bool _isPositionAllowed(Offset offset) {
-    if (offset.dx < _kOffsetThreshold ||
-        offset.dy < _kOffsetThreshold ||
-        offset.dx > maxWidth - _kOffsetThreshold ||
-        offset.dy > maxHeight - _kOffsetThreshold) {
-      return false;
-    }
-    return true;
-  }
-
-  /// 鼠标中键/右键全屏切换的挂起项：(进入全屏, 应用内全屏)。
-  /// 在鼠标按下时启动原生全屏过渡会与本次点击重叠，窗口可能卡在半过渡状态
-  /// 导致鼠标事件失效，因此延后到抬起后执行。
-  (bool, bool)? _pendingFullScreenToggle;
-
-  void _onPointerDown(PointerDownEvent event) {
-    if (PlatformUtils.isDesktop) {
-      final buttons = event.buttons;
-      final isSecondaryBtn = buttons == kSecondaryMouseButton;
-      if (isSecondaryBtn || buttons == kMiddleMouseButton) {
-        _pendingFullScreenToggle = (!isFullScreen, isSecondaryBtn);
-        return;
-      }
-    }
-
-    final controlsUnlock = !plPlayerController.controlsLock.value;
-    if (PlatformUtils.isMobile) {
-      _tapGestureRecognizer.addPointer(event);
-      if (controlsUnlock) {
-        if (!plPlayerController.isLive) {
-          _doubleTapGestureRecognizer.addPointer(event);
-          longPressRecognizer.addPointer(event);
-        }
-        _scaleGestureRecognizer
-          ..isPosAllowed = _isPositionAllowed(event.localPosition)
-          ..addPointer(event);
-      }
-    } else if (controlsUnlock) {
-      if (plPlayerController.isLive) {
-        _doubleTapGestureRecognizer.addPointer(event);
-      } else {
-        _tapGestureRecognizer.addPointer(event);
-        _doubleTapGestureRecognizer.addPointer(event);
-        longPressRecognizer.addPointer(event);
-      }
-      _scaleGestureRecognizer.addPointer(event);
-    }
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    final pending = _pendingFullScreenToggle;
-    if (pending == null || event.buttons != 0) {
-      return;
-    }
-    _pendingFullScreenToggle = null;
-    if (isFullScreen && plPlayerController.controlsLock.value) {
-      plPlayerController
-        ..controlsLock.value = false
-        ..showControls.value = false;
-    }
-    plPlayerController.triggerFullScreen(
-      status: pending.$1,
-      inAppFullScreen: pending.$2,
-    );
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    _pendingFullScreenToggle = null;
-  }
-
-  void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
-    if (plPlayerController.controlsLock.value) return;
-    if (_gestureType == null) {
-      final pan = event.pan;
-      if (pan.distanceSquared < 1) return;
-      final dx = pan.dx.abs();
-      final dy = pan.dy.abs();
-      if (dx > 3 * dy) {
-        _onHorizontalDragStart();
-        _gestureType = .horizontal;
-      } else if (dy > 3 * dx) {
-        _gestureType = .right;
-      }
-      return;
-    }
-
-    if (_gestureType == .horizontal) {
-      if (plPlayerController.isLive) return;
-
-      _onHorizontalDragUpdate(event.localPanDelta.dx);
-    } else if (_gestureType == .right) {
-      if (!plPlayerController.enableSlideVolumeBrightness) {
-        return;
-      }
-
-      final double level = maxHeight * 0.5;
-      _gestureVolume = clampDouble(
-        (_gestureVolume ?? plPlayerController.volume.value) -
-            event.localPanDelta.dy / level,
-        0,
-        1,
-      );
-      ActionThrottle.run(
-        'setVolume',
-        const Duration(milliseconds: 20),
-        () {
-          final double volume = clampDouble(
-            _gestureVolume!,
-            0.0,
-            plPlayerController.maxVolume,
-          );
-          plPlayerController.setVolume(volume);
-        },
-      );
-    }
-  }
-
-  void _onPointerPanZoomEnd(PointerPanZoomEndEvent event) {
-    _gestureVolume = null;
-    if (_gestureType == .horizontal) {
-      _onHorizontalDragEnd();
-    }
-    _gestureType = null;
-  }
-
-  void _onPointerSignal(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      final volume = _scrollVolume.apply(
-        plPlayerController.volume.value,
-        event.scrollDelta.dy,
-      );
-      plPlayerController.setVolume(volume);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     maxWidth = widget.maxWidth;
@@ -808,15 +220,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       orientation: MediaQuery.orientationOf(context),
     );
     final isFullScreen = this.isFullScreen;
-    final primary = isFullScreen && colorScheme.isLight
-        ? colorScheme.inversePrimary
-        : colorScheme.primary;
-    late final thumbGlowColor = primary.withAlpha(80);
-    late final bufferedBarColor = primary.withValues(alpha: 0.4);
-    const TextStyle textStyle = TextStyle(
-      color: Colors.white,
-      fontSize: 12,
-    );
     final isLive = plPlayerController.isLive;
 
     final child = Stack(
@@ -848,18 +251,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           ),
 
         if (plPlayerController.enableTapDm)
-          Obx(
-            () {
-              if (!plPlayerController.enableShowDanmakuAdaptive.value) {
-                return const SizedBox.shrink();
-              }
-              final dmOffset = _dmOffset.value;
-              if (dmOffset != null && _suspendedDm != null) {
-                return _buildDmAction(_suspendedDm!, dmOffset);
-              }
-              return const SizedBox.shrink();
-            },
-          ),
+          _danmakuActions.buildOverlay(context, maxWidth),
 
         // 加载或替换输出时遮住中间画面；底层纹理继续参与 raster。
         ListenableBuilder(
@@ -876,198 +268,21 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           ),
         ),
 
-        /// 长按倍速 toast
         if (!isLive)
-          IgnorePointer(
-            ignoring: true,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: FractionalTranslation(
-                translation: isFullScreen
-                    ? const Offset(0.0, 1.2)
-                    : const Offset(0.0, 0.8),
-                child: Obx(
-                  () => AnimatedOpacity(
-                    curve: Curves.easeInOut,
-                    opacity: plPlayerController.longPressStatus.value
-                        ? 1.0
-                        : 0.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Color(0x88000000),
-                        borderRadius: BorderRadius.all(Radius.circular(16)),
-                      ),
-                      child: Obx(
-                        () => Text(
-                          '${plPlayerController.enableAutoLongPressSpeed ? (plPlayerController.longPressStatus.value ? plPlayerController.lastPlaybackSpeed : plPlayerController.playbackSpeed) * 2 : plPlayerController.longPressSpeed}倍速中',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          PlayerSpeedIndicator(
+            plPlayerController: plPlayerController,
+            isFullScreen: isFullScreen,
           ),
 
-        /// 时间进度 toast
         if (!isLive)
-          IgnorePointer(
-            ignoring: true,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: FractionalTranslation(
-                translation: isFullScreen
-                    ? const Offset(0.0, 1.2)
-                    : const Offset(0.0, 0.8),
-                child: Obx(
-                  () => AnimatedOpacity(
-                    curve: Curves.easeInOut,
-                    opacity: plPlayerController.isSeeking.value ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0x88000000),
-                        borderRadius: BorderRadius.all(Radius.circular(64)),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        spacing: 2,
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Obx(
-                            () => Text(
-                              DurationUtils.formatDuration(
-                                plPlayerController.seekPosition.value,
-                              ),
-                              style: textStyle,
-                            ),
-                          ),
-                          const Text('/', style: textStyle),
-                          Obx(
-                            () => Text(
-                              DurationUtils.formatDuration(
-                                plPlayerController.duration.value,
-                              ),
-                              style: textStyle,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          PlayerSeekIndicator(
+            plPlayerController: plPlayerController,
+            isFullScreen: isFullScreen,
           ),
 
-        /// 音量🔊 控制条展示
-        IgnorePointer(
-          ignoring: true,
-          child: Align(
-            alignment: Alignment.center,
-            child: Obx(
-              () {
-                final volume = plPlayerController.volume.value;
-                return AnimatedOpacity(
-                  curve: Curves.easeInOut,
-                  opacity: plPlayerController.volumeIndicator.value ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Color(0x88000000),
-                      borderRadius: BorderRadius.all(Radius.circular(64)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Icon(
-                          volume == 0.0
-                              ? Icons.volume_off
-                              : volume < 0.5
-                              ? Icons.volume_down
-                              : Icons.volume_up,
-                          color: Colors.white,
-                          size: 20.0,
-                        ),
-                        const SizedBox(width: 2.0),
-                        Text(
-                          '${(volume * 100.0).round()}%',
-                          style: const TextStyle(
-                            fontSize: 13.0,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
+        PlayerVolumeIndicator(plPlayerController: plPlayerController),
 
-        /// 亮度🌞 控制条展示
-        IgnorePointer(
-          ignoring: true,
-          child: Align(
-            alignment: Alignment.center,
-            child: Obx(
-              () => AnimatedOpacity(
-                curve: Curves.easeInOut,
-                opacity: _brightnessIndicator.value ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 150),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0x88000000),
-                    borderRadius: BorderRadius.all(Radius.circular(64)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(
-                        _brightnessValue.value < 1.0 / 3.0
-                            ? Icons.brightness_low
-                            : _brightnessValue.value < 2.0 / 3.0
-                            ? Icons.brightness_medium
-                            : Icons.brightness_high,
-                        color: Colors.white,
-                        size: 18.0,
-                      ),
-                      const SizedBox(width: 2.0),
-                      Text(
-                        '${(_brightnessValue.value * 100.0).round()}%',
-                        style: const TextStyle(
-                          fontSize: 13.0,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        _gestures.buildBrightnessIndicator(),
 
         // 头部、底部控制条
         Positioned.fill(
@@ -1121,143 +336,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           ),
         ),
 
-        Obx(
-          () =>
-              showRestoreScaleBtn.value && plPlayerController.showControls.value
-              ? Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 95),
-                    child: FilledButton.tonal(
-                      style: FilledButton.styleFrom(
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        backgroundColor: colorScheme.secondaryContainer
-                            .withValues(alpha: 0.8),
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.all(15),
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(6),
-                          ),
-                        ),
-                      ),
-                      onPressed: () async {
-                        showRestoreScaleBtn.value = false;
-                        final animController = AnimationController(
-                          vsync: this,
-                          duration: const Duration(milliseconds: 255),
-                        );
-                        final anim = animController.drive(
-                          Matrix4Tween(
-                            begin: _transformationController.value,
-                            end: Matrix4.identity(),
-                          ).chain(CurveTween(curve: Curves.easeOut)),
-                        );
-                        void listener() {
-                          _transformationController.value = anim.value;
-                        }
+        _gestures.buildRestoreButton(),
 
-                        animController.addListener(listener);
-                        await animController.forward(from: 0);
-                        animController
-                          ..removeListener(listener)
-                          ..dispose();
-                      },
-                      child: const Text('还原屏幕'),
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
-        /// 进度条 live模式下禁用
         if (!isLive)
-          Positioned(
-            bottom: -2.2,
-            left: 0,
-            right: 0,
-            child: Obx(
-              () {
-                final showControls = plPlayerController.showControls.value;
-                final bool offstage;
-                switch (plPlayerController.progressType) {
-                  case .alwaysShow:
-                    offstage = showControls;
-                  case .alwaysHide:
-                    if (!plPlayerController.isSeeking.value) {
-                      return const SizedBox.shrink();
-                    }
-                    offstage = showControls;
-                  case .onlyShowFullScreen:
-                    offstage =
-                        showControls ||
-                        (!isFullScreen && !plPlayerController.isSeeking.value);
-                  case .onlyHideFullScreen:
-                    offstage =
-                        showControls ||
-                        (isFullScreen && !plPlayerController.isSeeking.value);
-                }
-                return Offstage(
-                  offstage: offstage,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      Obx(
-                        () => ProgressBar(
-                          progress: plPlayerController.progress,
-                          buffered: plPlayerController.buffered.value,
-                          total: plPlayerController.duration.value,
-                          progressBarColor: primary,
-                          baseBarColor: const Color(0x33FFFFFF),
-                          bufferedBarColor: bufferedBarColor,
-                          thumbColor: primary,
-                          thumbGlowColor: thumbGlowColor,
-                          barHeight: 3.5,
-                          thumbRadius: 2.5,
-                        ),
-                      ),
-                      if (plPlayerController.enableBlock &&
-                          videoDetailController.segmentProgressList.isNotEmpty)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0.75,
-                          child: SegmentProgressBar(
-                            segments: videoDetailController.segmentProgressList,
-                          ),
-                        ),
-                      if (plPlayerController.showViewPoints &&
-                          videoDetailController.viewPointList.isNotEmpty &&
-                          videoDetailController.showVP.value)
-                        Padding(
-                          padding: const .only(bottom: 4.25),
-                          child: ViewPointSegmentProgressBar(
-                            segments: videoDetailController.viewPointList,
-                            onSeek: PlatformUtils.isMobile
-                                ? (position) {
-                                    if (!plPlayerController
-                                        .controlsLock
-                                        .value) {
-                                      plPlayerController.seekTo(
-                                        position,
-                                        isSeek: false,
-                                      );
-                                    }
-                                  }
-                                : null,
-                          ),
-                        ),
-                      if (plPlayerController.showDmChart &&
-                          videoDetailController.showDmTrendChart.value)
-                        if (videoDetailController.dmTrend.value?.dataOrNull
-                            case final list?)
-                          buildDmChart(primary, list, videoDetailController),
-                    ],
-                  ),
-                );
-              },
-            ),
+          CompactVideoProgress(
+            plPlayerController: plPlayerController,
+            videoDetailController: videoDetailController,
+            isFullScreen: isFullScreen,
           ),
 
         if (!isLive && plPlayerController.showSeekPreview)
@@ -1483,47 +568,25 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             if (loaded && plPlayerController.isDesktopPip) {
               _videoOutput.notifyDesktopFramePresented();
             }
-            return MouseInteractiveViewer(
-              scaleEnabled: !plPlayerController.controlsLock.value,
-              pointerSignalFallback: _onPointerSignal,
-              onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
-              onPointerPanZoomEnd: _onPointerPanZoomEnd,
-              onPointerDown: _onPointerDown,
-              onPointerUp: _onPointerUp,
-              onPointerCancel: _onPointerCancel,
-              onPanStart: _onPanStart,
-              onPanUpdate: _onPanUpdate,
-              onPanEnd: _onPanEnd,
-              onScaleUpdate: _onScaleUpdate,
-              scaleGestureRecognizer: _scaleGestureRecognizer,
-              panEnabled: false,
-              minScale: plPlayerController.enableShrinkVideoSize ? 0.75 : 1,
-              maxScale: 2.0,
-              boundaryMargin: plPlayerController.enableShrinkVideoSize
-                  ? const .all(double.infinity)
-                  : .zero,
-              panAxis: .aligned,
-              transformationController: _transformationController,
-              childKey: _videoKey,
-              child: RepaintBoundary(
-                key: _videoKey,
-                child: Obx(
-                  () {
-                    final videoFit = plPlayerController.videoFit.value;
-                    return Transform.flip(
-                      flipX: plPlayerController.flipX.value,
-                      flipY: plPlayerController.flipY.value,
-                      child: FittedBox(
-                        fit: videoFit.boxFit,
-                        alignment: widget.alignment,
-                        child: _videoOutput.buildFrame(
-                          fill: widget.fill,
-                          fit: videoFit,
-                        ),
+            return _gestures.buildSurface(
+              width: maxWidth,
+              height: maxHeight,
+              child: Obx(
+                () {
+                  final videoFit = plPlayerController.videoFit.value;
+                  return Transform.flip(
+                    flipX: plPlayerController.flipX.value,
+                    flipY: plPlayerController.flipY.value,
+                    child: FittedBox(
+                      fit: videoFit.boxFit,
+                      alignment: widget.alignment,
+                      child: _videoOutput.buildFrame(
+                        fill: widget.fill,
+                        fit: videoFit,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -1546,327 +609,5 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           identical(widget.plPlayerController, controller) &&
           identical(widget.videoDetailController, details),
     );
-  }
-
-  static const _overlaySpacing = 5.0;
-  static const _actionItemWidth = 40.0;
-  static const _actionItemHeight = 35.0 - _triangleHeight;
-
-  DanmakuDisplaySnapshot<DanmakuExtra>? _suspendedDm;
-  late final Rxn<Offset> _dmOffset = Rxn<Offset>();
-
-  void _removeDmAction() {
-    if (_suspendedDm != null) {
-      plPlayerController.danmakuInteraction?.clearSelection();
-      _suspendedDm = null;
-      _dmOffset.value = null;
-    }
-  }
-
-  Widget _dmActionItem(
-    Widget child, {
-    required Future<void>? Function() onTap,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () async {
-        await onTap();
-        _removeDmAction();
-      },
-      child: SizedBox(
-        width: _actionItemWidth,
-        height: _actionItemHeight,
-        child: Center(
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  static final _timeRegExp = RegExp(r'(?:\d+[:：])?\d+[:：][0-5]?\d(?!\d)');
-
-  int? _getValidOffset(String data) {
-    if (_timeRegExp.firstMatch(data) case final timeStr?) {
-      final offset = DurationUtils.parseDuration(timeStr.group(0));
-      if (0 < offset &&
-          offset * 1000 < videoDetailController.data.timeLength!) {
-        return offset;
-      }
-    }
-    return null;
-  }
-
-  Widget _buildDmAction(
-    DanmakuDisplaySnapshot<DanmakuExtra> item,
-    Offset offset,
-  ) {
-    final interaction = plPlayerController.danmakuInteraction;
-    if (interaction == null ||
-        !interaction.isValid ||
-        !interaction.snapshot.any(
-          (entry) => entry.identity == item.identity && entry.selected,
-        )) {
-      _removeDmAction();
-      return const SizedBox.shrink();
-    }
-    final dx = offset.dx;
-    // fullscreen
-    if (dx > maxWidth) {
-      _removeDmAction();
-      return const SizedBox.shrink();
-    }
-
-    final seekOffset = _getValidOffset(item.text);
-
-    final overlayWidth = _actionItemWidth * (seekOffset == null ? 3 : 4);
-
-    final top = item.bounds.bottom + _triangleHeight + 2;
-
-    final realLeft = dx + overlayWidth / 2;
-
-    final left = realLeft.clamp(
-      _overlaySpacing + overlayWidth,
-      maxWidth - _overlaySpacing,
-    );
-
-    final right = maxWidth - left;
-    final triangleOffset = realLeft - left;
-
-    if (right > (maxWidth - item.bounds.left)) {
-      _removeDmAction();
-      return const SizedBox.shrink();
-    }
-
-    final extra = item.extra;
-    if (extra == null) {
-      _removeDmAction();
-      return const SizedBox.shrink();
-    }
-
-    return Positioned(
-      right: right,
-      top: top,
-      child: _DanmakuTip(
-        offset: triangleOffset,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: switch (extra) {
-            VideoDanmaku() => [
-              DanmakuLikeControl(
-                extra: extra,
-                cid: plPlayerController.cid!,
-                placeholderSize: const Size(
-                  _actionItemWidth,
-                  _actionItemHeight,
-                ),
-                placeholderColor: Colors.white,
-                onLike: () async {
-                  await HeaderControl.likeDanmaku(
-                    extra,
-                    plPlayerController.cid!,
-                  );
-                },
-                builder: (context, onLike) => Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _dmActionItem(
-                      extra.isLike
-                          ? const Icon(
-                              size: 20,
-                              CustomIcons.player_dm_tip_like_solid,
-                              color: Colors.white,
-                            )
-                          : const Icon(
-                              size: 20,
-                              CustomIcons.player_dm_tip_like,
-                              color: Colors.white,
-                            ),
-                      onTap: onLike,
-                    ),
-                    if (extra.like > 0)
-                      Positioned(
-                        left: _actionItemWidth - 10.5,
-                        top: 0,
-                        child: Text(
-                          extra.like.toString(),
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              _dmActionItem(
-                const Icon(
-                  size: 19,
-                  CustomIcons.player_dm_tip_copy,
-                  color: Colors.white,
-                ),
-                onTap: () => Utils.copyText(item.text),
-              ),
-              if (item.selfSend)
-                _dmActionItem(
-                  const Icon(
-                    size: 20,
-                    CustomIcons.player_dm_tip_recall,
-                    color: Colors.white,
-                  ),
-                  onTap: () => HeaderControl.deleteDanmaku(
-                    extra.id,
-                    plPlayerController.cid!,
-                  ),
-                )
-              else
-                _dmActionItem(
-                  const Icon(
-                    size: 20,
-                    CustomIcons.player_dm_tip_back,
-                    color: Colors.white,
-                  ),
-                  onTap: () => HeaderControl.reportDanmaku(
-                    context,
-                    extra: extra,
-                    ctr: plPlayerController,
-                  ),
-                ),
-              if (seekOffset != null)
-                _dmActionItem(
-                  const Icon(
-                    size: 18,
-                    Icons.gps_fixed_outlined,
-                    color: Colors.white,
-                  ),
-                  onTap: () => plPlayerController.seekTo(
-                    Duration(seconds: seekOffset),
-                    isSeek: false,
-                  ),
-                ),
-            ],
-            LiveDanmaku() => [
-              _dmActionItem(
-                const Icon(
-                  size: 20,
-                  MdiIcons.accountOutline,
-                  color: Colors.white,
-                ),
-                onTap: () => Get.toNamed('/member?mid=${extra.mid}'),
-              ),
-              _dmActionItem(
-                const Icon(
-                  size: 19,
-                  CustomIcons.player_dm_tip_copy,
-                  color: Colors.white,
-                ),
-                onTap: () => Utils.copyText(item.text),
-              ),
-              _dmActionItem(
-                const Icon(
-                  size: 20,
-                  CustomIcons.player_dm_tip_back,
-                  color: Colors.white,
-                ),
-                onTap: () => HeaderControl.reportLiveDanmaku(
-                  context,
-                  roomId: (widget.bottomControl as live_bottom.BottomControl)
-                      .liveRoomCtr
-                      .roomId,
-                  msg: item.text,
-                  extra: extra,
-                ),
-              ),
-            ],
-          },
-        ),
-      ),
-    );
-  }
-}
-
-const double _triangleHeight = 5.6;
-
-class _DanmakuTip extends SingleChildRenderObjectWidget {
-  const _DanmakuTip({this.offset = 0, super.child});
-
-  final double offset;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _RenderDanmakuTip(offset: offset);
-  }
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    _RenderDanmakuTip renderObject,
-  ) {
-    renderObject.offset = offset;
-  }
-}
-
-class _RenderDanmakuTip extends RenderProxyBox {
-  _RenderDanmakuTip({
-    required this._offset,
-  });
-
-  double _offset;
-  double get offset => _offset;
-  set offset(double value) {
-    if (_offset == value) return;
-    _offset = value;
-    markNeedsPaint();
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    final paint = Paint()
-      ..color = const Color(0xB3000000)
-      ..style = .fill;
-
-    final radius = size.height / 2;
-    const triangleBase = _triangleHeight * 2 / 3;
-
-    final triangleCenterX = (size.width / 2 + _offset).clamp(
-      radius + triangleBase,
-      size.width - radius - triangleBase,
-    );
-    final path = Path()
-      // triangle (exceed)
-      ..moveTo(triangleCenterX - triangleBase, 0)
-      ..lineTo(triangleCenterX, -_triangleHeight)
-      ..lineTo(triangleCenterX + triangleBase, 0)
-      // top
-      ..lineTo(size.width - radius, 0)
-      // right
-      ..arcToPoint(
-        Offset(size.width - radius, size.height),
-        radius: Radius.circular(radius),
-      )
-      // bottom
-      ..lineTo(radius, size.height)
-      // left
-      ..arcToPoint(
-        Offset(radius, 0),
-        radius: Radius.circular(radius),
-      )
-      ..close();
-
-    context.canvas
-      ..save()
-      ..translate(offset.dx, offset.dy)
-      ..drawPath(path, paint)
-      ..drawPath(
-        path,
-        paint
-          ..color = const Color(0x7EFFFFFF)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.25,
-      )
-      ..restore();
-
-    super.paint(context, offset);
   }
 }

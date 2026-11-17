@@ -89,8 +89,8 @@ class PlayerVideoOutput extends ChangeNotifier {
   StreamSubscription<bool>? _videoOutputFullscreenListener;
   void Function()? _unregisterVideoDiagnostics;
   bool _disposed = false;
-  double maxWidth = 0;
-  double maxHeight = 0;
+  double _maxWidth = 0;
+  double _maxHeight = 0;
   double _devicePixelRatio = 1;
   Orientation? _orientation;
   String? _lastAndroidLayout;
@@ -104,8 +104,8 @@ class PlayerVideoOutput extends ChangeNotifier {
     required double devicePixelRatio,
     required Orientation orientation,
   }) {
-    maxWidth = width;
-    maxHeight = height;
+    _maxWidth = width;
+    _maxHeight = height;
     _devicePixelRatio = devicePixelRatio;
     _orientation = orientation;
     _logAndroidLayout();
@@ -159,7 +159,7 @@ class PlayerVideoOutput extends ChangeNotifier {
       'playing': videoController.player.state.playing,
       'positionMs': videoController.player.state.position.inMilliseconds,
       'fit': plPlayerController.videoFit.value.name,
-      'viewport': {'width': maxWidth, 'height': maxHeight},
+      'viewport': {'width': _maxWidth, 'height': _maxHeight},
       'devicePixelRatio': _devicePixelRatio,
       'surfaceGeneration': _videoOutputResizer.generation,
       'textureId': videoController.id.value,
