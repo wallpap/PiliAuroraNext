@@ -13,7 +13,6 @@ import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/fold_card_
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/item.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/top_details.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
@@ -27,14 +26,7 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
-class _Dynamics extends GetxController implements DynamicsController {
-  @override
-  int hostMid = 1;
-  @override
-  final tempBannedList = <int>{};
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
+int _selectedHost = 1;
 
 class _Member extends MemberDynamicsController {
   _Member() : super(1);
@@ -48,7 +40,7 @@ class _Member extends MemberDynamicsController {
 }
 
 class _Tab extends DynamicsTabController {
-  _Tab() : super(dynamicsType: .up);
+  _Tab() : super(dynamicsType: .up, selectedHost: () => _selectedHost);
   final queries = <Future<void>>[];
   @override
   Future<void> queryData([bool isRefresh = true]) {
@@ -196,7 +188,7 @@ void main() {
       LocalCacheKey.timeStamp: DateTime.now().millisecondsSinceEpoch,
     });
     Get.parameters = {'id': '12', 'name': '话题'};
-    Get.put<DynamicsController>(_Dynamics());
+    _selectedHost = 1;
     requests.clear();
   });
   tearDown(() {
@@ -483,7 +475,10 @@ void main() {
   testWidgets('动态页删除固定账号，目标作者变化或失败时保留列表', (tester) async {
     await mount(tester);
     final controller = own(
-      DynamicsTabController(dynamicsType: DynamicsTabType.up),
+      DynamicsTabController(
+        dynamicsType: DynamicsTabType.up,
+        selectedHost: () => _selectedHost,
+      ),
     );
     final list = [item('1')];
     controller.loadingState.value = Success(list);
@@ -491,7 +486,7 @@ void main() {
     await controller.onRemove(0, '1');
     await until(tester, () => requests.length == 1);
     expect(requests.single.options.extra['account'], same(original));
-    Get.find<DynamicsController>().hostMid = 2;
+    _selectedHost = 2;
     requests.single.reply.complete({'code': 0});
     await settle(tester);
     await remove;

@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/grpc/dyn.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/mine/view.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
@@ -44,7 +44,13 @@ class MainController extends GetxController
   late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
   late int _lastCheckDynamicAt = 0;
   late bool hasDyn = false;
-  late final dynamicController = Get.putOrFind(DynamicsController.new);
+  DiscoveryPageHandle? dynamicController;
+  VoidCallback registerDynamicsPage(DiscoveryPageHandle handle) {
+    dynamicController = handle;
+    return () {
+      if (identical(dynamicController, handle)) dynamicController = null;
+    };
+  }
 
   late bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
@@ -283,7 +289,7 @@ class MainController extends GetxController
             if (currentNav == NavigationBarType.home) {
               homeController.onRefresh();
             } else if (currentNav == NavigationBarType.dynamics) {
-              dynamicController.onRefresh();
+              dynamicController?.onRefresh();
             }
           },
         );
@@ -291,7 +297,7 @@ class MainController extends GetxController
         if (currentNav == NavigationBarType.home) {
           homeController.toTopOrRefresh();
         } else if (currentNav == NavigationBarType.dynamics) {
-          dynamicController.toTopOrRefresh();
+          dynamicController?.toTopOrRefresh();
         }
       }
       _lastSelectTime = now;

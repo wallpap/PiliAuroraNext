@@ -106,6 +106,7 @@ void main() {
     'watch_later',
     'content_library',
     'content_discovery',
+    'community',
     'history',
     'favorites',
     'subscriptions',
@@ -168,6 +169,7 @@ void main() {
       'pages/popular_series/controller.dart',
       'pages/popular_precious/controller.dart',
       'pages/pgc/controller.dart',
+      'pages/dynamics/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {

@@ -13,7 +13,8 @@ import 'package:pili_aurora_next/http/reply.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
@@ -386,9 +387,11 @@ class AuthorPanel extends StatelessWidget {
                   Get.back();
                   onBlock?.call();
                   try {
-                    Get.find<DynamicsController>().tempBannedList.add(
-                      moduleAuthor.mid!,
-                    );
+                    ProviderScope.containerOf(context, listen: false)
+                        .read(dynamicsSelectionProvider.notifier)
+                        .block(
+                          moduleAuthor.mid!,
+                        );
                     SmartDialog.showToast(
                       '已临时屏蔽${moduleAuthor.name}(${moduleAuthor.mid!})，重启恢复',
                     );

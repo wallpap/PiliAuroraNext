@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -15,9 +13,9 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/dyn/like_list/controller.dart';
 import 'package:pili_aurora_next/pages/common/dyn/repost_list/controller.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_authors.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
-import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -25,27 +23,6 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
-
-class _Overview extends DynamicsController {
-  DynamicsTabController? child;
-  final queries = <Future<void>>[];
-  @override
-  DynamicsTabController? get controller => child;
-  @override
-  Future<void> queryData([bool isRefresh = true]) {
-    final query = super.queryData(isRefresh);
-    queries.add(query);
-    return query;
-  }
-}
-
-class _Child extends GetxController implements DynamicsTabController {
-  final refreshResult = Completer<void>();
-  @override
-  Future<void> onRefresh() => refreshResult.future;
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -175,12 +152,15 @@ void main() {
 
   testWidgets('全部关注先读动态续页，再补资料，去重并保留本地已读', (tester) async {
     await GStorage.setting.put(SettingBoxKey.dynamicsShowAllFollowedUp, true);
-    final controller = own(_Overview())..onStart();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = dynamicsAuthorsProvider(Object());
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete(ups([10], 'dynamic-2'));
-    await controller.queries[0];
-    final firstUp = controller.loadingState.value.data.upList!.single
-      ..hasUpdate = false;
+    await tester.pump();
+    controller.markRead(10);
     final dynamicPage = controller.onLoadMore();
     await until(tester, () => requests.length == 2);
     expect(requests[1].options.path, Api.dynUplist);
@@ -197,11 +177,14 @@ void main() {
       },
     });
     await dynamicPage;
-    expect(controller.loadingState.value.data.upList!.map((up) => up.mid), [
+    expect(container.read(provider).loading.data.upList!.map((up) => up.mid), [
       20,
       10,
     ]);
-    expect(firstUp.hasUpdate, isFalse);
+    expect(
+      container.read(provider).loading.data.upList!.last.hasUpdate,
+      isFalse,
+    );
     final followingPage = controller.onLoadMore();
     await until(tester, () => requests.length == 3);
     expect(requests[2].options.path, Api.followings);
@@ -216,7 +199,7 @@ void main() {
       },
     });
     await followingPage;
-    final list = controller.loadingState.value.data.upList!;
+    final list = container.read(provider).loading.data.upList!;
     expect(list.map((up) => up.mid), [20, 10, 30]);
     expect(list.first.hasUpdate, isTrue);
     expect(list.first.uname, '续页作者');
@@ -228,24 +211,28 @@ void main() {
       'data': {'list': []},
     });
     await end;
-    expect(controller.canLoadMore, isFalse);
+    expect(container.read(provider).canLoadMore, isFalse);
   });
 
   testWidgets('全部关注动态续页失败保留游标，刷新拒绝迟到续页', (tester) async {
     await GStorage.setting.put(SettingBoxKey.dynamicsShowAllFollowedUp, true);
-    final controller = own(_Overview())..onStart();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = dynamicsAuthorsProvider(Object());
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete(ups([10], 'next'));
-    await controller.queries[0];
-    final failed = controller.onLoadMore();
+    await tester.pump();
+    final failed = controller.retry();
     await until(tester, () => requests.length == 2);
     expect(requests[1].options.path, Api.dynUplist);
     requests[1].reply.complete({'code': -400, 'message': 'fixture failure'});
     await failed;
-    final oldPage = controller.onLoadMore();
+    final oldPage = controller.retry();
     await until(tester, () => requests.length == 3);
     expect(requests[2].options.queryParameters['offset'], 'next');
-    final refresh = controller.singleRefresh();
+    final refresh = controller.onRefresh();
     await until(tester, () => requests.length == 4);
     expect(requests[3].options.path, Api.followUp);
     requests[3].reply.complete(ups([30], 'fresh'));
@@ -260,7 +247,7 @@ void main() {
       },
     });
     await oldPage;
-    expect(controller.loadingState.value.data.upList!.single.mid, 30);
+    expect(container.read(provider).loading.data.upList!.single.mid, 30);
     final next = controller.onLoadMore();
     await until(tester, () => requests.length == 5);
     expect(requests[4].options.queryParameters['offset'], 'fresh');
@@ -274,7 +261,7 @@ void main() {
       },
     });
     await next;
-    expect(controller.loadingState.value.data.upList!.map((up) => up.mid), [
+    expect(container.read(provider).loading.data.upList!.map((up) => up.mid), [
       30,
       40,
     ]);
@@ -282,10 +269,14 @@ void main() {
 
   testWidgets('动态游标停滞后转普通关注，重复页补位有界且失败页可重试', (tester) async {
     await GStorage.setting.put(SettingBoxKey.dynamicsShowAllFollowedUp, true);
-    final controller = own(_Overview())..onStart();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = dynamicsAuthorsProvider(Object());
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete(ups([10], 'same'));
-    await controller.queries[0];
+    await tester.pump();
     final more = controller.onLoadMore();
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({
@@ -307,13 +298,14 @@ void main() {
     }
     await more;
     expect(requests, hasLength(6));
-    expect(controller.canLoadMore, isTrue);
-    final failed = controller.onLoadMore();
+    expect(container.read(provider).canLoadMore, isFalse);
+    expect(container.read(provider).error, isNotNull);
+    final failed = controller.retry();
     await until(tester, () => requests.length == 7);
     expect(requests.last.options.queryParameters['pn'], 5);
     requests.last.reply.complete({'code': -400, 'message': 'fixture failure'});
     await failed;
-    final retry = controller.onLoadMore();
+    final retry = controller.retry();
     await until(tester, () => requests.length == 8);
     expect(requests.last.options.queryParameters['pn'], 5);
     requests.last.reply.complete({
@@ -325,14 +317,17 @@ void main() {
       },
     });
     await retry;
-    expect(controller.loadingState.value.data.upList!.map((up) => up.mid), [
+    expect(container.read(provider).loading.data.upList!.map((up) => up.mid), [
       10,
       20,
     ]);
   });
 
   testWidgets('聚合页凭据替换刷新并拒绝旧结果，释放后停止订阅', (tester) async {
-    final controller = own(_Overview())..onStart();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = dynamicsAuthorsProvider(Object());
+    container.listen(provider, (_, _) {});
     await until(tester, () => requests.length == 1);
     final replacement = account('new');
     Accounts.replaceCredentials(replacement);
@@ -340,27 +335,28 @@ void main() {
     expect(requests[0].options.extra['account'], same(original));
     expect(requests[1].options.extra['account'], same(replacement));
     requests[1].reply.complete(ups([2]));
-    await controller.queries[1];
+    await tester.pump();
     requests[0].reply.complete(ups([1]));
-    await controller.queries[0];
-    expect(controller.loadingState.value.data.upList!.single.mid, 2);
-    controller.onDelete();
+    await tester.pump();
+    expect(container.read(provider).loading.data.upList!.single.mid, 2);
+    container.dispose();
     Accounts.replaceCredentials(account('third'));
     await tester.pump();
     expect(requests, hasLength(2));
   });
 
-  testWidgets('聚合页刷新等待两个面板，分页游标停滞不追加重复数据', (tester) async {
-    final controller = own(_Overview())..onStart();
+  testWidgets('作者面板刷新等待当前请求，分页游标停滞不追加重复数据', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = dynamicsAuthorsProvider(Object());
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete(ups([1]));
-    await controller.queries[0];
-    final child = _Child();
-    controller.child = child;
+    await tester.pump();
     var completed = false;
     final refresh = controller.onRefresh().then((_) => completed = true);
     await until(tester, () => requests.length == 2);
-    child.refreshResult.complete();
     await tester.pump();
     expect(completed, isFalse);
     requests[1].reply.complete(ups([2]));
@@ -372,17 +368,21 @@ void main() {
       'data': (ups([2])['data'] as Map)['up_list'],
     });
     await more;
-    expect(controller.loadingState.value.data.upList, hasLength(1));
+    expect(container.read(provider).loading.data.upList, hasLength(1));
     await controller.onLoadMore();
     expect(requests, hasLength(3));
   });
 
   testWidgets('全部关注分页持续去重，页码只在成功后推进', (tester) async {
     await GStorage.setting.put(SettingBoxKey.dynamicsShowAllFollowedUp, true);
-    final controller = own(_Overview())..onStart();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = dynamicsAuthorsProvider(Object());
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete(ups([1], ''));
-    await controller.queries[0];
+    await tester.pump();
     for (var page = 1; page <= 2; page++) {
       final more = controller.onLoadMore();
       await until(tester, () => requests.length == page + 1);
@@ -397,7 +397,7 @@ void main() {
       });
       await more;
     }
-    expect(controller.loadingState.value.data.upList!.map((e) => e.mid), [
+    expect(container.read(provider).loading.data.upList!.map((e) => e.mid), [
       1,
       2,
       3,

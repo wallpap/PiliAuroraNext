@@ -4,7 +4,6 @@ import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
@@ -13,14 +12,20 @@ import 'package:get/get.dart';
 
 class DynamicsTabController
     extends DiscoveryListController<DynamicsDataModel, DynamicItemModel> {
-  DynamicsTabController({required this.dynamicsType});
+  DynamicsTabController({
+    required this.dynamicsType,
+    int Function()? selectedHost,
+    Set<int> Function()? banned,
+  }) : selectedHost = selectedHost ?? (() => -1),
+       banned = banned ?? (() => <int>{});
+  final int Function() selectedHost;
+  final Set<int> Function() banned;
   final DynamicsTabType dynamicsType;
 
   String? offset;
   final _removing = <String, Object>{};
 
   late final mainController = Get.find<MainController>();
-  final dynamicsController = Get.find<DynamicsController>();
 
   @override
   void onInit() {
@@ -59,14 +64,14 @@ class DynamicsTabController
         account: Accounts.main,
         offset: offset,
         type: dynamicsType,
-        hostMid: dynamicsController.hostMid,
-        tempBannedList: dynamicsController.tempBannedList,
+        hostMid: selectedHost(),
+        tempBannedList: banned(),
       );
 
   Future<void> onRemove(int index, dynamic dynamicId) async {
     final account = Accounts.main;
     final list = loadingState.value.dataOrNull;
-    final hostMid = dynamicsController.hostMid;
+    final hostMid = selectedHost();
     final id = dynamicId.toString();
     if (isClosed ||
         isLoading ||
@@ -83,7 +88,7 @@ class DynamicsTabController
           isLoading ||
           !identical(account, Accounts.main) ||
           !identical(list, loadingState.value.dataOrNull) ||
-          (dynamicsType == .up && hostMid != dynamicsController.hostMid)) {
+          (dynamicsType == .up && hostMid != selectedHost())) {
         return;
       }
       if (res.isSuccess) {

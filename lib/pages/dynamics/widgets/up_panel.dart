@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:pili_aurora_next/pages/live_follow/view.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
@@ -14,23 +14,27 @@ import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class UpPanel extends StatefulWidget {
+class UpPanel extends ConsumerStatefulWidget {
   const UpPanel({
     super.key,
     required this.upData,
-    required this.dynamicsController,
+    required this.scrollController,
+    required this.position,
+    required this.onSelect,
   });
 
   final FollowUpModel upData;
-  final DynamicsController dynamicsController;
+  final ScrollController scrollController;
+  final UpPanelPosition position;
+  final ValueChanged<int> onSelect;
 
   @override
-  State<UpPanel> createState() => _UpPanelState();
+  ConsumerState<UpPanel> createState() => _UpPanelState();
 }
 
-class _UpPanelState extends State<UpPanel> {
-  late final controller = widget.dynamicsController;
-  late final isTop = controller.upPanelPosition == UpPanelPosition.top;
+class _UpPanelState extends ConsumerState<UpPanel> {
+  late bool showLiveUp = ref.read(dynamicsPreferencesProvider).showLive;
+  late final isTop = widget.position == UpPanelPosition.top;
 
   void toFollowPage() => Get.to(const LiveFollowPage());
 
@@ -43,12 +47,12 @@ class _UpPanelState extends State<UpPanel> {
     return CustomScrollView(
       scrollDirection: isTop ? .horizontal : .vertical,
       physics: const AlwaysScrollableScrollPhysics(),
-      controller: controller.scrollController,
+      controller: widget.scrollController,
       slivers: [
         SliverToBoxAdapter(
           child: InkWell(
             onTap: () => setState(() {
-              controller.showLiveUp = !controller.showLiveUp;
+              showLiveUp = !showLiveUp;
             }),
             onLongPress: toFollowPage,
             onSecondaryTap: PlatformUtils.isMobile ? null : toFollowPage,
@@ -72,9 +76,7 @@ class _UpPanelState extends State<UpPanel> {
                       WidgetSpan(
                         alignment: .middle,
                         child: Icon(
-                          controller.showLiveUp
-                              ? Icons.expand_less
-                              : Icons.expand_more,
+                          showLiveUp ? Icons.expand_less : Icons.expand_more,
                           size: 12,
                           color: theme.colorScheme.primary,
                         ),
@@ -83,7 +85,7 @@ class _UpPanelState extends State<UpPanel> {
                       WidgetSpan(
                         alignment: .middle,
                         child: Icon(
-                          controller.showLiveUp
+                          showLiveUp
                               ? Icons.keyboard_arrow_right
                               : Icons.keyboard_arrow_left,
                           color: theme.colorScheme.primary,
@@ -96,7 +98,7 @@ class _UpPanelState extends State<UpPanel> {
             ),
           ),
         ),
-        if (controller.showLiveUp && liveList != null && liveList.isNotEmpty)
+        if (showLiveUp && liveList != null && liveList.isNotEmpty)
           SliverList.builder(
             itemCount: liveList.length,
             itemBuilder: (context, index) {
@@ -131,13 +133,12 @@ class _UpPanelState extends State<UpPanel> {
   }
 
   void _onSelect(UpItem item) {
-    item.hasUpdate = false;
-    controller.onSelectUp(item.mid);
+    widget.onSelect(item.mid);
     setState(() {});
   }
 
   Widget upItemBuild(ThemeData theme, UpItem item) {
-    final currentMid = controller.currentMid;
+    final currentMid = ref.watch(dynamicsSelectionProvider).mid;
     final isLive = item is LiveUserItem;
     final isCurrent = isLive || currentMid == item.mid || currentMid == -1;
 

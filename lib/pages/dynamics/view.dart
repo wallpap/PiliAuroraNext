@@ -1,15 +1,20 @@
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_authors.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/up_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/view.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
+import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
 
@@ -21,10 +26,73 @@ class DynamicsPage extends StatefulWidget {
 }
 
 class _DynamicsPageState extends CommonPageState<DynamicsPage>
-    with AutomaticKeepAliveClientMixin {
-  final _dynamicsController = Get.putOrFind(DynamicsController.new);
-  UpPanelPosition get upPanelPosition => _dynamicsController.upPanelPosition;
-  late final MainController _mainController = Get.find<MainController>();
+    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
+  final _owner = Object();
+  final _scroll = ScrollController();
+  late TabController _tabs;
+  late UpPanelPosition upPanelPosition;
+  final _children = <DynamicsTabType, DiscoveryPageHandle>{};
+  final _mainController = Get.find<MainController>();
+  VoidCallback? _unregister;
+  ProviderContainer get _container =>
+      ProviderScope.containerOf(context, listen: false);
+  DynamicsAuthors get _authors =>
+      _container.read(dynamicsAuthorsProvider(_owner).notifier);
+  DiscoveryPageHandle? get _active =>
+      _children[DynamicsTabType.values[_tabs.index]];
+  @override
+  void initState() {
+    super.initState();
+    final preferences = _container.read(dynamicsPreferencesProvider);
+    upPanelPosition = preferences.position;
+    _tabs = TabController(
+      vsync: this,
+      length: DynamicsTabType.values.length,
+      initialIndex: preferences.initialTab.clamp(
+        0,
+        DynamicsTabType.values.length - 1,
+      ),
+    );
+    _unregister = _mainController.registerDynamicsPage(
+      DiscoveryPageHandle(
+        () => _active?.scrollController ?? _scroll,
+        _refresh,
+        readSnapshot: () => _active?.snapshot,
+      ),
+    );
+  }
+
+  Future<void> _refresh() => Future.wait([
+    _authors.onRefresh(),
+    if (_active != null) _active!.onRefresh(),
+  ]);
+  VoidCallback _register(DynamicsTabType type, DiscoveryPageHandle handle) {
+    _children[type] = handle;
+    return () {
+      if (identical(_children[type], handle)) _children.remove(type);
+    };
+  }
+
+  void _select(int mid) {
+    final selection = _container.read(dynamicsSelectionProvider);
+    final same = selection.mid == mid;
+    _container.read(dynamicsSelectionProvider.notifier).select(mid);
+    _authors.markRead(mid);
+    _tabs.index = mid == -1 ? 0 : 4;
+    if (same) {
+      if (mid == -1) _authors.onRefresh();
+      _active?.onRefresh();
+    }
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    _children.clear();
+    _tabs.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -60,17 +128,29 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       child: SizedBox(
         width: isTop ? null : 64,
         height: isTop ? 76 : null,
-        child: NotificationListener<ScrollEndNotification>(
-          onNotification: (notification) {
-            final metrics = notification.metrics;
-            if (metrics.pixels >= metrics.maxScrollExtent - 300) {
-              _dynamicsController.onLoadMore();
-            }
-            return false;
+        child: Consumer(
+          builder: (context, ref, _) {
+            final state = ref.watch(dynamicsAuthorsProvider(_owner));
+            return FeedPagination(
+              controller: _scroll,
+              dataSource: state.source,
+              dataRevision: state,
+              canLoadMore: () => state.canLoadMore,
+              onLoadMore: _authors.onLoadMore,
+              prefetchExtent: () => 300,
+              child: Column(
+                children: [
+                  if (state.error != null)
+                    IconButton(
+                      tooltip: state.error.toString(),
+                      onPressed: _authors.retry,
+                      icon: const Icon(Icons.refresh),
+                    ),
+                  Expanded(child: _buildUpPanel(state.loading)),
+                ],
+              ),
+            );
           },
-          child: Obx(
-            () => _buildUpPanel(_dynamicsController.loadingState.value),
-          ),
         ),
       ),
     );
@@ -81,12 +161,14 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       Loading() => const SizedBox.shrink(),
       Success(:final response) => UpPanel(
         upData: response,
-        dynamicsController: _dynamicsController,
+        scrollController: _scroll,
+        position: upPanelPosition,
+        onSelect: _select,
       ),
       Error() => Center(
         child: IconButton(
           icon: const Icon(Icons.refresh),
-          onPressed: _dynamicsController.onReload,
+          onPressed: _authors.retry,
         ),
       ),
     };
@@ -115,6 +197,20 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.listen(dynamicsSelectionProvider.select((value) => value.hostMid), (
+          _,
+          _,
+        ) {
+          _children[DynamicsTabType.up]?.onRefresh();
+        });
+        return _buildPage(context);
+      },
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
 
     Widget? drawer;
@@ -124,9 +220,15 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     Widget actions;
 
     Widget child = tabBarView(
-      controller: _dynamicsController.tabController,
+      controller: _tabs,
       children: DynamicsTabType.values
-          .map((e) => DynamicsTabPage(dynamicsType: e))
+          .map(
+            (e) => DynamicsTabPage(
+              dynamicsType: e,
+              onRegister: (handle) => _register(e, handle),
+              onRefreshAuthors: _authors.onRefresh,
+            ),
+          )
           .toList(),
     );
 
@@ -182,7 +284,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                 dividerColor: Colors.transparent,
                 labelColor: colorScheme.primary,
                 indicatorColor: colorScheme.primary,
-                controller: _dynamicsController.tabController,
+                controller: _tabs,
                 unselectedLabelColor: colorScheme.onSurface,
                 labelStyle:
                     TabBarTheme.of(context).labelStyle
@@ -192,8 +294,9 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
                     .map((e) => Tab(text: e.label))
                     .toList(),
                 onTap: (index) {
-                  if (!_dynamicsController.tabController.indexIsChanging) {
-                    _dynamicsController.animateToTop();
+                  if (!_tabs.indexIsChanging) {
+                    _active?.animateToTop();
+                    _scroll.animToTop();
                   }
                 },
               ),

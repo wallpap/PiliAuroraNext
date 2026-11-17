@@ -16,7 +16,6 @@ import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_feed_sliver.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -373,7 +372,7 @@ Future<void> main(List<String> arguments) async {
     select(NavigationBarType.dynamics);
     await visit(
       'dynamics',
-      () => Get.find<DynamicsController>().controller,
+      () => Get.find<MainController>().dynamicController,
       requireItems: true,
     );
     select(NavigationBarType.mine);

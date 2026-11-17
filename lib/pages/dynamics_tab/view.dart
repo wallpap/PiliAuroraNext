@@ -7,7 +7,9 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
 import 'package:pili_aurora_next/utils/extension/get_ext.dart';
@@ -20,30 +22,59 @@ import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
 class DynamicsTabPage extends StatefulWidget {
-  const DynamicsTabPage({super.key, required this.dynamicsType});
+  const DynamicsTabPage({
+    super.key,
+    required this.dynamicsType,
+    required this.onRegister,
+    required this.onRefreshAuthors,
+  });
 
   final DynamicsTabType dynamicsType;
+  final VoidCallback Function(DiscoveryPageHandle) onRegister;
+  final Future<void> Function() onRefreshAuthors;
 
   @override
   State<DynamicsTabPage> createState() => _DynamicsTabPageState();
 }
 
 class _DynamicsTabPageState extends State<DynamicsTabPage> with DynMixin {
-  final dynamicsController = Get.putOrFind(DynamicsController.new);
+  VoidCallback? _unregister;
   late final DynamicsTabController controller;
 
   @override
   void initState() {
     controller = Get.putOrFind(
-      () => DynamicsTabController(dynamicsType: widget.dynamicsType),
+      () => DynamicsTabController(
+        dynamicsType: widget.dynamicsType,
+        selectedHost: () => ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(dynamicsSelectionProvider).hostMid,
+        banned: () => ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(dynamicsSelectionProvider).banned,
+      ),
       tag: widget.dynamicsType.name,
     );
     super.initState();
+    _unregister = widget.onRegister(
+      DiscoveryPageHandle(
+        () => controller.scrollController,
+        controller.onRefresh,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    Get.delete<DynamicsTabController>(tag: widget.dynamicsType.name);
+    super.dispose();
   }
 
   Future<void> onRefresh() {
-    dynamicsController.singleRefresh();
-    return controller.onRefresh();
+    return Future.wait([widget.onRefreshAuthors(), controller.onRefresh()]);
   }
 
   @override
