@@ -141,8 +141,9 @@ class _DynamicsTabPageState extends ConsumerState<DynamicsTabPage>
       item: item,
       onRemove: (idStr) async {
         final query = _query;
+        final current = controller.captureQuery();
         final result = await controller.onRemove(idStr.toString());
-        if (!mounted || query != _query) return;
+        if (!mounted || query != _query || !current()) return;
         if (result.isSuccess) {
           SmartDialog.showToast('删除成功');
         } else {

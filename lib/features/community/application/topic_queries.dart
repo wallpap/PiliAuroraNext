@@ -34,7 +34,11 @@ class TopicFeed extends DiscoveryListing<TopicCardItem, TopicCursor> {
     final subscription = ref.read(dynamicsUpdatesProvider).changes.listen((
       change,
     ) {
-      if (!ref.mounted || !identical(account, change.account)) return;
+      if (!ref.mounted ||
+          !identical(account, change.account) ||
+          change.pin != null) {
+        return;
+      }
       if (change.removed == null) {
         unawaited(onRefresh());
       } else {

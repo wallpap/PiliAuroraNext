@@ -4,6 +4,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/http/msg.dart';
+import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_cursor.dart';
@@ -17,6 +18,44 @@ class DynamicsRepository {
   const DynamicsRepository();
   Future<LoadingState<void>> remove(Account account, String id) =>
       MsgHttp.removeDynamic(account: account, dynIdStr: id);
+  Future<LoadingState<void>> pin(Account account, String id, bool pinned) =>
+      pinned
+      ? DynamicsHttp.setTop(account: account, dynamicId: id)
+      : DynamicsHttp.rmTop(account: account, dynamicId: id);
+
+  Future<LoadingState<DiscoveryPage<DynamicItemModel, DynamicCursor>>> member(
+    Account account,
+    int mid,
+    DynamicCursor? cursor,
+  ) async {
+    final result = await MemberHttp.memberDynamic(
+      account: account,
+      mid: mid,
+      offset: cursor?.offset,
+      refillFiltered: false,
+    );
+    if (result case Success(:final response)) {
+      final offset = response.offset;
+      final seen = {...?cursor?.seen};
+      return Success(
+        DiscoveryPage(
+          response.items ?? [],
+          metadata: DynamicCursor(
+            offset,
+            Set.unmodifiable({...seen, ?offset}),
+          ),
+          hasMore:
+              response.hasMore != false &&
+              offset != null &&
+              offset.isNotEmpty &&
+              offset != '-1' &&
+              seen.add(offset),
+        ),
+      );
+    }
+    return result as Error;
+  }
+
   Future<LoadingState<DiscoveryPage<DynamicItemModel, DynamicCursor>>> feed(
     Account account,
     DynamicsTabType type,

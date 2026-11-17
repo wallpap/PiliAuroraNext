@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_updates.dart';
@@ -12,7 +14,6 @@ import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 
 typedef DynamicsQuery = ({Object owner, DynamicsTabType type, int hostMid});
 final dynamicsFeedProvider = NotifierProvider.autoDispose
@@ -25,7 +26,6 @@ final dynamicsFeedProvider = NotifierProvider.autoDispose
 class DynamicsFeed extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
   DynamicsFeed(this.query);
   final DynamicsQuery query;
-  final _removing = <String, Object>{};
   late Set<int> _banned;
   @override
   bool get usesMainAccount => true;
@@ -40,7 +40,11 @@ class DynamicsFeed extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
     final subscription = ref.read(dynamicsUpdatesProvider).changes.listen((
       change,
     ) {
-      if (!ref.mounted || !identical(account, change.account)) return;
+      if (!ref.mounted ||
+          !identical(account, change.account) ||
+          change.pin != null) {
+        return;
+      }
       if (change.removed == null) {
         unawaited(onRefresh());
       } else {
@@ -59,7 +63,6 @@ class DynamicsFeed extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
       .read(dynamicsRepositoryProvider)
       .feed(account, query.type, query.hostMid, _banned, queryMetadata);
   Future<LoadingState<void>> onRemove(String id) async {
-    final current = captureQuery();
     final account = ref.read(mainAccountProvider);
     if (!account.isLogin ||
         state.loading is! Success ||
@@ -67,23 +70,7 @@ class DynamicsFeed extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
             false)) {
       return const Error('账号或动态已更新，请刷新');
     }
-    if (_removing.containsKey(id)) return const Error('正在删除，请稍候');
-    final operation = _removing[id] = Object();
-    final updates = ref.read(dynamicsUpdatesProvider);
-    try {
-      final result = await ref
-          .read(dynamicsRepositoryProvider)
-          .remove(account, id);
-      if (result.isSuccess && identical(account, Accounts.main)) {
-        updates.removed(account, id);
-      }
-      if (!current()) return const Error('账号或动态已更新');
-      return result;
-    } catch (cause, stack) {
-      return UnknownResult(cause: cause, stackTrace: stack);
-    } finally {
-      if (identical(_removing[id], operation)) _removing.remove(id);
-    }
+    return ref.read(dynamicsActionsProvider).remove(account, id);
   }
 
   void onUnfold(DynamicItemModel item) {

@@ -440,6 +440,7 @@ abstract final class MemberHttp {
     Account? account,
     String? offset,
     required int mid,
+    bool refillFiltered = true,
   }) async {
     account ??= Accounts.main;
     final offsets = {offset};
@@ -475,7 +476,7 @@ abstract final class MemberHttp {
         );
         if (result is Error) return result;
         final data = result.data;
-        if (data.loadNext != true) return result;
+        if (!refillFiltered || data.loadNext != true) return result;
         offset = data.offset;
         if (offset == null || offset.isEmpty || !offsets.add(offset)) {
           return const Error('动态分页未取得进展，请重试');

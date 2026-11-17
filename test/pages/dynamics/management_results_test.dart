@@ -1,13 +1,14 @@
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_feed.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_updates.dart';
+import 'package:pili_aurora_next/features/community/application/member_dynamics.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/pages/member_dynamics/controller.dart';
+import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -16,46 +17,43 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
-class _Member extends MemberDynamicsController {
-  _Member() : super(1);
-  final queries = <Future<void>>[];
-  @override
-  Future<void> queryData([bool isRefresh = true]) {
-    final query = super.queryData(isRefresh);
-    queries.add(query);
-    return query;
-  }
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  LoginAccount account(int id, [String csrf = 'fixture']) => LoginAccount(
-    BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': csrf}),
+  LoginAccount account([String csrf = 'fixture', int mid = 1]) => LoginAccount(
+    BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': csrf}),
     null,
     null,
   )..activated = true;
+  late ProviderContainer container;
+  late DynamicsUpdates updates;
   late LoginAccount original;
-  late LoginAccount recommend;
-  final controllers = <GetxController>[];
-
-  T own<T extends GetxController>(T controller) {
-    controllers.add(controller);
-    return controller;
-  }
-
-  DynamicItemModel item(String id) => DynamicItemModel.fromJson({'id_str': id});
-  Map<String, dynamic> dynamics(String id) => {
+  final query = (owner: Object(), mid: 1);
+  final provider = memberDynamicsProvider(query);
+  Future<void> tick() => Future<void>.delayed(Duration.zero);
+  Map<String, dynamic> page(
+    List<String> ids,
+    String cursor, {
+    bool more = true,
+  }) => {
     'code': 0,
     'data': {
-      'has_more': false,
-      'offset': id,
+      'has_more': more,
+      'offset': cursor,
       'items': [
-        {'id_str': id},
+        for (final id in ids) {'id_str': id},
       ],
     },
   };
+  Future<MemberDynamics> start() async {
+    container.listen(provider, (_, _) {});
+    await interceptor.waitForRequests(1);
+    requests[0].reply.complete(page(['1', '2', '3'], 'a'));
+    await tick();
+    return container.read(provider.notifier);
+  }
+
   setUpAll(() {
     GStorage.setting = MemoryBox({SettingBoxKey.filterBlockedAuthors: false});
     GStorage.video = MemoryBox();
@@ -66,295 +64,252 @@ void main() {
       ..add(interceptor);
   });
   setUp(() async {
-    original = account(1);
-    recommend = account(2);
+    requests.clear();
+    original = account();
     Accounts.accountMode[AccountType.main.index] = original;
-    Accounts.accountMode[AccountType.recommend.index] = recommend;
+    Accounts.accountMode[AccountType.recommend.index] = account('recommend', 2);
     await GStorage.localCache.putAll({
       LocalCacheKey.mixinKey: 'synthetic',
       LocalCacheKey.timeStamp: DateTime.now().millisecondsSinceEpoch,
     });
-    Get.parameters = {'id': '12', 'name': '话题'};
-    requests.clear();
+    updates = DynamicsUpdates();
+    container = ProviderContainer(
+      overrides: [dynamicsUpdatesProvider.overrideWithValue(updates)],
+    );
   });
-  tearDown(() {
-    for (final controller in controllers.reversed) {
-      if (!controller.isClosed) controller.onDelete();
-    }
-    controllers.clear();
+  tearDown(() async {
+    container.dispose();
     for (final request in requests) {
-      if (!request.reply.isCompleted) {
-        request.reply.complete({'code': -1, 'message': 'closed'});
-      }
+      if (!request.reply.isCompleted) request.reply.complete({'code': -1});
     }
-    Get.reset();
+    await tick();
+    await updates.close();
   });
   tearDownAll(() async {
     Request.dio.close(force: true);
     await interceptor.close();
   });
 
-  Future<void> until(WidgetTester tester, bool Function() condition) async {
-    final deadline = tester.binding.clock.now().add(const Duration(seconds: 3));
-    while (!condition() && tester.binding.clock.now().isBefore(deadline)) {
-      await tester.pump(const Duration(milliseconds: 1));
-    }
-    expect(condition(), isTrue);
-    await tester.pump();
-  }
-
-  Future<void> settle(WidgetTester tester) async {
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
-  }
-
-  Future<void> mount(WidgetTester tester) async {
-    await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: const Scaffold(body: SizedBox()),
-      ),
-    );
-    SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
-    Get.parameters = {'id': '12', 'name': '话题'};
-  }
-
-  Future<void> finish(WidgetTester tester) async {
-    await tester.pump(const Duration(seconds: 6));
-    await tester.pumpWidget(const SizedBox());
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('空间删除防重复，待确认及列表或账号变化不误删', (tester) async {
-    await mount(tester);
-    final controller = own(MemberDynamicsController(1));
-    final list = [item('1')];
-    controller.loadingState.value = Success(list);
-    var remove = controller.onRemove('1');
-    await controller.onRemove('1');
-    await until(tester, () => requests.length == 1);
-    expect(requests.single.options.path, Api.removeDynamic);
-    expect(requests.single.options.extra['account'], same(original));
-    requests.single.reply.complete({'code': '0'});
-    await settle(tester);
-    await remove;
-    expect(list, hasLength(1));
-    expect(find.text('操作结果待确认，请先核对后再操作'), findsOneWidget);
-
-    remove = controller.onRemove('1');
-    await until(tester, () => requests.length == 2);
-    final refreshed = [item('1')];
-    controller.loadingState.value = Success(refreshed);
-    requests.last.reply.complete({'code': 0});
-    await settle(tester);
-    await remove;
-    expect(refreshed, hasLength(1));
-    expect(list, hasLength(1));
-    expect(find.text('删除成功'), findsNothing);
-
-    remove = controller.onRemove('1');
-    await until(tester, () => requests.length == 3);
-    Accounts.accountMode[AccountType.main.index] = account(3);
-    requests.last.reply.complete({'code': 0});
-    await settle(tester);
-    await remove;
-    expect(refreshed, hasLength(1));
-    await finish(tester);
-  });
-
-  testWidgets('空间置顶互斥，保留普通标签并只取消目标置顶', (tester) async {
-    await mount(tester);
-    final controller = own(MemberDynamicsController(1));
-    final ordinary = item('1')..modules.moduleTag = ModuleTag(text: '普通标签');
-    final oldTop = item('2')..modules.moduleTag = ModuleTag(text: '置顶');
-    final target = item('3');
-    final list = [ordinary, oldTop, target];
-    controller.loadingState.value = Success(list);
-    var setTop = controller.onSetTop(false, '3');
-    await controller.onSetTop(false, '3');
-    await controller.onRemove('1');
-    await until(tester, () => requests.length == 1);
-    expect(requests.single.options.extra['account'], same(original));
-    requests.single.reply.complete({'code': 0});
-    await settle(tester);
-    await setTop;
-    expect(list, [target, ordinary, oldTop]);
-    expect(ordinary.modules.moduleTag?.text, '普通标签');
-    expect(oldTop.modules.moduleTag, isNull);
-    expect(target.modules.moduleTag?.text, '置顶');
-
-    list
-      ..remove(target)
-      ..add(target);
-    setTop = controller.onSetTop(true, '3');
-    await until(tester, () => requests.length == 2);
-    requests.last.reply.complete({'code': -667777, 'message': '拒绝置顶'});
-    await settle(tester);
-    await setTop;
-    expect(target.modules.moduleTag?.text, '置顶');
-    expect(find.text('拒绝置顶'), findsOneWidget);
-    setTop = controller.onSetTop(true, '3');
-    await until(tester, () => requests.length == 3);
-    requests.last.reply.complete({'code': 0});
-    await settle(tester);
-    await setTop;
-    expect(target.modules.moduleTag, isNull);
-    expect(ordinary.modules.moduleTag?.text, '普通标签');
-    expect(list, [ordinary, oldTop, target]);
-    await finish(tester);
-  });
-
-  test('空间动态凭据替换后重载，旧查询不覆盖新列表并释放订阅', () async {
-    final controller = own(_Member())..onInit();
+  test('空间动态按页面与凭据隔离，推荐角色不重建查询，释放后不再请求', () async {
+    final subscription = container.listen(provider, (_, _) {});
     await interceptor.waitForRequests(1);
-    final replacement = account(1, 'replacement');
+    final replacement = account('replacement');
     Accounts.replaceCredentials(replacement);
     await interceptor.waitForRequests(2);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete(dynamics('2'));
-    await controller.queries.last;
-    requests.first.reply.complete(dynamics('1'));
-    await controller.queries.first;
-    expect(controller.loadingState.value.data!.single.idStr, '2');
-    expect(controller.offset, '2');
-    controller.onDelete();
-    Accounts.replaceCredentials(account(1, 'closed'));
+    expect(requests[1].options.extra['account'], same(replacement));
+    requests[1].reply.complete(page(['2'], 'new'));
+    await tick();
+    requests[0].reply.complete(page(['1'], 'old'));
+    await tick();
+    expect(container.read(provider).loading.data.single.idStr, '2');
+    final source = container.read(provider).source;
+    Accounts.accountMode[AccountType.recommend.index] = account('other');
+    expect(container.read(provider).source, same(source));
+    subscription.close();
+    await container.pump();
+    Accounts.replaceCredentials(account('closed'));
+    await tick();
     expect(requests, hasLength(2));
   });
 
-  test('空间动态分页拒绝重复游标、去重并保留失败页重试位置', () async {
-    final controller = own(MemberDynamicsController(1));
-    Map<String, dynamic> page(List<String> ids, String cursor) => {
-      'code': 0,
-      'data': {
-        'has_more': true,
-        'offset': cursor,
-        'items': [
-          for (final id in ids) {'id_str': id},
-        ],
-      },
-    };
-    var pending = controller.queryData();
-    await interceptor.waitForRequests(1);
-    requests[0].reply.complete(page(['1', '2'], 'a'));
-    await pending;
-    pending = controller.onLoadMore();
+  test('分页互斥、失败重试原游标、去重与重复游标结束', () async {
+    final notifier = await start();
+    var pending = notifier.onLoadMore();
+    await notifier.onLoadMore();
     await interceptor.waitForRequests(2);
     requests[1].reply.complete({'code': -403, 'message': '分页失败'});
     await pending;
-    expect(controller.loadMoreError.value?.errMsg, '分页失败');
-    expect(controller.offset, 'a');
-    expect(controller.page, 2);
-    await controller.onLoadMore();
+    expect(container.read(provider).error?.errMsg, '分页失败');
+    expect(container.read(provider).metadata?.offset, 'a');
+    await notifier.onLoadMore();
     expect(requests, hasLength(2));
-    pending = controller.retryLoadMore();
+    pending = notifier.retry();
     await interceptor.waitForRequests(3);
-    requests[2].reply.complete(page(['2', '3', '3'], 'b'));
+    expect(requests[2].options.queryParameters['offset'], 'a');
+    requests[2].reply.complete(page(['3', '4', '4'], 'a'));
     await pending;
-    expect(controller.loadMoreError.value, isNull);
-    expect(controller.loadingState.value.data!.map((item) => item.idStr), [
+    expect(container.read(provider).loading.data.map((item) => item.idStr), [
       '1',
       '2',
       '3',
+      '4',
     ]);
-    pending = controller.onLoadMore();
-    await interceptor.waitForRequests(4);
-    requests[3].reply.complete(page(['4'], 'a'));
-    await pending;
-    expect(controller.isEnd, isTrue);
-    await controller.onLoadMore();
-    expect(requests, hasLength(4));
+    expect(container.read(provider).hasMore, isFalse);
   });
 
-  test('空间动态连续无增长页即使游标变化也有限界', () async {
-    final controller = own(MemberDynamicsController(1));
-    controller.loadingState.value = Success([item('1')]);
-    controller.page = 2;
-    for (var index = 0; index < 5; index++) {
-      final pending = controller.onLoadMore();
-      await interceptor.waitForRequests(index + 1);
-      requests[index].reply.complete({
-        'code': 0,
-        'data': {
-          'has_more': true,
-          'offset': 'cursor-$index',
-          'items': [
-            {'id_str': '1'},
-          ],
-        },
-      });
-      await pending;
+  test('连续无增长补读有预算并提供显式继续入口', () async {
+    final notifier = await start();
+    final pending = notifier.onLoadMore();
+    for (var i = 1; i <= 5; i++) {
+      await interceptor.waitForRequests(i + 1);
+      requests[i].reply.complete(page(['1'], 'cursor-$i'));
     }
-    expect(controller.isEnd, isTrue);
-    expect(controller.loadingState.value.data!.single.idStr, '1');
-    await controller.onLoadMore();
-    expect(requests, hasLength(5));
+    await pending;
+    expect(requests, hasLength(6));
+    expect(container.read(provider).canLoadMore, isFalse);
+    expect(container.read(provider).error, isNotNull);
+    final retry = notifier.retry();
+    await interceptor.waitForRequests(7);
+    expect(requests.last.options.queryParameters['offset'], 'cursor-5');
+    requests.last.reply.complete(page(['4'], '', more: false));
+    await retry;
+    expect(container.read(provider).loading.data.last.idStr, '4');
   });
 
-  test('空间动态旧分页失败不污染刷新结果，刷新清理重试状态', () async {
-    final controller = own(MemberDynamicsController(1))
-      ..loadingState.value = Success([item('1')])
-      ..page = 2
-      ..offset = 'a';
-    final old = controller.onLoadMore();
-    await interceptor.waitForRequests(1);
-    final refresh = controller.onRefresh();
+  test('刷新保留已确认内容，旧分页失败不污染新查询，旧确认回调失效', () async {
+    final notifier = await start();
+    final item = container.read(provider).loading.data.first;
+    final source = container.read(provider).source;
+    final current = notifier.captureItem(item);
+    final old = notifier.onLoadMore();
     await interceptor.waitForRequests(2);
-    requests[1].reply.complete(dynamics('2'));
+    final refresh = notifier.onRefresh();
+    await interceptor.waitForRequests(3);
+    expect(container.read(provider).loading.data, hasLength(3));
+    expect(current(), isFalse);
+    expect(await notifier.removeItem(item, source), isA<Error>());
+    requests[2].reply.complete(page(['4'], '', more: false));
     await refresh;
-    requests[0].reply.complete({'code': -403, 'message': '旧分页失败'});
+    requests[1].reply.complete({'code': -403, 'message': '旧分页失败'});
     await old;
-    expect(controller.loadMoreError.value, isNull);
-    expect(controller.loadingState.value.data!.single.idStr, '2');
+    expect(container.read(provider).error, isNull);
+    expect(container.read(provider).loading.data.single.idStr, '4');
   });
 
-  testWidgets('空间动态旧确认来源不能操作刷新后的同ID动态，新账号不能写入其他空间', (tester) async {
-    await mount(tester);
-    final controller = own(MemberDynamicsController(1));
-    final source = item('1');
-    controller.loadingState.value = Success([source]);
-    final remove = controller.removalAction(source);
-    final top = controller.topAction(source);
-    controller.loadingState.value = Success([item('1')]);
-    await remove('1');
-    await top(false, '1');
-    Accounts.accountMode[AccountType.main.index] = account(3);
-    await controller.onRemove('1');
-    await controller.onSetTop(false, '1');
-    expect(requests, isEmpty);
-    await finish(tester);
+  test('删除共享锁跨空间与首页生效，待确认不移除，确认后同步各入口并排除迟到页', () async {
+    final notifier = await start();
+    final feed = dynamicsFeedProvider((
+      owner: Object(),
+      type: DynamicsTabType.all,
+      hostMid: -1,
+    ));
+    container.listen(feed, (_, _) {});
+    await interceptor.waitForRequests(2);
+    final items = container.read(provider).loading.data;
+    final source = container.read(provider).source;
+    var pending = notifier.removeItem(items.first, source);
+    await interceptor.waitForRequests(3);
+    expect(requests[2].options.path, Api.removeDynamic);
+    expect(requests[2].options.extra['account'], same(original));
+    expect(
+      await container.read(dynamicsActionsProvider).remove(original, '1'),
+      isA<Error>(),
+    );
+    requests[2].reply.complete({'code': '0'});
+    expect(await pending, isA<UnknownResult>());
+    expect(container.read(provider).loading.data, hasLength(3));
+    pending = notifier.removeItem(items.first, source);
+    await interceptor.waitForRequests(4);
+    requests[3].reply.complete({'code': 0});
+    expect((await pending).isSuccess, isTrue);
+    requests[1].reply.complete(page(['1', '4'], '', more: false));
+    await tick();
+    expect(container.read(feed).loading.data.single.idStr, '4');
+    final more = notifier.onLoadMore();
+    await interceptor.waitForRequests(5);
+    requests[4].reply.complete(page(['1', '4'], '', more: false));
+    await more;
+    expect(container.read(provider).loading.data.map((item) => item.idStr), [
+      '2',
+      '3',
+      '4',
+    ]);
   });
 
-  testWidgets('空间动态删除后分页不复活已确认删除的条目，过期置顶意图不反向操作', (tester) async {
-    await mount(tester);
-    final controller = own(MemberDynamicsController(1));
-    controller.loadingState.value = Success([item('1'), item('2')]);
-    final removal = controller.onRemove('1');
-    await until(tester, () => requests.length == 1);
-    requests[0].reply.complete({'code': 0});
-    await settle(tester);
-    await removal;
-    final pending = controller.onLoadMore();
-    await until(tester, () => requests.length == 2);
+  test('置顶与删除互斥，确认后所有空间快照同步且保留普通标签', () async {
+    final notifier = await start();
+    final other = memberDynamicsProvider((owner: Object(), mid: 1));
+    container.listen(other, (_, _) {});
+    await interceptor.waitForRequests(2);
     requests[1].reply.complete({
       'code': 0,
       'data': {
         'has_more': false,
-        'offset': 'next',
         'items': [
-          {'id_str': '1'},
+          {
+            'id_str': '1',
+            'modules': {
+              'module_tag': {'text': '普通标签'},
+            },
+          },
+          {
+            'id_str': '2',
+            'modules': {
+              'module_tag': {'text': '置顶'},
+            },
+          },
           {'id_str': '3'},
         ],
       },
     });
-    await settle(tester);
-    await pending;
-    expect(controller.loadingState.value.data!.map((item) => item.idStr), [
-      '2',
-      '3',
-    ]);
-    await controller.onSetTop(true, '3');
-    expect(requests, hasLength(2));
-    await finish(tester);
+    await tick();
+    final items = container.read(provider).loading.data;
+    final source = container.read(provider).source;
+    final pending = notifier.setPinned(items.last, source, false);
+    await interceptor.waitForRequests(3);
+    expect(await notifier.removeItem(items.first, source), isA<Error>());
+    expect(await notifier.setPinned(items.last, source, false), isA<Error>());
+    requests[2].reply.complete({'code': 0});
+    expect((await pending).isSuccess, isTrue);
+    expect(container.read(provider).loading.data.first.idStr, '3');
+    final otherItems = container.read(other).loading.data;
+    expect(otherItems.map((item) => item.idStr), ['3', '1', '2']);
+    expect(otherItems[1].modules.moduleTag?.text, '普通标签');
+    expect(otherItems[2].modules.moduleTag, isNull);
+    expect(await notifier.setPinned(items.last, source, false), isA<Error>());
+    final unpin = notifier.setPinned(items.last, source, true);
+    await interceptor.waitForRequests(4);
+    requests[3].reply.complete({'code': 0});
+    await unpin;
+    expect(
+      MemberDynamics.isPinned(container.read(provider).loading.data.first),
+      isFalse,
+    );
+  });
+
+  test('页面释放后写入锁保留到请求完成，已确认删除仍通知存活空间', () async {
+    final notifier = await start();
+    final source = container.read(provider).source;
+    final item = container.read(provider).loading.data.first;
+    final actions = container.read(dynamicsActionsProvider);
+    final pending = notifier.removeItem(item, source);
+    await interceptor.waitForRequests(2);
+    container.invalidate(provider);
+    await container.pump();
+    await interceptor.waitForRequests(3);
+    expect(await actions.remove(original, '1'), isA<Error>());
+    requests[1].reply.complete({'code': 0});
+    expect((await pending).isSuccess, isTrue);
+    requests[2].reply.complete(page(['1', '4'], '', more: false));
+    await tick();
+    expect(container.read(provider).loading.data.single.idStr, '4');
+  });
+
+  test('他人空间不能写入，同 UID 换凭据后旧操作不污染新快照', () async {
+    final notifier = await start();
+    final source = container.read(provider).source;
+    final item = container.read(provider).loading.data.first;
+    final pending = notifier.removeItem(item, source);
+    await interceptor.waitForRequests(2);
+    Accounts.replaceCredentials(account('new'));
+    await interceptor.waitForRequests(3);
+    requests[2].reply.complete(page(['1'], '', more: false));
+    await tick();
+    requests[1].reply.complete({'code': 0});
+    expect((await pending).isSuccess, isTrue);
+    expect(container.read(provider).loading.data.single.idStr, '1');
+    final other = memberDynamicsProvider((owner: Object(), mid: 2));
+    container.listen(other, (_, _) {});
+    await interceptor.waitForRequests(4);
+    requests[3].reply.complete(page(['2'], '', more: false));
+    await tick();
+    final otherState = container.read(other);
+    expect(
+      await container
+          .read(other.notifier)
+          .removeItem(otherState.loading.data.first, otherState.source),
+      isA<Error>(),
+    );
+    expect(requests, hasLength(4));
   });
 }
