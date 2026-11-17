@@ -4,11 +4,11 @@ Dart/Flutter 依赖已停止跟踪远端 Git 分支。普通依赖固定到 pub.
 
 ## 本地实现与包登记
 
-按标签节流、尾沿防抖、UUID v4、应用日志和设置 WebDAV 传输由项目维护；图片缓存接口包已合并回主包。当前本地包登记为 19 个；合并来源继续登记和保留许可证。范围、真实依赖减少量及验证见 [SIMPLIFICATION.md](SIMPLIFICATION.md)。
+按标签节流、尾沿防抖、UUID v4、应用日志和设置 WebDAV 传输由项目维护；图片缓存接口包已合并回主包。本地包及合并来源以 `dependencies.json` 为准，来源元数据和许可证随源码保留。
 
 ## 版本与来源
 
-PiliAuroraNext 于 2026-11-16 建立独立迁移基线：19 个本地定制包统一从 `+piliauroranext.1` 开始计数，继承迁移前全部源码修改。各包 `UPSTREAM.md` 中的“迁移前修订”保留原实现的演进记录；后续修改递增 Next 修订号。
+PiliAuroraNext 的本地定制包从 `+piliauroranext.1` 建立修订基线，继承迁移前的源码修改。各包 `UPSTREAM.md` 中的“迁移前修订”保留原实现的演进记录；后续修改递增 Next 修订号。
 
 - `dependencies.json` 是本地包的登记表，记录本地版本、来源版本、仓库、完整提交 SHA、来源子目录、许可证和保留原因。
 - 根 `pubspec.yaml` 的直接定制依赖使用精确版本（例如 `1.1.11+piliauroranext.1`），`dependency_overrides` 将实际源码指向本目录。传递定制包也必须登记和 override。
@@ -56,7 +56,7 @@ Windows 图片区域解码使用固定提交的 [libwebp decoder 源码](libwebp
 
 Windows 各构建模式使用官网推荐的 [标准上游 mpv 预编译包](media_kit_libs_windows_video/UPSTREAM.md)。固定版本、来源、SHA-256 与许可纳入 Git；下载和解压缓存保存在 `build/`。本地与 CI 使用同一归档，不再维护 mpv 本地补丁及编译流程。打包包含 libmpv、原有 ANGLE 及其运行依赖，并交付许可与来源记录。
 
-Android 原生库继续使用版本化下载地址与 SHA-256 校验。mpv 属于原生构建材料；`dependencies.json` 仍登记 19 个本地 Dart/Flutter 包。
+Android 原生库继续使用版本化下载地址与 SHA-256 校验。mpv 属于原生构建材料；Dart/Flutter 包仍由 `dependencies.json` 登记。
 
 Windows x64 的 cnativeapi 使用 [预编译入口](nativeapi/README.md)，内部 nativeapi 已静态链接。固定的 cnativeapi 0.3.0 源码保留在本地包中，重建产物位于 `nativeapi/prebuilt/`，许可随应用分发。
 
@@ -67,12 +67,5 @@ Windows 另应用 `rendering_semantics.patch` 与 `sliver_child_lifecycle.patch`
 Android 帧计划引擎补丁单独维护在 [`tool/engine/frame_plan/`](../tool/engine/frame_plan/README.md)，固定 Flutter 框架与引擎提交，并应用到隔离检出。常规 FVM 构建流程保持原有入口；自编引擎的源码材料、构建命令与 APK 身份校验见该目录说明。
 
 Windows 帧节奏引擎补丁维护在 [`tool/engine/windows_frame_pacing/`](../tool/engine/windows_frame_pacing/README.md)，固定 Flutter 3.47.5 引擎与 depot_tools 提交，使用 Flutter 的 BSD 许可。源码、工具链和 DLL 保存在独立本地目录；应用构建通过 `-WindowsEngineLibrary` 选用同模式 DLL，并登记补丁、DLL 摘要和原生回归状态。
-
-## 历史记录
-
-- [首次迁移验收](VALIDATION.md)：2026-10-07 的来源迁移与验证。
-- [依赖精简与内化](SIMPLIFICATION.md)：随后各阶段的实现取舍、数量变化和验证。
-
-记录中的包数、版本和测试结果对应各阶段基线；当前版本以登记、包清单与锁文件为准。
 
 正式发布使用的 Flutter 定制引擎按 Android 三种 ABI 和 Windows x64 保存为 [Release 预编译包](flutter_engine/README.md)，由 Git 跟踪二进制压缩包、身份文件与许可证，CI 校验后装配。引擎源码编译与原生回归在更新预编译包时执行。

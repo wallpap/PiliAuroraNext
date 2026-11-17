@@ -187,34 +187,8 @@ resumePosition < 0 或 resumePosition ≥ duration ⇒ 从 0 重新播放
 2. 选取会打破不变量的最短事件序列，例如“失败 → 相同配置重试”、
    “旧媒体加载 → 新页面接管 → 旧媒体 EOF”、“旧意图写入 → 新意图 → 旧写入抛错”。
 3. 在实际会话/运行时接口注入可控回执，先运行失败用例，再修改实现。
-4. Terra（xhigh）执行修复，主代理重新沿模型检查；新反例进入下一轮。
+4. 修复后重新沿模型检查，新反例继续补充回归。
 5. 最后一轮没有新的可确认反例，且相关回归与静态检查通过，才结束本轮审查。
-
-## 2026-11-09 检查记录
-
-每轮先在实际代码路径运行失败回归，再由同一 Terra（xhigh）代理修复，并由主代理复审。
-
-| 轮次 | 违反约束的反例 | 修复后的协议 |
-| --- | --- | --- |
-| 1 | 查询返回空计划，结果失败但快照没有原因；配置失败或不支持后 pending 不清，同值重试却返回成功 | 快照与结果共享失败原因；终态按修订结算；未应用的同值可重试，在途同值返回 accepted |
-| 2 | 新 owner 接管后收到旧媒体 EOF；新查询被旧媒体失败污染；旧 writer 抛错结算最新意图 | 结束与失败按媒体归属过滤；writer 异常绑定发起时修订，继续协调最新意图 |
-| 3 | 原生全屏失败仍更新 UI；全屏切换期间丢弃反向目标；Timer 未交付时将超过 deadline 的操作判为成功 | 全屏失败恢复已确认状态并落实最新目标；操作返回及抛错时重查绝对时限 |
-| 复审 | 方向/系统栏失败后缓存阻止同值重试；失败回滚还可能覆盖更新的同值写入 | 失败恢复缓存，并按写入修订隔离迟到失败 |
-
-回归入口：
-
-```powershell
-fvm flutter test --no-pub test/plugin/pl_player/playback/playback_session_test.dart test/plugin/pl_player/playback/playback_model_test.dart test/plugin/pl_player/playback/playback_operation_scheduler_test.dart
-fvm flutter test --no-pub test/plugin/pl_player/fullscreen_model_test.dart test/plugin/pl_player/fullscreen_transition_test.dart
-fvm flutter test --no-pub test/plugin/pl_player/fullscreen_system_ui_test.dart
-```
-
-全屏用例需要 Windows 主机。新增模型回归已进入 `tool/run-ci-tests.ps1` 的对应主机范围。
-
-最终在 Windows 主机合并运行 `test/plugin/pl_player/`、`test/pages/danmaku/`、
-视频播放生命周期与来源、直播控制器、音频会话与服务生命周期，以及网格与瀑布流回归，
-715 项全部通过。`fvm flutter analyze --no-pub lib/plugin/pl_player lib/pages/danmaku test tool`
-无问题；CI 脚本语法及 92 个测试路径有效。末轮对照上述不变量复查，没有新的可确认反例。
 
 ## 验证边界
 

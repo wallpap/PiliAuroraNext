@@ -19,7 +19,7 @@
 | 收藏管理 | `lib/features/favorites/presentation/` | [收藏模块](../../lib/features/favorites/README.md)；账号查询、收藏夹与视频收藏写入 | `test/features/favorites/` |
 | 订阅 | `lib/features/subscriptions/presentation/` | [订阅模块](../../lib/features/subscriptions/README.md)；主账号列表、合集详情、取消和失效清理 | `test/features/subscriptions/` |
 | 观看历史 | `lib/features/history/presentation/` | [历史模块](../../lib/features/history/README.md)；历史账号角色与游标分页 | `test/features/history/` |
-| 稍后再看 | `lib/features/watch_later/presentation/` | [稍后再看模块](../../lib/features/watch_later/README.md)；共享 [Implementation](../../lib/features/content_library/README.md) | `test/features/watch_later/` |
+| 稍后再看 | `lib/features/watch_later/presentation/` | [稍后再看模块](../../lib/features/watch_later/README.md)；共享 [内容管理共享实现](../../lib/features/content_library/README.md) | `test/features/watch_later/` |
 | 下载与离线 | `lib/features/download/presentation/` | [下载模块](../../lib/features/download/README.md)；`data/`、`domain/`、`application/`；路径在 `lib/app/app_paths.dart` | `test/services/download/`、`test/features/download/`、`test/pages/download/` |
 | 设置与主题 | `setting/`、`settings_search/`、`space_setting/` | `lib/common/style.dart`、`lib/utils/theme_utils.dart`、`storage_pref.dart` | `test/pages/setting/`、`test/pages/space_setting/` |
 | WebView、DLNA、空降助手 | `webview/`、`dlna/`、`sponsor_block/` | 从 import 定位插件，核对 `third_party/` 的平台实现 | `test/pages/webview/`、`test/pages/dlna/`、`test/pages/video/cast_results_test.dart`、`test/pages/sponsor_block/`、对应依赖包测试 |
@@ -34,7 +34,7 @@
 - `lib/common/widgets/feed_pagination.dart` 以实际滚动范围触发分页；首页首屏补足由推荐 Notifier 负责。连续五页无增长时停止，失败保留内容，刷新、切号或退出使旧查询失效。所有者与快照修订的规则见[状态管理](state-management.md#查询与分页)。
 - `lib/services/blocked_authors.dart` 按主账号同步完整黑名单。同步与首页下载并行，发布前完成过滤；管理页的局部名单不覆盖完整缓存，同步失败沿用该账号缓存，应用内拉黑或解除即时更新。
 - `lib/services/cooperative_authors.dart` 处理合作作者；`rights.is_cooperation`、`is_union_video` 等明确标志触发补查，已知名单直接复用，否则查询详情的 `staff`。请求合并，共用两个并发名额，成功缓存一小时、最多 256 条，失败缓存一分钟；黑名单同步缓存五分钟。
-- 首页普通卡片先显示，合作卡片按检查结果局部更新；增删时才更新列表，卡片对象身份保留图片子树。过滤入口在 `lib/features/content_discovery/application/discovery_filter.dart`，已迁移列表通过 `application/discovery_listing.dart` 统一调度，动态话题与相关推荐的历史列表通过 `common/discovery_list_controller.dart` 适配，作者判定在 `lib/utils/media_author_filter.dart`，用户范围见[黑名单屏蔽](../guides/content.md#黑名单屏蔽)。
+- 首页普通卡片先显示，合作卡片按检查结果局部更新；增删时才更新列表，卡片对象身份保留图片子树。过滤入口在 `lib/features/content_discovery/application/discovery_filter.dart`，领域列表通过 `application/discovery_listing.dart` 统一调度，动态话题与相关推荐通过 `common/discovery_list_controller.dart` 适配，作者判定在 `lib/utils/media_author_filter.dart`，用户范围见[黑名单屏蔽](../guides/content.md#黑名单屏蔽)。
 - `TabActivity`/`TickerMode` 标记活动标签，隐藏页卸载 `CachedImage` 并保留数据和滚动位置。`CachedImageCache` 在动图最后一个监听退出后释放缓存句柄；静态帧沿用 LRU，显式保活句柄可以保留暂停动画。离页后才完成的文件加载，会在首帧完成后回收无人监听的动图。`NetworkImgLayer` 为 B 站质量型缩略图补充卡片尺寸，已有裁剪参数及原图查看/下载沿用原构图或地址。缓存字节不等于全部原生纹理占用，内存与耗时需实测。
 
 ## 消息、私信与分享

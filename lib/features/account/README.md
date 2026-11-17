@@ -1,6 +1,6 @@
 # 账号共享资料与个人中心
 
-全局优先收敛账号状态：原 `AccountService` 从资料缓存推导登录标记，首页、个人中心、推荐、番剧和登录同步又分别订阅这份 GetX 状态。现在登录资格只来自 `Accounts` 的角色对象，Riverpod 订阅角色变化，资料缓存只提供展示数据。这样后续迁移首页和动态时可以直接复用账号所有权。
+登录资格来自 `Accounts` 的角色对象，Riverpod 订阅角色变化；资料缓存只提供展示数据。共享资料、个人中心、登录同步与资料编辑通过同一模块发布确认快照。
 
 ## 入口与职责
 
@@ -9,8 +9,6 @@
 - `application/account_profile.dart`：资料发布顺序、查询代次、缓存串行写入，以及共享资料和统计 provider。登录同步与资料编辑共用 `AccountProfile.legacy`，不创建额外 ProviderContainer。
 - `application/account_preferences.dart`：从心跳角色派生无痕状态，观察主题偏好。账号身份与角色持久化仍由 `utils/accounts.dart` 持有，Riverpod 桥接入口为 `services/account_providers.dart`。
 - `presentation/`：个人中心、收藏摘要与无痕交互；个人中心复用收藏领域的查询和成功失效通知。原 `pages/mine/view.dart` 仅适配旧壳的滚动、消息按钮和切号对话框，通过参数交给展示层。
-
-`AccountService`、`AccountMixin` 和 `MineController` 已删除。首页头像、动态“我”入口和番剧登录入口订阅 Riverpod；旧首页壳及推荐 controller 直接订阅角色通知并在释放时移除，不再保存第二份登录标记。
 
 ## 所有权与结果
 
@@ -30,4 +28,4 @@ fvm flutter test --no-pub test/features/account test/services/account_providers_
 
 回归覆盖资料隔离、同 UID 新凭据、释放与刷新竞争、登录同步交付、缓存失败及串行写入、真实角色通知、无痕持久化、主题观察，以及实际个人中心的资料编辑和切号展示。架构测试检查四层依赖并禁止恢复旧入口。
 
-凭证存储、账号设置、登录表单和资料编辑页仍保留各自已有实现。本次收敛共享身份消费与个人中心，不涵盖完整账号领域重组。真实 Cookie、远端登录、Android/Windows 原生交互和完整应用构建需另行验收。
+凭证存储、账号设置、登录表单和资料编辑页仍保留各自已有实现。真实 Cookie、远端登录、Android/Windows 原生交互和完整应用构建需另行验收。

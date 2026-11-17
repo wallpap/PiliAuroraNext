@@ -1,361 +1,57 @@
 # 测试目录
 
-从仓库根目录运行 `fvm flutter test`。传入文件或目录可选择对应范围，环境与平台验证要求见[构建与测试说明](../doc/development/build-and-test.md)。
+从仓库根目录使用 FVM 运行测试。环境、Flutter 补丁和构建前提见[构建与测试](../doc/development/build-and-test.md#静态检查与测试)。
 
 ## 运行范围
 
-CI 测试脚本默认执行共享逻辑和当前主机的平台回归。PR 由 Linux 执行共享回归及 Android 模拟通道，Windows 通过 `-PlatformOnly` 补充桌面窗口、原生播放和文件/资源生命周期；其中保留了共享恢复文件内依赖实际 Windows 的用例。Windows 图片目录在准备原生夹具后独立运行一次。独立构建保持默认范围，不依赖另一平台先完成共享回归。模拟通道测试不代替 Android 设备验收。
-
-默认门禁优先保留账号隔离、写入确认、分页、播放和资源释放。Opus 字号/对齐、设置导航展示、触感反馈和加载提示等低风险 UI 测试保留为按需回归，实验密度统计自测在 `tool/experiments/danmaku/` 运行；普通业务测试可用 `fvm flutter test` 全量运行。调整默认范围时检查目录与文件是否重叠，避免同一文件被重复选择。
-
-本地 Windows WebView 包的 `third_party/flutter_inappwebview_windows/test/webview_environment_channel_test.dart` 使用模拟通道检查多个 Environment 的独立创建与释放，防止实例 dispose 误发到静态工厂 id；可从仓库根目录单独运行，已接入 CI。网页纹理、Cookie 和原生图形资源仍由 Windows 设备验证。
-
-`services/webview_environment_test.dart`、`services/webview_init_concurrency_test.dart` 与
-`common/widgets/webview_ready_test.dart` 检查启动登记不分配原生环境、首次使用去重、
-失败重试及离页后不挂载迟到网页；普通网页、验证码和 Cookie 操作共享同一环境屏障。
-
-Windows WebView 空闲回收回归：`fvm flutter test --no-pub test/services/webview_idle_lifecycle_test.dart`，覆盖页面与 Cookie 租约交接、快速重开和释放期间重开。
-
 ```powershell
-fvm flutter test test/plugin/pl_player/android/
-fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_test.dart
+fvm flutter test
+pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-按需实验位于 [`tool/experiments/`](../tool/experiments/README.md)，原生或设备探针位于 [`tool/probes/`](../tool/probes/README.md)，各入口和执行条件由对应目录文档说明。
+第一条运行 `test/` 下的业务测试；第二条运行 CI 选定的共享与当前主机回归。选中文件、平台条件和排除项以[CI 测试脚本](../tool/run-ci-tests.ps1)为准，PR 分工以[工作流](../.github/workflows/checks.yml)为准。调整范围时检查目录与文件是否重叠，避免重复执行。
 
-轻量内存归属回归位于 `services/diagnostics/memory_attribution*_test.dart`，覆盖阶段基线、
-延迟对照、会话隔离、轮转倒序、容量和脱敏。原生输出账本与真实注销屏障的验证命令见
-[诊断模块](../lib/services/diagnostics/README.md#验证)。
+定位单个功能时，将相应文件或目录传给 `fvm flutter test --no-pub`。先验证直接受影响的行为，再按公共接口或平台影响扩大范围。原生或设备探针见[探针目录](../tool/probes/README.md)，按需对照见[实验目录](../tool/experiments/README.md)。
 
 ## 目录与夹具
 
-播放器的状态变量与不变量见[播放器状态模型](../doc/development/playback-model.md)。
-`plugin/pl_player/playback/playback_model_test.dart` 验证跨 owner 的结束事件与迟到的意图写入异常；
-`plugin/pl_player/fullscreen_model_test.dart` 在 Windows 验证全屏失败回滚及转换中的最新目标。
-`plugin/pl_player/fullscreen_system_ui_test.dart` 通过模拟系统通道验证方向和系统栏的失败重试。
-这些回归均接入 CI 的对应主机范围。
-
-`plugin/pl_player/native_flag_test.dart` 在原生标志读写边界检查 C int 宽度、非零分配尾部和异步写入期间的参数存活及释放，不依赖设备或 libmpv 动态库；已接入两端 CI。真实播放器的暂停恢复和输出仍需平台验证。
-
 | 目录 | 范围 |
 | --- | --- |
-| `features/content_discovery/` | 推荐 Riverpod 查询、视口、卡片揭示、偏好与账号/页面生命周期。 |
-| `features/community/` | 动态分类的分页与发布/删除失效；投票、预约的账号归属、详情与上传乱序、不可变提交快照及界面生命周期。 |
-| `architecture/` | 依赖政策、模块边界和发布工作流约束。 |
-| `common/widgets/` | 通用控件、图片、手势和进度条。 |
-| `grpc/`、`http/` | 协议解码、请求转换和 API 选择规则。 |
-| `pages/` | 页面与控制器；二级评论位于 `video/reply_reply/`，诊断页面位于 `about/`。 |
-| `plugin/pl_player/` | 原生媒体源、跳转、硬解配置、解码分类和预览缓存。 |
-| `plugin/pl_player/android/` | Android 解码恢复、Surface 输出与帧交接。 |
-| `plugin/pl_player/video_output/` | 跨平台尺寸策略、输出调度、截图桥和绘制确认。 |
-| `plugin/pl_player/playback/` | 会话与页面归属、查询/加载代次、命令序列、资源释放、网络和音频恢复、shader 更新与时序契约。 |
-| `services/` | 下载、直播、设置同步及平台服务。 |
-| `services/messaging/` | 消息账号隔离、订阅释放、共享会话、分页竞争、发送结果与已读水位。 |
-| `services/diagnostics/` | 诊断编排、脱敏、HTTP 接线、历史读取、记录存储、日志和进程采样。 |
-| `utils/` | 工具函数与账号状态。 |
+| `architecture/` | 依赖政策、模块边界与工作流约束 |
+| `app/`、`router/` | 启动、窗口与路由生命周期 |
+| `features/` | 领域查询、写入及跨入口状态 |
+| `pages/` | 页面交互、异步结果消费与释放 |
+| `common/widgets/` | 通用控件、图片与手势 |
+| `http/`、`grpc/` | 协议解码、请求转换、账号与重试策略 |
+| `plugin/pl_player/` | 播放会话、媒体源、原生输出与资源交接 |
+| `services/` | 跨页面服务、消息、诊断与平台能力 |
+| `utils/` | 工具函数、存储及账号状态 |
+| `support/` | 跨领域复用的测试辅助工具 |
 
-测试文件使用 `_test.dart` 后缀。同一组件的场景集中在对应文件，页面测试与服务测试分开组织。
+用例以 `_test.dart` 结尾，具体覆盖直接查看文件中的测试名称。功能与测试入口见[功能地图](../doc/development/features.md)，领域约束见各模块 README。
 
-- 领域专用 fixture 与调用者放在同一目录，例如 `services/download/download_fixtures.dart` 和 `services/messaging/messaging_fixtures.dart`。
-- 简单的 Hive 内存读写共用 `support/memory_box.dart`。
-- 挂起 HTTP 响应可使用 `support/controlled_http_adapter.dart`、`support/controlled_interceptor.dart`，通过 `waitForRequests` 等待真实请求到达，再提交对应响应。失败注入与订阅行为由对应领域提供。
+领域专用 fixture 与调用者放在同一目录。Hive 内存读写可复用 `support/memory_box.dart`；挂起 HTTP 响应可复用 `support/controlled_http_adapter.dart`、`support/controlled_interceptor.dart`，等待真实请求到达后再提交响应。
 
-合并测试时保留失败重试、账号与请求代次隔离、资源释放等边界，预期结果应独立于被测实现。异步用例优先等待请求或完成事件；检查计时边界时使用模拟时钟。
+合并或替换用例时保留账号隔离、确认写入、分页重试和资源释放等边界，预期结果须独立于被测实现。异步用例优先等待请求或完成事件，计时边界使用模拟时钟。`testWidgets` 中持续创建 Timer 的对象须在用例体结束前释放，外层 `tearDown` 晚于测试绑定的计时器检查。
 
-`testWidgets` 中持续创建 Timer 的对象应在用例体结束前释放。外层 `tearDown` 晚于测试绑定的计时器检查，不能代替这一步。
+## 平台前提
 
-## 页面与账号
+Windows 主机首次测试或从 Android 环境切回后，先应用 Windows Flutter 补丁：
 
-`pages/bubble/controller_test.dart` 检查同 UID 凭据替换后的首页重读、旧账号响应隔离、分页失败保留页码、排序废弃旧分页及释放后的迟到结果。`pages/emote/controller_test.dart` 检查损坏历史逐条降级、可选缓存保存失败与串行、账号替换和页签释放。
+```powershell
+pwsh -NoProfile -File lib/scripts/patch.ps1 windows -SkipPubGet
+```
 
-这些测试已使用 Riverpod 接口：小站覆盖显式资源/排序与双页面，评论表情覆盖共享历史及独立 Tab，`pages/emote/image_demand_test.dart` 保留真实图片视口需求验证。`pages/pgc/account_lifecycle_test.dart` 检查推荐目录与主账号追番/时间表的独立归属、同 UID 换凭据、分页和部分失败。动态作者、分类及编辑草稿的所有权见[社区模块](../lib/features/community/README.md)，本轮顺序与后续边界见[迁移评估](../doc/development/riverpod-next-eight.md)。
+依赖须提前准备。隐藏页面语义与绘制资源回收测试依赖这些补丁，不能在 Android 补丁状态下判断结果。
 
-`pages/article/card_navigation_test.dart` 检查文章、投票与私信直播卡片的损坏 ID 点击提示，避免点击期解析异常。`pages/dynamics/card_input_results_test.dart` 检查动态富文本/附加投票和文章内嵌卡片弹窗的点击校验。
+### 图片与页面保活
 
-`pages/article/opus_typography_test.dart` 从接口 JSON 挂载真实文章组件，检查正文、引用、标题及未知段落的对齐，普通文字和富文本的字号等级，并保留显式字号与粗体等样式。
+图片原生回归须先准备确定性夹具和 worker，命令见[图片测试契约](common/widgets/image/CONTRACTS.md#区域后端和设备验收)。缺少 worker 或主机能力导致的跳过须单独记录。隐藏页面资源回归位于 `common/widgets/` 及图片目录，须在应用上述 Windows 补丁后运行。
 
-`utils/app_sign_test.dart` 检查空值参数保留等号、特殊字符编码与普通签名；`common/widgets/refresh_indicator_test.dart` 检查静止与收起后的进度条不再调度帧，以及收起期间重新刷新。
+内存验收分别记录模块引用、原生资源与进程指标；弱引用回收或资源计数归零不能代替进程峰值与长期测量。
 
-`grpc/reply_filter_test.dart` 经真实 gRPC 解码检查置顶楼中楼的关键字/带货过滤；`pages/video/reply/filter_pagination_test.dart` 检查过滤空页继续、五页补读上限与手动继续、游标停滞、失败重试和切号后的迟到结果隔离。
+### 播放会话与平台输出
 
-`http/login_test.dart` 与 `pages/login/request_lifecycle_test.dart` 检查登录结果类型、缺失身份/验证码字段、风控响应、损坏公钥、请求防重放，以及失败后的重试、倒计时和页面释放。`utils/accounts/cookie_failure_test.dart` 检查 Cookie 保存失败沿请求 Future 返回、保留原始 HTTP 错误及避免重放写请求。
+播放会话与输出回归位于 `plugin/pl_player/`，反例构造见[状态模型](../doc/development/playback-model.md)。模拟 Player 和通道检查命令、身份与释放屏障，原生呈现和声音使用目标设备探针验证。
 
-`http/login_account_results_test.dart` 检查退出撤销的拒绝/待确认、禁重试和设备解析原因；`pages/setting/logout_results_test.dart` 检查多账号退出互斥、部分失败、远端成功后的本地清理重试、同 UID 凭据替换及关闭后的授权清理。真实撤销服务、Hive 和 WebView 清理需另行验收。
-
-`http/member_mutation_results_test.dart`、`common/widgets/member_report_results_test.dart` 检查关注分组写入、新建 ID 和独立举报协议、失败保留选择及迟到弹窗隔离。`http/member_query_results_test.dart` 覆盖成员 22 类查询、可空数据、签名账号与商品 POST 查询；`pages/video/member_results_test.dart` 检查浮层资料/统计的账号、目标和代次，以及单项失败保留其他成功结果。
-
-`http/member_profile_results_test.dart` 检查账号资料解码、签名账号、头像文件准备，以及写入禁重试和待确认结果；`pages/member_profile/` 检查写入互斥、提交值与快照归属、同 UID 换凭据、缓存失败不覆盖远端成功、待确认修改先核对和缺失字段不解除核对状态。实际编辑弹窗检查失败保留草稿、核对后不重复改名、切号隔离、取消离页后的迟到提示及输入资源释放；头像选择/裁剪仍需设备验证。
-
-`http/loading_state_test.dart` 和 `http/search_response_test.dart` 检查成功取值、加载中误用、失败提示兜底及解析错误原因与展示文案的分离。`http/download_response_test.dart` 检查下载失败保留业务码、按实际媒体流选择画质，以及可选元数据缺失和无可下载媒体的区别。
-
-搜索响应回归还检查业务码、签名前账号固定、风控凭据类型和分 P 的空列表/损坏响应。`pages/search/controller_test.dart` 检查推荐账号切换时重载首页与热搜并拒绝迟到结果，已有搜索结果分页回归保留。
-
-`app/startup_test.dart` 和 `app/startup_failure_test.dart` 检查启动阶段、原始原因和堆栈保留，以及存储未就绪时的错误页、按需复制和关闭事件；`app/platform_setup_test.dart` 在 Windows 通过模拟通道检查初始化等待窗口显示与聚焦，并沿同一个 Future 交付窗口失败。真实进程退出码和设备窗口行为需另行验收。
-
-`app/desktop_title_bar_test.dart` 检查自绘标题栏的主题颜色、最大化/还原事件与迟到查询、关闭事件、全屏隐藏及页面状态保留，并通过鼠标悬停后的实际像素确认提示文字未被页面覆盖。该文件已接入 Windows CI；真实窗口拖动、DPI 缩放和系统窗口交互仍需实机验证。实现约束见[桌面窗口与标题栏](../doc/development/architecture.md#桌面窗口与标题栏)。
-
-`utils/background_sync_results_test.dart` 检查原生 Cookie 拒绝/异常、切号批次串行与失效、登出清理，以及历史状态写入等待；登录后的可选同步失败保留已确认的登录结果。Cookie 使用平台替身，真实 WebView 存储仍需设备验证。
-
-`http/api_response_test.dart` 和 `http/relationship_response_test.dart` 检查业务码、损坏响应、领域空数据、原始异常和写入待确认；同时检查操作语义对应的重试策略、未分发取消、账号/CSRF 和屏蔽规则 ID。弹幕屏蔽页面另检查删除已确认但添加待确认时保留部分成功与待确认类型。
-
-`http/community_response_test.dart` 检查弹幕与评论业务码、解析原因、写入待确认、匿名查询、管理端点和表情包分页。`pages/community/operation_results_test.dart` 检查赞踩/置顶防重入、草稿快照、切号/关闭/更换对象后的迟到结果、评论可见性检查、表情包重试，以及举报成功但屏蔽同步未确认的反馈。评论延迟检查另覆盖离页再返回、发布页正常关闭、来源或账号失效及申诉弹窗归属。真实服务写入、原生输入和播放器回显需设备验收。
-
-`http/reply_write_results_test.dart` 检查发布/删除的拒绝与待确认、账号和 CSRF 绑定、禁止重试、可空回显及本地缓存失败后保留已确认成功。`pages/community/reply_publish_results_test.dart` 检查上传前固定草稿、保留新草稿、楼中楼根 ID、重复提交和弹窗取消；`reply_list_results_test.dart` 检查按身份插入/删除、未知计数及账号订阅；`reply_search_results_test.dart` 检查已提交词与分页、凭据替换和子控制器释放。原生图片选择/裁剪和输入法仍需设备验收。
-
-`http/dynamics_response_test.dart` 检查动态接口的业务拒绝、解析原因和写入待确认、查询角色与签名期间账号绑定、过滤补页进展和上限、投票与预约的必需字段，以及定时发布等可空响应。
-
-`http/dynamic_media_response_test.dart` 检查图片读取失败、上传回执与删除的结果契约；`http/member_dynamics_response_test.dart` 检查空间动态补页进展与签名账号。`pages/dynamics/` 检查发布前的草稿快照、提交互斥、回调失败、切号/关闭/换对象后的结果隔离，及列表删除/置顶、话题折叠/收藏/点赞、投票与预约重试。图片使用本地临时文件，HTTP 使用受控响应；真实服务写入与原生输入需另行验收。
-
-`pages/article/controller_results_test.dart` 检查文章正文/统计的目标与账号归属、本人点赞状态、写入互斥、未知计数保留、成功写入淘汰旧查询、收藏列表和历史上报账号；`content_retry_test.dart` 检查内容加载失败后的重试。真实文章渲染与服务写入需另行验收。
-
-`pages/dynamics/overview_results_test.dart` 检查聚合页的凭据替换、分页去重/游标停滞和刷新等待，点赞/转发列表的账号隔离，以及互动设置的缺失来源、迟到弹窗与举报后拉黑的部分成功。举报弹窗可由调用方传入归属检查，切号后的结果不提示当前账号。
-
-`http/fav_response_test.dart` 覆盖收藏接口及分支的成功、业务拒绝、损坏响应和传输不确定性，并保留可空列表语义、确认后的收藏夹 ID 和账号绑定。`features/favorites/operation_results_test.dart` 检查快速收藏的 Future/重复提交/空收藏夹/切号，以及创建草稿、编辑加载、迟到查询和操作锁释放；原生封面选择与裁剪不由这些模拟测试证明。
-
-收藏课程/话题的账号、来源快照、失败保留与分页重读见 `features/favorites/`；`pages/pgc/pugv_favorite_results_test.dart` 与 `pages/episode_panel/favorite_results_test.dart` 检查播放器收藏/订阅的在途锁、账号隔离、待确认后的状态重查及离页回执。`features/subscriptions/subscription_library_test.dart` 检查隐藏页补读上限、显式继续、失败重试与切号后的迟到查询隔离。
-
-`pages/member/operation_results_test.dart` 检查成员主页面的账号/目标/刷新归属、关系写入和经验领取互斥；`pages/member/child_list_results_test.dart` 与 `pages/member_pgc/controller_results_test.dart` 检查成员视频/图文/Web/番剧子列表的账号订阅、查询失效和页面释放，以及继续播放的迟到结果。番剧页独立查询，不消费无账号归属的父缓存。
-
-`utils/app_scheme_test.dart` 与 `utils/url_navigation_results_test.dart` 检查链接入口同步/异步错误消费、静默探测、相对重定向、分 P 查询空结果及安全失败提示；`utils/navigation_lifecycle_results_test.dart` 通过生产 Get 路由和普通 MaterialPageRoute 验证最后一次导航生效、离页后返回及路由移除后的旧查询失效、确认弹窗关闭后继续交付，以及空结果收尾和其他加载提示的隔离，链接视频/playlist 的账号替换与空分 P；实名查询还覆盖账号替换和结果弹窗关闭。系统外链启动与真实 WebView 仍需设备验收。
-
-`pages/member/shortcut_action_test.dart` 检查空间快捷方式的资料校验、下载失败重试、原生失败消费、在途互斥、来源失效和独立提示清理。系统仅接收创建请求，启动器最终添加与 Android 外链启动仍需设备验收。
-
-`common/widgets/video_navigation_results_test.dart` 挂实际订阅卡片和私信卡片，检查分 P 查询失败重试、空结果、主账号/播放账号替换、卡片替换、离页返回和后发已知分 P 导航；私信缺失标识安全拒绝，导航回调异常由入口消费。通用卡片、历史、稍后再看、空间、投币稿件、订阅、私信与动态富文本共用 `PageUtils.openVideo` 的结果归属。
-
-`pages/video/episode_query_results_test.dart` 检查 UGC 分 P/PGC 分集查询的错误与空结果、重试、最近选择、主账号/播放账号替换、播放来源变化、owner 失效和页面关闭。查询失败保持当前播放来源，失效回执停止后续切集副作用。
-
-`pages/webview/action_results_test.dart` 使用插件通道替身检查菜单与脚本 Future 失败消费、新加载解除旧菜单锁、旧 controller/离页后的回调，以及复制、缓存清理和返回的安全提示。原生网页、脚本执行与缓存实际效果需设备验收。
-
-`utils/video_utils_test.dart` 检查 CDN 签名来源优先级、回退、相对来源、空输入和解析异常；安全异常保留 cause/stack，日志不记录签名地址。真实 CDN 可达性另行验证。
-
-`pages/audio/playback_results_test.dart` 检查空播放响应/地址、乱序查询、账号替换、播放器创建失败重试，以及旧原生打开排空后才打开并确认新曲目；`playlist_order_test.dart` 检查列表初始化/排序重试、切号隔离、分页互斥去重、游标限界及旧行快照。`pages/setting/cdn_probe_results_test.dart` 检查采样为空、短响应完成和测速异常的安全终态。音频和 HTTP 使用受控替身，真实媒体服务、原生播放及 CDN 速度需设备验证。
-
-`pages/audio/control_results_test.dart` 检查历史增益配置迁移及音频控制始终限制在 100%、速度/音量/进度等待原生回执、失败重试与设置保存部分成功、账号替换、系统命令错误交付及旧页面关闭不清新回调；`playback_results_test.dart` 另检查迟到 seek 不污染新歌、旧曲目不抢占新通知、关闭期间迟到创建的 Player 销毁失败后保留声音抑制。独立音频焦点接管另见 `services/independent_audio_focus_test.dart`，真实来电或耳机行为仍需设备验收。
-
-`pages/audio/interaction_results_test.dart` 检查互动账号与目标快照、共用写入锁、三连部分成功、投币/收藏面板来源失效、待确认结果，以及空分 P 的协议目标。分享固定打开面板时的曲目快照；`pages/video/pgc_sharing_test.dart` 另检查切换分集后仍分享原分集。
-
-`pages/video/cast_results_test.dart` 检查投屏地址查询互斥、失败后的重试与独立加载提示、换分 P 不打开旧设备页，以及离页返回仍丢弃旧错误。投屏服务交互和设备发现另见 DLNA 对应回归；真实局域网和电视设备仍需验收。
-
-`pages/dlna/controller_results_test.dart` 检查权限拒绝/异常后的重试、授权等待期间离页不启动发现、搜索启动/流异常后的重试、定时停止失败与等待、释放后迟到启动的清理、设备快照替换、连接互斥及 setUrl/play 确认、原设备暂停失败的部分成功，以及离页后的后续命令隔离。沿用依赖的 HTTP 200 命令接受语义，未验证 SOAP 正文或电视实际播放状态；真实多网卡发现及电视兼容性仍需设备验证。
-
-`utils/connectivity_results_test.dart` 检查 Wi-Fi/移动网络判定、探测错误保留与初始化保守降级；按网络保存音视频默认档位的入口在未知时跳过写入。`utils/font_results_test.dart` 检查导入取消/失败、旧字体兼容、启动降级、文件/偏好失败保留确认值、保存互斥和页面草稿。`utils/cache_results_test.dart` 检查实际缓存大小、清理确认取消、失败解锁重试、独立加载提示与离页返回后的迟到结果隔离；`utils/asset_preparation_test.dart` 检查资源复制失败及完整重试。`plugin/pl_player/playback/controller_recovery_test.dart` 的资源准备失败用例检查超分档位与偏好保留、同档位重试。原生文件选择器、系统字体枚举、着色器及真实网络切换需设备验收。
-
-`pages/setting/doc_provider_results_test.dart` 检查文档提供器设置的原生失败保留确认值、保存互斥、偏好失败后的原生恢复、双失败待确认及重试同步，以及离页返回后的迟到提示隔离。Android PackageManager 实际组件状态仍需设备验收。
-
-`pages/setting/independent_settings_results_test.dart` 与 `content_video_results_test.dart` 检查独立设置的保存回执、输入草稿、重复操作及保存后应用失败；`services/app_icon_test.dart` 检查图标选择与启动器同步的串行边界。原生启动器行为仍需 Android 设备验收。
-
-`pages/setting/common_settings_results_test.dart` 检查公共开关的保存回执、异步应用失败、来源替换、证书确认取消及离页隔离；屏蔽词和自定义数字检查输入校验、保存互斥、失败保留草稿与重试，数字选项支持不可变列表。`decoder_test_dialog_test.dart` 通过实际 HTTP 边界区分样片查询失败与成功空格式，并检查重试恢复格式选择。真实存储和原生解码仍需设备验收。
-
-`utils/update_results_test.dart` 检查忽略版本等待保存、失败重试、互斥及关闭后的迟到回执；`utils/feed_back_results_test.dart` 检查触感开关与插件失败消费。真实更新服务与设备触感需另行验收。
-
-`pages/whisper_detail/image_send_results_test.dart` 挂实际私信页面，检查选图取消/插件失败重试、选图与上传互斥、发送待确认、独立加载提示及页面/Session 失效。测试使用选图平台通道和消息适配器替身；原生相册、临时文件和实际上传服务需设备验收。
-
-`pages/dynamics/management_results_test.dart` 的成员动态用例另检查刷新后的旧确认回调、分页失败显式重试、重复游标/连续无增长限界和删除后重复页不会复活条目。
-
-`utils/platform_action_results_test.dart` 检查剪贴板确认前不提示成功、平台失败由操作持有者消费，以及桌面分享不泄露异常正文。桌面分享用例仅在 Windows 执行；系统分享面板、文件选择与目录打开仍需目标设备验证。
-
-`pages/member_favorite/pagination_lifecycle_test.dart` 检查成员收藏双分页的失败重试、完整响应、账号订阅与凭据替换、迟到删除回调及订阅释放。
-
-笔记删除互斥、失败/待确认保留、有效标识与凭据隔离见 `features/favorites/`。`features/subscriptions/operation_results_test.dart` 检查取消订阅弹窗和清理流程的账号绑定、失败保留弹窗、在途互斥、确认成功后的本地清理失败、待确认汇总及完成后实际刷新；清理算法另见 `features/subscriptions/cleanup_test.dart`。
-
-`http/validate_response_test.dart` 检查风控挑战与通过/拒绝结果、缺失证明、业务码和传输待确认；`utils/gaia_validation_test.dart` 通过导航替身返回验证结果，检查取消、过期操作、字段校验、一次性成功通知及等待异步消费者，消费者失败不重发请求。原生极验 WebView 的加载、脚本与设备行为需单独验证。
-
-`http/video_feedback_results_test.dart` 使用真实重试拦截器检查 GET 反馈/撤销的写入禁重试、账号角色、拒绝/待确认和参数校验。`common/widgets/video_feedback_results_test.dart` 检查弹窗互斥、可选提示、列表回调失败、拒绝重试/撤销及切号/来源失效后的迟到隔离。真实反馈服务另行验收。
-
-`http/video_interaction_results_test.dart` 与 `pages/video/interaction_results_test.dart` 检查点赞、投币和三连的拒绝/待确认、可选提示、部分成功、实际数量与共用写入锁，以及旧查询、换视频、分 P、切号和关闭后的回执隔离。`pages/video/pay_coins/pay_coins_test.dart` 另检查投币动画和异步回调异常消费。
-
-`http/video_query_results_test.dart` 覆盖视频 15 类资料/列表查询的业务码、原始原因、领域空语义和签名账号；`pages/popular_series/controller_test.dart` 检查无效期数、重试、乱序与退出。`http/video_media_results_test.dart` 检查媒体协议回退的原因与参数、取消、字幕独立正文协议及转换失败、AI 总结内外状态和预览无数据；真实播放、字幕显示和文件选择仍需设备验收。
-
-`http/pgc_follow_results_test.dart` 与 `pages/pgc/follow_results_test.dart` 检查追番写入的业务拒绝/待确认、可选提示、目标校验和账号绑定，以及播放器状态查询重试/迟到隔离；追番管理的批量互斥、选择保留与分页重读见 `features/favorites/`。真实服务写入与完整番剧页面另行验收。
-
-`http/pgc_response_test.dart` 覆盖番剧 11 个接口的业务码、解析原因、写入待确认、账号/CSRF、可空内容和追番状态类型。`pages/pgc/operation_results_test.dart` 覆盖时间表部分失败与日期合并、乱序/关闭、点评分页游标与去重、赞踩/删除互斥和未知计数，以及提交草稿与迟到面板。真实评分写入与番剧播放仍需另行验收。
-
-`http/metadata_response_test.dart` 与 `pages/metadata/` 覆盖音乐/赛事响应、可选封面和评论、空赛事、重复加载、乱序与账号隔离；音乐页面检查加载、错误重试和无评论降级，点赞检查在途禁用、未知计数与写入待确认，旧详情的评论不覆盖刷新后的空状态。
-
-`pages/metadata/music_video_card_test.dart` 检查音乐推荐卡片缺失文案/标识、空分 P、无效 CID、服务失败重试，以及切号和离页返回后的迟到查询。Android 音乐应用打开失败回退复制标题，实际启动需设备验收。
-
-`http/video_reporting_results_test.dart` 检查四个后台上报的成功、拒绝、损坏响应/传输待确认、写入禁重试及账号/CSRF 快照；播放器历史暂停与退出登录检查见 `plugin/pl_player/playback/controller_recovery_test.dart` 的“历史上报”用例。
-
-`pages/search_panel/esports_fallback_test.dart` 检查损坏赛事卡片保留其余搜索结果、空赛事安全隐藏；`pages/sponsor_block/operation_results_test.dart` 另检查偏好落盘失败保留值/重试，以及手动时间格式和范围校验。
-
-`http/sponsor_block_response_test.dart` 覆盖空降助手 8 个接口的 HTTP 状态、损坏响应、写入待确认、账号隔离与本地参数校验；`pages/sponsor_block/operation_results_test.dart` 挂真实提交/设置页面，检查草稿、防重入、关闭/切换视频后的迟到结果、投票和查询代次，另检查查询等待消费者完成。`pages/video/description_link_action_test.dart` 通过实际确认弹窗和 HTTP 请求替身检查 UGC 搬运绑定的已绑定/404/读取失败、取消、防重入、待确认后重新查询，以及账号、资料、分 P、服务配置和页面失效。既有 `block_mixin_test.dart` 与 `utils/sponsor_block_settings_test.dart` 检查跳过/静音行为和配置兼容。真实服务写入与播放器动作需设备验收。
-
-`utils/image_save_results_test.dart` 检查取消保存不误报成功、选择器收到真实字节、保存结果、共享缓存保留、普通/动态图片互斥、独立加载提示、迟到下载取消和临时目录清理；桌面批量同名/已有文件自动编号，选择缓存原目录保留源文件。Windows 文件选择使用模拟 adapter；Android 图库写入与权限需目标设备验收。
-
-`utils/screenshot_test.dart` 检查离屏截图树在成功、等待失败和尺寸异常时释放 Widget/Focus 资源，返回图片由调用方持有。`plugin/pl_player/playback/controller_recovery_test.dart` 的“截图：”用例检查原生截图异常后的重试、换源迟到图片释放、保存取消/异常后保留预览重试，以及关闭预览后等待保存消费完再释放图片。`pages/save_panel/save_results_test.dart` 运行实际 RepaintBoundary 和保存面板，检查 PNG 编码、取消/异常保留预览、保存互斥及关闭/离页返回后的迟到结果。`pages/login/qr_actions_test.dart` 检查实际二维码截图、保存取消/失败重试、刷新/过期/切标签/离页返回，以及外部打开失败消费。SC 与评论截图入口见 `pages/live_room/screenshot_results_test.dart` 和 `pages/community/reply_publish_results_test.dart`。原生截图、相册与分享仍需设备验证。
-
-`plugin/pl_player/webp_capture_operation_test.dart` 使用实际播放会话和转换替身，检查动态截图的临时暂停令牌、用户新播放意图、来源失效、独立提示与转换/保存后的资源清理。真实 libmpv 转码与平台保存仍需设备验收。
-
-`utils/image_permission_results_test.dart` 检查图片分享取消/无法确认、重复分享互斥、迟到分享不关闭其他加载提示，以及权限受限、查询失败和打开设置失败。`utils/theme_utils_test.dart`、`utils/theme_palette_results_test.dart` 和 `utils/window_position_results_test.dart` 检查损坏平台颜色输入、取色失败保留偏好、并发探测与重试、有限窗口尺寸/坐标和多屏原点恢复。真实系统分享、动态色、多屏 DPI/热插拔仍需设备验收。
-
-`services/download/download_repository_test.dart` 与 `services/download/download_service_test.dart` 检查删除失败保留队列/完成列表、原始原因、删除与启动串行，以及重复删除缺失分 P 不影响兄弟目录。`pages/download/deletion_results_test.dart` 检查确认删除后的进度清理、离页后的迟到结果、批量弹幕更新和清理失败不覆盖成功。`features/download/` 检查隔离快照、应用级保活、初始化重试、目录重读后的旧命令失效、详情独立打开、跨页面选择隔离及批量部分失败保留选择。真实文件占用/权限及完整页面交互仍需设备验收。
-
-下载服务回归还覆盖初始化失败/重试与读取代次、初始化和创建/删除的串行关系、创建落盘失败、暂停记录保存失败、准备失败及取消结果，以及手动弹幕更新与删除/重建/较新更新的隔离；页面回归检查初始化错误消费、批量弹幕更新部分失败保留及离页停止。创建面板仅在队列记录保存成功后标记已加入，真实下载目录与文件占用行为仍需设备验收。
-
-`pages/video/danmaku_pool_test.dart` 检查弹幕列表刷新、个人点赞状态恢复与取消点赞。挂起接口响应时检查首帧及慢响应期间的加载占位，另覆盖响应缺失、网络异常、查询重试不提交点赞，以及切换弹幕后迟到结果的隔离。
-
-`pages/live_room/loading_test.dart` 在直播请求持续未返回时检查加载动画、控件、刷新与失败提示；`app/desktop_playback_launch_test.dart` 检查小窗显示不等待播放流就绪。前者使用内存设置和挂起的 HTTP 响应，后者模拟窗口平台调用；实际纹理、声音交接和窗口显示仍需设备验证。
-
-`services/desktop_playback_windows_test.dart` 使用真实回环连接、临时 Hive 和进程替身检查提前退出、握手损坏、超时、连接重试、并发 ID、凭证只使用一次、断连和清理错误交付；`desktop_playback_layout_test.dart` 检查尺寸校验及旧配置回退。原生窗口显示与进程声音交接需设备验收。
-
-`features/content_discovery/` 覆盖首页实际视口容量与字体缩放、页脚留白、连续下载、Web 有界并发与有序去重、合作卡片骨架与渐进揭示、历史位置保留、分页重试，以及刷新、账号切换和退出时的旧查询隔离。生命周期用例使用真实角色通知及 Hive 偏好，检查同 UID 换凭据、角色通知合并、后台换号、来源切换、最后订阅释放、provider 重建和首页句柄注销。时序用例使用模拟延迟，覆盖数据交付；封面下载与解码沿用图片模块的独立验证。
-
-`pages/common/discovery_list_controller_test.dart` 与 `discovery_account_results_test.dart` 检查主账号屏蔽规则与推荐账号内容的复合归属，覆盖请求准备、合作作者等待、同 UID 换凭据和分页换号后从首页重读。真实 HTTP 适配器替换响应，核对热门、入站必刷、每周必看和三种排行榜的账号参数；纯主账号动态保留原归属。
-
-`common/widgets/feed_pagination_test.dart` 检查控制器或快照所有者替换后旧请求不会阻塞新列表、快照修订无需 stream 即可补足视口，也检查 GetX stream 包装重建时同一列表仍保持请求串行。
-
-`pages/blacklist/controller_test.dart` 覆盖串行分页、UID 去重、移除后的边界页补位、失败重试、账号切换与页面释放；`pages/account_queries/provider_test.dart` 覆盖设备和三类记录的账号绑定、日志隔离、行列映射、重试及旧账号内容隐藏。
-
-`pages/follow/controller_test.dart` 覆盖关注、分组成员与关键词查询隔离、串行分页、排序切换、账号身份、分组写入回滚及过期编辑拒绝；组件回归检查搜索乱序及清空、Tab 选择保留、排序草稿隔离、分组面板计数与分享选人。`pages/follow_type/controller_test.dart` 覆盖粉丝及两类关系查询的隔离、昵称、分页、账号身份、关系写入互斥、其他本人粉丝入口刷新和分享选人；`pages/live_follow/controller_test.dart` 覆盖房间去重、离线过滤后的空页补足、分页元数据、失败重试、切号及释放。关注、直播、黑名单和关系查询均检查切号失败后不使用错误态保留的旧快照。
-
-`pages/search/controller_test.dart` 覆盖 Riverpod 联想乱序、清空后重复输入、禁用联想、页面释放、多实例隔离、热搜/推荐刷新、共享历史、外部偏好同步与搜索页路由回传。`pages/danmaku_block/controller_test.dart` 覆盖规则刷新、不可变快照、编辑部分失败、请求账号与 CSRF 绑定、切号及订阅释放。`utils/account_profile_lifecycle_test.dart` 覆盖资料/余额的发起账号绑定、切号、页面释放和同账号查询乱序。
-
-`pages/scoped_search/controller_test.dart` 覆盖直播/空间搜索的页面实例与关键词隔离、账号角色、分页失败重试、旧响应失效、空间视频 gRPC 及动态游标补页，并检查搜索提交、输入替换和清空重查。
-
-`features/favorites/favorite_library_test.dart` 验证账号对象身份、查询隔离、分页互斥/重试、空页补位、写入失效、选择、排序草稿和收藏面板差量提交；`favorite_repository_test.dart` 验证各分类 HTTP Adapter、反向分页、隐藏过滤、笔记删除标识与 CSRF。旧 fav/fav_detail controller 回归已由这些 Interface 行为测试替换。
-
-`http/user_response_test.dart` 检查账号与历史等 28 个接口的拒绝码、解析失败、写入待确认和签名期间的账号绑定。历史状态和删除回归见 `features/history/`；视频收藏与稍后再看操作复用 `features/favorites/operation_results_test.dart`。
-
-`pages/space_setting/controller_test.dart` 覆盖隐私草稿、反向字段、保存互斥、失败重试、切号与刷新隔离及返回保存。`pages/live_settings/controller_test.dart` 覆盖直播屏蔽规则的房间与账号绑定、过期编辑、标签排序保存、推荐账号隔离及成功快照回调。真实直播服务与两端播放器仍需登录验收。
-
-`http/live_response_test.dart` 检查直播业务响应的拒绝码、解析原因、写入待确认、GET 反馈禁重试，以及签名账号与可选空数据。`pages/live_room/send_results_test.dart` 检查文本/表情共用发送锁、草稿保留、迟到结果与房间归属；`pages/live_emote/controller_test.dart` 检查凭据替换后的表情查询与页签释放。
-
-`pages/live/consumer_results_test.dart` 检查推荐与分区的账号归属、顶部请求乱序、分区标签重建、榜单切房清理与舰长查询，以及反馈和聊天屏蔽菜单的在途与迟到结果。实际推荐服务、完整直播播放和设备行为需另行验收。
-
-`pages/member_feed/controller_test.dart` 覆盖九类空间列表的账号与入口隔离、分页失败重试及去重、舰队前三名、迟到分页、专栏文集快照、充电排行和 PGC 筛选；`common/widgets/feed_pagination_test.dart` 另检查通知模式沿用父级滚动控制器。
-
-`pages/search_results/controller_test.dart` 覆盖综合搜索分类与筛选隔离、推荐及主账号角色、综合卡片、串行分页、去重与移除、验证后原页重查、验证注册及提交的账号绑定与过期隔离、屏蔽过滤补页、离页以及分类回调。验证服务弹窗和真实视频跳转需登录后人工验收。
-
-`services/account_providers_test.dart` 通过真实的账号切换、删除、凭据替换、刷新和清空入口，检查主账号与推荐账号通知隔离，以及最后一个订阅释放后的清理。列表测试另检查 PGC 首页与分页使用同一推荐账号、分组刷新后拒绝旧草稿、面板内新建后继续保存，以及搜索分页失败时保留已移除项。
-
-## 图片与页面保活
-
-图片采样、来源租约、区域协议及 Windows worker 接线/像素回归见[图片测试契约](common/widgets/image/CONTRACTS.md)。原生测试先运行 `python tool/probes/windows/image_region_probe.py` 生成公开夹具并构建 worker；Windows CI 已接入该步骤，其他主机的明确跳过不作为原生覆盖。
-
-`common/widgets/image/` 覆盖图片恢复时的单次取帧、原生取消后的解码名额归还、动画时长与有限循环、CDN 缩略尺寸及淡入过渡。`pages/home/controller_lifecycle_test.dart` 检查 Get 删除时的诊断源与 Ticker 释放；`router/get_route_lifecycle_test.dart` 检查真实出栈后路由引用清理及永久依赖保留。这些回归已接入 `tool/run-ci-tests.ps1`。
-
-Windows 保活页面内存回归：先执行 `pwsh -File lib/scripts/patch.ps1 windows -SkipPubGet`，再运行 `fvm flutter test --no-pub test/common/widgets/inactive_sliver_cache_test.dart test/common/widgets/inactive_sliver_semantics_test.dart test/common/widgets/image/retained_layer_release_test.dart`。语义回归用弱引用核对已销毁卡片确实可回收，同时检查 State、数据、ScrollPosition、偏移、Focus 与语义恢复。绘制回归覆盖真实 Picture/source 释放、像素恢复与外部 Texture 保护；真实进程 Private/RSS 阈值由独立 Release 探针验证。
-
-`image_lifecycle_test.dart` 用同一批 12 张图片检查 codec 创建上限、并发取帧和全部交付。`inactive_sliver_cache_test.dart` 直接使用生产 `InactiveFeedSliver`，保留滚动范围、资源收缩和恢复像素回归。`retained_layer_release_test.dart` 保留生产清理与实际 TabActivity、Texture、EngineLayer、viewport clip 的回归及共用场景中的策略对照。
-
-`image_cache_lifecycle_test.dart` 使用生产 `CachedImageCache` 检查离页后才完成加载的动图回收、共享监听、静态 LRU、缩放键、显式保活、在途取帧和同键替换隔离。真实 WebP 用例检查原生解码器离页销毁及重新打开，失败用例检查缩放图片的文件/取帧错误清理。
-
-## 服务与诊断
-
-`grpc/request_test.dart` 覆盖查询/写入声明、账号绑定前后一致的网络失败结果、音频写入不重试、前台/后台解码错误、业务拒绝码与状态消息、消息 unknown、弹幕消费取消及额度归还。
-
-诊断记录存储及突发写入位于 `services/diagnostics/record_store_test.dart`。
-
-消息业务状态、分享和协议分别由 `messaging_test.dart`、`sharing_test.dart`、`protocol_test.dart` 覆盖，设置和本地偏好另有测试。运行入口与实际服务验证范围见[消息模块](../lib/services/messaging/README.md#验证)。
-
-`services/messaging/settings_test.dart` 检查同键串行、最后确认值回滚、不同键并发、刷新及失效。下载服务测试覆盖准备期间暂停、删除、切换、地址快照和文件提交排空；直播连接测试使用本地主机 HTTP/WebSocket 检查挂起握手取消、超时后备及认证。
-
-`services/live_stream/live_stream_test.dart` 还检查 init 返回的认证成功/失败/主动关闭结果、认证拒绝与超时不发送心跳、原始握手错误与连接关闭；页面回归检查初始化失败后重新取得令牌、共享在途连接，以及旧连接的迟到失败不会清除新连接。
-
-`services/diagnostics/diagnostics_test.dart` 另检查 Windows 512 块检查点的独立快照预算、缓存去重及跳号后的检查点恢复，以及导出脱敏、本地原文保留和快照隔离；`redact_test.dart` 覆盖长普通文本与带前缀 token 键。VirtualQuery 与视频资源生命周期回归见平台探针，不能由 Dart 模拟通道测试替代。
-
-## 播放会话与平台输出
-
-`plugin/pl_player/subtitle_configuration_test.dart` 检查拖动后的显示配置和保存值同步；`player_subtitle_view_test.dart` 挂载真实字幕组件，检查控件临时避让、拖动后显隐、销毁重建和样式更新，避免临时位置覆盖用户值。
-
-`services/app_exit_test.dart` 检查退出合并、必要清理等待、独立步骤失败继续、实际退出失败后的重试，以及诊断超时与迟到异常。`services/audio_session_initialization_test.dart` 检查音频配置的单次共享初始化、激活等待、原始失败与重试；`shutdown_timer_service_test.dart` 检查暂停回执前不提示成功、同步/异步失败消费及取消后的迟到结果。真实插件配置和进程退出需设备验证。
-
-`plugin/pl_player/playback/controller_recovery_test.dart` 的“音量回执”用例检查静音/音量失败回滚、会话期望撤回、重试、迟到操作/切源隔离和控件提示；真实音量输出与子窗口声音交接仍需设备验证。
-
-`plugin/pl_player/playback/controller_recovery_test.dart` 的音频焦点用例检查等待、拒绝/异常、意图覆盖、串行交接与旧 owner 失效，以及独立音频等待视频暂停、销毁屏障和销毁失败保留抑制。`services/independent_audio_focus_test.dart` 检查独立音频的焦点拒绝重试、中断保留意图、拔耳机暂停、duck 音量修订、多音频接管和旧页面关闭归属；辅助交接失败仍销毁 Player。`services/desktop_playback_windows_test.dart` 的声音归属用例检查异常退出恢复、IPC 断连、退出状态失败、目标失效和切换失败后的继续操作。进程和音频使用替身，真实输出仍需设备验证。
-
-`plugin/pl_player/playback/video_frame_timings_test.dart` 覆盖请求/消费阶段、输出身份、失效代次、序号高水位与独立消费证据；`pages/danmaku/frame_plan_identity_test.dart` 另检查共用调度的合帧、订阅释放、同一 view 换屏/变频和迟到 timing 隔离；`plugin/pl_player/android/preloaded_surface_test.dart` 使用实际 Android 输出控制器与模拟平台通道，检查临时 Surface 的解码前挂载、FILE_LOADED 几何确认及同尺寸输出复用。
-
-`plugin/pl_player/playback/native_media_clock_sampling_test.dart` 覆盖异步媒体时钟采样的通知合并、在途结果失效、冻结锚点时刻、读取失败恢复，以及释放前等待原生读取完成；属性一致性由 `native_media_clock_test.dart` 覆盖。
-
-`plugin/pl_player/playback/playback_session_test.dart` 覆盖 shader 重建触发的媒体重载，检查续播位置、原媒体源、请求身份和播放意图，并验证清除 shader 也走同一协议。实际 Windows 硬解、纹理、音频时间线和资源回收使用 `tool/probes/playback/windows_shader_switch.dart` 的生产会话模式检查。
-
-`plugin/pl_player/playback/native_shutdown_test.dart` 使用真实原生运行时与模拟 Player/输出，检查 stop 成功及回执超时后继续等待完整卸载证据、输出释放回执和 Player 销毁的顺序，并覆盖 open 提交前失败和提交后的迟到文件身份。
-
-该文件另在 Windows 检查降画质等待旧文件卸载与渲染器回收回执、同尺寸复用、未知尺寸
-的新源与同一源恢复、迟到原生几何、画质与超分合并重建，以及失败后的重试。实际占用
-使用[离线资源探针](../tool/probes/README.md#windows-播放器资源回收探针)按目标设备对照：
-首次 4K 加载通过累计纹理创建上限检查多余扩容，全屏往返另行采样窗口呈现开销。
-
-`plugin/pl_player/video_buffer_policy_test.dart` 检查点播预读预算、双阈值、倍速及平台兼容；`pages/video/playback_lifecycle_test.dart` 检查策略捕获后稳定、下一次加载读取新偏好和直播隔离；`pages/setting/content_video_results_test.dart` 检查默认策略、选择保存和实际预算展示。`controller_recovery_test.dart` 另检查加载/重载/seek 期间缓存事件被暂缓后立即补发，以及跳转后缓存边界允许回退。真实缓存复用与淘汰由[原生探针](../tool/probes/README.md#点播缓存与跳转探针)验证。
-
-`plugin/pl_player/playback/controller_recovery_test.dart` 将真实播放器控制器、会话与网络/音轨恢复器接到模拟原生输入，检查合流、分轨、只听音频、纯视频和本地媒体在断流、缓存耗尽、静音、暂停、跳转、切源、完成及关闭时的恢复协调；恢复预算矩阵见 `playback_session_test.dart`。
-
-EOF 回归覆盖 keep-open 播放结束通知的文件归属、重复合并与 seek 后再次结束，以及网络点播提前 EOF 的续播位置、暂停意图和三次恢复预算。正常片尾容许两秒的时间戳尾差；未知时长与直播沿用完成事件。设备探针 `tool/probes/playback/session_device_acceptance.dart` 另检查真实片尾通知。
-
-`plugin/pl_player/playback/playback_session_test.dart` 将真实会话连接到点播显示组件，检查暂停/缓冲通知立即冻结媒体位置并停止运动帧，迟到采样保持冻结，恢复取得新样本后连续推进。
-
-`plugin/pl_player/android/raster_scheduling_test.dart` 检查 Raster CPU 亲和性的重复取得、恢复及其它策略/线程接管；实际调度和呈现间隔使用 `tool/probes/android/playback_jank.dart` 的亲和性对照模式验证。
-
-`plugin/pl_player/playback/native_load_readiness_test.dart` 覆盖输出就绪前 EOF、等待几何时断流、迟到输出与直播几何等待预算。`preloaded_surface_test.dart` 还覆盖 preloaded 时 selected=false、FILE_LOADED 选轨确认、Surface 创建失败后的挂载中止与清理，以及 VO/wid 解绑到原生释放回执的顺序；`tool/run-native-probes.ps1` 的主机探针运行生产 Java Surface 创建和释放方法，检查失败回滚、即时与幂等回执及 JNI 删除失败。
-
-`plugin/pl_player/playback/super_resolution_policy_test.dart` 检查源视频与当前屏幕物理分辨率的长短边比较，以及尺寸未知时延后加载超分的判定。`super_resolution_selection_test.dart` 检查不可用的显式选择保留档位和设置。超分入口由播放器底栏和视频更多设置面板提供。
-
-`controller_recovery_test.dart` 的切源超分回归接入真实门面与 Session，检查效率/质量
-两档、直接加载/异步查询、横竖屏源，以及查询和打开期间到达的配置。超过屏幕的
-4K 来源首次打开时必须清除超分，允许的分辨率保留档位、倍速和音量，并且只加载一次。
-原生 shader 与内存对照使用[资源回收探针](../tool/probes/README.md#windows-播放器资源回收探针)。
-
-`pages/video/playback_lifecycle_test.dart` 覆盖查询与媒体绑定、旧响应取消、重载意图和字幕归属，以及重选来源成功后确认、连续选择合并、失败重试和离页恢复；`playback_source_test.dart` 检查候选优先级及缺失来源/编码的安全异常。`pages/live_room/source_results_test.dart` 检查切流/画质的加载回执、偏好保存部分成功、迟到结果隔离和确认来源恢复；`controller_test.dart` 继续覆盖消息连接 single-flight、token/history 代次、暂停/恢复及关闭后的迟到回调。
-
-`services/audio_session_test.dart` 覆盖 duck 重复开始、结束先于音量命令完成及用户新音量保护；`audio_handler_lifecycle_test.dart` 覆盖多页面媒体归属、最后一项释放 keepalive、音频未就绪不触发底层视频，以及停止回执不清新媒体。以上使用受控请求与播放器替身，真实音视频、耳机和系统媒体控制需设备验证。
-
-`services/audio_handler_seek_test.dart` 检查通知连续点击/长按的累计目标、位置确认、失败重试、切源/回调交接和周期任务释放；`audio_handler_lifecycle_test.dart` 另检查上下曲的归属、业务回执和能力发布。`pages/video/media_navigation_test.dart` 经系统媒体入口检查分 P、UGC 合集、PGC 与本地列表顺序，`pages/audio/playback_results_test.dart` 检查真实音频列表的切换与打开等待。动态作者两阶段分页、资料合并及已读保护见 `pages/dynamics/overview_results_test.dart`。这些回归均已接入 CI。
-
-`pages/audio/playback_results_test.dart` 还核对独立音频的初始化、open、关闭与实际销毁回执顺序，以及创建/打开/释放失败事件。销毁尚未完成或失败时不得记录 `audio.shutdown.released`，事件不包含媒体 URL 和异常正文。原生创建失败的用例检查清理前本页禁止再次创建、关闭保留租约、后续页面等待交接后才分配 Player，以及清理成功后的显式重试。
-
-播放器会话、候选恢复和命令序列回归集中在 `plugin/pl_player/playback/`；其中 `playback_session_test.dart` 检查加载完成后仍允许当前媒体的业务回写，并在新加载或 owner 失效后拒绝旧结果。`tool/run-ci-tests.ps1` 显式选择关键回归，完整目录测试按需运行。deadline 验收使用虚拟时钟；播放/暂停预算同时检查原生调用未返回和排队等待，超时后仍串行落实最新意图。
-
-## 弹幕来源与显示
-
-`pages/danmaku/window_screen_test.dart` 覆盖生产点播的媒体锚点、暂停准备及期限唤醒，`live_layer_test.dart` 覆盖共用窗口上的直播运动、暂停、到期和隐藏释放。`window_renderer_test.dart` 对照实验基线检查 DPR、普通与高级弹幕透明度和重叠像素，并覆盖表情共享图片及资源预算；`window_interaction_test.dart` 检查局部来源失效后的选择、句柄和活动资源保留。旧 Windows 实现及其专属回归位于 `tool/experiments/danmaku/baseline/`。
-
-`pages/danmaku/file_store_test.dart` 检查有序产物复用、原文件更换、取消和释放清理；`controller_test.dart` 检查暂停失败后的显式重试、最新范围收敛和规则重算；`cache_test.dart` 检查字节淘汰与覆盖状态。`window_coordinator_test.dart` 和 `echo_source_test.dart` 检查局部失效、旧就绪事件隔离及来源等待期间的本地回显；进程预留与取消后占用归还由 `services/danmaku/work_quota_test.dart` 覆盖。
-
-`controller_test.dart` 另以 1.75 万条合法弹幕经过生产 gRPC 解码、共享租约、过滤合并和缓存提交，检查高密度分段可以完整加载；`grpc/decode_policy_test.dart` 核对已知字段与未知字段的存储估算，同时保留单条超限、字段数超限及有界 gzip 解压回归。
-
-直播聊天的 10 万条压力集中在 `pages/live_room/chat_buffer_test.dart`；页面与控件使用超过 500 条容量的积压检查淘汰提示、阅读位置和退出释放。`window_screen_test.dart` 的帧率矩阵使用 6 组代表组合，每个目标帧率均覆盖 120/165 Hz 和两种采样密度。私信卡片布局保留窄屏浅色、宽屏深色两组。
-
-## 弹幕帧调度
-
-CI 显式选择弹幕生产链路与帧计划的核心回归，完整弹幕测试按需运行 `fvm flutter test --no-pub test/pages/danmaku/`。`frame_sync_fixture.dart` 供相位测试和帧率矩阵共用请求时间换算，两种模型都采用引擎的目标帧时钟；Android 模型由视频额外驱动 Dart 帧，隔离模型用于检查 ticker 自行唤醒。`frame_rate_diagnostics_test.dart` 检查实际更新、请求和定时器累计计数、单调时间及停止后的释放；相位测试同时检查稳定锁相状态。
-
-`pages/danmaku/frame_plan_identity_test.dart` 模拟 BeginFrame 返回后递增 FrameData 的顺序，集中检查帧末编号与呈现目标的关联、无关和重复 timing 的隔离，以及停止后待匹配计划的清理。
-
-`pages/danmaku/frame_plan_identity_test.dart` 注入旧回调、零值/负值/过大提前量和缺失 timing，检查异常连续确认、正常批次清除异常计数、回退后的更新间隔，以及暂停、重配和迟到批次不会反复切换。按秒批量报告的正常 timing 保持增强策略。
-
-`pages/danmaku/native_video_frame_sync_test.dart` 使用独立的纹理刷新请求批次，覆盖引擎不提供零 Build timing 时的 60 FPS 相位学习、30 FPS 视频配 60 FPS 弹幕在 120 Hz 上的相位变化、匹配到失配再匹配时的退化与恢复、mpv 显示同步状态切换与订阅释放、批次限界、请求时间抖动、29.97 FPS 漂移与来源释放。相位变化测试同时断言弹幕更新频率和视频、弹幕合计刷新的次数。屏幕槽位与呈现的结论来自设备检查。
-
-`pages/danmaku/frame_cadence_test.dart` 以12组代表组合记录更新所在屏幕槽位，覆盖24/30/60及23.976/29.97/59.94 FPS视频、60/90 FPS弹幕，以及稳定、每秒相位变化、请求完成时间抖动；小数帧率保留稳定源时钟漂移。120Hz无阻塞模型中检查更新间隔，防止平均帧率正常时仍夹入25ms长间隔；GPU呈现由目标设备检查。`frame_rate_diagnostics_test.dart` 另检查回调与截止时间跳过计数、间隔分布、暂停空档排除及正常槽位量化。
-
-`pages/danmaku/frame_deadline_replay_test.dart` 使用诊断中提取的1.2秒数值时序，包含实际回调目标时间、交付时间和原生请求批次，回归亚毫秒偏差引发的连续更新延期。扩大矩阵见 `tool/experiments/danmaku/frame_cadence_device_matrix_test.dart`：用同一时序还原槽位抖动，覆盖Android目标时钟领先、119.88/120.0000076/120.12Hz读数、跟随屏幕及60/90/120FPS、29.97/59.94FPS视频、250ms批次与1秒积压压力；同时检查频率、最长更新间隔、屏幕上限合帧与停止后的释放。
-
-`pages/danmaku/frame_late_delivery_test.dart` 分开模拟引擎请求截止与 Dart 回调交付，保留屏幕周期前、周期点和周期后的 8/8.333/8.5ms 交付延迟，检查 120Hz 屏幕上的 60FPS 仍保持两槽间距；另模拟 Timer 迟到 10/20/31.6ms，检查错过的更新合并及随后恢复。后者按实际迟到预算检查间隔。
-
-`pages/danmaku/frame_rate_ticker_test.dart` 检查所属视图刷新率、屏幕降频、刷新率不可用、暂停与静音时的帧请求释放，以及 60/90/120 FPS 档位。测试使用模拟时钟，不测量设备屏幕或 GPU 合成。
-
-`window_screen_test.dart` 在真实点播显示组件上检查 120/165Hz 下 60/90/120FPS 的模拟帧中的更新次数和最长、最短更新间隔，混入密集/稀疏锚点、突发来源通知及父组件重建。`live_layer_test.dart` 检查新消息和重建期间的实际滚动位移、限帧间隔、累计运动时间及暂停恢复。两者另交替注入 1/6ms 回调交付延迟，检查跟随屏幕时的逐帧时间和位移均匀；测试独立控制帧目标时间与单调时间。
-
-一般弹幕场景以滚动、顶部固定、底部固定弹幕混合为基准，覆盖固定弹幕进入、驻留和到期时的滚动连续性。`window_screen_test.dart` 按 24/30/60FPS 推进视频位置，并交替注入锚点通知延迟，在混合场景中检查连续帧的媒体时间和滚动几何位移，以及两轮固定弹幕到期。
-
-`window_screen_test.dart` 回放倍速升降和重复长按加速/恢复的媒体锚点，保留旧速率下的位置采样差，检查切速前后的逐帧位移与窗口代次。还覆盖停止通知先于新速率到达、短暂冻结/恢复、帧目标早于或晚于回调、显示空档，以及交接中的真实 seek；校准结束后仍须精确贴合原生时间。
-
-设备上的连续性分析关联同一弹幕更新帧的实际呈现时间，保留逐帧相对波动，补充跨 1/2/3 帧的差分和 ±1/±2/±3（3/5/7 帧）完整窗口汇总，检查间隔误差、速度误差 RMS、呈现延迟极差及窗口总位移速度。组件回归中的帧目标时间用于验证运动与调度；设备探针补充 Raster 和 SurfaceFlinger 的同帧对应。
-
-`video_presentation_cadence_test.dart` 检查 Android 点播采用的持续视频 vsync 策略：24/30/60 FPS 视频驱动下连续请求屏幕帧，弹幕仍以 60 FPS 的固定槽距推进；视频采样清空、过期、静音及停止后释放连续请求。原有按需调度和相位模型继续覆盖未启用此策略的调用路径。
-
-旧 Canvas 屏幕的绘制、轨道、静音与 DPI 回归统一放在 `tool/experiments/danmaku/baseline/`，按需运行；`pages/danmaku/frame_rate_ticker_test.dart` 和 `text_renderer_test.dart` 保留当前窗口内核共用的调度及文字栅格回归。
-
-## 内容管理迁移
-
-`features/watch_later/later_library_test.dart` 通过 Module 的写入 Interface 和 Riverpod 查询验证分页重试、刷新与释放后的迟到结果、同 UID 换凭据、跨标签与搜索失效，以及 Widget 选择和待确认弹窗。原 `pages/history/operation_results_test.dart` 中稍后再看 controller 回归由这些行为测试替换。
-
-`features/history/history_library_test.dart` 覆盖历史账号角色与同 UID 换凭据、分类游标和搜索分页、删除互斥、暂停旧查询竞争、缓存失败及页面选择；旧 history controller 回归由此替换。`utils/history_status_lifecycle_test.dart` 与 `background_sync_results_test.dart` 继续验证真实 HTTP Adapter 和登录同步的落盘等待。
-
-`features/subscriptions/` 覆盖订阅 Riverpod 查询、账号对象身份、页面释放、列表与详情的成功写入失效、取消/清理互斥，以及本地隐藏记录的隔离。所有文件均列入 `tool/run-ci-tests.ps1`；原 subscription/subscription_detail controller 测试已由这些 Interface 回归替换。
-
-`features/account/` 覆盖资料查询与编辑发布、同 UID 凭据替换、页面释放、登录确认与刷新竞争、缓存隔离和串行写入、真实角色通知、临时及永久无痕、主题偏好观察，以及个人中心 Widget 的跨入口更新与切号展示。两个测试文件均已加入 CI；夹具位于同目录 `profile_fixture.dart`。`utils/account_profile_lifecycle_test.dart`、`background_sync_results_test.dart` 和原个人资料编辑回归继续验证真实 HTTP 与已确认写入语义。
-
-## 内容发现迁移
-
-`features/content_discovery/discovery_listing_test.dart` 覆盖查询代次、账号身份、串行分页、失败原页重试、过滤补读限界与移除保护。`rank_feed_test.dart`、`curated_feed_test.dart`、`live_feed_test.dart`、`live_area_feed_test.dart` 经真实 HTTP Adapter 验证显式账号、双角色切换、跨步骤失效、元数据原子发布及目录和标签所有权；分区 Widget 回归另检查活动 TabController 释放。原每周必看及直播发现 controller 回归由这些 Interface 测试替换，均已纳入 CI。Android／Windows 实际滚动、直播服务与原生图像解码仍须设备验收。
+真实 WebView、Cookie、GPU、MediaCodec、声音、全屏和系统窗口仍需设备验证。消息验证见[消息模块](../lib/services/messaging/README.md#验证)。

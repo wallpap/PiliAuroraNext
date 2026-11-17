@@ -1,10 +1,6 @@
 # 订阅管理
 
-## 迁移选择
-
-下载、稍后再看、历史和收藏之后，本批迁移订阅列表、合集详情、取消订阅与失效清理：它们共享主账号和本地隐藏记录，能够完整迁移查询、写入及页面生命周期，且无需进入播放器原生链路。
-
-动态与首页依赖推荐账号、关注信号和内容过滤；播放页面还持有原生资源。这些模块应在各自所有权收敛后分别迁移。
+订阅列表、合集详情、取消与失效清理共用主账号和本地隐藏记录。
 
 ## 目录与约束
 
@@ -13,8 +9,6 @@
 - `application/subscription_cleanup.dart`：完整快照扫描、视频有效性判断、待确认取消与有限分页；不处理弹窗和提示。
 - `application/subscription_library.dart`：Riverpod 查询、写入锁、清理进度、账号归属与成功失效信号；复用[共享分页实现](../content_library/README.md)。
 - `presentation/`：列表与合集详情、滚动控制器、路由参数、确认弹窗和结果提示。GetX 只用于路由兼容。
-
-原 `models/remote/sub/`、`pages/subscription/` 和 `pages/subscription_detail/` 的 Dart 入口均已删除。收藏数据层直接使用本领域的隐藏记录 Adapter，空间收藏、路由与视频卡片调用方使用新入口。
 
 ## 所有权与异步结果
 
@@ -34,6 +28,6 @@
 fvm flutter test --no-pub test/features/subscriptions test/architecture/dependency_rules_test.dart
 ```
 
-`subscription_library_test.dart` 验证查询身份、账号更换、释放、分页、隐藏页预算、互斥与跨页面失效，并检查实际页面的标题更新。`operation_results_test.dart` 使用受控 HTTP 响应验证取消弹窗、待确认、缓存失败和清理后的实际刷新；`cleanup_test.dart` 与 `hidden_media_test.dart` 分别覆盖扫描算法和 Hive 隔离。所有回归已接入 CI，依赖规则检查四层方向并禁止恢复旧入口。
+`subscription_library_test.dart` 验证查询身份、账号更换、释放、分页、隐藏页预算、互斥与跨页面失效，并检查实际页面的标题更新。`operation_results_test.dart` 使用受控 HTTP 响应验证取消弹窗、待确认、缓存失败和清理后的实际刷新；`cleanup_test.dart` 与 `hidden_media_test.dart` 分别覆盖扫描算法和 Hive 隔离。依赖规则检查四层方向。
 
 这些测试使用模拟数据。真实账号下的取消、全量扫描、封面 Hero 动画及 Android/Windows 布局仍需设备验收。

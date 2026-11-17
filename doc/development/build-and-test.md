@@ -10,16 +10,15 @@ Android 的 `namespace`、`applicationId`、Java/Kotlin 包声明与源码目录
 
 ## 环境
 
-| 工具 | 当前配置 | 来源 |
-| --- | --- | --- |
-| Flutter | 3.47.5 | `.fvmrc`、`pubspec.yaml` |
-| Dart | SDK `>=3.13.0` | `pubspec.yaml` |
-| Gradle | 9.6.0 | `android/gradle/wrapper/gradle-wrapper.properties` |
-| Android Gradle Plugin / Kotlin | 9.2.1 / 2.4.20 | `android/settings.gradle.kts` |
-| JDK | 25，Gradle 与 Java/Kotlin 编译使用 | `android/gradle/gradle-daemon-jvm.properties`、`android/build.gradle.kts` |
-| Android SDK | compileSdk / targetSdk 37；minSdk 由 Flutter 配置 | `android/app/build.gradle.kts` |
+| 工具 | 固定版本与配置 |
+| --- | --- |
+| Flutter / Dart | 根目录 `.fvmrc` 与 `pubspec.yaml` |
+| Gradle | `android/gradle/wrapper/gradle-wrapper.properties` |
+| Android Gradle Plugin / Kotlin | `android/settings.gradle.kts` |
+| JDK | `android/gradle/gradle-daemon-jvm.properties` 与 `android/build.gradle.kts` |
+| Android SDK | `android/app/build.gradle.kts`，Flutter 默认值来自固定 SDK |
 
-Android Studio 的 Gradle JDK 和 `JAVA_HOME` 都设为 25。JDK 25 是构建工具链要求，不决定 `minSdk`、`targetSdk` 或设备运行时版本。
+Android Studio 的 Gradle JDK 与 `JAVA_HOME` 使用项目要求的 JDK。构建工具链版本与设备的 `minSdk`、`targetSdk` 分别配置。
 
 Windows 构建需要安装 Visual Studio，并启用“使用 C++ 的桌面开发”工作负载。Windows 开发建议使用 PowerShell 7。
 
@@ -49,7 +48,7 @@ Windows 输出到 `build/windows/x64/runner/Release/`。Android 默认在 `build
 
 `-Verbose` 显示依赖与补丁详情。依赖和补丁已准备时可传 `-SkipPubGet`、`-SkipPatch`；依赖来源检查仍执行。构建自动生成呈现配置并核对引擎模式、架构、固定提交、补丁、二进制摘要及原生回归状态，校验失败则终止。
 
-本地与 CI 共用 `lib/scripts/build.ps1` 生成版本元数据：版本名取自 `pubspec.yaml`（当前为 `1.0.0`，迁移后的首版），构建号取自 `git rev-list --count HEAD`，每次新增提交后自动增长。Windows 和 Android 统一使用 `版本名+构建号`，提交哈希单独记录在元数据中。入口将同一版本、提交和时间传入 Flutter 与应用，保持程序属性、关于页和更新检查一致。本地通过构建参数传递，不改写 `pubspec.yaml`；发布元数据通过 `-DartDefine` 传入时优先使用调用方的值。构建需要完整 Git 历史，浅克隆先运行 `git fetch --unshallow`；CI 已配置 `fetch-depth: 0`。
+本地与 CI 共用 `lib/scripts/build.ps1` 生成版本元数据：版本名取自 `pubspec.yaml`，构建号取自 `git rev-list --count HEAD`，每次新增提交后自动增长。Windows 和 Android 统一使用 `版本名+构建号`，提交哈希单独记录在元数据中。入口将同一版本、提交和时间传入 Flutter 与应用，保持程序属性、关于页和更新检查一致。本地通过构建参数传递，不改写 `pubspec.yaml`；发布元数据通过 `-DartDefine` 传入时优先使用调用方的值。构建需要完整 Git 历史，浅克隆先运行 `git fetch --unshallow`；CI 已配置 `fetch-depth: 0`。
 
 需要断点或热重载时显式传 `-Mode debug`，使用 FVM SDK 的 Debug 引擎；引擎相关的画面、资源与性能验收使用默认 Release。Profile 引擎维护及原生重建见[引擎工具](../../tool/engine/README.md)，日常构建无需指定引擎路径。
 
@@ -65,7 +64,7 @@ pwsh -NoProfile -File tool/setup-android-signing.ps1
 
 脚本交互读取密码，默认使用 `android/app/piliauroranext-release.jks`，并写入 `android/key.properties`。已有密钥会复用，alias 默认沿用本地配置；新建密钥使用 `piliauroranext` alias 和 PiliAuroraNext 证书名称。可通过 `-KeyFile`、`-KeyAlias` 指定其他密钥和 alias。
 
-本次迁移已将原仓库的签名材料复制到上述位置，保留原密钥、密码和 alias，现有本地配置可直接用于构建。签名脚本、密钥及 `key.properties` 仅在本地保留，由 Git 忽略，需另行安全备份；新克隆的工作区需从本地备份恢复这些文件，或自行配置 `key.properties` 及其引用的密钥。
+签名脚本、密钥及 `key.properties` 仅在本地保留，由 Git 忽略，需另行安全备份；新克隆的工作区需从本地备份恢复这些文件，或自行配置 `key.properties` 及其引用的密钥。
 
 显式传入 `-ConfigureGitHub` 才会上传签名 Secrets，默认从 `origin` 确定仓库，也可通过 `-GitHubRepo wallpap/PiliAuroraNext` 指定目标。此操作需要已登录的 GitHub CLI。
 
@@ -196,7 +195,7 @@ protobuf 和 JNI 产物应从对应源定义及生成流程更新。生成后检
 
 - FVM 不可用时，检查 `fvm` 和 `dart` 是否在 PATH 中，以及 Flutter 版本是否与 `.fvmrc` 一致。
 - 依赖获取失败时，检查网络、代理、缓存和 `pubspec.lock`。
-- Android 构建失败时，检查 JDK 25、`JAVA_HOME`、Android SDK 和构建脚本输出。
+- Android 构建失败时，核对项目要求的 JDK、`JAVA_HOME`、Android SDK 和构建脚本输出。
 - Windows 播放异常时，分别检查播放器初始化、硬件解码、渲染窗口和弹幕路径。
 
 ### Gradle 本地 socket 初始化失败

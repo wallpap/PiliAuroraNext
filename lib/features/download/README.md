@@ -30,6 +30,6 @@ fvm flutter test --no-pub test/services/download test/features/download test/pag
 fvm flutter analyze --no-pub lib test tool
 ```
 
-服务测试覆盖真实临时文件、断点续传、持久化和并发归属；provider 测试覆盖共享保活、失败重试、迟到初始化与旧命令；页面测试覆盖详情独立打开、共享列表更新、选择隔离及批量部分成功。依赖门禁禁止领域层导入 UI、应用层导入页面、展示层直连数据层或全局存储。新增 provider 和页面测试及模块静态分析已接入 CI。
+服务测试覆盖真实临时文件、断点续传、持久化和并发归属；provider 测试覆盖共享保活、失败重试、迟到初始化与旧命令；页面测试覆盖详情独立打开、共享列表更新、选择隔离及批量部分成功。依赖门禁禁止领域层导入 UI、应用层导入页面、展示层直连数据层或全局存储。CI 选择范围以 `tool/run-ci-tests.ps1` 为准。
 
 实际服务下载、目录权限与文件占用、Android 后台存活，以及 Android/Windows 离线播放和输入交互仍需目标设备验收。构建与测试前提见[构建与测试](../../../doc/development/build-and-test.md)。
