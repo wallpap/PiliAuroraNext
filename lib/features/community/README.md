@@ -19,3 +19,5 @@
 直播表情使用 `liveEmotePackagesProvider`，按面板实例、房间及主账号隔离，HTTP 显式沿查询账号发送。协议对象位于 `domain/live_emote/`；Tab 由 Widget 随包快照释放，发送面板只消费选择或发送意图。`test/pages/live_emote/controller_test.dart` 覆盖同 UID 凭据替换、同房间多面板、不同房间、失败重试与活动 Tab 释放；发送草稿与发送互斥仍由直播房间回归验证。
 
 投票由 `voteEditorProvider` 按页面实例和投票 ID 持有不可变草稿。`AccountDraftEditor` 固定打开时的主账号；账号替换立即停止旧编辑器，保存只交付当前账号、当前页面的结果。详情请求按代次和草稿版本校验，加载期间的新草稿不会被覆盖，需主动刷新核对；保存固定提交快照、互斥写入并采用成功返回的 ID，允许继续编辑已有远端对象。上传按稳定选项 ID 和操作身份回写，删除选项或重选图片后废弃旧结果。页面持有输入、图片选择、导航与提示；协议和草稿位于 `domain/`。`test/features/community/vote_editor_test.dart` 与发布/HTTP 回归覆盖生命周期、草稿和结果契约。
+
+预约由 `reserveEditorProvider` 使用同一账号草稿契约，独立持有标题、公开/大航海类型与时间；默认次日 20:00，保存前校验标题和未来时间。HTTP 适配只接收账号与提交快照，成功返回同一快照和预约 ID。页面参数替换或关闭使旧结果失效；输入仅随确认详情快照重建。`test/features/community/reserve_editor_test.dart` 覆盖双页面、同 UID 换凭据、加载期间改稿、失败重试、继续更新与实际 Widget 参数替换，发布回归检查真实 HTTP 适配。

@@ -40,6 +40,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 | 目录 | 范围 |
 | --- | --- |
 | `features/content_discovery/` | 推荐 Riverpod 查询、视口、卡片揭示、偏好与账号/页面生命周期。 |
+| `features/community/` | 动态分类的分页与发布/删除失效；投票、预约的账号归属、详情与上传乱序、不可变提交快照及界面生命周期。 |
 | `architecture/` | 依赖政策、模块边界和发布工作流约束。 |
 | `common/widgets/` | 通用控件、图片、手势和进度条。 |
 | `grpc/`、`http/` | 协议解码、请求转换和 API 选择规则。 |
@@ -66,6 +67,8 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 ## 页面与账号
 
 `pages/bubble/controller_test.dart` 检查同 UID 凭据替换后的首页重读、旧账号响应隔离、分页失败保留页码、排序废弃旧分页及释放后的迟到结果。`pages/emote/controller_test.dart` 检查损坏历史逐条降级、可选缓存保存失败与串行、账号替换和页签释放。
+
+这些测试已使用 Riverpod 接口：小站覆盖显式资源/排序与双页面，评论表情覆盖共享历史及独立 Tab，`pages/emote/image_demand_test.dart` 保留真实图片视口需求验证。`pages/pgc/account_lifecycle_test.dart` 检查推荐目录与主账号追番/时间表的独立归属、同 UID 换凭据、分页和部分失败。动态作者、分类及编辑草稿的所有权见[社区模块](../lib/features/community/README.md)，本轮顺序与后续边界见[迁移评估](../doc/development/riverpod-next-eight.md)。
 
 `pages/article/card_navigation_test.dart` 检查文章、投票与私信直播卡片的损坏 ID 点击提示，避免点击期解析异常。`pages/dynamics/card_input_results_test.dart` 检查动态富文本/附加投票和文章内嵌卡片弹窗的点击校验。
 

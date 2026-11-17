@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_create_reserve/controller.dart';
+import 'package:pili_aurora_next/features/community/application/reserve_editor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/vote_editor.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
@@ -122,6 +122,23 @@ void main() {
     return (
       container: container,
       editor: container.read(voteEditorProvider(query).notifier),
+      query: query,
+    );
+  }
+
+  ({
+    ProviderContainer container,
+    ReserveEditor editor,
+    ReserveEditorQuery query,
+  })
+  reserveEditor(int? id) {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final query = (owner: Object(), id: id);
+    container.listen(reserveEditorProvider(query), (_, _) {});
+    return (
+      container: container,
+      editor: container.read(reserveEditorProvider(query).notifier),
       query: query,
     );
   }
@@ -284,21 +301,26 @@ void main() {
 
   testWidgets('预约保存返回提交快照，切号或关闭后不交付旧成功结果', (tester) async {
     await mount(tester);
-    final controller = CreateReserveController(null)..onInit();
-    controller.title.value = '原预约';
+    final fixture = reserveEditor(null);
+    final controller = fixture.editor
+      ..update((draft) => draft.copy(title: '原预约', subType: 1));
     final pending = controller.onCreate();
     expect(await controller.onCreate(), isA<Error>());
     await until(tester, () => requests.length == 1);
-    controller.title.value = '新预约';
+    controller.update((draft) => draft.copy(title: '新预约'));
     requests[0].reply.complete({
       'code': 0,
       'data': {'sid': 7},
     });
     await settle(tester);
     expect((await pending).data.title, '原预约');
+    expect(requests[0].options.extra['account'], same(original));
+    expect((requests[0].options.data as Map)['sub_type'], 1);
     final stale = controller.onCreate();
     await until(tester, () => requests.length == 2);
-    controller.onDelete();
+    expect(requests[1].options.path, Api.updateReserve);
+    expect((requests[1].options.data as Map)['id'], 7);
+    fixture.container.dispose();
     requests[1].reply.complete({
       'code': 0,
       'data': {'sid': 8},
@@ -317,16 +339,18 @@ void main() {
     final voteFixture = voteEditor(7);
     final vote = voteFixture.editor;
     final voteProvider = voteEditorProvider(voteFixture.query);
-    final reserve = CreateReserveController(8)..onInit();
+    final reserveFixture = reserveEditor(8);
+    final reserve = reserveFixture.editor;
+    final reserveProvider = reserveEditorProvider(reserveFixture.query);
     await until(tester, () => requests.length == 2);
     for (final request in requests) {
       request.reply.complete({'code': -403, 'message': '加载失败'});
     }
     await settle(tester);
     expect(voteFixture.container.read(voteProvider).error?.code, -403);
-    expect(reserve.loadError.value?.code, -403);
+    expect(reserveFixture.container.read(reserveProvider).error?.code, -403);
     expect(vote.canCreate, isFalse);
-    expect(reserve.canCreate.value, isFalse);
+    expect(reserve.canCreate, isFalse);
     final retry = reserve.queryData();
     await until(tester, () => requests.length == 3);
     requests[2].reply.complete({
@@ -335,8 +359,8 @@ void main() {
     });
     await settle(tester);
     await retry;
-    expect(reserve.title.value, '预约');
-    expect(reserve.canCreate.value, isTrue);
+    expect(reserveFixture.container.read(reserveProvider).draft.title, '预约');
+    expect(reserve.canCreate, isTrue);
     final stale = vote.queryData();
     await until(tester, () => requests.length == 4);
     voteFixture.container.dispose();
@@ -344,7 +368,7 @@ void main() {
     await settle(tester);
     await stale;
     expect(vote.isCurrent, isFalse);
-    reserve.onDelete();
+    reserveFixture.container.dispose();
     await finish(tester);
   });
 

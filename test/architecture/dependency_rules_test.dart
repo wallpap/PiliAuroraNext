@@ -175,6 +175,7 @@ void main() {
       'pages/emote/controller.dart',
       'pages/live_emote/controller.dart',
       'pages/dynamics_create_vote/controller.dart',
+      'pages/dynamics_create_reserve/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -219,6 +220,7 @@ void main() {
       'emote/view.dart',
       'live_emote/view.dart',
       'dynamics_create_vote/view.dart',
+      'dynamics_create_reserve/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {
@@ -262,6 +264,33 @@ void main() {
         final target = localDependency(file, uri);
         if (target != null && legacy.any(target.startsWith)) {
           violations.add('$source -> $uri');
+        }
+      }
+    }
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
+  test('migrated community models have a single feature owner', () {
+    const legacy = [
+      'models/remote/emote/',
+      'models/remote/live/live_emote/',
+      'models/dynamics/vote_model.dart',
+      'models/remote/dynamic/dyn_reserve_info/',
+    ];
+    final violations = <String>[];
+    for (final root in ['lib', 'test', 'tool']) {
+      for (final file in Directory(root).listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final source = path
+            .relative(file.path, from: root)
+            .replaceAll('\\', '/');
+        if (root == 'lib' && legacy.any(source.startsWith)) {
+          violations.add(source);
+        }
+        for (final uri in dependencies(file)) {
+          final target = localDependency(file, uri);
+          if (target != null && legacy.any(target.startsWith)) {
+            violations.add('$root/$source -> $uri');
+          }
         }
       }
     }

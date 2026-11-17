@@ -40,8 +40,8 @@ jobs:
       - name: Check dependency sources and versions
         run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart
 
-      - name: Analyze playback, danmaku, features, tests and tools
-        run: flutter analyze --no-pub lib/plugin/pl_player lib/pages/danmaku lib/features test tool
+      - name: Analyze application, tests and tools
+        run: flutter analyze --no-pub lib test tool
 
       - name: Run Linux host CI tests
         shell: pwsh

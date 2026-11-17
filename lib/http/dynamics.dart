@@ -22,7 +22,7 @@ import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/data.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/group.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_reaction/data.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve_info/data.dart';
+import 'package:pili_aurora_next/features/community/domain/reserve.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/topic_card_list.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/top_details.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';

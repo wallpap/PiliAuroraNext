@@ -37,6 +37,7 @@ $ciTests = @(
     "test/common/widgets/webview_ready_test.dart",
     "test/pages/bubble/controller_test.dart",
     "test/pages/emote/controller_test.dart",
+    "test/pages/emote/image_demand_test.dart",
     "test/pages/article/card_navigation_test.dart",
     "test/services/shutdown_timer_service_test.dart",
     "test/http/loading_state_test.dart",

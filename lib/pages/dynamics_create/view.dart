@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart' show PicModel;
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve_info/data.dart';
+import 'package:pili_aurora_next/features/community/domain/reserve.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_reserve/view.dart';

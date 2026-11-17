@@ -10,10 +10,11 @@
 | 视频、文章、番剧、音频 | `video/`、`article/`、`article_list/`、`pgc/`、`audio/`、`music/` | `video.dart`、`pgc.dart`、`music.dart`、`reply.dart` | `test/pages/video/`、`test/pages/article/`、`test/pages/pgc/`、`test/pages/audio/` |
 | 播放器与原生输出 | 页面通过 `PlaybackOwner` 提交计划及命令 | `lib/plugin/pl_player/playback/`；`playback_contracts.dart`、`playback_session.dart`、`native_playback_runtime.dart` | `test/plugin/pl_player/`、`tool/probes/playback/` |
 | 弹幕与评论 | `danmaku/`、`danmaku_block/`、`main_reply/`、`my_reply/`、`video/reply/` | `danmaku.dart`、`reply.dart`；远端同名模型 | `test/pages/danmaku/`、`test/pages/danmaku_block/`、`test/pages/community/` |
-| 表情包 | `emote/manage.dart`、`preview.dart` | `ReplyHttp`；兼容详情 `emotes` 与列表 `emote` | `test/pages/community/`、`test/http/community_response_test.dart` |
+| 表情包 | `emote/`、`live_emote/`；管理在 `emote/manage.dart`、`preview.dart` | [社区模块](../../lib/features/community/README.md)；评论包、直播包与最近历史 | `test/pages/emote/`、`test/pages/live_emote/`、`test/pages/community/` |
 | 直播 | `live/`、`live_room/`、`live_follow/`、`live_search/`、`live_dm_block/` | `live.dart`；`lib/services/live_stream/` | `test/pages/live/`、`test/pages/live_room/`、`test/pages/live_follow/` |
 | 账号、登录、会员 | `login/`、`login_devices/`、`log_table/`、`member/`、`member_profile/` | `login.dart`、`member.dart`、`member_profile.dart`、`user.dart`；[共享账号资料与个人中心](../../lib/features/account/README.md)、`lib/utils/accounts/` | `test/pages/login/`、`test/pages/account_queries/`、`test/pages/member_profile/`、`test/features/account/`、`test/utils/accounts/` |
-| 动态、关注、粉丝 | `dynamics*`、`follow/`、`follow_type/` | `dynamics.dart`、`follow.dart`、`fan.dart` | `test/pages/dynamics/`、`test/pages/follow/`、`test/pages/follow_type/` |
+| 动态、小站、投票与预约 | `dynamics/`、`dynamics_tab/`、`bubble/`、`dynamics_create_vote/`、`dynamics_create_reserve/` | [社区模块](../../lib/features/community/README.md)；作者/分类查询、发布失效与独立编辑草稿 | `test/features/community/`、`test/pages/dynamics/`、`test/pages/bubble/` |
+| 关注、粉丝 | `follow/`、`follow_type/` | `follow.dart`、`fan.dart` | `test/pages/follow/`、`test/pages/follow_type/` |
 | 消息、私信、分享 | `msg_feed_top/`、`whisper*`、`share/` | [消息模块](../../lib/services/messaging/README.md)；`msg.dart`、`lib/grpc/im.dart` | `test/services/messaging/` |
 | 收藏管理 | `lib/features/favorites/presentation/` | [收藏模块](../../lib/features/favorites/README.md)；账号查询、收藏夹与视频收藏写入 | `test/features/favorites/` |
 | 订阅 | `lib/features/subscriptions/presentation/` | [订阅模块](../../lib/features/subscriptions/README.md)；主账号列表、合集详情、取消和失效清理 | `test/features/subscriptions/` |
@@ -27,13 +28,13 @@
 
 ## 首页与内容发现
 
-推荐、热门、排行榜、精选合集和直播发现的 Riverpod 调度与共享过滤入口见[内容发现模块](../../lib/features/content_discovery/README.md)。`rcmd/view.dart`、热门、排行榜与直播首页只向旧首页壳注册滚动/刷新句柄，分类页通过构造回调连接；设置页通过 Hive 偏好通知协作。
+推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的 Riverpod 调度与共享过滤入口见[内容发现模块](../../lib/features/content_discovery/README.md)。这些首页只向旧首页壳注册滚动/刷新句柄，分类页通过构造回调连接；设置页通过 Hive 偏好通知协作。动态作者与分类由[社区模块](../../lib/features/community/README.md)协调，发布与删除通过领域失效信号同步列表。
 
 - `lib/features/content_discovery/presentation/recommendation_viewport.dart` 与卡片共用网格几何，按实际高度、列数和字体缩放补足可视区及一行预取，页脚留白不计入容量。App 推荐按 `idx/pull` 顺序请求；Web 首包按容量取 20～50 项，之后最多并行两页，有序合并并去重。刷新保留历史内容及位置提示。
 - `lib/common/widgets/feed_pagination.dart` 以实际滚动范围触发分页；首页首屏补足由推荐 Notifier 负责。连续五页无增长时停止，失败保留内容，刷新、切号或退出使旧查询失效。所有者与快照修订的规则见[状态管理](state-management.md#查询与分页)。
 - `lib/services/blocked_authors.dart` 按主账号同步完整黑名单。同步与首页下载并行，发布前完成过滤；管理页的局部名单不覆盖完整缓存，同步失败沿用该账号缓存，应用内拉黑或解除即时更新。
 - `lib/services/cooperative_authors.dart` 处理合作作者；`rights.is_cooperation`、`is_union_video` 等明确标志触发补查，已知名单直接复用，否则查询详情的 `staff`。请求合并，共用两个并发名额，成功缓存一小时、最多 256 条，失败缓存一分钟；黑名单同步缓存五分钟。
-- 首页普通卡片先显示，合作卡片按检查结果局部更新；增删时才更新列表，卡片对象身份保留图片子树。过滤入口在 `lib/features/content_discovery/application/discovery_filter.dart`，已迁移列表通过 `application/discovery_listing.dart` 统一调度，动态等历史列表通过 `common/discovery_list_controller.dart` 适配，作者判定在 `lib/utils/media_author_filter.dart`，用户范围见[黑名单屏蔽](../guides/content.md#黑名单屏蔽)。
+- 首页普通卡片先显示，合作卡片按检查结果局部更新；增删时才更新列表，卡片对象身份保留图片子树。过滤入口在 `lib/features/content_discovery/application/discovery_filter.dart`，已迁移列表通过 `application/discovery_listing.dart` 统一调度，动态话题与相关推荐的历史列表通过 `common/discovery_list_controller.dart` 适配，作者判定在 `lib/utils/media_author_filter.dart`，用户范围见[黑名单屏蔽](../guides/content.md#黑名单屏蔽)。
 - `TabActivity`/`TickerMode` 标记活动标签，隐藏页卸载 `CachedImage` 并保留数据和滚动位置。`CachedImageCache` 在动图最后一个监听退出后释放缓存句柄；静态帧沿用 LRU，显式保活句柄可以保留暂停动画。离页后才完成的文件加载，会在首帧完成后回收无人监听的动图。`NetworkImgLayer` 为 B 站质量型缩略图补充卡片尺寸，已有裁剪参数及原图查看/下载沿用原构图或地址。缓存字节不等于全部原生纹理占用，内存与耗时需实测。
 
 ## 消息、私信与分享

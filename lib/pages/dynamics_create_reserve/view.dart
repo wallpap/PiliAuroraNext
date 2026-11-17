@@ -1,52 +1,45 @@
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/time_picker.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/dynamics_create_reserve/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/reserve_editor.dart';
+import 'package:pili_aurora_next/features/community/application/account_draft_editor.dart';
+import 'package:pili_aurora_next/features/community/domain/reserve_draft.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter/services.dart'
     show TextInputFormatter, LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide showTimePicker;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
-class CreateReservePage extends StatefulWidget {
+class CreateReservePage extends ConsumerStatefulWidget {
   const CreateReservePage({super.key, this.sid});
 
   final int? sid;
 
   @override
-  State<CreateReservePage> createState() => _CreateReservePageState();
+  ConsumerState<CreateReservePage> createState() => _CreateReservePageState();
 }
 
-class _CreateReservePageState extends State<CreateReservePage> {
-  late final CreateReserveController _controller;
-  final _tag = Utils.generateRandomString(6);
+class _CreateReservePageState extends ConsumerState<CreateReservePage> {
+  final _owner = Object();
+  ReserveEditorQuery get _query => (owner: _owner, id: widget.sid);
+  ReserveEditor get _controller =>
+      ref.read(reserveEditorProvider(_query).notifier);
+  DraftEditorState<ReserveDraft> get _state =>
+      ref.read(reserveEditorProvider(_query));
+  ReserveDraft get _draft => _state.draft;
   late TextStyle _leadingStyle;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      CreateReserveController(widget.sid),
-      tag: _tag,
-    );
-  }
-
-  @override
-  void dispose() {
-    Get.delete<CreateReserveController>(tag: _tag);
-    super.dispose();
-  }
 
   Future<void> _onCreate() async {
     final route = ModalRoute.of(context);
-    final draft = _controller.draft;
-    final result = await _controller.onCreate();
-    if (!mounted || !_controller.isCurrent) return;
+    final query = _query;
+    final editor = _controller;
+    final draft = editor.draft;
+    final result = await editor.onCreate();
+    if (!mounted || query != _query || !editor.isCurrent) return;
     if (result case Success(:final response)) {
-      if (draft == _controller.draft && route?.isCurrent == true) {
+      if (draft == editor.draft && route?.isCurrent == true) {
         Navigator.of(context).pop(response);
       } else {
         SmartDialog.showToast('预约已保存，已保留当前草稿');
@@ -58,6 +51,7 @@ class _CreateReservePageState extends State<CreateReservePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(reserveEditorProvider(_query));
     final theme = Theme.of(context);
     _leadingStyle = TextStyle(
       fontSize: 15,
@@ -82,21 +76,23 @@ class _CreateReservePageState extends State<CreateReservePage> {
           bottom: padding.bottom + 100,
         ),
         children: [
-          Obx(() {
-            if (_controller.loading.value) {
-              return const LinearProgressIndicator();
-            }
-            final error = _controller.loadError.value;
-            return error == null
-                ? const SizedBox.shrink()
-                : ListTile(
-                    title: Text(error.toString()),
-                    trailing: TextButton(
-                      onPressed: _controller.queryData,
-                      child: const Text('重试'),
-                    ),
-                  );
-          }),
+          Builder(
+            builder: (_) {
+              if (_state.loading) {
+                return const LinearProgressIndicator();
+              }
+              final error = _state.error;
+              return error == null
+                  ? const SizedBox.shrink()
+                  : ListTile(
+                      title: Text(error.toString()),
+                      trailing: TextButton(
+                        onPressed: _controller.queryData,
+                        child: const Text('重试'),
+                      ),
+                    );
+            },
+          ),
           Row(
             spacing: 12,
             children: [
@@ -104,11 +100,12 @@ class _CreateReservePageState extends State<CreateReservePage> {
                 width: 65,
                 child: Text('类型', style: _leadingStyle),
               ),
-              Obx(
-                () => PopupMenuButton(
+              Builder(
+                builder: (_) => PopupMenuButton(
                   requestFocus: false,
-                  initialValue: _controller.subType.value,
-                  onSelected: _controller.subType.call,
+                  initialValue: _draft.subType,
+                  onSelected: (int value) =>
+                      _controller.update((draft) => draft.copy(subType: value)),
                   itemBuilder: (context) {
                     return const [
                       AppPopupMenuItem(
@@ -122,7 +119,7 @@ class _CreateReservePageState extends State<CreateReservePage> {
                     ];
                   },
                   child: Text(
-                    _controller.subType.value == 0 ? '公开直播' : '大航海直播',
+                    _draft.subType == 0 ? '公开直播' : '大航海直播',
                   ),
                 ),
               ),
@@ -143,7 +140,7 @@ class _CreateReservePageState extends State<CreateReservePage> {
                     FocusManager.instance.primaryFocus?.unfocus();
                     DateTime? newDate = await showDatePicker(
                       context: context,
-                      initialDate: _controller.date.value,
+                      initialDate: _draft.date,
                       firstDate: _controller.now,
                       lastDate: _controller.end,
                     );
@@ -151,7 +148,7 @@ class _CreateReservePageState extends State<CreateReservePage> {
                       TimeOfDay? newTime = await showTimePicker(
                         context: context,
                         initialTime: TimeOfDay.fromDateTime(
-                          _controller.date.value,
+                          _draft.date,
                         ),
                       );
                       if (newTime != null && mounted && _controller.isCurrent) {
@@ -164,7 +161,9 @@ class _CreateReservePageState extends State<CreateReservePage> {
                         );
                         if (newEndtime.difference(DateTime.now()) >=
                             const Duration(minutes: 5)) {
-                          _controller.date.value = newEndtime;
+                          _controller.update(
+                            (draft) => draft.copy(date: newEndtime),
+                          );
                         } else {
                           SmartDialog.showToast('至少选择5分钟之后');
                         }
@@ -173,10 +172,10 @@ class _CreateReservePageState extends State<CreateReservePage> {
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Obx(
-                      () => Text(
+                    child: Builder(
+                      builder: (_) => Text(
                         DateFormatUtils.longFormatD.format(
-                          _controller.date.value,
+                          _draft.date,
                         ),
                       ),
                     ),
@@ -186,14 +185,13 @@ class _CreateReservePageState extends State<CreateReservePage> {
             ],
           ),
           ...divider,
-          Obx(
-            () => _buildInput(
+          Builder(
+            builder: (_) => _buildInput(
               theme,
-              key: ValueKey(_controller.key),
-              initialValue: _controller.title.value,
-              onChanged: (value) => _controller
-                ..title.value = value
-                ..updateCanCreate(),
+              key: ObjectKey(_state.inputKey),
+              initialValue: _draft.title,
+              onChanged: (value) =>
+                  _controller.update((draft) => draft.copy(title: value)),
               desc: '标题',
               hintText: '请填写标题，最多14字',
               inputFormatters: [LengthLimitingTextInputFormatter(14)],
@@ -201,15 +199,16 @@ class _CreateReservePageState extends State<CreateReservePage> {
           ),
           ...divider,
           const SizedBox(height: 25),
-          Obx(() {
-            return FilledButton.tonal(
-              onPressed:
-                  _controller.canCreate.value && !_controller.saving.value
-                  ? _onCreate
-                  : null,
-              child: Text(_controller.saving.value ? '保存中' : '添加预约'),
-            );
-          }),
+          Builder(
+            builder: (_) {
+              return FilledButton.tonal(
+                onPressed: _controller.canCreate && !_state.saving
+                    ? _onCreate
+                    : null,
+                child: Text(_state.saving ? '保存中' : '添加预约'),
+              );
+            },
+          ),
         ],
       ),
     );
