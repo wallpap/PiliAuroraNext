@@ -12,7 +12,7 @@
 
 `test/features/community/dynamics_feed_test.dart` 覆盖账号、分页、删除、发布、展开和页面释放，已接入 CI；分类页滚动与父页刷新只通过构造回调协调。
 
-小站由 `bubbleFeedProvider` 按页面、小站、分类与排序持有主账号查询。路由显式传入小站 ID，子分类沿同一资源和排序创建查询，不读取隐式路由参数。目录和列表同轮发布，续页保留目录；目录替换销毁旧 Tab 子树。Widget 持有滚动，实际视口触发分页；失败保留原页码并可重试。`test/pages/bubble/controller_test.dart` 覆盖同 UID 换凭据、排序乱序、失败重试、双小站和活动 Tab 释放。
+小站由 `bubbleFeedProvider` 按页面、小站、分类与排序持有主账号查询。路由显式传入小站 ID，子分类沿同一资源和排序创建查询，不读取隐式路由参数。目录和列表同轮发布，续页保留目录；目录替换销毁旧 Tab 子树。Widget 持有滚动，实际视口触发分页；失败保留原页码并可重试。分类通过窄回调注册回顶动作，重复点击当前分类回顶，切换分类保留各自位置；释放按回调身份注销。`test/pages/bubble/controller_test.dart` 覆盖同 UID 换凭据、排序乱序、失败重试、双小站、回顶和活动 Tab 释放。
 
 评论表情包由页面实例的 `emotePackagesProvider` 绑定主账号查询；`DefaultTabController` 随当前包快照释放，编辑器不再创建或删除共享 GetX controller。最近表情由应用级 `recentEmotesProvider` 持有，去重后最多 40 项，复制调用方内容并串行保存各自快照。损坏记录逐条跳过，可选缓存失败由 data 层记录，不影响选择。表情模型统一在 `domain/emote/`，原远端模型入口已移除；管理页仍使用自身已有编辑状态。`test/pages/emote/` 验证凭据替换、多面板共享历史与独立 Tab、保存失败、限长及图片视口需求。
 
@@ -20,4 +20,4 @@
 
 投票由 `voteEditorProvider` 按页面实例和投票 ID 持有不可变草稿。`AccountDraftEditor` 固定打开时的主账号；账号替换立即停止旧编辑器，保存只交付当前账号、当前页面的结果。详情请求按代次和草稿版本校验，加载期间的新草稿不会被覆盖，需主动刷新核对；保存固定提交快照、互斥写入并采用成功返回的 ID，允许继续编辑已有远端对象。上传按稳定选项 ID 和操作身份回写，删除选项或重选图片后废弃旧结果。页面持有输入、图片选择、导航与提示；协议和草稿位于 `domain/`。`test/features/community/vote_editor_test.dart` 与发布/HTTP 回归覆盖生命周期、草稿和结果契约。
 
-预约由 `reserveEditorProvider` 使用同一账号草稿契约，独立持有标题、公开/大航海类型与时间；默认次日 20:00，保存前校验标题和未来时间。HTTP 适配只接收账号与提交快照，成功返回同一快照和预约 ID。页面参数替换或关闭使旧结果失效；输入仅随确认详情快照重建。`test/features/community/reserve_editor_test.dart` 覆盖双页面、同 UID 换凭据、加载期间改稿、失败重试、继续更新与实际 Widget 参数替换，发布回归检查真实 HTTP 适配。
+预约由 `reserveEditorProvider` 使用同一账号草稿契约，独立持有标题、公开/大航海类型与时间；默认次日 20:00，保存前校验标题和未来时间。HTTP 适配只接收账号与提交快照，成功返回同一快照和预约 ID。页面参数替换或关闭使旧结果失效；输入仅随确认详情快照重建。投票和预约的日期/图片选择器固定原查询，页面替换后不继续回写，移动端选择图片后仍清理自身临时文件。`test/features/community/reserve_editor_test.dart` 覆盖双页面、同 UID 换凭据、加载期间改稿、失败重试、继续更新与实际 Widget/日期弹窗参数替换，发布回归检查真实 HTTP 适配。

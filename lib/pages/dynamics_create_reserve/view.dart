@@ -137,21 +137,28 @@ class _CreateReservePageState extends ConsumerState<CreateReservePage> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () async {
+                    final query = _query;
+                    final editor = _controller;
+                    final initialDate = _draft.date;
                     FocusManager.instance.primaryFocus?.unfocus();
                     DateTime? newDate = await showDatePicker(
                       context: context,
-                      initialDate: _draft.date,
-                      firstDate: _controller.now,
-                      lastDate: _controller.end,
+                      initialDate: initialDate,
+                      firstDate: editor.now,
+                      lastDate: editor.end,
                     );
-                    if (newDate != null && context.mounted) {
+                    if (newDate != null &&
+                        context.mounted &&
+                        query == _query &&
+                        editor.isCurrent) {
                       TimeOfDay? newTime = await showTimePicker(
                         context: context,
-                        initialTime: TimeOfDay.fromDateTime(
-                          _draft.date,
-                        ),
+                        initialTime: TimeOfDay.fromDateTime(initialDate),
                       );
-                      if (newTime != null && mounted && _controller.isCurrent) {
+                      if (newTime != null &&
+                          mounted &&
+                          query == _query &&
+                          editor.isCurrent) {
                         final newEndtime = DateTime(
                           newDate.year,
                           newDate.month,
@@ -161,7 +168,7 @@ class _CreateReservePageState extends ConsumerState<CreateReservePage> {
                         );
                         if (newEndtime.difference(DateTime.now()) >=
                             const Duration(minutes: 5)) {
-                          _controller.update(
+                          editor.update(
                             (draft) => draft.copy(date: newEndtime),
                           );
                         } else {

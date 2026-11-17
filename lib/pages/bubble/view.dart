@@ -58,7 +58,6 @@ class _BubblePageState extends ConsumerState<BubblePage>
                 key: ObjectKey(catalog),
                 query: _query,
                 catalog: catalog,
-                child: child,
               ),
       ),
       fab: catalog?.sort?.showSort != true
@@ -102,21 +101,27 @@ class _BubbleTabs extends StatefulWidget {
     super.key,
     required this.query,
     required this.catalog,
-    required this.child,
   });
   final BubbleQuery query;
   final BubbleCatalog catalog;
-  final Widget child;
   @override
   State<_BubbleTabs> createState() => _BubbleTabsState();
 }
 
 class _BubbleTabsState extends State<_BubbleTabs>
     with SingleTickerProviderStateMixin {
+  final _scrollToTop = <int, VoidCallback>{};
   late final _tabs = TabController(
     length: widget.catalog.categories.length,
     vsync: this,
   );
+  VoidCallback _register(int index, VoidCallback callback) {
+    _scrollToTop[index] = callback;
+    return () {
+      if (identical(_scrollToTop[index], callback)) _scrollToTop.remove(index);
+    };
+  }
+
   @override
   void dispose() {
     _tabs.dispose();
@@ -128,6 +133,9 @@ class _BubbleTabsState extends State<_BubbleTabs>
     children: [
       TabBar(
         controller: _tabs,
+        onTap: (index) {
+          if (!_tabs.indexIsChanging) _scrollToTop[index]?.call();
+        },
         isScrollable: true,
         tabAlignment: .start,
         tabs: [
@@ -139,14 +147,20 @@ class _BubbleTabsState extends State<_BubbleTabs>
         child: TabBarView(
           controller: _tabs,
           children: [
-            widget.child,
-            for (final category in widget.catalog.categories.skip(1))
+            for (
+              var index = 0;
+              index < widget.catalog.categories.length;
+              index++
+            )
               _BubbleListing(
-                key: ValueKey(category.id),
+                key: ValueKey(widget.catalog.categories[index].id),
+                onRegister: (callback) => _register(index, callback),
                 query: (
                   owner: widget.query.owner,
                   tribeId: widget.query.tribeId,
-                  categoryId: category.id,
+                  categoryId: index == 0
+                      ? widget.query.categoryId
+                      : widget.catalog.categories[index].id,
                   sortType: widget.query.sortType,
                 ),
               ),
@@ -158,8 +172,9 @@ class _BubbleTabsState extends State<_BubbleTabs>
 }
 
 class _BubbleListing extends ConsumerStatefulWidget {
-  const _BubbleListing({super.key, required this.query});
+  const _BubbleListing({super.key, required this.query, this.onRegister});
   final BubbleQuery query;
+  final VoidCallback Function(VoidCallback)? onRegister;
   @override
   ConsumerState<_BubbleListing> createState() => _BubbleListingState();
 }
@@ -167,12 +182,20 @@ class _BubbleListing extends ConsumerStatefulWidget {
 class _BubbleListingState extends ConsumerState<_BubbleListing>
     with AutomaticKeepAliveClientMixin {
   final _scroll = ScrollController();
+  VoidCallback? _unregister;
   BubbleFeed get controller =>
       ref.read(bubbleFeedProvider(widget.query).notifier);
   @override
   bool get wantKeepAlive => true;
   @override
+  void initState() {
+    super.initState();
+    _unregister = widget.onRegister?.call(_scroll.animToTop);
+  }
+
+  @override
   void dispose() {
+    _unregister?.call();
     _scroll.dispose();
     super.dispose();
   }

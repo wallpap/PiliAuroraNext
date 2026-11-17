@@ -21,6 +21,8 @@ import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
 class _Repository extends BubbleRepository {
+  _Repository({this.itemCount = 0});
+  final int itemCount;
   final queries = <String>[];
   @override
   Future<LoadingState<DiscoveryPage<DynList, BubbleCatalog>>> page(
@@ -34,7 +36,10 @@ class _Repository extends BubbleRepository {
     queries.add('$tribeId/$categoryId');
     return Success(
       DiscoveryPage(
-        [],
+        List.generate(
+          itemCount,
+          (index) => DynList(dynId: '$index', title: '$index'),
+        ),
         hasMore: false,
         metadata:
             previous ??
@@ -182,6 +187,41 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
     expect(tabs.animation, isNull);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('重复点击当前分类滚动到顶，切换分类保留独立滚动', (tester) async {
+    final repository = _Repository(itemCount: 100);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [bubbleRepositoryProvider.overrideWithValue(repository)],
+        child: const GetMaterialApp(home: BubblePage(tribeId: 'one')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final first =
+        tester
+              .widget<CustomScrollView>(find.byType(CustomScrollView))
+              .controller!
+          ..jumpTo(200);
+    await tester.pump();
+    await tester.tap(find.text('全部'));
+    await tester.pumpAndSettle();
+    expect(first.offset, 0);
+    first.jumpTo(150);
+    await tester.tap(find.text('同名分类'));
+    await tester.pumpAndSettle();
+    final second = tester
+        .widget<CustomScrollView>(find.byType(CustomScrollView).last)
+        .controller!;
+    expect(second, isNot(same(first)));
+    second.jumpTo(250);
+    await tester.pump();
+    await tester.tap(find.text('同名分类'));
+    await tester.pumpAndSettle();
+    expect(second.offset, 0);
+    expect(first.offset, 150);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 }

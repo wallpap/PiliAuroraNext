@@ -13,6 +13,7 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_reserve/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/memory_box.dart';
@@ -200,5 +201,54 @@ void main() {
     expect(find.text('新预约详情'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('日期弹窗跨预约参数替换后不继续打开时间选择或回写', (tester) async {
+    int? id;
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [reserveRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return CreateReservePage(sid: id);
+            },
+          ),
+        ),
+      ),
+    );
+    final now = DateTime.now();
+    await tester.tap(
+      find.text(
+        DateFormatUtils.longFormatD.format(
+          DateTime(now.year, now.month, now.day + 1, 20),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    rebuild(() => id = 7);
+    await tester.pump();
+    final confirmed = ReserveDraft(
+      title: '新预约',
+      date: DateTime.now().add(const Duration(days: 2)),
+    );
+    repository.loads.single.complete(Success(confirmed));
+    await tester.pump();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(DatePickerDialog),
+            matching: find.byType(TextButton),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TimePickerDialog), findsNothing);
+    expect(find.text('新预约'), findsOneWidget);
+    expect(repository.saves, isEmpty);
+    await tester.pumpWidget(const SizedBox());
   });
 }

@@ -36,3 +36,17 @@
 所有模块均遵循 `presentation -> application -> data/domain`；页面仅处理用户意图、导航、提示和界面资源。账号按对象身份隔离，同 UID 换凭据也废弃旧结果；刷新、替换查询及释放不允许迟到回写。每项迁移同时替换旧测试入口并增加有意义的生命周期回归，不保留重复的业务状态源。
 
 真实服务、Android/Windows 输入与滚动、表情权限及发布结果仍需目标设备验收；主机测试验证协议适配、状态归属及资源释放。
+
+## 最终验收
+
+2026-11-17，八项迁移均已单独提交。CI 静态分析扩大至完整 `lib test tool`，社区测试目录和表情图片需求回归纳入统一入口；架构检查禁止恢复旧 controller 和已迁移模型入口。
+
+| 检查 | 实际结果 |
+| --- | --- |
+| `fvm flutter analyze --no-pub lib test tool` | 最终完整分析通过，无诊断 |
+| `fvm flutter test --no-pub --concurrency 4` | 首轮 2881 项通过；21 项原生图片用例因 Windows worker 相对路径解析失败 |
+| 图片目录复测 | 按项目流程准备 worker，以 `REGION_TEST_WORKER` 指定其绝对路径，`test/common/widgets/image` 的 146 项全部通过，覆盖上述 21 项失败 |
+| 交互收尾回归 | 社区、小站、发布与架构共 101 项通过；覆盖分类独立滚动与重复点击回顶、编辑器参数替换及日期弹窗归属 |
+| 文档与 CI 入口 | 本轮 8 份文档的 124 个相对链接有效；CI PowerShell 语法检查通过 |
+
+本地日志位于 `build/riverpod-full-tests.log`、`build/riverpod-image-absolute.log`、`build/riverpod-delivery-tests.log` 和 `build/riverpod-delivery-analysis-final.log`。图片复测使用仓库已有的测试环境覆盖参数，未修改图片实现。本轮未执行应用 Release 构建或真实服务写入；设备验收范围沿用上文。

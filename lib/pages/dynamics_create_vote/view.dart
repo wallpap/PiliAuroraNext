@@ -257,21 +257,28 @@ class _CreateVotePageState extends ConsumerState<CreateVotePage> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () async {
+                  final query = _query;
+                  final editor = _controller;
+                  final initialDate = _draft.deadline;
                   FocusManager.instance.primaryFocus?.unfocus();
                   DateTime? newDate = await showDatePicker(
                     context: context,
-                    initialDate: _draft.deadline,
-                    firstDate: _controller.now,
-                    lastDate: _controller.end,
+                    initialDate: initialDate,
+                    firstDate: editor.now,
+                    lastDate: editor.end,
                   );
-                  if (newDate != null && context.mounted) {
+                  if (newDate != null &&
+                      context.mounted &&
+                      query == _query &&
+                      editor.isCurrent) {
                     TimeOfDay? newTime = await showTimePicker(
                       context: context,
-                      initialTime: TimeOfDay.fromDateTime(
-                        _draft.deadline,
-                      ),
+                      initialTime: TimeOfDay.fromDateTime(initialDate),
                     );
-                    if (newTime != null && mounted && _controller.isCurrent) {
+                    if (newTime != null &&
+                        mounted &&
+                        query == _query &&
+                        editor.isCurrent) {
                       final newEndtime = DateTime(
                         newDate.year,
                         newDate.month,
@@ -281,7 +288,7 @@ class _CreateVotePageState extends ConsumerState<CreateVotePage> {
                       );
                       if (newEndtime.difference(DateTime.now()) >=
                           const Duration(minutes: 5)) {
-                        _controller.update(
+                        editor.update(
                           (draft) => draft.copy(deadline: newEndtime),
                         );
                       } else {
@@ -475,10 +482,10 @@ class _CreateVotePageState extends ConsumerState<CreateVotePage> {
             source: ImageSource.gallery,
             requestFullMetadata: false,
           );
-          if (pickedFile != null && mounted) {
+          if (pickedFile != null) {
             final path = pickedFile.path;
             try {
-              if (query != _query || !editor.isCurrent) return;
+              if (!mounted || query != _query || !editor.isCurrent) return;
               final result = await editor.onUpload(option.id, path);
               if (mounted &&
                   query == _query &&
