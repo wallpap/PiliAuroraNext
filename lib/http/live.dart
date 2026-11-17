@@ -409,8 +409,9 @@ abstract final class LiveHttp {
 
   static Future<LoadingState<List<AreaItem>?>> liveRoomAreaList({
     required Object parentid,
+    Account? account,
   }) async {
-    final account = recommend;
+    account ??= recommend;
     final params = {
       'access_key': ?account.accessKey,
       'actionKey': 'appkey',

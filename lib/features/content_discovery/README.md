@@ -1,6 +1,6 @@
 # 内容发现模块
 
-首页推荐的查询调度和展示由本模块持有。入口 `pages/rcmd/view.dart` 只适配旧首页壳的滚动与刷新注册；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。动态等历史列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
+首页推荐、热门、排行榜、每周必看、入站必刷、直播首页和直播分区的业务状态由本模块持有。入口 `pages/rcmd/view.dart` 只适配旧首页壳的滚动与刷新注册；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。动态等历史列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
 
 ## 状态与依赖
 
@@ -34,10 +34,12 @@ fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/dis
 
 `application/discovery_listing.dart` 统一负责主账号屏蔽与推荐账号身份、查询代次、分页互斥、合作作者检查、过滤补读和页尾重试。刷新与任一账号对象替换立即隐藏旧内容；失败保留已完成列表和原页码。连续五页无增长后暂停自动读取，用户可显式继续。总数按过滤前条目累计，页面移除不改变远端游标。旧响应不提交列表或元数据。
 
-热门通过 `data/hot_repository.dart` 固定请求账号，首页壳仅持有 Widget 注册的滚动／刷新句柄；卸载按句柄身份注销。共享回归位于 `test/features/content_discovery/discovery_listing_test.dart`，已接入 CI。
+热门通过 `data/hot_repository.dart` 固定请求账号，入口偏好由 `discovery_preferences.dart` 订阅 Hive，最后一个订阅退出后释放；首页壳仅持有 Widget 注册的滚动／刷新句柄；卸载按句柄身份注销。共享回归位于 `test/features/content_discovery/discovery_listing_test.dart`，已接入 CI。`discovery_pages_test.dart` 验证偏好订阅、首页句柄与滚动资源释放。
 
 排行榜由 `rankFeedProvider` 按页面实例和分类隔离，UGC／番剧／影视三个 Adapter 路径均使用查询捕获的推荐账号。榜单为单次快照，禁止自动分页；分类 Tab、滚动与重复点击回顶由 Widget 持有，子页通过窄句柄注册，不再互找控制器。真实 HTTP 换凭据与双页面回归见 `rank_feed_test.dart`。
 
 精选合集由 `weeklyFeedProvider`（页面实例／期数）与 `preciousFeedProvider`（页面实例）持有。目录和详情固定同一推荐账号，多步查询在刷新、换凭据和释放后停止后续调度；列表、期数、说明和播放列表 ID 原子发布。切换期数由 Widget 更新查询键，迟到的选择弹窗按查询所有者失效。入站必刷接入实际视口分页及页尾重试。回归见 `curated_feed_test.dart` 与原发现账号测试（现通过 Riverpod 入口验证）。
 
 直播首页使用 `liveFeedProvider`，查询键包含页面实例、分区和标签；关注、顶部分区和标签与房间列表一起发布。首帧／封面与滚动资源归 Widget。子分区读取成功后再检查所有者并读取顶部，顶部单独失败保留房间数据并显示重试提示；未收藏分区始终沿查询键加载。补读与续页保留同轮已确认的顶部元数据，分页按原始数量结束。`live_feed_test.dart` 覆盖真实 Adapter、两种账号角色和部分失败，已列入 CI。
+
+直播分区通过 `liveDirectoryProvider` 持有推荐账号目录，`liveAreaFeedProvider` 按页面实例、资源 ID 与标签持有双账号房间列表。纯目录不订阅主账号屏蔽角色。目录快照替换会销毁旧 Widget 子树、TabController 和子页订阅；默认分区 ID 按字符串归一比较。目录失败显示重试并保留按传入 ID 加载房间的入口。标签菜单、首帧偏好和滚动句柄属于 Widget；菜单离页后不访问已释放 TabController。`live_area_feed_test.dart` 同时验证真实 HTTP 归属及活动 Ticker 释放，已加入 CI。

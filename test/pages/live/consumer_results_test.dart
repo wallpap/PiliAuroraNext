@@ -11,8 +11,6 @@ import 'package:pili_aurora_next/models/remote/live/live_feed_index/feedback.dar
     as live_feedback;
 import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/child/controller.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
 import 'package:pili_aurora_next/pages/live_room/contribution_rank/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
@@ -27,12 +25,6 @@ import 'package:pili_aurora_next/utils/theme_utils.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
-
-class _AreaChild extends LiveAreaChildController {
-  _AreaChild() : super(7, 8);
-  @override
-  Future<void>? prepareQuery() => null;
-}
 
 class _Room implements LiveRoomController {
   @override
@@ -80,18 +72,6 @@ void main() {
     return controller;
   }
 
-  Map<String, dynamic> second(int roomId) => {
-    'code': 0,
-    'data': {
-      'count': 1,
-      'list': [
-        {'roomid': roomId},
-      ],
-      'new_tags': [
-        {'name': '标签$roomId', 'sort_type': 'online'},
-      ],
-    },
-  };
   Map<String, dynamic> rank(String name) => {
     'code': 0,
     'data': {
@@ -183,83 +163,6 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   }
-
-  test('直播子分区隔离推荐账号并保留错误结果和重试入口', () async {
-    final controller = own(_AreaChild())..onInit();
-    await interceptor.waitForRequests(1);
-    final replacement = account(3, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(2);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete(second(22));
-    await flush();
-    requests.first.reply.complete(second(11));
-    await flush();
-    expect(controller.loadingState.value.data!.single.roomid, 22);
-    expect(controller.newTags?.single.name, '标签22');
-    Accounts.replaceCredentials(account(1, 'new-filter-owner'));
-    await interceptor.waitForRequests(3);
-    expect(requests.last.options.extra['account'], same(replacement));
-    expect(controller.newTags, isNull);
-    requests.last.reply.complete({'code': -42, 'message': '分区暂不可用'});
-    await flush();
-    expect(controller.loadingState.value.toString(), '分区暂不可用');
-    final retry = controller.onReload();
-    await interceptor.waitForRequests(4);
-    requests.last.reply.complete(second(23));
-    await retry;
-    expect(controller.loadingState.value.data!.single.roomid, 23);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(3, 'closed'));
-    expect(requests, hasLength(4));
-  });
-
-  test('直播分区目录重载替换标签控制器，切号及关闭拒绝旧结果', () async {
-    final controller = own(LiveAreaDetailController('3', 8))..onInit();
-    await interceptor.waitForRequests(1);
-    requests.last.reply.complete({
-      'code': 0,
-      'data': [
-        {'id': '2'},
-        {'id': '3'},
-      ],
-    });
-    await flush();
-    final first = controller.tabController!;
-    expect(first.index, 1);
-    var reload = controller.onRefresh();
-    await interceptor.waitForRequests(2);
-    requests.last.reply.complete({
-      'code': 0,
-      'data': [
-        {'id': '3'},
-      ],
-    });
-    await reload;
-    expect(controller.tabController, isNot(same(first)));
-    expect(first.animation, isNull);
-    expect(controller.tabController!.length, 1);
-    reload = controller.onRefresh();
-    await interceptor.waitForRequests(3);
-    final replacement = account(3, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(4);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete({'code': 0, 'data': <dynamic>[]});
-    await flush();
-    requests[2].reply.complete({
-      'code': 0,
-      'data': [
-        {'id': '2'},
-      ],
-    });
-    await reload;
-    expect(controller.tabController, isNull);
-    expect(controller.loadingState.value.data, isEmpty);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(3, 'closed'));
-    expect(requests, hasLength(4));
-  });
 
   test('直播贡献榜固定主账号并丢弃旧凭据和关闭后的结果', () async {
     final controller = own(

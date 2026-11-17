@@ -189,8 +189,15 @@ void main() {
     expect(container.read(next).loading.data.single.roomid, 22);
   });
   test('过滤空页补读保留同轮顶部和标签，不重复查询顶部', () async {
-    final provider = liveFeedProvider((owner: Object(), areaId: 7, parentAreaId: 8, sortType: null));
-    container..listen(provider, (_, _) {})..read(provider);
+    final provider = liveFeedProvider((
+      owner: Object(),
+      areaId: 7,
+      parentAreaId: 8,
+      sortType: null,
+    ));
+    container
+      ..listen(provider, (_, _) {})
+      ..read(provider);
     await interceptor.waitForRequests(1);
     requests[0].reply.complete(liveSecond([1], count: 2));
     await interceptor.waitForRequests(2);
@@ -204,6 +211,38 @@ void main() {
     expect(container.read(provider).metadata?.tags.single.sortType, 'online');
     expect(container.read(provider).metadata?.areas, isNotNull);
     expect(requests.length, 3);
+  });
+  test('直播首页续页保留首页关注和分区快照，不被续页附带顶部替换', () async {
+    final provider = liveFeedProvider((
+      owner: Object(),
+      areaId: null,
+      parentAreaId: null,
+      sortType: null,
+    ));
+    container
+      ..listen(provider, (_, _) {})
+      ..read(provider);
+    await interceptor.waitForRequests(1);
+    requests[0].reply.complete(liveIndex(2, area: 7, hasMore: 1));
+    await tick();
+    final before = container.read(provider);
+    final operation = container.read(provider.notifier).onLoadMore();
+    await interceptor.waitForRequests(2);
+    requests[1].reply.complete(liveIndex(3, area: 9));
+    await operation;
+    expect(
+      container.read(provider).metadata?.followed,
+      same(before.metadata?.followed),
+    );
+    expect(
+      container.read(provider).metadata?.areas,
+      same(before.metadata?.areas),
+    );
+    expect(container.read(provider).loading.data.map((item) => item.roomid), [
+      2,
+      3,
+    ]);
+    expect(before.loading.data.single.roomid, 2);
   });
   test('顶部失败保留当前分区数据，并交付独立重试提示', () async {
     final provider = liveFeedProvider((

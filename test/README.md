@@ -352,3 +352,7 @@ CI 显式选择弹幕生产链路与帧计划的核心回归，完整弹幕测�
 `features/subscriptions/` 覆盖订阅 Riverpod 查询、账号对象身份、页面释放、列表与详情的成功写入失效、取消/清理互斥，以及本地隐藏记录的隔离。所有文件均列入 `tool/run-ci-tests.ps1`；原 subscription/subscription_detail controller 测试已由这些 Interface 回归替换。
 
 `features/account/` 覆盖资料查询与编辑发布、同 UID 凭据替换、页面释放、登录确认与刷新竞争、缓存隔离和串行写入、真实角色通知、临时及永久无痕、主题偏好观察，以及个人中心 Widget 的跨入口更新与切号展示。两个测试文件均已加入 CI；夹具位于同目录 `profile_fixture.dart`。`utils/account_profile_lifecycle_test.dart`、`background_sync_results_test.dart` 和原个人资料编辑回归继续验证真实 HTTP 与已确认写入语义。
+
+## 内容发现迁移
+
+`features/content_discovery/discovery_listing_test.dart` 覆盖查询代次、账号身份、串行分页、失败原页重试、过滤补读限界与移除保护。`rank_feed_test.dart`、`curated_feed_test.dart`、`live_feed_test.dart`、`live_area_feed_test.dart` 经真实 HTTP Adapter 验证显式账号、双角色切换、跨步骤失效、元数据原子发布及目录和标签所有权；分区 Widget 回归另检查活动 TabController 释放。原每周必看及直播发现 controller 回归由这些 Interface 测试替换，均已纳入 CI。Android／Windows 实际滚动、直播服务与原生图像解码仍须设备验收。

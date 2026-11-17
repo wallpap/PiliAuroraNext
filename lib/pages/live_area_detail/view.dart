@@ -1,49 +1,44 @@
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_area_list/area_item.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/child/controller.dart';
 import 'package:pili_aurora_next/pages/live_area_detail/child/view.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
+import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/live_area_feed.dart';
 import 'package:pili_aurora_next/pages/live_search/view.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
-class LiveAreaDetailPage extends StatefulWidget {
+class LiveAreaDetailPage extends ConsumerStatefulWidget {
   const LiveAreaDetailPage({
     super.key,
     required this.areaId,
     required this.parentAreaId,
     required this.parentName,
   });
-
-  final dynamic areaId;
-  final dynamic parentAreaId;
+  final Object? areaId, parentAreaId;
   final String parentName;
-
   @override
-  State<LiveAreaDetailPage> createState() => _LiveAreaDetailPageState();
+  ConsumerState<LiveAreaDetailPage> createState() => _LiveAreaDetailPageState();
 }
 
-class _LiveAreaDetailPageState extends State<LiveAreaDetailPage> {
-  late final LiveAreaDetailController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      LiveAreaDetailController(widget.areaId?.toString(), widget.parentAreaId),
-    );
-  }
-
+class _LiveAreaDetailPageState extends ConsumerState<LiveAreaDetailPage> {
+  final _owner = Object();
+  bool _showFirstFrame = false;
+  LiveDirectoryQuery get _query =>
+      (owner: _owner, parentId: widget.parentAreaId);
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
+    final state = ref.watch(liveDirectoryProvider(_query));
     final padding = MediaQuery.viewPaddingOf(context);
+    final list = state.loading.dataOrNull;
     return SimpleScaffold(
       appBar: AppBar(
         title: Text(widget.parentName),
@@ -57,100 +52,153 @@ class _LiveAreaDetailPageState extends State<LiveAreaDetailPage> {
       ),
       body: Padding(
         padding: EdgeInsets.only(left: padding.left, right: padding.right),
-        child: Obx(
-          () =>
-              _buildBody(theme, padding.bottom, _controller.loadingState.value),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody(
-    ThemeData theme,
-    double bottom,
-    LoadingState<List<AreaItem>?> loadingState,
-  ) {
-    return switch (loadingState) {
-      Loading() => const SizedBox.shrink(),
-      Success(:final response) =>
-        response != null && response.isNotEmpty
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: state.loading is Loading
+            ? const Center(child: CircularProgressIndicator())
+            : list != null && list.isNotEmpty
+            ? _AreaTabs(
+                key: ObjectKey(state.source),
+                areas: list,
+                areaId: widget.areaId,
+                parentName: widget.parentName,
+                showFirstFrame: _showFirstFrame,
+                onToggleFrame: () =>
+                    setState(() => _showFirstFrame = !_showFirstFrame),
+              )
+            : Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TabBar(
-                          dividerHeight: 0,
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
-                          dividerColor: Colors.transparent,
-                          controller: _controller.tabController,
-                          tabs: response
-                              .map((e) => Tab(text: e.name ?? ''))
-                              .toList(),
-                          onTap: (index) {
-                            try {
-                              if (!_controller.tabController!.indexIsChanging) {
-                                final item = response[index];
-                                Get.find<LiveAreaChildController>(
-                                  tag: '${item.id}${item.parentId}',
-                                ).animateToTop();
-                              }
-                            } catch (_) {}
-                          },
-                        ),
-                      ),
-                      iconButton(
-                        iconSize: 20,
-                        tooltip:
-                            '切换${_controller.showFirstFrame ? '封面' : '首帧'}',
-                        icon: _controller.showFirstFrame
-                            ? const Icon(MdiIcons.alphaFBox)
-                            : const Icon(MdiIcons.image),
-                        onPressed: () {
-                          _controller.showFirstFrame =
-                              !_controller.showFirstFrame;
-                          setState(() {});
-                        },
-                      ),
-                      iconButton(
-                        iconSize: 20,
-                        tooltip: '显示菜单',
-                        icon: const Icon(Icons.menu),
-                        onPressed: () =>
-                            _showTags(context, theme, bottom, response),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 1),
+                  if (state.loading case Error error)
+                    TextButton(
+                      onPressed: ref
+                          .read(liveDirectoryProvider(_query).notifier)
+                          .onReload,
+                      child: Text('${error.toString()} · 重试分区目录'),
+                    ),
                   Expanded(
-                    child: tabBarView(
-                      controller: _controller.tabController,
-                      children: response
-                          .map(
-                            (e) => LiveAreaChildPage(
-                              areaId: e.id,
-                              parentAreaId: e.parentId,
-                              showFirstFrame: _controller.showFirstFrame,
-                            ),
-                          )
-                          .toList(),
+                    child: LiveAreaChildPage(
+                      areaId: widget.areaId,
+                      parentAreaId: widget.parentAreaId,
+                      showFirstFrame: _showFirstFrame,
                     ),
                   ),
                 ],
-              )
-            : LiveAreaChildPage(
-                areaId: widget.areaId,
-                parentAreaId: widget.parentAreaId,
-                showFirstFrame: _controller.showFirstFrame,
               ),
-      Error() => LiveAreaChildPage(
-        areaId: widget.areaId,
-        parentAreaId: widget.parentAreaId,
-        showFirstFrame: _controller.showFirstFrame,
       ),
+    );
+  }
+}
+
+/// Tab 与子页滚动资源跟随已确认的目录快照释放。
+class _AreaTabs extends StatefulWidget {
+  const _AreaTabs({
+    super.key,
+    required this.areas,
+    required this.areaId,
+    required this.parentName,
+    required this.showFirstFrame,
+    required this.onToggleFrame,
+  });
+  final List<AreaItem> areas;
+  final Object? areaId;
+  final String parentName;
+  final bool showFirstFrame;
+  final VoidCallback onToggleFrame;
+  @override
+  State<_AreaTabs> createState() => _AreaTabsState();
+}
+
+class _AreaTabsState extends State<_AreaTabs>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  final _pages = <int, ScrollOrRefreshMixin>{};
+  @override
+  void initState() {
+    super.initState();
+    final selected = widget.areas.indexWhere(
+      (area) => area.id?.toString() == widget.areaId?.toString(),
+    );
+    _tabs = TabController(
+      length: widget.areas.length,
+      initialIndex: selected < 0 ? 0 : selected,
+      vsync: this,
+    );
+  }
+
+  VoidCallback _register(int index, ScrollOrRefreshMixin handle) {
+    _pages[index] = handle;
+    return () {
+      if (identical(_pages[index], handle)) _pages.remove(index);
     };
+  }
+
+  @override
+  void dispose() {
+    _pages.clear();
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TabBar(
+                dividerHeight: 0,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                dividerColor: Colors.transparent,
+                controller: _tabs,
+                tabs: widget.areas
+                    .map((area) => Tab(text: area.name ?? ''))
+                    .toList(),
+                onTap: (index) {
+                  if (!_tabs.indexIsChanging) _pages[index]?.animateToTop();
+                },
+              ),
+            ),
+            iconButton(
+              iconSize: 20,
+              tooltip: '切换${widget.showFirstFrame ? '封面' : '首帧'}',
+              icon: widget.showFirstFrame
+                  ? const Icon(MdiIcons.alphaFBox)
+                  : const Icon(MdiIcons.image),
+              onPressed: widget.onToggleFrame,
+            ),
+            iconButton(
+              iconSize: 20,
+              tooltip: '显示菜单',
+              icon: const Icon(Icons.menu),
+              onPressed: () => _showTags(context, theme, bottom, widget.areas),
+            ),
+          ],
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: tabBarView(
+            controller: _tabs,
+            children: [
+              for (final (index, area) in widget.areas.indexed)
+                TabActivity(
+                  controller: _tabs,
+                  index: index,
+                  child: LiveAreaChildPage(
+                    key: ValueKey((area.id, area.parentId)),
+                    areaId: area.id,
+                    parentAreaId: area.parentId,
+                    showFirstFrame: widget.showFirstFrame,
+                    register: (handle) => _register(index, handle),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _tagItem({
@@ -237,7 +285,7 @@ class _LiveAreaDetailPageState extends State<LiveAreaDetailPage> {
                         item: list[index],
                         onTap: () {
                           Get.back();
-                          _controller.tabController?.index = index;
+                          if (mounted) _tabs.index = index;
                         },
                       );
                     },

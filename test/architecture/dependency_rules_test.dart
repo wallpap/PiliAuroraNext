@@ -161,6 +161,8 @@ void main() {
       'pages/rcmd/viewport.dart',
       'pages/hot/controller.dart',
       'pages/live/controller.dart',
+      'pages/live_area_detail/controller.dart',
+      'pages/live_area_detail/child/controller.dart',
       'pages/rank/controller.dart',
       'pages/rank/zone/controller.dart',
       'pages/popular_series/controller.dart',
@@ -187,6 +189,42 @@ void main() {
             violations.add('$root/$source -> $uri');
           }
         }
+      }
+    }
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
+  test('migrated discovery pages keep business state behind Riverpod', () {
+    final violations = <String>[];
+    for (final entry in [
+      'hot/view.dart',
+      'rank/view.dart',
+      'rank/zone/view.dart',
+      'popular_series/view.dart',
+      'popular_precious/view.dart',
+      'live/view.dart',
+      'live_area_detail/view.dart',
+      'live_area_detail/child/view.dart',
+    ]) {
+      final file = File('lib/pages/$entry');
+      for (final uri in dependencies(file)) {
+        final target = localDependency(file, uri);
+        if ((target?.startsWith('http/') == true &&
+                target != 'http/loading_state.dart') ||
+            target?.startsWith('utils/storage') == true ||
+            target?.startsWith('utils/accounts') == true ||
+            target?.startsWith('pages/common/common_') == true) {
+          violations.add('$entry -> $uri');
+        }
+      }
+      final source = file.readAsStringSync();
+      for (final match in RegExp(r'Get\.find<([^>]+)>').allMatches(source)) {
+        if (match.group(1) != 'HomeController') {
+          violations.add('$entry finds a business controller');
+        }
+      }
+      if (RegExp(r'Get\.(put|putOrFind|lazyPut)|Obx\(|\.obs\b|Rx[nA-Z]')
+          .hasMatch(source)) {
+        violations.add('$entry contains legacy business state');
       }
     }
     expect(violations, isEmpty, reason: violations.join('\n'));

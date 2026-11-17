@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/features/content_discovery/presentation/discove
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -107,7 +107,7 @@ class _HotPageState extends ConsumerState<HotPage>
           physics: const AlwaysScrollableScrollPhysics(),
           controller: _scrollController,
           slivers: [
-            if (Pref.showHotRcmd)
+            if (ref.watch(hotEntrancesProvider))
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const .only(left: 12, top: 12, right: 12),

@@ -36,7 +36,8 @@ class DiscoveryListingState<T, M> {
 
 class _Owner<M> {
   _Owner(this.main, this.account);
-  final Account main, account;
+  final Account? main;
+  final Account account;
   bool disposed = false;
   M? metadata;
   int page = 1, count = 0;
@@ -55,7 +56,7 @@ abstract class DiscoveryListing<T, M>
   @override
   DiscoveryListingState<T, M> build() {
     final owner = _owner = _Owner<M>(
-      ref.watch(mainAccountProvider),
+      filterAuthors ? ref.watch(mainAccountProvider) : null,
       ref.watch(recommendAccountProvider),
     );
     ref.onDispose(() => owner.disposed = true);
@@ -69,7 +70,8 @@ abstract class DiscoveryListing<T, M>
       !owner.disposed &&
       ref.mounted &&
       identical(owner, _owner) &&
-      identical(owner.main, ref.read(mainAccountProvider)) &&
+      (owner.main == null ||
+          identical(owner.main, ref.read(mainAccountProvider))) &&
       identical(owner.account, ref.read(recommendAccountProvider));
 
   /// 多步读取在每一步之前检查同一所有者，离页或刷新后停止后续请求。
@@ -81,7 +83,7 @@ abstract class DiscoveryListing<T, M>
   Future<void> onRefresh() {
     _owner.disposed = true;
     final owner = _owner = _Owner<M>(
-      ref.read(mainAccountProvider),
+      filterAuthors ? ref.read(mainAccountProvider) : null,
       ref.read(recommendAccountProvider),
     );
     state = DiscoveryListingState(source: owner);

@@ -14,9 +14,6 @@ Set-Location $Workspace
 # 默认 CI 保留关键行为回归；完整覆盖通过 fvm flutter test 按需运行。
 $ciTests = @(
     # 架构与账号、数据安全
-    "test/features/content_discovery/discovery_listing_test.dart",
-    "test/features/content_discovery/rank_feed_test.dart",
-    "test/features/content_discovery/live_feed_test.dart",
     "test/features/account/account_profile_test.dart",
     "test/features/account/account_lifecycle_test.dart",
     "test/architecture/android_package_identity_test.dart",
@@ -54,7 +51,6 @@ $ciTests = @(
     "test/http/video_reporting_results_test.dart",
     "test/pages/video/interaction_results_test.dart",
     "test/pages/video/pay_coins/pay_coins_test.dart",
-    "test/features/content_discovery/curated_feed_test.dart",
     "test/common/widgets/video_feedback_results_test.dart",
     "test/http/member_mutation_results_test.dart",
     "test/http/member_query_results_test.dart",

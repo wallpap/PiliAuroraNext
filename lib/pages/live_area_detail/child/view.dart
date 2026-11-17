@@ -6,64 +6,108 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/self_sized_horizontal_list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/models/remote/live/live_second_list/tag.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/child/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/live_area_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class LiveAreaChildPage extends StatefulWidget {
+class LiveAreaChildPage extends ConsumerStatefulWidget {
   const LiveAreaChildPage({
     super.key,
     required this.areaId,
     required this.parentAreaId,
     required this.showFirstFrame,
+    this.register,
   });
 
-  final dynamic areaId;
-  final dynamic parentAreaId;
+  final Object? areaId;
+  final Object? parentAreaId;
   final bool showFirstFrame;
+  final VoidCallback Function(ScrollOrRefreshMixin handle)? register;
 
   @override
-  State<LiveAreaChildPage> createState() => _LiveAreaChildPageState();
+  ConsumerState<LiveAreaChildPage> createState() => _LiveAreaChildPageState();
 }
 
-class _LiveAreaChildPageState extends State<LiveAreaChildPage>
+class _LiveAreaChildPageState extends ConsumerState<LiveAreaChildPage>
     with AutomaticKeepAliveClientMixin {
-  late final LiveAreaChildController _controller;
-
+  final _owner = Object();
+  final _scroll = ScrollController();
+  String? _sortType;
+  LiveAreaQuery get _query => (
+    owner: _owner,
+    areaId: widget.areaId,
+    parentAreaId: widget.parentAreaId,
+    sortType: _sortType,
+  );
+  LiveAreaFeed get _controller =>
+      ref.read(liveAreaFeedProvider(_query).notifier);
+  List<LiveSecondTag>? get _tags =>
+      ref.read(liveAreaFeedProvider(_query)).metadata?.tags;
+  VoidCallback? _unregister;
   @override
   void initState() {
     super.initState();
-    _controller = Get.put(
-      LiveAreaChildController(widget.areaId, widget.parentAreaId),
-      tag: '${widget.areaId}${widget.parentAreaId}',
+    _unregister = widget.register?.call(
+      DiscoveryPageHandle(
+        () => _scroll,
+        () => _controller.onRefresh(),
+        readSnapshot: () => ref.read(liveAreaFeedProvider(_query)),
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _selectTag(int index, String? sortType) {
+    if (_sortType == sortType) return;
+    setState(() => _sortType = sortType);
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final state = ref.watch(liveAreaFeedProvider(_query));
     final ThemeData theme = Theme.of(context);
     return refreshIndicator(
       onRefresh: _controller.onRefresh,
-      child: CustomScrollView(
-        controller: _controller.scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(
-              left: Style.safeSpace,
-              right: Style.safeSpace,
-              top: Style.safeSpace,
-              bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+      child: FeedPagination(
+        controller: _scroll,
+        dataSource: state.source,
+        dataRevision: state,
+        canLoadMore: () => state.canLoadMore,
+        onLoadMore: _controller.onLoadMore,
+        child: CustomScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: Style.safeSpace,
+                right: Style.safeSpace,
+                top: Style.safeSpace,
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+              ),
+              sliver: _buildBody(theme, state.loading),
             ),
-            sliver: Obx(
-              () => _buildBody(theme, _controller.loadingState.value),
+            DiscoveryFooter(
+              error: state.loading is Success ? state.error : null,
+              retry: _controller.retry,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -78,7 +122,7 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
 
   Widget _buildBody(
     ThemeData theme,
-    LoadingState<List<CardLiveItem>?> loadingState,
+    LoadingState<List<CardLiveItem>> loadingState,
   ) {
     return switch (loadingState) {
       Loading() => SliverGrid(
@@ -90,41 +134,42 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
       ),
       Success(:final response) => SliverMainAxisGroup(
         slivers: [
-          if (_controller.newTags?.isNotEmpty == true)
+          if (_tags?.isNotEmpty == true)
             SliverToBoxAdapter(
-              child: Obx(() {
-                final tagIndex = _controller.tagIndex.value;
-                return SelfSizedHorizontalList(
-                  padding: const .only(bottom: 12),
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final item = _controller.newTags![index];
-                    final isCurr = index == tagIndex;
-                    return SearchText(
-                      fontSize: 14,
-                      padding: const .symmetric(horizontal: 8, vertical: 3),
-                      text: item.name!,
-                      bgColor: isCurr
-                          ? theme.colorScheme.secondaryContainer
-                          : Colors.transparent,
-                      textColor: isCurr
-                          ? theme.colorScheme.onSecondaryContainer
-                          : null,
-                      onTap: (value) =>
-                          _controller.onSelectTag(index, item.sortType),
-                    );
-                  },
-                  itemCount: _controller.newTags!.length,
-                );
-              }),
+              child: Builder(
+                builder: (context) {
+                  final selected =
+                      _tags?.indexWhere((item) => item.sortType == _sortType) ??
+                      0;
+                  final tagIndex = selected < 0 ? 0 : selected;
+                  return SelfSizedHorizontalList(
+                    padding: const .only(bottom: 12),
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final item = _tags![index];
+                      final isCurr = index == tagIndex;
+                      return SearchText(
+                        fontSize: 14,
+                        padding: const .symmetric(horizontal: 8, vertical: 3),
+                        text: item.name!,
+                        bgColor: isCurr
+                            ? theme.colorScheme.secondaryContainer
+                            : Colors.transparent,
+                        textColor: isCurr
+                            ? theme.colorScheme.onSecondaryContainer
+                            : null,
+                        onTap: (value) => _selectTag(index, item.sortType),
+                      );
+                    },
+                    itemCount: _tags!.length,
+                  );
+                },
+              ),
             ),
-          response != null && response.isNotEmpty
+          response.isNotEmpty
               ? SliverGrid.builder(
                   gridDelegate: gridDelegate,
                   itemBuilder: (context, index) {
-                    if (index == response.length - 1) {
-                      _controller.onLoadMore();
-                    }
                     return LiveCardVApp(
                       item: response[index],
                       showFirstFrame: widget.showFirstFrame,

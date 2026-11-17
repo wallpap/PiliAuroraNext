@@ -87,8 +87,16 @@ class _LivePageState extends ConsumerState<LivePage>
   }
 
   Future<void> _refresh() async {
-    await controller.onRefresh();
-    if (mounted && _followScroll.hasClients) _followScroll.jumpTo(0);
+    final query = _query;
+    final refresh = controller.onRefresh();
+    final source = ref.read(liveFeedProvider(query)).source;
+    await refresh;
+    if (mounted &&
+        _query == query &&
+        identical(ref.read(liveFeedProvider(query)).source, source) &&
+        _followScroll.hasClients) {
+      _followScroll.jumpTo(0);
+    }
   }
 
   void _selectArea(int index, CardLiveItem? item) {

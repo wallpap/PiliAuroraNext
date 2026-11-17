@@ -41,12 +41,14 @@ class LiveFeed extends DiscoveryListing<CardLiveItem, LiveCatalog> {
           isCurrent: current,
         );
     if (!current()) return LoadingState.loading();
-    if (result case Success(:final response)) {
-      final followed = response.metadata.followed?.cardData?.myIdolV1;
-      if (followed?.list case final list?) {
-        followed!.list = ref
-            .read(discoveryFilterProvider)
-            .filter(list, deduplicate: true);
+    if (page == 1) {
+      if (result case Success(:final response)) {
+        final followed = response.metadata.followed?.cardData?.myIdolV1;
+        if (followed?.list case final list?) {
+          followed!.list = ref
+              .read(discoveryFilterProvider)
+              .filter(list, deduplicate: true);
+        }
       }
     }
     return result;
