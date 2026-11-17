@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/login/gaia_result.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_updates.dart';
 import 'package:pili_aurora_next/pages/group_panel/view.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -239,29 +239,8 @@ abstract final class RequestUtils {
 
   static Future<void> insertCreatedDyn(Object? id, {Account? account}) async {
     account ??= Accounts.main;
-    if (id == null || !Get.isRegistered<DynamicsTabController>(tag: 'all')) {
-      return;
-    }
-    final controller = Get.find<DynamicsTabController>(tag: 'all');
-    final list = controller.loadingState.value.dataOrNull;
-    try {
-      await Future.pause(const Duration(milliseconds: 450));
-      if (controller.isClosed || !identical(account, Accounts.main)) return;
-      final result = await DynamicsHttp.dynamicDetail(id: id, account: account);
-      if (controller.isClosed ||
-          !identical(account, Accounts.main) ||
-          !identical(list, controller.loadingState.value.dataOrNull)) {
-        return;
-      }
-      if (result case Success(:final response)) {
-        if (list == null) return;
-        list
-          ..removeWhere((item) => item.idStr.toString() == id.toString())
-          ..insert(0, response);
-        controller.loadingState.refresh();
-      }
-    } catch (error, stackTrace) {
-      logger.w('动态发布后的列表刷新失败', error: error, stackTrace: stackTrace);
+    if (id != null && identical(account, Accounts.main)) {
+      DynamicsUpdates.shared.published(account);
     }
   }
 

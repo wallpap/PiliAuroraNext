@@ -111,11 +111,18 @@ abstract class DiscoveryListing<T, M>
   void remove(T item) {
     final items = state.loading.dataOrNull;
     if (items == null || !items.any((value) => identical(value, item))) return;
-    _owner.removed.add(itemKey(item));
+    excludeKey(itemKey(item));
+  }
+
+  /// 跨入口确认删除时，首屏尚未返回也必须排除迟到响应中的相同资源。
+  void excludeKey(Object key) {
+    _owner.removed.add(key);
+    final items = state.loading.dataOrNull;
+    if (items == null) return;
     state = DiscoveryListingState(
       source: _owner,
       loading: Success(
-        List.unmodifiable(items.where((value) => !identical(value, item))),
+        List.unmodifiable(items.where((value) => itemKey(value) != key)),
       ),
       metadata: state.metadata,
       loadingMore: state.loadingMore,

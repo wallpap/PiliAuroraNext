@@ -6,7 +6,6 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/fold_card_item.dart';
@@ -15,7 +14,6 @@ import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/top_details
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/controller.dart';
-import 'package:pili_aurora_next/pages/dynamics_tab/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic/controller.dart';
 import 'package:pili_aurora_next/pages/member_dynamics/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -26,21 +24,8 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
-int _selectedHost = 1;
-
 class _Member extends MemberDynamicsController {
   _Member() : super(1);
-  final queries = <Future<void>>[];
-  @override
-  Future<void> queryData([bool isRefresh = true]) {
-    final query = super.queryData(isRefresh);
-    queries.add(query);
-    return query;
-  }
-}
-
-class _Tab extends DynamicsTabController {
-  _Tab() : super(dynamicsType: .up, selectedHost: () => _selectedHost);
   final queries = <Future<void>>[];
   @override
   Future<void> queryData([bool isRefresh = true]) {
@@ -188,7 +173,6 @@ void main() {
       LocalCacheKey.timeStamp: DateTime.now().millisecondsSinceEpoch,
     });
     Get.parameters = {'id': '12', 'name': '话题'};
-    _selectedHost = 1;
     requests.clear();
   });
   tearDown(() {
@@ -470,71 +454,6 @@ void main() {
     await controller.onSetTop(true, '3');
     expect(requests, hasLength(2));
     await finish(tester);
-  });
-
-  testWidgets('动态页删除固定账号，目标作者变化或失败时保留列表', (tester) async {
-    await mount(tester);
-    final controller = own(
-      DynamicsTabController(
-        dynamicsType: DynamicsTabType.up,
-        selectedHost: () => _selectedHost,
-      ),
-    );
-    final list = [item('1')];
-    controller.loadingState.value = Success(list);
-    var remove = controller.onRemove(0, '1');
-    await controller.onRemove(0, '1');
-    await until(tester, () => requests.length == 1);
-    expect(requests.single.options.extra['account'], same(original));
-    _selectedHost = 2;
-    requests.single.reply.complete({'code': 0});
-    await settle(tester);
-    await remove;
-    expect(list, hasLength(1));
-    expect(find.text('删除成功'), findsNothing);
-    remove = controller.onRemove(0, '1');
-    await until(tester, () => requests.length == 2);
-    requests.last.reply.complete({'code': -667777, 'message': '无删除权限'});
-    await settle(tester);
-    await remove;
-    expect(list, hasLength(1));
-    expect(find.text('无删除权限'), findsOneWidget);
-    remove = controller.onRemove(0, '1');
-    await until(tester, () => requests.length == 3);
-    requests.last.reply.complete({'code': 0});
-    await settle(tester);
-    await remove;
-    expect(list, isEmpty);
-    await finish(tester);
-  });
-
-  test('动态页同账号换凭据重载，展开只触及过滤后仍在列表的折叠 ID', () async {
-    final controller = own(_Tab())..onInit();
-    await interceptor.waitForRequests(1);
-    final replacement = account(1, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(2);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete(dynamics('2'));
-    await controller.queries.last;
-    requests.first.reply.complete(dynamics('1'));
-    await controller.queries.first;
-    expect(controller.loadingState.value.data!.single.idStr, '2');
-    final fold = item('fold')
-      ..modules.moduleFold = ModuleFold.fromJson({
-        'ids': ['filtered', '2'],
-      });
-    final folded = item('2')..visible = false;
-    final unrelated = item('3')..visible = false;
-    controller.loadingState.value = Success([fold, unrelated, folded]);
-    controller.onUnfold(fold, 0);
-    expect(fold.modules.moduleFold, isNull);
-    expect(folded.visible, isTrue);
-    expect(unrelated.visible, isFalse);
-    controller.onBlock(-1);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(1, 'closed'));
-    expect(requests, hasLength(2));
   });
 
   test('话题详情允许空结果、拒绝不完整数据，并隔离乱序和关闭结果', () async {

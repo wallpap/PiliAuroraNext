@@ -199,12 +199,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     super.build(context);
     return Consumer(
       builder: (context, ref, _) {
-        ref.listen(dynamicsSelectionProvider.select((value) => value.hostMid), (
-          _,
-          _,
-        ) {
-          _children[DynamicsTabType.up]?.onRefresh();
-        });
         return _buildPage(context);
       },
     );
@@ -227,6 +221,9 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
               dynamicsType: e,
               onRegister: (handle) => _register(e, handle),
               onRefreshAuthors: _authors.onRefresh,
+              onRefreshFeed: e == DynamicsTabType.all
+                  ? _mainController.setDynCount
+                  : null,
             ),
           )
           .toList(),

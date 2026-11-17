@@ -191,6 +191,7 @@ $ciTests = @(
     "test/common/widgets/feed_pagination_test.dart",
     "test/common/widgets/refresh_indicator_test.dart",
     "test/features/content_discovery/",
+    "test/features/community/",
     "test/router/get_route_lifecycle_test.dart",
     "test/utils/app_release_test.dart",
     "test/utils/update_results_test.dart",

@@ -170,6 +170,7 @@ void main() {
       'pages/popular_precious/controller.dart',
       'pages/pgc/controller.dart',
       'pages/dynamics/controller.dart',
+      'pages/dynamics_tab/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -208,6 +209,8 @@ void main() {
       'live_area_detail/view.dart',
       'live_area_detail/child/view.dart',
       'pgc/view.dart',
+      'dynamics/view.dart',
+      'dynamics_tab/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {
@@ -216,13 +219,14 @@ void main() {
                 target != 'http/loading_state.dart') ||
             target?.startsWith('utils/storage') == true ||
             target?.startsWith('utils/accounts') == true ||
-            target?.startsWith('pages/common/common_') == true) {
+            (target?.startsWith('pages/common/common_') == true &&
+                target != 'pages/common/common_page.dart')) {
           violations.add('$entry -> $uri');
         }
       }
       final source = file.readAsStringSync();
       for (final match in RegExp(r'Get\.find<([^>]+)>').allMatches(source)) {
-        if (match.group(1) != 'HomeController') {
+        if (!['HomeController', 'MainController'].contains(match.group(1))) {
           violations.add('$entry finds a business controller');
         }
       }

@@ -41,6 +41,7 @@ abstract final class DynamicsHttp {
     String? offset,
     Set<int>? tempBannedList,
     DynamicsTabType type = .all,
+    bool refillFiltered = true,
   }) async {
     account ??= AccountManager.resolveAccount(Api.followDynamic);
     final banned = tempBannedList == null ? null : Set<int>.of(tempBannedList);
@@ -63,6 +64,8 @@ abstract final class DynamicsHttp {
         options: Options(extra: {'account': account}),
       );
       if (result is Error) return result;
+      // Riverpod 调用方在 application 层持有游标、补读预算与释放资格。
+      if (!refillFiltered) return result;
       final data = result.data;
       if (data.loadNext != true) return result;
       offset = data.offset;
