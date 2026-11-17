@@ -11,3 +11,5 @@
 `dynamicsFeedProvider` 按页面、类型与作者绑定主账号，复用 `DiscoveryListing` 的所有者和五页补读预算。HTTP Adapter 每次只读取一页；失败不推进游标，重复游标结束分页。删除按动态 ID 互斥，成功事件同步所有已订阅分类，并排除在途页内相同 ID；分页期间仍可删除。发布与转发通过 `DynamicsUpdates` 废弃当前查询，不再从工具层查找或插入页面 controller。临时屏蔽按会话快照重建列表，展开只修改当前快照内的折叠 ID。
 
 `test/features/community/dynamics_feed_test.dart` 覆盖账号、分页、删除、发布、展开和页面释放，已接入 CI；分类页滚动与父页刷新只通过构造回调协调。
+
+小站由 `bubbleFeedProvider` 按页面、小站、分类与排序持有主账号查询。路由显式传入小站 ID，子分类沿同一资源和排序创建查询，不读取隐式路由参数。目录和列表同轮发布，续页保留目录；目录替换销毁旧 Tab 子树。Widget 持有滚动，实际视口触发分页；失败保留原页码并可重试。`test/pages/bubble/controller_test.dart` 覆盖同 UID 换凭据、排序乱序、失败重试、双小站和活动 Tab 释放。

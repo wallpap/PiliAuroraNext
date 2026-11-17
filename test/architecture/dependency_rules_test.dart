@@ -171,6 +171,7 @@ void main() {
       'pages/pgc/controller.dart',
       'pages/dynamics/controller.dart',
       'pages/dynamics_tab/controller.dart',
+      'pages/bubble/controller.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
@@ -211,6 +212,7 @@ void main() {
       'pgc/view.dart',
       'dynamics/view.dart',
       'dynamics_tab/view.dart',
+      'bubble/view.dart',
     ]) {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {

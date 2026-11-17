@@ -194,6 +194,9 @@ class Routes {
     GetPage(name: '/videoWeb', page: () => const MemberVideoWeb()),
     GetPage(name: '/ssWeb', page: () => const MemberSSWeb()),
     GetPage(name: '/memberGuard', page: () => const MemberGuard()),
-    GetPage(name: '/bubble', page: () => const BubblePage()),
+    GetPage(
+      name: '/bubble',
+      page: () => BubblePage(tribeId: Get.arguments['id'].toString()),
+    ),
   ];
 }
