@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/widgets/progress_bar/audio_video_progres
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/plugin/pl_player/view/view.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/danmaku_chart.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
