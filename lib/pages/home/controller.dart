@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/pages/live/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/controller.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -49,7 +48,7 @@ class HomeController extends GetxController
     return _pages[type] ??
         switch (type) {
           HomeTabType.rcmd => throw StateError('推荐页尚未挂载'),
-          HomeTabType.live => Get.find<LiveController>(),
+          HomeTabType.live => throw StateError('直播页尚未挂载'),
           HomeTabType.hot => throw StateError('热门页尚未挂载'),
           HomeTabType.rank => throw StateError('排行榜尚未挂载'),
           HomeTabType.bangumi ||

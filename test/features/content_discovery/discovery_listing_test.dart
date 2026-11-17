@@ -91,16 +91,17 @@ void main() {
       );
   setUp(() {
     feed = _Feed();
-    container = ProviderContainer(
-      overrides: [
-        mainAccountProvider.overrideWith(_Account.new),
-        recommendAccountProvider.overrideWith(_Recommend.new),
-        discoveryFilterProvider.overrideWithValue(_Filter()),
-        provider.overrideWith(() => feed),
-      ],
-    )
-      ..listen(provider, (_, _) {})
-      ..read(provider);
+    container =
+        ProviderContainer(
+            overrides: [
+              mainAccountProvider.overrideWith(_Account.new),
+              recommendAccountProvider.overrideWith(_Recommend.new),
+              discoveryFilterProvider.overrideWithValue(_Filter()),
+              provider.overrideWith(() => feed),
+            ],
+          )
+          ..listen(provider, (_, _) {})
+          ..read(provider);
   });
   tearDown(() => container.dispose());
   test('刷新撤销旧请求，分页失败保留快照和页码，显式重试串行执行', () async {

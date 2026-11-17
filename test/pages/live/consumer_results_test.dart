@@ -7,11 +7,9 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_list.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/feedback.dart'
     as live_feedback;
 import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
-import 'package:pili_aurora_next/pages/live/controller.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
 import 'package:pili_aurora_next/pages/live_area_detail/child/controller.dart';
 import 'package:pili_aurora_next/pages/live_area_detail/controller.dart';
@@ -29,11 +27,6 @@ import 'package:pili_aurora_next/utils/theme_utils.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
-
-class _Live extends LiveController {
-  @override
-  Future<void>? prepareQuery() => null;
-}
 
 class _AreaChild extends LiveAreaChildController {
   _AreaChild() : super(7, 8);
@@ -87,40 +80,6 @@ void main() {
     return controller;
   }
 
-  Map<String, dynamic> feed(int roomId, {int areaId = 7}) => {
-    'code': 0,
-    'data': {
-      'has_more': 0,
-      'card_list': [
-        {
-          'card_type': 'my_idol_v1',
-          'card_data': {
-            'my_idol_v1': {
-              'list': [
-                {'roomid': roomId},
-              ],
-            },
-          },
-        },
-        {
-          'card_type': 'area_entrance_v3',
-          'card_data': {
-            'area_entrance_v3': {
-              'list': [
-                {'area_v2_id': areaId, 'area_v2_parent_id': 8},
-              ],
-            },
-          },
-        },
-        {
-          'card_type': 'small_card_v1',
-          'card_data': {
-            'small_card_v1': {'roomid': roomId},
-          },
-        },
-      ],
-    },
-  };
   Map<String, dynamic> second(int roomId) => {
     'code': 0,
     'data': {
@@ -224,66 +183,6 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   }
-
-  test('直播推荐换凭据重载，旧列表和顶部结果不能覆盖新账号', () async {
-    final controller = own(_Live())..onInit();
-    await interceptor.waitForRequests(1);
-    final oldTop = controller.queryTop();
-    await interceptor.waitForRequests(2);
-    expect(requests.first.options.extra['account'], same(recommend));
-    final replacement = account(3, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(3);
-    expect(requests.last.options.extra['account'], same(replacement));
-    expect(requests.last.options.queryParameters['page'], 1);
-    requests.last.reply.complete(feed(22));
-    await flush();
-    requests.first.reply.complete(feed(11));
-    requests[1].reply.complete(feed(12));
-    await oldTop;
-    await flush();
-    final item = controller.loadingState.value.data!.single as LiveCardList;
-    expect(item.cardData?.smallCardV1?.roomid, 22);
-    expect(
-      controller.topState.value.first?.cardData?.myIdolV1?.list?.single.roomid,
-      22,
-    );
-    expect(controller.page, 2);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(3, 'closed'));
-    await controller.queryTop();
-    expect(requests, hasLength(3));
-  });
-
-  test('直播顶部分区拒绝乱序，未收藏的当前分区继续沿原来源加载', () async {
-    final controller = own(_Live())
-      ..areaId = 7
-      ..parentAreaId = 8;
-    controller.areaIndex.value = 1;
-    final old = controller.queryTop();
-    await interceptor.waitForRequests(1);
-    final current = controller.queryTop();
-    await interceptor.waitForRequests(2);
-    requests.last.reply.complete(feed(22, areaId: 9));
-    await current;
-    expect(controller.areaIndex.value, -1);
-    requests.first.reply.complete(feed(11));
-    await old;
-    expect(controller.areaIndex.value, -1);
-    final query = controller.queryData();
-    await interceptor.waitForRequests(3);
-    expect(requests.last.options.path, Api.liveSecondList);
-    expect(requests.last.options.queryParameters['area_id'], 7);
-    requests.last.reply.complete(second(22));
-    await query;
-    final top = controller.topState.value;
-    final stale = controller.queryTop();
-    await interceptor.waitForRequests(4);
-    controller.areaId = 9;
-    requests.last.reply.complete(feed(11));
-    await stale;
-    expect(controller.topState.value, same(top));
-  });
 
   test('直播子分区隔离推荐账号并保留错误结果和重试入口', () async {
     final controller = own(_AreaChild())..onInit();

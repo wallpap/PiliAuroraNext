@@ -39,3 +39,5 @@ fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/dis
 排行榜由 `rankFeedProvider` 按页面实例和分类隔离，UGC／番剧／影视三个 Adapter 路径均使用查询捕获的推荐账号。榜单为单次快照，禁止自动分页；分类 Tab、滚动与重复点击回顶由 Widget 持有，子页通过窄句柄注册，不再互找控制器。真实 HTTP 换凭据与双页面回归见 `rank_feed_test.dart`。
 
 精选合集由 `weeklyFeedProvider`（页面实例／期数）与 `preciousFeedProvider`（页面实例）持有。目录和详情固定同一推荐账号，多步查询在刷新、换凭据和释放后停止后续调度；列表、期数、说明和播放列表 ID 原子发布。切换期数由 Widget 更新查询键，迟到的选择弹窗按查询所有者失效。入站必刷接入实际视口分页及页尾重试。回归见 `curated_feed_test.dart` 与原发现账号测试（现通过 Riverpod 入口验证）。
+
+直播首页使用 `liveFeedProvider`，查询键包含页面实例、分区和标签；关注、顶部分区和标签与房间列表一起发布。首帧／封面与滚动资源归 Widget。子分区读取成功后再检查所有者并读取顶部，顶部单独失败保留房间数据并显示重试提示；未收藏分区始终沿查询键加载。补读与续页保留同轮已确认的顶部元数据，分页按原始数量结束。`live_feed_test.dart` 覆盖真实 Adapter、两种账号角色和部分失败，已列入 CI。

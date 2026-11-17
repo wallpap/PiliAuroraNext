@@ -55,7 +55,9 @@ void main() {
         rid: category.rid,
         seasonType: category.seasonType,
       ));
-      container..listen(provider, (_, _) {})..read(provider);
+      container
+        ..listen(provider, (_, _) {})
+        ..read(provider);
       await interceptor.waitForRequests(1);
       final before = Accounts.get(AccountType.recommend);
       expect(requests[0].options.extra['account'], same(before));

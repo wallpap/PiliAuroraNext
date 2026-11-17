@@ -181,6 +181,27 @@ void main() {
     expect(requests.last.extra['account'], same(original));
     expect(requests.last.extra['noRetry'], isTrue);
   });
+  test('发现模块显式账号优先于当前推荐角色，全部 Adapter 沿用捕获凭据', () async {
+    final owner = account(88);
+    body = {
+      'code': 0,
+      'data': {'list': []},
+      'result': {'list': []},
+    };
+    final captured = <Future<LoadingState<Object?>> Function()>[
+      () => VideoHttp.hotVideoList(pn: 1, ps: 20, account: owner),
+      () => VideoHttp.getRankVideoList(0, account: owner),
+      () => VideoHttp.pgcRankList(seasonType: 1, account: owner),
+      () => VideoHttp.pgcSeasonRankList(seasonType: 2, account: owner),
+      () => VideoHttp.popularSeriesList(account: owner),
+      () => VideoHttp.popularSeriesOne(number: 1, account: owner),
+      () => VideoHttp.popularPrecious(page: 1, account: owner),
+    ];
+    for (final query in captured) {
+      expect((await query()).isSuccess, isTrue);
+      expect(requests.last.extra['account'], same(owner));
+    }
+  });
   test('取消查询不分发，签名准备失败保留原始原因', () async {
     final token = CancelToken()..cancel();
     final cancelled = await VideoHttp.rcmdVideoList(

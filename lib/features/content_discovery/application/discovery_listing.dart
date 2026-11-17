@@ -34,10 +34,11 @@ class DiscoveryListingState<T, M> {
       !loadingMore && hasMore && error == null && loading is Success;
 }
 
-class _Owner {
+class _Owner<M> {
   _Owner(this.main, this.account);
   final Account main, account;
   bool disposed = false;
+  M? metadata;
   int page = 1, count = 0;
   final removed = <Object>{};
 }
@@ -45,14 +46,15 @@ class _Owner {
 /// 账号、刷新、合作作者检查与分页共同使用同一个查询所有者。
 abstract class DiscoveryListing<T, M>
     extends Notifier<DiscoveryListingState<T, M>> {
-  late _Owner _owner;
+  late _Owner<M> _owner;
+  M? get queryMetadata => _owner.metadata;
   bool get paginated => true;
   bool get filterAuthors => true;
   Future<LoadingState<DiscoveryPage<T, M>>> fetch(Account account, int page);
 
   @override
   DiscoveryListingState<T, M> build() {
-    final owner = _owner = _Owner(
+    final owner = _owner = _Owner<M>(
       ref.watch(mainAccountProvider),
       ref.watch(recommendAccountProvider),
     );
@@ -63,7 +65,7 @@ abstract class DiscoveryListing<T, M>
     return DiscoveryListingState(source: owner);
   }
 
-  bool _current(_Owner owner) =>
+  bool _current(_Owner<M> owner) =>
       !owner.disposed &&
       ref.mounted &&
       identical(owner, _owner) &&
@@ -78,7 +80,7 @@ abstract class DiscoveryListing<T, M>
 
   Future<void> onRefresh() {
     _owner.disposed = true;
-    final owner = _owner = _Owner(
+    final owner = _owner = _Owner<M>(
       ref.read(mainAccountProvider),
       ref.read(recommendAccountProvider),
     );
@@ -94,7 +96,7 @@ abstract class DiscoveryListing<T, M>
 
   void remove(T item) {
     final items = state.loading.dataOrNull;
-    if (items == null) return;
+    if (items == null || !items.any((value) => identical(value, item))) return;
     _owner.removed.add(MediaAuthorFilter.contentKey(item) ?? item as Object);
     state = DiscoveryListingState(
       source: _owner,
@@ -108,7 +110,7 @@ abstract class DiscoveryListing<T, M>
     );
   }
 
-  Future<void> _load(_Owner owner) async {
+  Future<void> _load(_Owner<M> owner) async {
     if (!_current(owner) || state.loadingMore) return;
     state = DiscoveryListingState(
       source: owner,
@@ -153,7 +155,7 @@ abstract class DiscoveryListing<T, M>
             ? filter.filter(candidates, existing: items, deduplicate: true)
             : candidates;
         items.addAll(accepted);
-        metadata = page.metadata;
+        metadata = owner.metadata = page.metadata;
         owner.count += page.items.length;
         owner.page++;
         hasMore =

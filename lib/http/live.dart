@@ -184,8 +184,9 @@ abstract final class LiveHttp {
   static Future<LoadingState<LiveIndexData>> liveFeedIndex({
     required int pn,
     bool moduleSelect = false,
+    Account? account,
   }) async {
-    final account = recommend;
+    account ??= recommend;
     final params = {
       'access_key': ?account.accessKey,
       'channel': 'master',
@@ -257,8 +258,9 @@ abstract final class LiveHttp {
     required Object? areaId,
     required Object? parentAreaId,
     String? sortType,
+    Account? account,
   }) async {
-    final account = recommend;
+    account ??= recommend;
     final params = {
       'access_key': ?account.accessKey,
       'actionKey': 'appkey',

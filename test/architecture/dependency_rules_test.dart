@@ -160,6 +160,7 @@ void main() {
       'pages/rcmd/controller.dart',
       'pages/rcmd/viewport.dart',
       'pages/hot/controller.dart',
+      'pages/live/controller.dart',
       'pages/rank/controller.dart',
       'pages/rank/zone/controller.dart',
       'pages/popular_series/controller.dart',

@@ -11,7 +11,14 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_list.dart';
-import 'package:pili_aurora_next/pages/live/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/live_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_catalog.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
+import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
 import 'package:pili_aurora_next/pages/live_area/view.dart';
 import 'package:pili_aurora_next/pages/live_follow/view.dart';
@@ -25,16 +32,89 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
-class LivePage extends StatefulWidget {
+class LivePage extends ConsumerStatefulWidget {
   const LivePage({super.key});
 
   @override
-  State<LivePage> createState() => _LivePageState();
+  ConsumerState<LivePage> createState() => _LivePageState();
 }
 
-class _LivePageState extends State<LivePage>
+class _LivePageState extends ConsumerState<LivePage>
     with AutomaticKeepAliveClientMixin {
-  final LiveController controller = Get.put(LiveController());
+  final _owner = Object();
+  final _scroll = ScrollController(), _followScroll = ScrollController();
+  int? _areaId, _parentAreaId;
+  String? _sortType;
+  bool _showFirstFrame = false;
+  LiveQuery get _query => (
+    owner: _owner,
+    areaId: _areaId,
+    parentAreaId: _parentAreaId,
+    sortType: _sortType,
+  );
+  LiveFeed get controller => ref.read(liveFeedProvider(_query).notifier);
+  LiveCatalog? get _catalog => ref.read(liveFeedProvider(_query)).metadata;
+  int get _areaIndex {
+    if (_areaId == null) return 0;
+    final index =
+        _catalog?.areas?.cardData?.areaEntranceV3?.list?.indexWhere(
+          (e) => e.areaV2Id == _areaId && e.areaV2ParentId == _parentAreaId,
+        ) ??
+        -1;
+    return index < 0 ? -1 : index + 1;
+  }
+
+  int get _tagIndex {
+    final index =
+        _catalog?.tags.indexWhere((e) => e.sortType == _sortType) ?? 0;
+    return index < 0 ? 0 : index;
+  }
+
+  VoidCallback? _unregister;
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<HomeController>()) {
+      _unregister = Get.find<HomeController>().registerPage(
+        HomeTabType.live,
+        DiscoveryPageHandle(
+          () => _scroll,
+          _refresh,
+          readSnapshot: () => ref.read(liveFeedProvider(_query)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _refresh() async {
+    await controller.onRefresh();
+    if (mounted && _followScroll.hasClients) _followScroll.jumpTo(0);
+  }
+
+  void _selectArea(int index, CardLiveItem? item) {
+    if (_areaId == item?.areaV2Id && _parentAreaId == item?.areaV2ParentId) {
+      return;
+    }
+    setState(() {
+      _areaId = item?.areaV2Id;
+      _parentAreaId = item?.areaV2ParentId;
+      _sortType = null;
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  void _selectTag(int index, String? sortType) {
+    if (_sortType == sortType) return;
+    setState(() => _sortType = sortType);
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    _scroll.dispose();
+    _followScroll.dispose();
+    super.dispose();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -50,30 +130,55 @@ class _LivePageState extends State<LivePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final state = ref.watch(liveFeedProvider(_query));
     final ThemeData theme = Theme.of(context);
     return Container(
       clipBehavior: Clip.hardEdge,
       margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
-        onRefresh: controller.onRefresh,
-        child: CustomScrollView(
-          controller: controller.scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.only(
-                top: Style.cardSpace,
-                bottom: 100,
+        onRefresh: _refresh,
+        child: FeedPagination(
+          controller: _scroll,
+          dataSource: state.source,
+          dataRevision: state,
+          canLoadMore: () => state.canLoadMore,
+          onLoadMore: controller.onLoadMore,
+          child: CustomScrollView(
+            controller: _scroll,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.only(
+                  top: Style.cardSpace,
+                  bottom: 100,
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    _buildTop(
+                      theme,
+                      Pair(
+                        first: state.metadata?.followed,
+                        second: state.metadata?.areas,
+                      ),
+                    ),
+                    if (state.metadata?.headerError case final message?)
+                      SliverToBoxAdapter(
+                        child: TextButton(
+                          onPressed: _refresh,
+                          child: Text('$message · 重试分区信息'),
+                        ),
+                      ),
+                    _buildBody(theme, state.loading),
+                    DiscoveryFooter(
+                      error: state.loading is Success ? state.error : null,
+                      retry: controller.retry,
+                    ),
+                  ],
+                ),
               ),
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  Obx(() => _buildTop(theme, controller.topState.value)),
-                  Obx(() => _buildBody(theme, controller.loadingState.value)),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -94,53 +199,55 @@ class _LivePageState extends State<LivePage>
                       child: SizedBox(
                         // 10+14*textScaler
                         height: 10.0 + textScaler.scale(14),
-                        child: Obx(() {
-                          final areaIndex = controller.areaIndex.value;
-                          return ListView.separated(
-                            scrollDirection: .horizontal,
-                            padding: const .only(right: 8),
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 12),
-                            itemBuilder: (context, index) {
-                              final isFirst = index == 0;
-                              late final item = list[index - 1];
-                              final isCurr = index == areaIndex;
-                              return SearchText(
-                                fontSize: 14,
-                                height: 1,
-                                padding: const .symmetric(
-                                  horizontal: 8,
-                                  vertical: 5,
-                                ),
-                                text: isFirst ? '推荐' : item.title!,
-                                bgColor: isCurr
-                                    ? theme.colorScheme.secondaryContainer
-                                    : Colors.transparent,
-                                textColor: isCurr
-                                    ? theme.colorScheme.onSecondaryContainer
-                                    : null,
-                                onTap: (_) => controller.onSelectArea(
-                                  index,
-                                  isFirst ? null : item,
-                                ),
-                              );
-                            },
-                            itemCount: list.length + 1,
-                          );
-                        }),
+                        child: Builder(
+                          builder: (context) {
+                            final areaIndex = _areaIndex;
+                            return ListView.separated(
+                              scrollDirection: .horizontal,
+                              padding: const .only(right: 8),
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                final isFirst = index == 0;
+                                late final item = list[index - 1];
+                                final isCurr = index == areaIndex;
+                                return SearchText(
+                                  fontSize: 14,
+                                  height: 1,
+                                  padding: const .symmetric(
+                                    horizontal: 8,
+                                    vertical: 5,
+                                  ),
+                                  text: isFirst ? '推荐' : item.title!,
+                                  bgColor: isCurr
+                                      ? theme.colorScheme.secondaryContainer
+                                      : Colors.transparent,
+                                  textColor: isCurr
+                                      ? theme.colorScheme.onSecondaryContainer
+                                      : null,
+                                  onTap: (_) => _selectArea(
+                                    index,
+                                    isFirst ? null : item,
+                                  ),
+                                );
+                              },
+                              itemCount: list.length + 1,
+                            );
+                          },
+                        ),
                       ),
                     ),
                     iconButton(
                       size: 26,
                       iconSize: 18,
                       context: context,
-                      tooltip: '切换${controller.showFirstFrame ? '封面' : '首帧'}',
-                      icon: controller.showFirstFrame
+                      tooltip: '切换${_showFirstFrame ? '封面' : '首帧'}',
+                      icon: _showFirstFrame
                           ? const Icon(MdiIcons.alphaFBox)
                           : const Icon(MdiIcons.image),
                       onPressed: () {
-                        controller.showFirstFrame = !controller.showFirstFrame;
+                        _showFirstFrame = !_showFirstFrame;
                         setState(() {});
                       },
                     ),
@@ -185,7 +292,10 @@ class _LivePageState extends State<LivePage>
     mainAxisExtent: textScaler.scale(90),
   );
 
-  Widget _buildBody(ThemeData theme, LoadingState<List?> loadingState) {
+  Widget _buildBody(
+    ThemeData theme,
+    LoadingState<List<CardLiveItem>> loadingState,
+  ) {
     return switch (loadingState) {
       Loading() => SliverGrid(
         gridDelegate: gridDelegate,
@@ -196,60 +306,55 @@ class _LivePageState extends State<LivePage>
       ),
       Success(:final response) => SliverMainAxisGroup(
         slivers: [
-          if (controller.newTags case final newTags?)
+          if (_catalog?.tags case final newTags?)
             if (newTags.isNotEmpty)
               SliverToBoxAdapter(
                 child: SizedBox(
                   // 8+10+13*textScaler
                   height: 18.0 + textScaler.scale(13),
-                  child: Obx(() {
-                    final tagIndex = controller.tagIndex.value;
-                    return ListView.separated(
-                      scrollDirection: .horizontal,
-                      padding: const .only(bottom: 8),
-                      separatorBuilder: (_, _) => const SizedBox(width: 12),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        final item = newTags[index];
-                        final isCurr = index == tagIndex;
-                        return SearchText(
-                          height: 1,
-                          fontSize: 13,
-                          padding: const .symmetric(horizontal: 8, vertical: 5),
-                          text: item.name!,
-                          bgColor: isCurr
-                              ? theme.colorScheme.secondaryContainer
-                              : Colors.transparent,
-                          textColor: isCurr
-                              ? theme.colorScheme.onSecondaryContainer
-                              : null,
-                          onTap: (value) =>
-                              controller.onSelectTag(index, item.sortType),
-                        );
-                      },
-                      itemCount: newTags.length,
-                    );
-                  }),
+                  child: Builder(
+                    builder: (context) {
+                      final tagIndex = _tagIndex;
+                      return ListView.separated(
+                        scrollDirection: .horizontal,
+                        padding: const .only(bottom: 8),
+                        separatorBuilder: (_, _) => const SizedBox(width: 12),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          final item = newTags[index];
+                          final isCurr = index == tagIndex;
+                          return SearchText(
+                            height: 1,
+                            fontSize: 13,
+                            padding: const .symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            text: item.name!,
+                            bgColor: isCurr
+                                ? theme.colorScheme.secondaryContainer
+                                : Colors.transparent,
+                            textColor: isCurr
+                                ? theme.colorScheme.onSecondaryContainer
+                                : null,
+                            onTap: (value) => _selectTag(index, item.sortType),
+                          );
+                        },
+                        itemCount: newTags.length,
+                      );
+                    },
+                  ),
                 ),
               ),
-          response != null && response.isNotEmpty
+          response.isNotEmpty
               ? InactiveFeedSliver(
                   sliver: SliverGrid.builder(
                     gridDelegate: gridDelegate,
                     itemBuilder: (context, index) {
-                      if (index == response.length - 1) {
-                        controller.onLoadMore();
-                      }
                       final item = response[index];
-                      if (item is LiveCardList) {
-                        return LiveCardVApp(
-                          item: item.cardData!.smallCardV1!,
-                          showFirstFrame: controller.showFirstFrame,
-                        );
-                      }
                       return LiveCardVApp(
                         item: item,
-                        showFirstFrame: controller.showFirstFrame,
+                        showFirstFrame: _showFirstFrame,
                       );
                     },
                     itemCount: response.length,
@@ -320,7 +425,7 @@ class _LivePageState extends State<LivePage>
         height: 68.0 + textScaler.scale(12),
         child: CustomScrollView(
           scrollDirection: Axis.horizontal,
-          controller: controller.followController,
+          controller: _followScroll,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverFixedExtentList.builder(

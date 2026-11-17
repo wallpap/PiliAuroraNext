@@ -1133,7 +1133,7 @@ abstract final class VideoHttp {
     Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.pgcRank,
@@ -1161,7 +1161,7 @@ abstract final class VideoHttp {
     Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.pgcSeasonRank,
@@ -1244,7 +1244,7 @@ abstract final class VideoHttp {
     Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.popularSeriesOne,
@@ -1275,7 +1275,7 @@ abstract final class VideoHttp {
     Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.popularPrecious,
