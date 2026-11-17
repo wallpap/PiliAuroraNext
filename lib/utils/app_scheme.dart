@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/pages/follow_type/controller.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/live/view.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
-import 'package:pili_aurora_next/pages/subscription_detail/view.dart';
+import 'package:pili_aurora_next/features/subscriptions/presentation/subscription_detail_page.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

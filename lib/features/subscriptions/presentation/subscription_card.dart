@@ -3,11 +3,11 @@ import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
-import 'package:pili_aurora_next/pages/subscription_detail/view.dart';
+import 'package:pili_aurora_next/features/subscriptions/presentation/subscription_detail_page.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SubItem extends StatelessWidget {

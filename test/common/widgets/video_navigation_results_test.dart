@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/features/subscriptions/domain/subscription_video.dart';
-import 'package:pili_aurora_next/pages/subscription_detail/widget/sub_video_card.dart';
+import 'package:pili_aurora_next/features/subscriptions/presentation/video_card.dart';
 import 'package:pili_aurora_next/pages/whisper_detail/widget/chat_item.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

@@ -48,6 +48,9 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
   Object itemKey(T item);
   Future<FeedPage<T, M>> fetch(Account account, Object? cursor);
   M mergeMetadata(M previous, M next) => next;
+
+  /// 需要用户显式继续扫描的领域可保留游标，页面同时关闭空页自动分页。
+  bool get endOnEmptyBudget => true;
   Object _generation = Object();
 
   @override
@@ -66,7 +69,13 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
           !ownsAccount(account)) {
         throw const Error('账号或查询已更新');
       }
-      if (budget == 4 || !cursors.add(page.next!)) {
+      if (budget == 4) {
+        if (endOnEmptyBudget) {
+          page = FeedPage(page.items, metadata: page.metadata);
+        }
+        break;
+      }
+      if (!cursors.add(page.next!)) {
         page = FeedPage(page.items, metadata: page.metadata);
         break;
       }
@@ -84,6 +93,9 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
       account: account,
       source: source,
       next: page.next,
+      error: !endOnEmptyBudget && page.items.isEmpty && page.next != null
+          ? const Error('连续五页没有可显示内容，请继续加载')
+          : null,
     );
   }
 
@@ -123,6 +135,7 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
       final cursors = <Object>{};
       Object? cursor = before.next;
       M metadata = before.metadata;
+      var exhausted = false;
       // 重复页和过滤后空页有限补位，避免后台持续请求。
       for (var budget = 0; budget < 5 && cursor != null; budget++) {
         if (!cursors.add(cursor)) {
@@ -137,7 +150,10 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
         cursor = page.next;
         if (cursor != null && cursors.contains(cursor)) cursor = null;
         if (items.length > length) break;
-        if (budget == 4) cursor = null;
+        if (budget == 4) {
+          if (endOnEmptyBudget) cursor = null;
+          exhausted = true;
+        }
       }
       if (current()) {
         state = AsyncData(
@@ -147,6 +163,9 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
             account: before.account,
             source: before.source,
             next: cursor,
+            error: exhausted && cursor != null
+                ? const Error('连续五页没有新增内容，请继续加载')
+                : null,
           ),
         );
       }
