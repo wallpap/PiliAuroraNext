@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:material_ui/material_ui.dart';
 

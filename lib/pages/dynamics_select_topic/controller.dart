@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_pub_search/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_pub_search/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:flutter/widgets.dart';

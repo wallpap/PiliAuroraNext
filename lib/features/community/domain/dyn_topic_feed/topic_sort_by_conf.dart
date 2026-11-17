@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/all_sort_by.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/all_sort_by.dart';
 
 class TopicSortByConf {
   List<AllSortBy>? allSortBy;

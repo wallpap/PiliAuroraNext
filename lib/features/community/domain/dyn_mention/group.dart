@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
 
 class MentionGroup {
   String? groupName;

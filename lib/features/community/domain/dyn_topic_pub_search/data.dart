@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_pub_search/page_info.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_pub_search/page_info.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
 
 class TopicPubSearchData {
   List<TopicItem>? topicItems;

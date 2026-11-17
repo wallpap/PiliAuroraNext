@@ -1,6 +1,5 @@
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
-
-class MentionItem with MultiSelectData {
+class MentionItem {
+  bool checked = false;
   final String? face;
   final int? fans;
   final String? name;

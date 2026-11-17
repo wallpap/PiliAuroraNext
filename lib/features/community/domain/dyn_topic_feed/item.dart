@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/fold_card_item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/fold_card_item.dart';
 
 class TopicCardItem {
   FoldCardItem? foldCardItem;

@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/group.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/group.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/widgets/item.dart';
 import 'package:pili_aurora_next/common/widgets/debounced_state.dart' show DebounceStreamState;

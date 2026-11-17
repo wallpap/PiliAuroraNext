@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/group.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/group.dart';
 
 class DynMentionData {
   List<MentionGroup>? groups;

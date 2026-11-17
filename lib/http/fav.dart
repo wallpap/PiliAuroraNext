@@ -278,20 +278,25 @@ abstract final class FavHttp {
 
   static Future<LoadingState<void>> likeTopic(
     Object topicId,
-    bool isLike,
-  ) async {
+    bool isLike, {
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
     return await Request().requestApi<void>(
       Api.likeTopic,
       kind: ApiCallKind.mutation,
       decode: (_) {},
       data: {
         'action': isLike ? 'cancel_like' : 'like',
-        'up_mid': Accounts.main.mid,
+        'up_mid': account.mid,
         'topic_id': topicId,
-        'csrf': Accounts.main.csrf,
+        'csrf': account.csrf,
         'business': 'topic',
       },
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
     );
   }
 

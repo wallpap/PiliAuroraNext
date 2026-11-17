@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_creator.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_creator.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
 
 class TopDetails {
   TopicItem? topicItem;

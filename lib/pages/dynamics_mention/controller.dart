@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/group.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/group.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:get/get.dart';

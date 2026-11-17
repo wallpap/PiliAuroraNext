@@ -12,9 +12,9 @@ import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart
 import 'package:pili_aurora_next/http/constants.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/fold_card_item.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/item.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/top_details.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/fold_card_item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/top_details.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';

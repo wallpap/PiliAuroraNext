@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/models/common/search/search_type.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/models/search/suggest.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_pub_search/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_pub_search/data.dart';
 import 'package:pili_aurora_next/models/remote/pagelist/page_item.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
 import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
@@ -226,6 +226,7 @@ abstract final class SearchHttp {
   }
 
   static Future<LoadingState<TopicPubSearchData>> topicPubSearch({
+    Account? account,
     required String keywords,
     String content = '',
     required int pageNum,
@@ -244,6 +245,7 @@ abstract final class SearchHttp {
           'offset': 20 * (pageNum - 1),
         'web_location': 333.1365,
       },
+      options: Options(extra: {'account': account ?? Accounts.main}),
     );
   }
 }

@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/item.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/topic_sort_by_conf.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/topic_sort_by_conf.dart';
 
 class TopicCardList {
   bool? hasMore;
