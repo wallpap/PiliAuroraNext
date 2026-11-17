@@ -1,17 +1,15 @@
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/subscriptions/data/subscription_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub_detail/media.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_detail.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_video.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
-import 'package:pili_aurora_next/pages/subscription/hidden_media.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:get/get.dart';
 
 class SubDetailController
     extends CommonListController<SubDetailData, SubDetailItemModel> {
+  final _repository = SubscriptionRepository();
   late int id;
   String? heroTag;
   SubItemModel? subInfo;
@@ -44,7 +42,7 @@ class SubDetailController
 
   @override
   int remainingItemsToLoad(int remaining) =>
-      Pref.hideInvalidSubscriptionVideos &&
+      _repository.hideInvalid &&
           !isEnd &&
           loadingState.value.dataOrNull?.isEmpty == true
       ? 1
@@ -63,11 +61,8 @@ class SubDetailController
 
   @override
   void handleListResponse(List<SubDetailItemModel> dataList) {
-    if (!Pref.hideInvalidSubscriptionVideos) return;
-    final hidden = HiddenSubscriptionMedia(
-      GStorage.localCache,
-      Accounts.main.mid,
-    ).read(21, id);
+    if (!_repository.hideInvalid) return;
+    final hidden = _repository.hidden(Accounts.main).read(21, id);
     dataList.removeWhere((item) => hidden.contains('2:${item.id}'));
   }
 
@@ -80,10 +75,6 @@ class SubDetailController
   }
 
   @override
-  Future<LoadingState<SubDetailData>> customGetData() => FavHttp.favSeasonList(
-    account: Accounts.main,
-    id: id,
-    ps: 20,
-    pn: page,
-  );
+  Future<LoadingState<SubDetailData>> customGetData() =>
+      _repository.detail(Accounts.main, id, page);
 }

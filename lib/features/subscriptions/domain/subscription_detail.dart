@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub_detail/media.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_video.dart';
 
 class SubDetailData {
   SubItemModel? info;

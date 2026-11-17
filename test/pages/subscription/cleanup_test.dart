@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
-import 'package:pili_aurora_next/pages/subscription/cleanup.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
+import 'package:pili_aurora_next/features/subscriptions/application/subscription_cleanup.dart';
 
 void main() {
   group('subscription cleanup', () {

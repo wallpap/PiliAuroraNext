@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
 import 'package:pili_aurora_next/pages/subscription/controller.dart';
 import 'package:pili_aurora_next/pages/subscription/widgets/item.dart';
 import 'package:pili_aurora_next/utils/grid.dart';

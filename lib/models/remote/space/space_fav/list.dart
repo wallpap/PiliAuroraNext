@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/models/model_owner.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
 
 class SpaceFavItemModel extends SubItemModel {
   int? mediaId;

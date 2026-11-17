@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
 
 class SubData {
   List<SubItemModel>? list;

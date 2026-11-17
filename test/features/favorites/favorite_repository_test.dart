@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/fav_order_type.dart';
-import 'package:pili_aurora_next/pages/subscription/hidden_media.dart';
+import 'package:pili_aurora_next/features/subscriptions/data/hidden_media.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

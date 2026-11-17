@@ -1,27 +1,10 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
 
-typedef SubscriptionMedia = ({int id, int type, bool? valid});
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_cleanup.dart';
 
-class SubscriptionContentPage {
-  const SubscriptionContentPage({
-    required this.items,
-    required this.hasMore,
-    this.total,
-  });
-
-  final List<SubscriptionMedia> items;
-  final bool hasMore;
-  final int? total;
-}
-
-class SubscriptionCleanupResult {
-  int removed = 0;
-  int hidden = 0;
-  int failed = 0;
-  int pending = 0;
-}
+export 'package:pili_aurora_next/features/subscriptions/domain/subscription_cleanup.dart';
 
 class SubscriptionCleaner {
   const SubscriptionCleaner({

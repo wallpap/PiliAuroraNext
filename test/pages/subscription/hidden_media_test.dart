@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:pili_aurora_next/pages/subscription/hidden_media.dart';
+import 'package:pili_aurora_next/features/subscriptions/data/hidden_media.dart';
 
 void main() {
   late Directory directory;

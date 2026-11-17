@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/models/remote/login_log/data.dart';
 import 'package:pili_aurora_next/models/remote/media_list/data.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
 import 'package:pili_aurora_next/models/remote/space_setting/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/data.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
 import 'package:pili_aurora_next/models/remote/user_real_name/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

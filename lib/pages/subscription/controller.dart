@@ -1,17 +1,13 @@
+import 'package:pili_aurora_next/features/subscriptions/data/subscription_repository.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/list.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
-import 'package:pili_aurora_next/pages/subscription/cleanup.dart';
-import 'package:pili_aurora_next/pages/subscription/hidden_media.dart';
+import 'package:pili_aurora_next/features/subscriptions/application/subscription_cleanup.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -23,7 +19,7 @@ class SubController extends CommonListController<SubData, SubItemModel> {
   final _canceling = <(int, int), Object>{};
   Object? _cleanupOwner;
   bool _closed = false;
-  static const _pageSize = 20;
+  final _repository = SubscriptionRepository();
 
   bool _ownsAccount(Account owner) =>
       !_closed && !isClosed && identical(owner, Accounts.main);
@@ -121,18 +117,11 @@ class SubController extends CommonListController<SubData, SubItemModel> {
                           dialogContext.mounted &&
                           route?.isCurrent == true;
                       try {
-                        final result = await FavHttp.cancelSub(
-                          account: owner,
-                          id: id,
-                          type: type,
-                        );
+                        final result = await _repository.cancel(owner, item);
                         if (result.isSuccess) {
                           var localFailed = false;
                           try {
-                            await HiddenSubscriptionMedia(
-                              GStorage.localCache,
-                              owner.mid,
-                            ).remove(type, id);
+                            await _repository.hidden(owner).remove(type, id);
                           } catch (error, stackTrace) {
                             localFailed = true;
                             logger.w(
@@ -213,7 +202,7 @@ class SubController extends CommonListController<SubData, SubItemModel> {
         _ownsAccount(requestAccount) && identical(_cleanupOwner, owner);
     isCleaning.value = true;
     try {
-      final hideInvalid = Pref.hideInvalidSubscriptionVideos;
+      final hideInvalid = _repository.hideInvalid;
       final confirmed = await showConfirmDialog(
         context: Get.context!,
         title: const Text('清除失效内容'),
@@ -224,15 +213,9 @@ class SubController extends CommonListController<SubData, SubItemModel> {
       );
       if (!confirmed || !isCurrent()) return;
       cleanupProgress.value = '正在读取全部订阅';
-      final mid = requestAccount.mid;
       final snapshot = await loadSubscriptionSnapshot(
         (page) => isCurrent()
-            ? UserHttp.userSubFolder(
-                account: requestAccount,
-                mid: mid,
-                pn: page,
-                ps: _pageSize,
-              )
+            ? _repository.subscriptions(requestAccount, page)
             : Future.value(const Error('账号已切换')),
       );
       if (!isCurrent()) return;
@@ -240,22 +223,18 @@ class SubController extends CommonListController<SubData, SubItemModel> {
         await snapshot.toast();
         return;
       }
-      final hidden = HiddenSubscriptionMedia(GStorage.localCache, mid);
+      final hidden = _repository.hidden(requestAccount);
       var localFailures = 0;
       final cleaner = SubscriptionCleaner(
         loadContents: (item, page) => isCurrent()
-            ? _loadSubscriptionContents(requestAccount, item, page)
+            ? _repository.contents(requestAccount, item, page)
             : Future.value(const Error('账号已切换')),
         checkVideo: (aid) => isCurrent()
-            ? FavHttp.subscriptionVideoAvailable(aid, account: requestAccount)
+            ? _repository.available(requestAccount, aid)
             : Future.value(const Error('账号已切换')),
         cancel: (item) async {
           if (!isCurrent()) return const Error('账号已切换');
-          final response = await FavHttp.cancelSub(
-            account: requestAccount,
-            id: item.id!,
-            type: item.type!,
-          );
+          final response = await _repository.cancel(requestAccount, item);
           if (response.isSuccess) {
             try {
               await hidden.remove(item.type!, item.id!);
@@ -310,74 +289,6 @@ class SubController extends CommonListController<SubData, SubItemModel> {
     }
   }
 
-  Future<LoadingState<SubscriptionContentPage>> _loadSubscriptionContents(
-    Account requestAccount,
-    SubItemModel item,
-    int page,
-  ) async {
-    if (item.type == 11) {
-      final result = await FavHttp.userFavFolderDetail(
-        account: requestAccount,
-        mediaId: item.id!,
-        pn: page,
-        ps: _pageSize,
-      );
-      if (result is Error) return result;
-      if (result is! Success) return const Error('收藏夹尚未加载完成');
-      final data = result.data;
-      final medias = data.medias;
-      if (medias == null && (data.info?.mediaCount ?? 0) > 0) {
-        return const Error('收藏夹内容响应不完整');
-      }
-      if (data.hasMore == null) return const Error('收藏夹分页信息不完整');
-      return Success(
-        SubscriptionContentPage(
-          items: [
-            for (final media in medias ?? [])
-              (
-                id: media.id ?? 0,
-                type: media.type ?? 2,
-                valid: const [1, 9].contains(media.attr)
-                    ? false
-                    : media.attr != null ||
-                          (media.type != null && media.type != 2)
-                    ? true
-                    : null,
-              ),
-          ],
-          hasMore: data.hasMore!,
-          total: data.info?.mediaCount,
-        ),
-      );
-    }
-    final result = await FavHttp.favSeasonList(
-      account: requestAccount,
-      id: item.id!,
-      pn: page,
-      ps: _pageSize,
-    );
-    if (result is Error) return result;
-    if (result is! Success) return const Error('合集尚未加载完成');
-    final data = result.data;
-    final medias = data.medias;
-    if (medias == null && (data.info?.mediaCount ?? 0) > 0) {
-      return const Error('合集内容响应不完整');
-    }
-    final count = data.info?.mediaCount;
-    return Success(
-      SubscriptionContentPage(
-        items: [
-          for (final media in medias ?? [])
-            (id: media.id ?? 0, type: 2, valid: null),
-        ],
-        hasMore: count != null
-            ? page * _pageSize < count
-            : (medias?.length ?? 0) >= _pageSize,
-        total: count,
-      ),
-    );
-  }
-
   @override
   List<SubItemModel>? getDataList(SubData response) {
     if (response.hasMore == false) {
@@ -387,10 +298,6 @@ class SubController extends CommonListController<SubData, SubItemModel> {
   }
 
   @override
-  Future<LoadingState<SubData>> customGetData() => UserHttp.userSubFolder(
-    account: account,
-    pn: page,
-    ps: _pageSize,
-    mid: account.mid,
-  );
+  Future<LoadingState<SubData>> customGetData() =>
+      _repository.subscriptions(account, page);
 }
