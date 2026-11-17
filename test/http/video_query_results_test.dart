@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -124,6 +125,29 @@ void main() {
     };
     final invalid = await VideoHttp.popularSeriesList() as Error;
     expect(invalid.cause, isA<FormatException>());
+  });
+  test('推荐数据接口始终使用显式账号与取消令牌', () async {
+    final captured = account(80);
+    Accounts.accountMode[AccountType.recommend.index] = account(99);
+    body = {
+      'code': 0,
+      'data': {'item': [], 'items': []},
+    };
+    for (final app in [false, true]) {
+      final token = CancelToken();
+      final result = await const RecommendationRepository().page(
+        account: captured,
+        app: app,
+        index: 3,
+        pageSize: 40,
+        cancelToken: token,
+      );
+      expect(result.data, isEmpty);
+      expect(requests.last.extra['account'], same(captured));
+      expect(requests.last.cancelToken, same(token));
+      expect(requests.last.queryParameters[app ? 'idx' : 'fresh_idx'], 3);
+      if (!app) expect(requests.last.queryParameters['ps'], 40);
+    }
   });
   test('签名等待期间固定发起账号，资料读取保留显式账号的禁重试约定', () async {
     final original = Accounts.get(AccountType.recommend);

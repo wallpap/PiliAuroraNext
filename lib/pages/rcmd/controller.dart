@@ -4,14 +4,13 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/services/blocked_authors.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/media_author_filter.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
@@ -130,28 +129,23 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     required int index,
     required int pageSize,
     required CancelToken cancelToken,
-  }) => appRcmd
-      ? VideoHttp.rcmdVideoListApp(freshIdx: index, cancelToken: cancelToken)
-      : VideoHttp.rcmdVideoList(
-          freshIdx: index,
-          ps: pageSize,
-          cancelToken: cancelToken,
-        );
+  }) => const RecommendationRepository().page(
+    account: queryAccount,
+    app: appRcmd,
+    index: index,
+    pageSize: pageSize,
+    cancelToken: cancelToken,
+  );
 
   @override
   List<dynamic> filterCandidates(
     Iterable<dynamic> source, {
     Iterable<dynamic> existing = const [],
-  }) {
-    final seen = existing
-        .map(MediaAuthorFilter.contentKey)
-        .whereType<Object>()
-        .toSet();
-    return super.filterCandidates(source, existing: existing).where((item) {
-      final key = MediaAuthorFilter.contentKey(item);
-      return key == null || seen.add(key);
-    }).toList();
-  }
+  }) => const DiscoveryFilter().filter(
+    source,
+    existing: existing,
+    deduplicate: true,
+  );
 
   void _publish(_RecommendationQuery query) {
     if (!_current(query)) return;
@@ -186,15 +180,7 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
   }
 
   bool _needsAuthorCheck(dynamic item) =>
-      Pref.filterBlockedAuthors &&
-      Pref.checkCooperativeAuthors &&
-      GlobalData().blackMids.isNotEmpty &&
-      MediaAuthorFilter.videos(item).any(
-        (video) =>
-            video.authors.isCooperation &&
-            video.authors.mids == null &&
-            !BlockedAuthors.contains(video.ownerMid),
-      );
+      const DiscoveryFilter().needsAuthorCheck(item);
 
   Future<void> _checkAuthor(
     _RecommendationQuery query,

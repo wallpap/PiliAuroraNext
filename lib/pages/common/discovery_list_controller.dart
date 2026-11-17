@@ -1,10 +1,8 @@
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
-import 'package:pili_aurora_next/services/blocked_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
 import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 发现类内容在进入页面状态前过滤，并沿原来源补足当前批次。
@@ -50,29 +48,16 @@ abstract class DiscoveryListController<R, T>
   }
 
   @override
-  Future<void>? prepareQuery() => BlockedAuthors.ensureLoaded();
+  Future<void>? prepareQuery() => const DiscoveryFilter().prepare();
 
   CooperativeAuthors get cooperativeAuthors => CooperativeAuthors.shared;
 
   @override
   Future<void>? prepareResponse(R response, bool Function() isCurrent) {
-    if (!Pref.filterBlockedAuthors ||
-        !Pref.checkCooperativeAuthors ||
-        GlobalData().blackMids.isEmpty) {
-      return null;
-    }
-    final videos =
-        [
-              ...MediaAuthorFilter.videos(response),
-              ...MediaAuthorFilter.videos(loadingState.value.dataOrNull),
-            ]
-            .where(
-              (video) =>
-                  video.authors.isCooperation &&
-                  video.authors.mids == null &&
-                  !BlockedAuthors.contains(video.ownerMid),
-            )
-            .toList();
+    final videos = const DiscoveryFilter().authorsToCheck([
+      response,
+      loadingState.value.dataOrNull,
+    ]).toList();
     return videos.isEmpty
         ? null
         : cooperativeAuthors.prepare(videos, isCurrent: isCurrent);
@@ -81,24 +66,7 @@ abstract class DiscoveryListController<R, T>
   List<T> filterCandidates(
     Iterable<T> source, {
     Iterable<T> existing = const [],
-  }) {
-    if (!Pref.filterBlockedAuthors) return source.toList();
-    final seen = existing
-        .map(MediaAuthorFilter.contentKey)
-        .whereType<Object>()
-        .toSet();
-    return source.where((item) {
-      if (MediaAuthorFilter.isBlocked(
-        item,
-        BlockedAuthors.contains,
-        includeCoauthors: Pref.checkCooperativeAuthors,
-      )) {
-        return false;
-      }
-      final key = MediaAuthorFilter.contentKey(item);
-      return key == null || seen.add(key);
-    }).toList();
-  }
+  }) => const DiscoveryFilter().filter(source, existing: existing);
 
   @override
   List<T> filterList(List<T> source, bool isRefresh) => filterCandidates(

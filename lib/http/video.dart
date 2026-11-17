@@ -57,9 +57,10 @@ abstract final class VideoHttp {
     required int ps,
     required int freshIdx,
     CancelToken? cancelToken,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.recommendListWeb,
@@ -98,8 +99,9 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp({
     required int freshIdx,
     CancelToken? cancelToken,
+    Account? account,
   }) async {
-    final account = Accounts.get(AccountType.recommend);
+    account ??= Accounts.get(AccountType.recommend);
 
     final params = {
       'build': 8430300,
