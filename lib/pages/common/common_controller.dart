@@ -1,32 +1,11 @@
 import 'dart:async';
 
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:flutter/widgets.dart' show ScrollController;
 import 'package:get/get.dart';
 
-mixin ScrollOrRefreshMixin {
-  ScrollController get scrollController;
-
-  void animateToTop() => scrollController.animToTop();
-
-  Future<void> onRefresh();
-
-  void toTopOrRefresh() {
-    if (scrollController.hasClients) {
-      if (scrollController.position.pixels == 0) {
-        ActionThrottle.run(
-          'topOrRefresh',
-          const Duration(milliseconds: 500),
-          onRefresh,
-        );
-      } else {
-        animateToTop();
-      }
-    }
-  }
-}
+export 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 
 abstract class CommonController<R, T> extends GetxController
     with ScrollOrRefreshMixin {

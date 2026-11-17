@@ -2,6 +2,11 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/pages/live/controller.dart';
+import 'package:pili_aurora_next/pages/hot/controller.dart';
+import 'package:pili_aurora_next/pages/rank/controller.dart';
+import 'package:pili_aurora_next/pages/pgc/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -30,7 +35,27 @@ class HomeController extends GetxController
   late final RxString defaultSearch = ''.obs;
   late int lateCheckSearchAt = 0;
 
-  ScrollOrRefreshMixin get controller => tabs[tabController.index].ctr();
+  final _pages = <HomeTabType, ScrollOrRefreshMixin>{};
+  ScrollOrRefreshMixin? registeredPage(HomeTabType type) => _pages[type];
+  VoidCallback registerPage(HomeTabType type, ScrollOrRefreshMixin handle) {
+    _pages[type] = handle;
+    return () {
+      if (identical(_pages[type], handle)) _pages.remove(type);
+    };
+  }
+
+  ScrollOrRefreshMixin get controller {
+    final type = tabs[tabController.index];
+    return _pages[type] ??
+        switch (type) {
+          HomeTabType.rcmd => throw StateError('推荐页尚未挂载'),
+          HomeTabType.live => Get.find<LiveController>(),
+          HomeTabType.hot => Get.find<HotController>(),
+          HomeTabType.rank => Get.find<RankController>(),
+          HomeTabType.bangumi ||
+          HomeTabType.cinema => Get.find<PgcController>(tag: type.name),
+        };
+  }
 
   @override
   ScrollController get scrollController => controller.scrollController;
@@ -71,7 +96,16 @@ class HomeController extends GetxController
     // 标签切换早于目标页面创建时，控制器尚未注册。
     try {
       final active = controller;
-      if (active is CommonController) {
+      if (active is RecommendationPageHandle) {
+        final snapshot = active.snapshot;
+        result['requestPending'] = snapshot.loadingMore;
+        result['state'] = switch (snapshot.loading) {
+          Loading() => 'loading',
+          Success() => 'success',
+          Error() => 'error',
+        };
+        result['items'] = snapshot.loading.dataOrNull?.length ?? 0;
+      } else if (active is CommonController) {
         result['requestPending'] = active.isLoading;
         result['state'] = switch (active.loadingState.value) {
           Loading() => 'loading',
@@ -123,6 +157,7 @@ class HomeController extends GetxController
 
   @override
   void onClose() {
+    _pages.clear();
     _unregisterPageDiagnostics();
     tabController.dispose();
     super.onClose();

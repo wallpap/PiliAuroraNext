@@ -3,16 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 容量与卡片共用网格几何，底部导航留白不计入可见内容高度。
-class RcmdViewport extends StatelessWidget {
-  const RcmdViewport({
+class RecommendationViewport extends StatelessWidget {
+  const RecommendationViewport({
     super.key,
     required this.onChanged,
     required this.builder,
+    required this.cardWidth,
   });
 
+  final double cardWidth;
   final void Function(int items, int columns, bool active) onChanged;
   final Widget Function(
     SliverGridDelegateWithExtentAndRatio delegate,
@@ -30,7 +31,7 @@ class RcmdViewport extends StatelessWidget {
         final delegate = SliverGridDelegateWithExtentAndRatio(
           mainAxisSpacing: Style.cardSpace,
           crossAxisSpacing: Style.cardSpace,
-          maxCrossAxisExtent: Pref.recommendCardWidth,
+          maxCrossAxisExtent: cardWidth,
           childAspectRatio: Style.aspectRatio,
           mainAxisExtent: textHeight,
         );

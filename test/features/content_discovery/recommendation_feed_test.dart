@@ -16,8 +16,11 @@ import 'package:pili_aurora_next/models/model_owner.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/view.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/recommendation_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
@@ -37,11 +40,41 @@ class _Video extends BaseRcmdVideoItemModel {
   }
 }
 
-class _Feed extends RcmdController {
+class _Preferences extends RecommendationPreferencesNotifier {
+  @override
+  RecommendationPreferences build() =>
+      (app: Pref.appRcmd, keepPrevious: false, showHistory: true);
+}
+
+ProviderContainer _mount(_Feed feed) {
+  final container = ProviderContainer(
+    overrides: [
+      recommendationFeedProvider.overrideWith(() => feed),
+      recommendationPreferencesProvider.overrideWith(_Preferences.new),
+    ],
+  )..listen(recommendationFeedProvider, (_, _) {});
+  var closed = false;
+  feed.close = () {
+    if (!closed) {
+      closed = true;
+      container.dispose();
+    }
+  };
+  return container;
+}
+
+class _Feed extends RecommendationFeed {
+  late void Function() close;
+  @override
+  bool enableSaveLastData = false;
+  @override
+  bool savedRcmdTip = true;
+  @override
+  bool get appRcmd => Pref.appRcmd;
   Object account = Object();
   Completer<void>? preparation;
   CooperativeAuthors? lookup;
-  final requests = <Completer<LoadingState<List<dynamic>>>>[];
+  final requests = <Completer<LoadingState<List<BaseRcmdVideoItemModel>>>>[];
   final indices = <int>[];
   final sizes = <int>[];
   final tokens = <CancelToken>[];
@@ -53,12 +86,14 @@ class _Feed extends RcmdController {
   CooperativeAuthors get cooperativeAuthors =>
       lookup ?? super.cooperativeAuthors;
   @override
-  Future<LoadingState<List<dynamic>>> fetchRecommendations({
+  Future<LoadingState<List<BaseRcmdVideoItemModel>>> fetchRecommendations({
     required int index,
     required int pageSize,
     required CancelToken cancelToken,
+    required Account account,
+    required bool app,
   }) {
-    final result = Completer<LoadingState<List<dynamic>>>();
+    final result = Completer<LoadingState<List<BaseRcmdVideoItemModel>>>();
     indices.add(index);
     sizes.add(pageSize);
     tokens.add(cancelToken);
@@ -75,10 +110,12 @@ class _TimedFeed extends _Feed {
   Future<void> prepareQuery() =>
       Future<void>.delayed(const Duration(seconds: 2));
   @override
-  Future<LoadingState<List<dynamic>>> fetchRecommendations({
+  Future<LoadingState<List<BaseRcmdVideoItemModel>>> fetchRecommendations({
     required int index,
     required int pageSize,
     required CancelToken cancelToken,
+    required Account account,
+    required bool app,
   }) async {
     starts.add((index: index, milliseconds: now().inMilliseconds));
     await Future<void>.delayed(const Duration(seconds: 1));
@@ -88,10 +125,26 @@ class _TimedFeed extends _Feed {
   }
 }
 
+Future<void> _seed(
+  _Feed feed,
+  WidgetTester tester,
+  List<BaseRcmdVideoItemModel> items,
+) async {
+  final query = feed.onRefresh();
+  feed.requests.last.complete(Success(items));
+  await tester.idle();
+  await query;
+  feed.requests.clear();
+  feed.indices.clear();
+  feed.tokens.clear();
+  feed.sizes.clear();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final settings = MemoryBox();
   late _Feed feed;
+  late ProviderContainer container;
   setUpAll(() {
     GStorage.setting = settings;
     GStorage.localCache = MemoryBox();
@@ -103,9 +156,10 @@ void main() {
       ..[SettingBoxKey.enableSaveLastData] = false;
     GlobalData().blackMids = {7};
     feed = _Feed();
+    container = _mount(feed);
   });
   tearDown(() {
-    feed.onDelete();
+    feed.close();
     if (feed.preparation case final preparation?
         when !preparation.isCompleted) {
       preparation.complete();
@@ -122,11 +176,11 @@ void main() {
     expect(feed.requests, hasLength(1));
     feed.requests.single.complete(Success([_Video(1)]));
     await tester.pump();
-    expect(feed.loadingState.value, isA<Loading>());
+    expect(feed.loadingState, isA<Loading>());
     feed.preparation!.complete();
     await tester.pump();
     await query;
-    expect(feed.loadingState.value.data, hasLength(1));
+    expect(feed.loadingState.data, hasLength(1));
   });
 
   testWidgets('普通卡片先发布，合作卡片检查后再显示', (tester) async {
@@ -140,14 +194,14 @@ void main() {
     final cooperation = _Video(2, cooperation: true);
     feed.requests.single.complete(Success([cooperation, ordinary]));
     await tester.pump();
-    expect(feed.loadingState.value, isA<Success>());
-    expect(feed.loadingState.value.data, [cooperation, ordinary]);
+    expect(feed.loadingState, isA<Success>());
+    expect(feed.loadingState.data, [cooperation, ordinary]);
     expect(feed.isPending(cooperation), isTrue);
     expect(feed.isPending(ordinary), isFalse);
     authors.complete({7, 8});
     await tester.pump();
     await query;
-    expect(feed.loadingState.value.data, [ordinary]);
+    expect(feed.loadingState.data, [ordinary]);
   });
 
   testWidgets('App 连续补足视口，无需逐页等待新一帧布局', (tester) async {
@@ -166,7 +220,7 @@ void main() {
       await tester.idle();
     }
     expect(feed.indices, [0, 1, 2, 3, 4]);
-    expect(feed.loadingState.value.data, hasLength(50));
+    expect(feed.loadingState.data, hasLength(50));
     expect(feed.isLoading, isFalse);
     // 同尺寸重建不增加请求；扩大视口后继续读取未读页。
     feed.updateViewport(itemCount: 48, columns: 8, active: true);
@@ -186,10 +240,10 @@ void main() {
     expect(feed.indices, [0, 1, 2]);
     feed.requests[2].complete(Success([_Video(11), _Video(13)]));
     await tester.idle();
-    expect(feed.loadingState.value.data, hasLength(10));
+    expect(feed.loadingState.data, hasLength(10));
     feed.requests[1].complete(Success([_Video(11), _Video(12)]));
     await tester.idle();
-    expect(feed.loadingState.value.data!.map((item) => (item as _Video).aid), [
+    expect(feed.loadingState.data.map((item) => (item as _Video).aid), [
       1,
       2,
       3,
@@ -226,10 +280,10 @@ void main() {
     authors.complete({7, 8});
     await tester.idle();
     expect(feed.indices, [0, 1, 2]);
-    expect(feed.loadingState.value.data, hasLength(2));
+    expect(feed.loadingState.data, hasLength(2));
     feed.requests[2].complete(Success([_Video(4)]));
     await tester.idle();
-    expect(feed.loadingState.value.data!.map((v) => (v as _Video).aid), [
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
       2,
       3,
       4,
@@ -255,12 +309,12 @@ void main() {
     await tester.idle();
     expect(feed.isPending(first), isTrue);
     expect(feed.isPending(second), isFalse);
-    expect(feed.loadingState.value.data!.take(2), [first, second]);
+    expect(feed.loadingState.data.take(2), [first, second]);
     checks[first.bvid]!.complete(null);
     await tester.idle();
     await query;
     expect(feed.isPending(first), isFalse);
-    expect(feed.loadingState.value.data, hasLength(3));
+    expect(feed.loadingState.data, hasLength(3));
   });
 
   testWidgets('刷新取消旧下载，晚到结果不修改数据或释放新请求状态', (tester) async {
@@ -271,11 +325,11 @@ void main() {
     await tester.idle();
     await old;
     expect(feed.isLoading, isTrue);
-    expect(feed.loadingState.value, isA<Loading>());
+    expect(feed.loadingState, isA<Loading>());
     feed.requests[1].complete(Success([_Video(2)]));
     await tester.idle();
     await refresh;
-    expect((feed.loadingState.value.data!.single as _Video).aid, 2);
+    expect((feed.loadingState.data.single as _Video).aid, 2);
   });
 
   for (final changeSource in [false, true]) {
@@ -296,12 +350,12 @@ void main() {
       feed.updateViewport(itemCount: 1, columns: 1, active: true);
       expect(feed.tokens[1].isCancelled, isTrue);
       expect(feed.indices.last, 0);
-      expect(feed.loadingState.value, isA<Loading>());
+      expect(feed.loadingState, isA<Loading>());
       feed.requests[1].complete(Success([_Video(2)]));
       feed.requests[2].complete(Success([_Video(3)]));
       await tester.idle();
       await query;
-      expect((feed.loadingState.value.data!.single as _Video).aid, 3);
+      expect((feed.loadingState.data.single as _Video).aid, 3);
       expect(feed.lastRefreshAt, isNull);
     });
   }
@@ -316,13 +370,12 @@ void main() {
     final video = _Video(1, cooperation: true);
     feed.requests.single.complete(Success([video]));
     await tester.idle();
-    final state = feed.loadingState.value;
-    feed.onDelete();
+    feed.close();
     expect(feed.tokens.last.isCancelled, isTrue);
     feed.requests.last.complete(Success([_Video(2)]));
     authors.complete({7, 8});
     await tester.idle();
-    expect(feed.loadingState.value, same(state));
+    expect(() => container.read(recommendationFeedProvider), throwsStateError);
     expect(video.authors.mids, isNull);
   });
 
@@ -355,15 +408,28 @@ void main() {
     expect(feed.requests, hasLength(5));
   });
 
+  testWidgets('保留上次推荐时同样屏蔽历史推荐中的拉黑作者', (tester) async {
+    final kept = _Video(1);
+    feed.enableSaveLastData = true;
+    settings.data[SettingBoxKey.filterBlockedAuthors] = false;
+    await _seed(feed, tester, [kept, _Video(2, mid: 7)]);
+    settings.data[SettingBoxKey.filterBlockedAuthors] = true;
+    final query = feed.onRefresh();
+    feed.requests.single.complete(Success([_Video(3, mid: 7)]));
+    await tester.idle();
+    await query;
+    expect(feed.loadingState.data, [kept]);
+  });
+
   testWidgets('保留历史位置与顺序，后续页追加在历史之后', (tester) async {
     feed.enableSaveLastData = true;
-    feed.loadingState.value = Success([_Video(1), _Video(2)]);
+    await _seed(feed, tester, [_Video(1), _Video(2)]);
     var query = feed.onRefresh();
     feed.requests.single.complete(Success([_Video(3), _Video(1)]));
     await tester.idle();
     await query;
     expect(feed.lastRefreshAt, 2);
-    expect(feed.loadingState.value.data!.map((v) => (v as _Video).aid), [
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
       3,
       1,
       2,
@@ -376,45 +442,47 @@ void main() {
     await tester.idle();
     await query;
     expect(feed.lastRefreshAt, 2);
-    expect(feed.loadingState.value.data!.map((v) => (v as _Video).aid), [
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
       3,
       1,
       2,
       4,
       5,
     ]);
-    feed.removeRecommendation(feed.loadingState.value.data!.first);
+    feed.removeRecommendation(feed.loadingState.data.first);
     expect(feed.lastRefreshAt, 1);
   });
 
   testWidgets('刷新提示卡保留到新卡片就绪，后续卡片不会提前前移', (tester) async {
     feed
       ..enableSaveLastData = true
-      ..savedRcmdTip = true
-      ..loadingState.value = Success(List.generate(30, (i) => _Video(i + 1)));
+      ..savedRcmdTip = true;
+    await _seed(feed, tester, List.generate(30, (i) => _Video(i + 1)));
     var query = feed.onRefresh();
     feed.requests.single.complete(Success([_Video(100)]));
     await tester.idle();
     await query;
     Get.testMode = true;
-    Get.put<RcmdController>(feed);
     addTearDown(Get.reset);
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: RcmdPage())),
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
     );
     await tester.pump();
     final tip = find.text('上次看到这里\n点击刷新');
     final following = find.widgetWithText(VideoCardV, '视频 1');
     expect(tip, findsOneWidget);
     final originalPosition = tester.getTopLeft(following);
-    final oldItems = List.of(feed.loadingState.value.data!);
+    final oldItems = List.of(feed.loadingState.data);
     feed.preparation = Completer<void>();
     query = feed.onRefresh();
     await tester.pump();
     expect(tip, findsOneWidget);
     expect(feed.lastRefreshAt, 1);
     expect(tester.getTopLeft(following), originalPosition);
-    expect(feed.loadingState.value.data, oldItems);
+    expect(feed.loadingState.data, oldItems);
     feed.requests.last.complete(Success([_Video(101), _Video(102)]));
     await tester.pump();
     expect(tip, findsOneWidget);
@@ -434,14 +502,14 @@ void main() {
     final saved = [_Video(1), _Video(2)];
     feed
       ..enableSaveLastData = true
-      ..savedRcmdTip = true
-      ..loadingState.value = Success(saved)
-      ..lastRefreshAt = 1;
+      ..savedRcmdTip = true;
+    await _seed(feed, tester, [saved[1]]);
+    await _seed(feed, tester, [saved[0]]);
     var query = feed.onRefresh();
     feed.requests.single.complete(const Error('网络断开'));
     await tester.idle();
     await query;
-    expect(feed.loadingState.value.data, saved);
+    expect(feed.loadingState.data, saved);
     expect(feed.lastRefreshAt, 1);
     query = feed.retryLoadMore();
     expect(feed.lastRefreshAt, 1);
@@ -449,7 +517,7 @@ void main() {
     await tester.idle();
     await query;
     expect(feed.lastRefreshAt, 2);
-    expect(feed.loadingState.value.data!.map((v) => (v as _Video).aid), [
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
       3,
       4,
       1,
@@ -466,7 +534,7 @@ void main() {
     feed.requests.last.complete(const Error('网络断开'));
     await tester.idle();
     await query;
-    expect(feed.loadingState.value.data, hasLength(1));
+    expect(feed.loadingState.data, hasLength(1));
     expect(feed.loadMoreError, '网络断开');
     expect(feed.canLoadMore, isFalse);
     await feed.onLoadMore();
@@ -477,25 +545,24 @@ void main() {
     feed.requests.last.complete(Success([_Video(2), _Video(3)]));
     await tester.idle();
     await query;
-    expect(feed.loadingState.value.data, hasLength(3));
+    expect(feed.loadingState.data, hasLength(3));
     expect(feed.loadMoreError, isNull);
   });
 
   testWidgets('刷新等待首包期间移除旧卡片，不会清空其他内容或被响应重新插入', (tester) async {
     final removed = _Video(1);
     final kept = _Video(2);
-    feed
-      ..enableSaveLastData = true
-      ..loadingState.value = Success([removed, kept])
-      ..lastRefreshAt = 1;
+    feed.enableSaveLastData = true;
+    await _seed(feed, tester, [kept]);
+    await _seed(feed, tester, [removed]);
     final query = feed.onRefresh();
     feed.removeRecommendation(removed);
-    expect(feed.loadingState.value.data, [kept]);
+    expect(feed.loadingState.data, [kept]);
     expect(feed.lastRefreshAt, 0);
     feed.requests.single.complete(Success([_Video(1), _Video(3)]));
     await tester.idle();
     await query;
-    expect(feed.loadingState.value.data!.map((v) => (v as _Video).aid), [3, 2]);
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [3, 2]);
   });
 
   testWidgets('合作作者全部命中黑名单时同样在五页后停止', (tester) async {
@@ -509,7 +576,7 @@ void main() {
       await tester.idle();
     }
     expect(feed.requests, hasLength(5));
-    expect(feed.loadingState.value.data, isEmpty);
+    expect(feed.loadingState.data, isEmpty);
     expect(feed.isEnd, isTrue);
   });
 
@@ -526,14 +593,14 @@ void main() {
     await tester.idle();
     await query;
     query = feed.onRefresh();
-    expect(feed.loadingState.value.data!.contains(video), isFalse);
+    expect(feed.loadingState.data.contains(video), isFalse);
     feed.requests.last.complete(Success([_Video(3)]));
     await tester.idle();
     await query;
     authors.complete({8});
     await tester.idle();
     expect(video.authors.mids, isNull);
-    expect(feed.loadingState.value.data!.map((v) => (v as _Video).aid), [3, 2]);
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [3, 2]);
   });
 
   testWidgets('合成时序：同步2秒、下载1秒、合作检查2秒，普通卡片2秒可见', (tester) async {
@@ -546,17 +613,21 @@ void main() {
           return {8};
         },
       );
-    addTearDown(timed.onDelete.call);
+    final timedContainer = _mount(timed);
+    addTearDown(timed.close);
     final deliveries = <({int milliseconds, int slots, int ready})>[];
-    final subscription = timed.loadingState.listen((state) {
-      final items = state.dataOrNull ?? [];
-      deliveries.add((
-        milliseconds: now().inMilliseconds,
-        slots: items.length,
-        ready: items.where((item) => !timed.isPending(item)).length,
-      ));
-    });
-    addTearDown(subscription.cancel);
+    final subscription = timedContainer.listen(
+      recommendationFeedProvider.select((s) => s.loading),
+      (_, state) {
+        final items = state.dataOrNull ?? [];
+        deliveries.add((
+          milliseconds: now().inMilliseconds,
+          slots: items.length,
+          ready: items.where((item) => !timed.isPending(item)).length,
+        ));
+      },
+    );
+    addTearDown(subscription.close);
     timed.updateViewport(itemCount: 48, columns: 8, active: true);
     expect(timed.starts.single.milliseconds, 0);
     for (var i = 0; i < 8; i++) {
@@ -581,7 +652,7 @@ void main() {
       4000,
       5000,
     ]);
-    expect(timed.loadingState.value.data, hasLength(50));
+    expect(timed.loadingState.data, hasLength(50));
   });
 
   testWidgets('账号事件主动取消旧请求并重载，无需等待滚动或窗口布局', (tester) async {
@@ -595,7 +666,6 @@ void main() {
     );
     addTearDown(() => Accounts.accountMode[AccountType.main.index] = previous);
     feed
-      ..onInit()
       ..updateViewport(itemCount: 1, columns: 1, active: true)
       ..account = Object();
     Accounts.replaceCredentials(
@@ -611,12 +681,11 @@ void main() {
     feed.requests[0].complete(Success([_Video(1)]));
     feed.requests[1].complete(Success([_Video(2)]));
     await tester.idle();
-    expect((feed.loadingState.value.data!.single as _Video).aid, 2);
+    expect((feed.loadingState.data.single as _Video).aid, 2);
   });
 
   testWidgets('合作卡片先显示骨架，揭示不重发列表或重建普通卡片', (tester) async {
     Get.testMode = true;
-    Get.put<RcmdController>(feed);
     addTearDown(Get.reset);
     final authors = Completer<Set<int>?>();
     feed.lookup = CooperativeAuthors(load: (_) => authors.future);
@@ -624,7 +693,10 @@ void main() {
       if (!authors.isCompleted) authors.complete(null);
     });
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: RcmdPage())),
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
     );
     final cooperation = _Video(1, cooperation: true);
     final ordinary = _Video(2);
@@ -643,23 +715,25 @@ void main() {
       (widget) => widget is VideoCardV && identical(widget.videoItem, ordinary),
     );
     final before = tester.widget<VideoCardV>(cards);
-    final snapshot = feed.loadingState.value;
+    final snapshot = feed.loadingState;
     var publications = 0;
-    final subscription = feed.loadingState.listen((_) => publications++);
-    addTearDown(subscription.cancel);
+    final subscription = container.listen(
+      recommendationFeedProvider.select((s) => s.loading),
+      (_, _) => publications++,
+    );
+    addTearDown(subscription.close);
     authors.complete({8});
     await tester.pump();
     expect(find.text('视频 1'), findsOneWidget);
     expect(find.byType(VideoCardVSkeleton), findsNothing);
     expect(tester.widget<VideoCardV>(cards), same(before));
-    expect(feed.loadingState.value, same(snapshot));
+    expect(feed.loadingState, same(snapshot));
     expect(publications, 0);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('合作卡片被过滤后保留其他卡片元素和图片子树', (tester) async {
     Get.testMode = true;
-    Get.put<RcmdController>(feed);
     addTearDown(Get.reset);
     final authors = Completer<Set<int>?>();
     feed.lookup = CooperativeAuthors(load: (_) => authors.future);
@@ -667,7 +741,10 @@ void main() {
       if (!authors.isCompleted) authors.complete(null);
     });
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: RcmdPage())),
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
     );
     final ordinary = _Video(2);
     feed.requests.single.complete(
@@ -689,7 +766,7 @@ void main() {
     final imageBefore = tester.element(image.first);
     authors.complete({7});
     await tester.pump();
-    expect(feed.loadingState.value.data!.first, same(ordinary));
+    expect(feed.loadingState.data.first, same(ordinary));
     expect(tester.element(cards), same(before));
     expect(tester.element(image.first), same(imageBefore));
     await tester.pumpWidget(const SizedBox.shrink());
@@ -719,10 +796,12 @@ void main() {
 
   testWidgets('首页补位期间保留骨架，分页失败在页尾提供原页重试', (tester) async {
     Get.testMode = true;
-    Get.put<RcmdController>(feed);
     addTearDown(Get.reset);
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: RcmdPage())),
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
     );
     final target = feed.viewportItems;
     feed.requests.single.complete(Success([_Video(1, mid: 7)]));
@@ -735,15 +814,16 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(feed.indices, [0, 1]);
-    feed.scrollController.jumpTo(
-      feed.scrollController.position.maxScrollExtent,
-    );
+    final scroll = tester
+        .widget<CustomScrollView>(find.byType(CustomScrollView))
+        .controller!;
+    scroll.jumpTo(scroll.position.maxScrollExtent);
     await tester.pump();
     expect(feed.indices, [0, 1, 2]);
     feed.requests.last.complete(const Error('网络断开'));
     await tester.pump();
     await tester.pump();
-    expect(feed.loadingState.value.data, hasLength(target));
+    expect(feed.loadingState.data, hasLength(target));
     expect(find.text('加载失败，点击重试'), findsOneWidget);
     await tester.tap(find.text('加载失败，点击重试'));
     await tester.pump();
@@ -752,7 +832,7 @@ void main() {
       Success(List.generate(target, (i) => _Video(i + target + 2))),
     );
     await tester.pump();
-    expect(feed.loadingState.value.data, hasLength(target * 2));
+    expect(feed.loadingState.data, hasLength(target * 2));
     expect(find.text('加载失败，点击重试'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });

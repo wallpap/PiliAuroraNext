@@ -6,25 +6,28 @@ import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
-import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/recommendation_state.dart';
+import 'package:pili_aurora_next/models/model_rec_video_item.dart';
+import 'package:pili_aurora_next/services/cooperative_authors.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/utils/media_author_filter.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 class _RecommendationQuery {
-  _RecommendationQuery(this.context, this.app, this.saved);
+  _RecommendationQuery(this.context, this.account, this.app, this.saved);
 
   final Object? context;
+  final Account account;
   final bool app;
-  final List<dynamic> saved;
-  final items = <dynamic>[];
+  final List<BaseRcmdVideoItemModel> saved;
+  final items = <BaseRcmdVideoItemModel>[];
   final seen = <Object>{};
   final pending = HashSet<Object>.identity();
   CancelToken cancel = CancelToken();
-  final requests = <int, Future<LoadingState<List<dynamic>>>>{};
+  final requests = <int, Future<LoadingState<List<BaseRcmdVideoItemModel>>>>{};
   Future<void>? preparation;
   Future<void>? running;
   TraceOperation? firstItems;
@@ -39,16 +42,86 @@ class _RecommendationQuery {
   bool stopped = false;
 }
 
-class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
+final recommendationRepositoryProvider = Provider<RecommendationRepository>(
+  (ref) => const RecommendationRepository(),
+);
+final discoveryFilterProvider = Provider<DiscoveryFilter>(
+  (ref) => const DiscoveryFilter(),
+);
+final cooperativeAuthorsProvider = Provider<CooperativeAuthors>(
+  (ref) => CooperativeAuthors.shared,
+);
+final recommendationFeedProvider =
+    NotifierProvider.autoDispose<RecommendationFeed, RecommendationState>(
+      RecommendationFeed.new,
+    );
+
+class RecommendationFeed extends Notifier<RecommendationState> {
+  Account get queryAccount => ref.read(recommendAccountProvider);
+  Account? _contextMain, _contextQuery;
+  Object _context = Object();
+  Object get queryContext {
+    final main = ref.read(mainAccountProvider);
+    final query = queryAccount;
+    if (!identical(main, _contextMain) || !identical(query, _contextQuery)) {
+      _contextMain = main;
+      _contextQuery = query;
+      _context = Object();
+    }
+    return _context;
+  }
+
+  bool get enableSaveLastData =>
+      ref.read(recommendationPreferencesProvider).keepPrevious;
+  bool get appRcmd => ref.read(recommendationPreferencesProvider).app;
+  bool get savedRcmdTip =>
+      ref.read(recommendationPreferencesProvider).showHistory;
+  int? _historyStart;
+  int? get lastRefreshAt => _historyStart;
+  RecommendationState get snapshot => state;
+  LoadingState<List<BaseRcmdVideoItemModel>> get loadingState => state.loading;
+
+  void _emit([LoadingState<List<BaseRcmdVideoItemModel>>? loading]) {
+    if (_disposed) return;
+    state = RecommendationState(
+      loading: loading ?? state.loading,
+      historyStart: _historyStart,
+      error: _query?.error,
+      loadingMore: isLoading,
+      stopped: isEnd,
+      source: _query,
+    );
+  }
+
   @override
-  Account get queryAccount => Accounts.get(AccountType.recommend);
+  RecommendationState build() {
+    _disposed = false;
+    _query = null;
+    _historyStart = null;
+    // 角色通知更新查询归属，同时保留 Widget 提供的视口和后台标签状态。
+    ref.listen(mainAccountProvider, (_, _) => _onAccountChanged());
+    ref.listen(recommendAccountProvider, (_, _) => _onAccountChanged());
+    ref.listen(recommendationPreferencesProvider, (previous, next) {
+      if (previous?.app != next.app) {
+        _onAccountChanged();
+      } else {
+        _historyStart = next.keepPrevious && next.showHistory
+            ? _query?.historyStart
+            : null;
+        _emit();
+      }
+    });
+    ref.onDispose(() {
+      _disposed = true;
+      _cardListeners.clear();
+      if (_query case final query?) _invalidate(query);
+    });
+    return RecommendationState();
+  }
 
-  late bool enableSaveLastData = Pref.enableSaveLastData;
-  bool get appRcmd => Pref.appRcmd;
-
-  int? lastRefreshAt;
-  late bool savedRcmdTip = Pref.savedRcmdTip;
-
+  Future<void>? prepareQuery() => ref.read(discoveryFilterProvider).prepare();
+  CooperativeAuthors get cooperativeAuthors =>
+      ref.read(cooperativeAuthorsProvider);
   _RecommendationQuery? _query;
   final _cardListeners = HashMap<Object, Set<void Function()>>.identity();
   bool _disposed = false, _active = true;
@@ -78,20 +151,9 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
   int _target(_RecommendationQuery query) =>
       math.max(1, math.max(_viewportItems, query.moreItems));
 
-  @override
   bool get isLoading => _query?.running != null;
-
-  @override
   bool get isEnd => _query?.stopped ?? false;
-
-  @override
-  void onInit() {
-    super.onInit();
-    page = 0;
-    // 首次布局提供容量后启动，Web 首包也能按实际窗口大小请求。
-    Accounts.mainChanges.addListener(_onAccountChanged);
-    Accounts.recommendChanges.addListener(_onAccountChanged);
-  }
+  bool get canLoadMore => !isEnd && loadingState.dataOrNull != null;
 
   void _onAccountChanged() {
     if (_query case final query? when !_current(query)) {
@@ -100,8 +162,8 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
         unawaited(onRefresh());
       } else {
         _query = null;
-        lastRefreshAt = null;
-        loadingState.value = LoadingState.loading();
+        _historyStart = null;
+        _emit(LoadingState.loading());
       }
     }
   }
@@ -125,35 +187,40 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     }
   }
 
-  Future<LoadingState<List<dynamic>>> fetchRecommendations({
+  Future<LoadingState<List<BaseRcmdVideoItemModel>>> fetchRecommendations({
     required int index,
     required int pageSize,
     required CancelToken cancelToken,
-  }) => const RecommendationRepository().page(
-    account: queryAccount,
-    app: appRcmd,
-    index: index,
-    pageSize: pageSize,
-    cancelToken: cancelToken,
-  );
+    required Account account,
+    required bool app,
+  }) => ref
+      .read(recommendationRepositoryProvider)
+      .page(
+        account: account,
+        app: app,
+        index: index,
+        pageSize: pageSize,
+        cancelToken: cancelToken,
+      );
 
-  @override
-  List<dynamic> filterCandidates(
-    Iterable<dynamic> source, {
-    Iterable<dynamic> existing = const [],
-  }) => const DiscoveryFilter().filter(
-    source,
-    existing: existing,
-    deduplicate: true,
-  );
+  List<BaseRcmdVideoItemModel> filterCandidates(
+    Iterable<BaseRcmdVideoItemModel> source, {
+    Iterable<BaseRcmdVideoItemModel> existing = const [],
+  }) => ref
+      .read(discoveryFilterProvider)
+      .filter(
+        source,
+        existing: existing,
+        deduplicate: true,
+      );
 
   void _publish(_RecommendationQuery query) {
     if (!_current(query)) return;
-    final data = List<dynamic>.of(query.items);
-    lastRefreshAt = savedRcmdTip && query.saved.isNotEmpty
+    final data = List<BaseRcmdVideoItemModel>.of(query.items);
+    _historyStart = enableSaveLastData && savedRcmdTip && query.saved.isNotEmpty
         ? query.historyStart
         : null;
-    loadingState.value = Success(data);
+    _emit(Success(List.unmodifiable(data)));
     _finishReadyTraces(query);
   }
 
@@ -179,12 +246,12 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     }
   }
 
-  bool _needsAuthorCheck(dynamic item) =>
-      const DiscoveryFilter().needsAuthorCheck(item);
+  bool _needsAuthorCheck(BaseRcmdVideoItemModel item) =>
+      ref.read(discoveryFilterProvider).needsAuthorCheck(item);
 
   Future<void> _checkAuthor(
     _RecommendationQuery query,
-    Object item,
+    BaseRcmdVideoItemModel item,
     void Function() onChecked,
   ) async {
     query.pending.add(item);
@@ -211,7 +278,10 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     if (blocked && _active && !query.stopped) unawaited(_run(query));
   }
 
-  void _settleBatch(_RecommendationQuery query, List<dynamic> added) {
+  void _settleBatch(
+    _RecommendationQuery query,
+    List<BaseRcmdVideoItemModel> added,
+  ) {
     if (!_current(query)) return;
     query.emptyPages = added.any(query.items.contains)
         ? 0
@@ -224,7 +294,10 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     if (_active && !query.stopped) unawaited(_run(query));
   }
 
-  void _accept(_RecommendationQuery query, List<dynamic> source) {
+  void _accept(
+    _RecommendationQuery query,
+    List<BaseRcmdVideoItemModel> source,
+  ) {
     final added = filterCandidates(source).where((item) {
       final key = MediaAuthorFilter.contentKey(item);
       return key == null || query.seen.add(key);
@@ -251,7 +324,7 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     }
 
     for (final item in checking) {
-      unawaited(_checkAuthor(query, item as Object, checked));
+      unawaited(_checkAuthor(query, item, checked));
     }
     _publish(query);
     if (checking.isEmpty) _settleBatch(query, added);
@@ -286,6 +359,8 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
               math.max(20, _target(query) - query.items.length),
             ),
             cancelToken: query.cancel,
+            account: query.account,
+            app: query.app,
           );
         } catch (_) {
           return const Error('推荐加载失败，请重试');
@@ -312,17 +387,17 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
         query.requests.remove(query.nextPage);
         switch (result) {
           case Success(:final response):
-            page = ++query.nextPage;
+            ++query.nextPage;
             if (response.isNotEmpty) query.batchSize = response.length;
             _accept(query, response);
           case Error():
             query
               ..stopped = true
               ..error = result.errMsg ?? '推荐加载失败，请重试';
-            if (loadingState.value.dataOrNull?.isNotEmpty != true) {
-              loadingState.value = result;
+            if (loadingState.dataOrNull?.isNotEmpty != true) {
+              _emit(result);
             } else {
-              loadingState.refresh();
+              _emit();
             }
           case Loading():
             query.stopped = true;
@@ -333,10 +408,10 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
         query
           ..stopped = true
           ..error = '推荐加载失败，请重试';
-        if (loadingState.value.dataOrNull?.isNotEmpty != true) {
-          loadingState.value = const Error('推荐加载失败，请重试');
+        if (loadingState.dataOrNull?.isNotEmpty != true) {
+          _emit(const Error('推荐加载失败，请重试'));
         } else {
-          loadingState.refresh();
+          _emit();
         }
       }
     } finally {
@@ -346,41 +421,50 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
 
   Future<void> _run(_RecommendationQuery query) {
     if (query.running case final running?) return running;
-    final running = _runLoop(query).whenComplete(() => query.running = null);
+    if (query.nextPage > 0 &&
+        query.requests.isEmpty &&
+        query.items.length >= _target(query)) {
+      return Future.value();
+    }
+    final running = _runLoop(query).whenComplete(() {
+      query.running = null;
+      if (_current(query)) _emit();
+    });
     query.running = running;
+    _emit();
     return running;
   }
 
-  @override
-  Future<void> queryData([bool isRefresh = true]) {
+  Future<void> onRefresh() {
     if (_disposed) return Future.value();
-    if (!isRefresh) return onLoadMore();
     final previous = _query;
     final sameContext = previous == null || _current(previous);
-    final previousItems = sameContext ? loadingState.value.dataOrNull : null;
+    final previousItems = sameContext ? loadingState.dataOrNull : null;
     final visible = previousItems?.where((item) => !isPending(item)).toList();
-    final visibleHistoryStart = lastRefreshAt == null
+    final visibleHistoryStart = _historyStart == null
         ? null
         : previousItems
-              ?.take(lastRefreshAt!)
+              ?.take(_historyStart!)
               .where((item) => !isPending(item))
               .length;
-    final old = enableSaveLastData && visible != null ? visible : <dynamic>[];
+    final old = enableSaveLastData && visible != null
+        ? visible
+        : <BaseRcmdVideoItemModel>[];
     if (previous != null) _invalidate(previous);
     final query = _RecommendationQuery(
       queryContext,
+      queryAccount,
       appRcmd,
       old.length > 200 ? old.take(50).toList() : old,
     );
     _query = query;
-    page = 0;
     // 保留提示卡与旧内容的相对位置，直到首包发布时一并替换。
-    lastRefreshAt = visibleHistoryStart;
+    _historyStart = visibleHistoryStart;
     if (!sameContext) {
-      loadingState.value = LoadingState.loading();
+      _emit(LoadingState.loading());
     } else if (visible != null) {
       // 未完成作者检查的骨架随刷新撤下，避免切换查询后提前揭示。
-      loadingState.value = Success(visible);
+      _emit(Success(List.unmodifiable(visible)));
     }
     query
       ..firstItems = Diagnostics.instance.begin('recommendFirstItems', 'ready')
@@ -393,39 +477,11 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     return _run(query);
   }
 
-  @override
-  Future<LoadingState<List<dynamic>>> customGetData() => fetchRecommendations(
-    index: page,
-    pageSize: 20,
-    cancelToken: CancelToken(),
-  );
-
-  @override
-  bool handleError(String? errMsg) {
-    return enableSaveLastData;
+  Future<void> onReload() {
+    _emit(LoadingState.loading());
+    return onRefresh();
   }
 
-  @override
-  void handleListResponse(List<dynamic> dataList) {
-    if (enableSaveLastData && page == 0) {
-      if (loadingState.value case Success(:final response)) {
-        if (response != null && response.isNotEmpty) {
-          if (savedRcmdTip) {
-            lastRefreshAt = dataList.length;
-          }
-          final saved = response.length > 200 ? response.take(50) : response;
-          dataList.addAll(filterCandidates(saved, existing: dataList));
-        }
-      }
-    }
-  }
-
-  @override
-  Future<void> onRefresh() {
-    return queryData();
-  }
-
-  @override
   Future<void> onLoadMore() {
     final query = _query;
     if (query == null || !_current(query)) return onRefresh();
@@ -444,11 +500,11 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
       ..error = null
       ..cancel = CancelToken()
       ..nextRequest = query.nextPage;
-    loadingState.refresh();
+    _emit();
     return _run(query);
   }
 
-  void _remove(_RecommendationQuery query, Object item) {
+  void _remove(_RecommendationQuery query, BaseRcmdVideoItemModel item) {
     final index = query.items.indexOf(item);
     if (index < 0) return;
     query.items.removeAt(index);
@@ -458,36 +514,46 @@ class RcmdController extends DiscoveryListController<List<dynamic>, dynamic> {
     }
   }
 
-  void removeRecommendation(Object item) {
+  void removeRecommendation(BaseRcmdVideoItemModel item) {
     final query = _query;
     if (query == null || !_current(query)) return;
     if (query.nextPage == 0) {
-      final visible = List<dynamic>.of(loadingState.value.dataOrNull ?? []);
+      final visible = List<BaseRcmdVideoItemModel>.of(
+        loadingState.dataOrNull ?? [],
+      );
       final index = visible.indexOf(item);
       query.saved.remove(item);
       final key = MediaAuthorFilter.contentKey(item);
       if (key != null) query.seen.add(key);
       if (index >= 0) {
         visible.removeAt(index);
-        if (lastRefreshAt case final start? when index < start) {
-          lastRefreshAt = start - 1;
+        if (_historyStart case final start? when index < start) {
+          _historyStart = start - 1;
         }
       }
-      loadingState.value = Success(visible);
+      _emit(Success(List.unmodifiable(visible)));
       return;
     }
     _remove(query, item);
     _publish(query);
     if (_active && !query.stopped) unawaited(_run(query));
   }
+}
 
+final recommendationCardPendingProvider = NotifierProvider.autoDispose
+    .family<RecommendationCardPending, bool, Object>(
+      RecommendationCardPending.new,
+    );
+
+class RecommendationCardPending extends Notifier<bool> {
+  RecommendationCardPending(this.item);
+  final Object item;
   @override
-  void onClose() {
-    _disposed = true;
-    _cardListeners.clear();
-    Accounts.mainChanges.removeListener(_onAccountChanged);
-    Accounts.recommendChanges.removeListener(_onAccountChanged);
-    if (_query case final query?) _invalidate(query);
-    super.onClose();
+  bool build() {
+    // 结构变更时重新核对；异步揭示只通知这一张卡片。
+    ref.watch(recommendationFeedProvider.select((value) => value.loading));
+    final feed = ref.read(recommendationFeedProvider.notifier);
+    ref.onDispose(feed.listenToCard(item, () => state = feed.isPending(item)));
+    return feed.isPending(item);
   }
 }

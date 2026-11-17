@@ -10,7 +10,6 @@ import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/item.dart'
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
 import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -352,15 +351,6 @@ void main() {
     expect(feed.loadingState.value.data, isEmpty);
     expect(feed.requests, hasLength(1));
     expect(feed.canLoadMore, isFalse);
-  });
-
-  test('保留上次推荐时同样屏蔽历史推荐中的拉黑作者', () {
-    final controller = RcmdController()..page = 0;
-    final kept = _Video(1, 8);
-    controller.loadingState.value = Success([kept, _Video(2, 7)]);
-    controller.applyResponse(true, Success([_Video(3, 7)]));
-    expect(controller.loadingState.value.data, [kept]);
-    controller.onDelete();
   });
 
   test('专栏、直播和转发的原作者沿统一规则判定', () {

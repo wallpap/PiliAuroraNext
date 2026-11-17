@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/rank/controller.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -67,7 +67,8 @@ Future<void> main(List<String> arguments) async {
           .clamp(1, 120);
   final idleSeconds =
       (int.tryParse(
-                Platform.environment['PILIAURORANEXT_PLAYBACK_IDLE_SECONDS'] ?? '',
+                Platform.environment['PILIAURORANEXT_PLAYBACK_IDLE_SECONDS'] ??
+                    '',
               ) ??
               70)
           .clamp(1, 300);
@@ -85,11 +86,14 @@ Future<void> main(List<String> arguments) async {
       Platform.environment['PILIAURORANEXT_OPTIMIZE_IDLE_HEAPS'] == '1';
   final scrollExercise =
       Platform.environment['PILIAURORANEXT_PLAYBACK_SCROLL'] == '1';
-  final candidatePath = Platform.environment['PILIAURORANEXT_PLAYBACK_CANDIDATE'];
-  final eagerWebView = Platform.environment['PILIAURORANEXT_WEBVIEW_EAGER'] == '1';
+  final candidatePath =
+      Platform.environment['PILIAURORANEXT_PLAYBACK_CANDIDATE'];
+  final eagerWebView =
+      Platform.environment['PILIAURORANEXT_WEBVIEW_EAGER'] == '1';
   final exerciseWebView =
       Platform.environment['PILIAURORANEXT_EXERCISE_WEBVIEW'] == '1';
-  final webViewOnly = Platform.environment['PILIAURORANEXT_WEBVIEW_ONLY'] == '1';
+  final webViewOnly =
+      Platform.environment['PILIAURORANEXT_WEBVIEW_ONLY'] == '1';
   final retainWebView =
       Platform.environment['PILIAURORANEXT_WEBVIEW_RETAIN'] == '1';
   final local4k = Platform.environment['PILIAURORANEXT_PLAYBACK_LOCAL_4K'];
@@ -187,7 +191,8 @@ Future<void> main(List<String> arguments) async {
 
   try {
     if (!Platform.isWindows ||
-        Platform.environment['PILIAURORANEXT_MEMORY_ROOT']?.isNotEmpty != true) {
+        Platform.environment['PILIAURORANEXT_MEMORY_ROOT']?.isNotEmpty !=
+            true) {
       throw StateError('Windows and explicit isolated memory root required');
     }
     await logging
@@ -341,16 +346,19 @@ Future<void> main(List<String> arguments) async {
         }
         await _until(
           () =>
-              Get.isRegistered<RcmdController>() &&
-              (Get.find<RcmdController>()
-                      .loadingState
-                      .value
+              (home.registeredPage(HomeTabType.rcmd)
+                  is RecommendationPageHandle) &&
+              ((home.registeredPage(HomeTabType.rcmd)
+                          as RecommendationPageHandle)
+                      .snapshot
+                      .loading
                       .dataOrNull
                       ?.isNotEmpty ??
                   false),
           'recommendations',
         );
-        final recommendations = Get.find<RcmdController>();
+        final recommendations =
+            (home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle);
         // 为首屏图片预留加载时间，减少首次填充对播放前后差值的影响。
         await Future<void>.delayed(const Duration(seconds: 4));
         if (scrollExercise) {
@@ -381,7 +389,7 @@ Future<void> main(List<String> arguments) async {
           result['scrollFrames'] = frameSummary();
         }
         await record('round$round:beforePlayback');
-        final candidate = recommendations.loadingState.value.dataOrNull!
+        final candidate = recommendations.snapshot.loading.dataOrNull!
             .whereType<BaseRcmdVideoItemModel>()
             .where(
               (item) =>

@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/rank/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
@@ -236,17 +236,18 @@ Future<void> main(List<String> arguments) async {
     selectHome(HomeTabType.rcmd);
     await _until(
       () =>
-          Get.isRegistered<RcmdController>() &&
-          (Get.find<RcmdController>()
-                  .loadingState
-                  .value
+          (home.registeredPage(HomeTabType.rcmd) is RecommendationPageHandle) &&
+          ((home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle)
+                  .snapshot
+                  .loading
                   .dataOrNull
                   ?.isNotEmpty ??
               false),
       'recommendations',
     );
-    final recommendations = Get.find<RcmdController>();
-    final item = recommendations.loadingState.value.dataOrNull!
+    final recommendations =
+        (home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle);
+    final item = recommendations.snapshot.loading.dataOrNull!
         .whereType<BaseRcmdVideoItemModel>()
         .where(
           (x) =>

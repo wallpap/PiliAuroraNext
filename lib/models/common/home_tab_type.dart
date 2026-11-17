@@ -1,16 +1,9 @@
 import 'package:pili_aurora_next/models/common/enum_with_label.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/pages/hot/controller.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
-import 'package:pili_aurora_next/pages/live/controller.dart';
 import 'package:pili_aurora_next/pages/live/view.dart';
-import 'package:pili_aurora_next/pages/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
 import 'package:pili_aurora_next/pages/rcmd/view.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 enum HomeTabType implements EnumWithLabel {
@@ -25,15 +18,6 @@ enum HomeTabType implements EnumWithLabel {
   @override
   final String label;
   const HomeTabType(this.label);
-
-  ScrollOrRefreshMixin Function() get ctr => switch (this) {
-    HomeTabType.live => Get.find<LiveController>,
-    HomeTabType.rcmd => Get.find<RcmdController>,
-    HomeTabType.hot => Get.find<HotController>,
-    HomeTabType.rank => Get.find<RankController>,
-    HomeTabType.bangumi ||
-    HomeTabType.cinema => () => Get.find<PgcController>(tag: name),
-  };
 
   Widget get page => switch (this) {
     HomeTabType.live => const LivePage(),

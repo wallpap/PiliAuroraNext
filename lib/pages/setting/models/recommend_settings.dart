@@ -1,10 +1,7 @@
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/utils/recommend_filter.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get recommendSettings => [
@@ -14,39 +11,20 @@ List<SettingsModel> get recommendSettings => [
     leading: Icon(Icons.model_training_outlined),
     setKey: SettingBoxKey.appRcmd,
     defaultVal: true,
-    needReboot: true,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '保留首页推荐刷新',
     subtitle: '下拉刷新时保留上次内容',
-    leading: const Icon(Icons.refresh),
+    leading: Icon(Icons.refresh),
     setKey: SettingBoxKey.enableSaveLastData,
     defaultVal: true,
-    onChanged: (value) {
-      try {
-        Get.find<RcmdController>()
-          ..enableSaveLastData = value
-          ..lastRefreshAt = null;
-      } catch (e, stackTrace) {
-        logger.w('$e', error: e, stackTrace: stackTrace);
-      }
-    },
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '显示上次看到位置提示',
     subtitle: '保留上次推荐时，在上次刷新位置显示提示',
-    leading: const Icon(Icons.tips_and_updates_outlined),
+    leading: Icon(Icons.tips_and_updates_outlined),
     setKey: SettingBoxKey.savedRcmdTip,
     defaultVal: true,
-    onChanged: (value) {
-      try {
-        Get.find<RcmdController>()
-          ..savedRcmdTip = value
-          ..lastRefreshAt = null;
-      } catch (e, stackTrace) {
-        logger.w('$e', error: e, stackTrace: stackTrace);
-      }
-    },
   ),
   getVideoFilterSelectModel(
     title: '点赞率',
