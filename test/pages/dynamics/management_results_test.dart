@@ -1,3 +1,7 @@
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/pages/member_dynamics/view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
@@ -262,7 +266,7 @@ void main() {
     requests[3].reply.complete({'code': 0});
     await unpin;
     expect(
-      MemberDynamics.isPinned(container.read(provider).loading.data.first),
+      container.read(provider).loading.data.first.isPinned,
       isFalse,
     );
   });
@@ -311,5 +315,102 @@ void main() {
       isA<Error>(),
     );
     expect(requests, hasLength(4));
+  });
+  Map<String, dynamic> visiblePage({bool pinned = false}) => {
+    'code': 0,
+    'data': {
+      'has_more': false,
+      'offset': '',
+      'items': [
+        {
+          'id_str': '1',
+          'type': 'DYNAMIC_TYPE_WORD',
+          'modules': {
+            'module_author': {'mid': 1, 'name': '空间作者'},
+            if (pinned) 'module_tag': {'text': '置顶'},
+            'module_stat': {
+              'forward': {'count': 0},
+              'comment': {'count': 0},
+              'like': {'count': 0, 'status': false},
+            },
+          },
+        },
+      ],
+    },
+  };
+  Future<void> until(WidgetTester tester, int count) async {
+    for (var i = 0; i < 200 && requests.length < count; i++) {
+      await tester.pump(const Duration(milliseconds: 1));
+    }
+    expect(requests, hasLength(count));
+  }
+
+  Future<void> mount(WidgetTester tester, {bool pinned = false}) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: const Scaffold(body: MemberDynamicsPage(mid: 1)),
+        ),
+      ),
+    );
+    await until(tester, 1);
+    requests[0].reply.complete(visiblePage(pinned: pinned));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> finish(WidgetTester tester) async {
+    final dismissal = SmartDialog.dismiss(status: .allToast);
+    await tester.pumpAndSettle();
+    await dismissal;
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    Get.reset();
+  }
+
+  testWidgets('实际空间删除确认绑定原查询，刷新后旧弹窗不写入，新确认删除并提示', (tester) async {
+    await mount(tester);
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('删除'));
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    expect(find.text('确定删除该动态?'), findsOneWidget);
+    updates.published(original);
+    await until(tester, 2);
+    requests[1].reply.complete(visiblePage());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(requests, hasLength(2));
+    expect(find.text('空间作者'), findsOneWidget);
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('删除'));
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确定'));
+    await until(tester, 3);
+    expect(requests.last.options.path, Api.removeDynamic);
+    requests.last.reply.complete({'code': 0});
+    await tester.pumpAndSettle();
+    expect(find.text('空间作者'), findsNothing);
+    expect(find.text('删除成功'), findsOneWidget);
+    await finish(tester);
+  });
+  testWidgets('实际空间菜单将标签置顶识别为取消置顶，并保留操作提示', (tester) async {
+    await mount(tester, pinned: true);
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    expect(find.text('取消置顶'), findsOneWidget);
+    await tester.tap(find.text('取消置顶'));
+    await until(tester, 2);
+    expect(requests.last.options.path, Api.rmTopDyn);
+    requests.last.reply.complete({'code': 0});
+    await tester.pumpAndSettle();
+    expect(find.text('取消置顶成功'), findsOneWidget);
+    expect(find.text('置顶'), findsNothing);
+    await finish(tester);
   });
 }

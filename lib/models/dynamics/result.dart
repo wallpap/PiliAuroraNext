@@ -102,6 +102,9 @@ class DynamicItemModel {
   dynamic idStr;
   late ItemModulesModel modules;
 
+  bool get isPinned =>
+      modules.moduleAuthor?.isTop == true || modules.moduleTag?.text == '置顶';
+
   DynamicItemModel? orig;
   String? type;
   bool? visible;

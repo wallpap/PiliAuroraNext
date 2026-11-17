@@ -417,12 +417,12 @@ class AuthorPanel extends StatelessWidget {
                     onTap: () {
                       Get.back();
                       if (!ownsTarget()) return;
-                      onSetTop!(moduleAuthor.isTop ?? false, item.idStr);
+                      onSetTop!(item.isPinned, item.idStr);
                     },
                     minLeadingWidth: 0,
                     leading: const Icon(Icons.vertical_align_top, size: 19),
                     title: Text(
-                      '${moduleAuthor.isTop == true ? '取消' : ''}置顶',
+                      '${item.isPinned ? '取消' : ''}置顶',
                       style: theme.textTheme.titleSmall!,
                     ),
                   ),

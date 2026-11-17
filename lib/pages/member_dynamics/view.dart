@@ -28,8 +28,15 @@ class MemberDynamicsPage extends ConsumerStatefulWidget {
 class _MemberDynamicsPageState extends ConsumerState<MemberDynamicsPage>
     with AutomaticKeepAliveClientMixin, DynMixin {
   final _owner = Object();
+  late final int _routeMid;
+  @override
+  void initState() {
+    super.initState();
+    _routeMid = widget.mid ?? int.parse(Get.parameters['mid']!);
+  }
+
   MemberDynamicsQuery get _query =>
-      (owner: _owner, mid: widget.mid ?? int.parse(Get.parameters['mid']!));
+      (owner: _owner, mid: widget.mid ?? _routeMid);
   MemberDynamics get controller =>
       ref.read(memberDynamicsProvider(_query).notifier);
 

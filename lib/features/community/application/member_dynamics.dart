@@ -23,7 +23,8 @@ final memberDynamicsProvider = NotifierProvider.autoDispose
 class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
   MemberDynamics(this.query);
   final MemberDynamicsQuery query;
-  final _pins = <String, bool>{};
+  bool _hasPinChange = false;
+  String? _pinnedId;
   @override
   bool get usesMainAccount => true;
   @override
@@ -33,7 +34,8 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
 
   @override
   DiscoveryListingState<DynamicItemModel, DynamicCursor> build() {
-    _pins.clear();
+    _hasPinChange = false;
+    _pinnedId = null;
     final account = ref.watch(mainAccountProvider);
     final updates = ref.read(dynamicsUpdatesProvider).changes.listen((change) {
       if (!ref.mounted || !identical(account, change.account)) return;
@@ -41,15 +43,11 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
         excludeKey(id);
       } else if (change.pin case final pin?) {
         if (query.mid == account.mid) {
-          if (pin.pinned) {
-            for (final id in _pins.keys.toList()) {
-              _pins[id] = false;
-            }
-          }
-          _pins[pin.id] = pin.pinned;
+          _hasPinChange = true;
+          _pinnedId = pin.pinned ? pin.id : null;
           final items = state.loading.dataOrNull;
           if (items != null) {
-            _applyPin(items, pin.id, pin.pinned);
+            _applyPin(items);
             state = DiscoveryListingState(
               source: state.source,
               loading: Success(_ordered(items)),
@@ -70,20 +68,19 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
 
   @override
   Future<void> onRefresh() {
-    _pins.clear();
+    _hasPinChange = false;
+    _pinnedId = null;
     return super.onRefresh();
   }
 
-  static bool isPinned(DynamicItemModel item) =>
-      item.modules.moduleAuthor?.isTop == true ||
-      item.modules.moduleTag?.text == '置顶';
-  void _applyPin(Iterable<DynamicItemModel> items, String id, bool pinned) {
+  void _applyPin(Iterable<DynamicItemModel> items) {
+    if (!_hasPinChange) return;
     for (final item in items) {
-      if (itemKey(item) == id) {
+      if (itemKey(item) == _pinnedId) {
         item.modules
-          ..moduleTag = pinned ? ModuleTag(text: '置顶') : null
-          ..moduleAuthor?.isTop = pinned;
-      } else if (pinned && isPinned(item)) {
+          ..moduleTag = ModuleTag(text: '置顶')
+          ..moduleAuthor?.isTop = true;
+      } else if (item.isPinned) {
         item.modules
           ..moduleTag = null
           ..moduleAuthor?.isTop = false;
@@ -93,8 +90,8 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
 
   List<DynamicItemModel> _ordered(Iterable<DynamicItemModel> items) =>
       List.unmodifiable([
-        ...items.where((item) => _pins[itemKey(item)] == true),
-        ...items.where((item) => _pins[itemKey(item)] != true),
+        ...items.where((item) => itemKey(item) == _pinnedId),
+        ...items.where((item) => itemKey(item) != _pinnedId),
       ]);
 
   @override
@@ -107,9 +104,7 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
         .read(dynamicsRepositoryProvider)
         .member(account, query.mid, queryMetadata);
     if (result case Success(:final response) when current()) {
-      for (final entry in _pins.entries) {
-        _applyPin(response.items, entry.key, entry.value);
-      }
+      _applyPin(response.items);
       return Success(
         DiscoveryPage(
           _ordered(response.items),
@@ -137,7 +132,7 @@ class MemberDynamics extends DiscoveryListing<DynamicItemModel, DynamicCursor> {
     DynamicItemModel item,
     Object source,
     bool wasPinned,
-  ) => isPinned(item) == wasPinned
+  ) => item.isPinned == wasPinned
       ? _write(item, source, !wasPinned)
       : Future.value(const Error('动态置顶状态已更新，请重试'));
 
