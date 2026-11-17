@@ -108,7 +108,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `http/fav_response_test.dart` 覆盖收藏接口及分支的成功、业务拒绝、损坏响应和传输不确定性，并保留可空列表语义、确认后的收藏夹 ID 和账号绑定。`features/favorites/operation_results_test.dart` 检查快速收藏的 Future/重复提交/空收藏夹/切号，以及创建草稿、编辑加载、迟到查询和操作锁释放；原生封面选择与裁剪不由这些模拟测试证明。
 
-收藏课程/话题的账号、来源快照、失败保留与分页重读见 `features/favorites/`；`pages/pgc/pugv_favorite_results_test.dart` 与 `pages/episode_panel/favorite_results_test.dart` 检查播放器收藏/订阅的在途锁、账号隔离、待确认后的状态重查及离页回执。`pages/subscription/detail_filter_test.dart` 检查隐藏页补读上限、失败停止与切号后的迟到查询隔离。
+收藏课程/话题的账号、来源快照、失败保留与分页重读见 `features/favorites/`；`pages/pgc/pugv_favorite_results_test.dart` 与 `pages/episode_panel/favorite_results_test.dart` 检查播放器收藏/订阅的在途锁、账号隔离、待确认后的状态重查及离页回执。`features/subscriptions/subscription_library_test.dart` 检查隐藏页补读上限、显式继续、失败重试与切号后的迟到查询隔离。
 
 `pages/member/operation_results_test.dart` 检查成员主页面的账号/目标/刷新归属、关系写入和经验领取互斥；`pages/member/child_list_results_test.dart` 与 `pages/member_pgc/controller_results_test.dart` 检查成员视频/图文/Web/番剧子列表的账号订阅、查询失效和页面释放，以及继续播放的迟到结果。番剧页独立查询，不消费无账号归属的父缓存。
 
@@ -152,7 +152,7 @@ fvm flutter test test/services/diagnostics/ test/pages/about/diagnostics_page_te
 
 `pages/member_favorite/pagination_lifecycle_test.dart` 检查成员收藏双分页的失败重试、完整响应、账号订阅与凭据替换、迟到删除回调及订阅释放。
 
-笔记删除互斥、失败/待确认保留、有效标识与凭据隔离见 `features/favorites/`。`pages/subscription/operation_results_test.dart` 检查取消订阅弹窗和清理流程的账号绑定、失败保留弹窗、在途互斥、确认成功后的本地清理失败、待确认汇总及完成后实际刷新；清理算法另见 `pages/subscription/cleanup_test.dart`。
+笔记删除互斥、失败/待确认保留、有效标识与凭据隔离见 `features/favorites/`。`features/subscriptions/operation_results_test.dart` 检查取消订阅弹窗和清理流程的账号绑定、失败保留弹窗、在途互斥、确认成功后的本地清理失败、待确认汇总及完成后实际刷新；清理算法另见 `features/subscriptions/cleanup_test.dart`。
 
 `http/validate_response_test.dart` 检查风控挑战与通过/拒绝结果、缺失证明、业务码和传输待确认；`utils/gaia_validation_test.dart` 通过导航替身返回验证结果，检查取消、过期操作、字段校验、一次性成功通知及等待异步消费者，消费者失败不重发请求。原生极验 WebView 的加载、脚本与设备行为需单独验证。
 
@@ -347,3 +347,5 @@ CI 显式选择弹幕生产链路与帧计划的核心回归，完整弹幕测�
 `features/watch_later/later_library_test.dart` 通过 Module 的写入 Interface 和 Riverpod 查询验证分页重试、刷新与释放后的迟到结果、同 UID 换凭据、跨标签与搜索失效，以及 Widget 选择和待确认弹窗。原 `pages/history/operation_results_test.dart` 中稍后再看 controller 回归由这些行为测试替换。
 
 `features/history/history_library_test.dart` 覆盖历史账号角色与同 UID 换凭据、分类游标和搜索分页、删除互斥、暂停旧查询竞争、缓存失败及页面选择；旧 history controller 回归由此替换。`utils/history_status_lifecycle_test.dart` 与 `background_sync_results_test.dart` 继续验证真实 HTTP Adapter 和登录同步的落盘等待。
+
+`features/subscriptions/` 覆盖订阅 Riverpod 查询、账号对象身份、页面释放、列表与详情的成功写入失效、取消/清理互斥，以及本地隐藏记录的隔离。所有文件均列入 `tool/run-ci-tests.ps1`；原 subscription/subscription_detail controller 测试已由这些 Interface 回归替换。

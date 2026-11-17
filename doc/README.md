@@ -28,6 +28,7 @@
 | 核对设置的生效时机 | [设置行为](development/settings-behavior.md) |
 | 修改桌面标题栏与提示浮层 | [桌面窗口与标题栏](development/architecture.md#桌面窗口与标题栏) |
 | 修改下载、离线列表或任务生命周期 | [下载模块](../lib/features/download/README.md) |
+| 修改订阅列表、合集详情或失效清理 | [订阅模块](../lib/features/subscriptions/README.md) |
 | 修改消息、私信、未读或分享 | [消息模块](../lib/services/messaging/README.md) |
 | 运行检查、构建或制作发布包 | [构建与测试](development/build-and-test.md)、[测试目录](../test/README.md)、[工具入口](../tool/README.md) |
 | 核对默认引擎、缓存与已采用修复 | [默认构建与策略](development/build-defaults.md) |

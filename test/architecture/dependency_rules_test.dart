@@ -106,6 +106,7 @@ void main() {
     'content_library',
     'history',
     'favorites',
+    'subscriptions',
   ]) {
     test('$feature enforces its migrated Interface', () {
       final violations = <String>[];
@@ -121,6 +122,7 @@ void main() {
           final presentation = source.contains('/presentation/');
           final application = source.contains('/application/');
           final domain = source.contains('/domain/');
+          final data = source.contains('/data/');
           final forbidden =
               (uri.startsWith('package:get/') &&
                   !(presentation && uri == 'package:get/route_manager.dart')) ||
@@ -129,7 +131,13 @@ void main() {
                       uri.startsWith('package:material_ui/') ||
                       target?.startsWith('pages/') == true ||
                       target?.startsWith('http/') == true ||
+                      target?.contains('/application/') == true ||
+                      target?.contains('/data/') == true ||
+                      target?.contains('/presentation/') == true ||
                       target?.startsWith('utils/storage') == true)) ||
+              (data &&
+                  (target?.startsWith('pages/') == true ||
+                      target?.contains('/presentation/') == true)) ||
               (application &&
                   (target?.startsWith('pages/') == true ||
                       target?.contains('/presentation/') == true ||
@@ -145,6 +153,28 @@ void main() {
       expect(violations, isEmpty, reason: violations.join('\n'));
     });
   }
+  test('subscription legacy entries stay removed', () {
+    const legacy = [
+      'pages/subscription/',
+      'pages/subscription_detail/',
+      'models/remote/sub/',
+    ];
+    final violations = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      final source = path
+          .relative(file.path, from: 'lib')
+          .replaceAll('\\', '/');
+      if (legacy.any(source.startsWith)) violations.add(source);
+      for (final uri in dependencies(file)) {
+        final target = localDependency(file, uri);
+        if (target != null && legacy.any(target.startsWith)) {
+          violations.add('$source -> $uri');
+        }
+      }
+    }
+    expect(violations, isEmpty, reason: violations.join('\n'));
+  });
   for (final entry in rules.entries) {
     test('${entry.key} respects its dependency boundary', () {
       final file = File('lib/${entry.key}');
