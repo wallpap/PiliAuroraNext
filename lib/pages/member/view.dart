@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
+import 'package:pili_aurora_next/common/widgets/custom_toast.dart' as toast;
 import 'package:pili_aurora_next/common/widgets/dialog/report_member.dart';
 import 'package:pili_aurora_next/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
@@ -802,6 +803,7 @@ class _MemberPageState extends ConsumerState<MemberPage>
   }
 
   MedalWallData? _cacheMedalData;
+  bool _loadingMedals = false;
   Future<void> _showLiveMedalWall() async {
     final current = _capture();
     if (!current()) return;
@@ -817,7 +819,22 @@ class _MemberPageState extends ConsumerState<MemberPage>
       onShow();
       return;
     }
-    final res = await ref.read(spaceRepositoryProvider).medals(_mid);
+    if (_loadingMedals) return;
+    _loadingMedals = true;
+    final tag = 'space-medals-${UniqueKey()}';
+    final repository = ref.read(spaceRepositoryProvider);
+    SmartDialog.show<void>(
+      tag: tag,
+      clickMaskDismiss: false,
+      builder: (_) => const toast.LoadingWidget('加载中…'),
+    );
+    late final LoadingState<MedalWallData> res;
+    try {
+      res = await repository.medals(_mid);
+    } finally {
+      _loadingMedals = false;
+      await SmartDialog.dismiss(tag: tag);
+    }
     if (!current()) return;
     if (res case Success(:final response)) {
       _cacheMedalData = response;

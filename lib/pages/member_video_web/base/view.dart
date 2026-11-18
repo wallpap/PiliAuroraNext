@@ -4,13 +4,16 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
-    show ReloadScrollPhysics;
+    show ReloadMixin, ReloadScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/enum_with_label.dart';
 import 'package:pili_aurora_next/models/horizontal_video_model.dart';
-import 'package:pili_aurora_next/pages/member_video_web/base/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_web.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:flutter/services.dart';
@@ -20,65 +23,86 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
 abstract class BaseVideoWebState<
-  S extends StatefulWidget,
-  R,
-  T extends HorizontalVideoModel,
+  S extends ConsumerStatefulWidget,
   V extends EnumWithLabel
 >
-    extends State<S>
-    with GridMixin {
+    extends ConsumerState<S>
+    with GridMixin, ReloadMixin {
+  final _owner = Object();
   late final String name;
-  BaseVideoWebCtr<R, T, V> get controller;
+  late final SpaceWebQuery query;
+  SpaceWeb get controller => ref.read(spaceWebProvider(query).notifier);
+  SpaceWebState get snapshot => ref.read(spaceWebProvider(query));
 
   @override
   void initState() {
     super.initState();
-    final args = Get.arguments;
+    final args = Get.arguments as Map;
     name = args['name'];
+    query = (
+      owner: _owner,
+      mid: args['mid'],
+      type: args['type'],
+      id: args['id'],
+    );
   }
 
   List<V> get values;
+  V get selectedOrder;
+
+  Future<void> _retry() {
+    reload = true;
+    return controller.refresh(clear: true);
+  }
+
+  void _jump(int page) {
+    reload = true;
+    controller.jump(page);
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
+    final state = ref.watch(spaceWebProvider(query));
+    ref.listen(mainAccountProvider, (_, _) => reload = true);
     return SimpleScaffold(
       appBar: AppBar(
         title: Text(name),
         actions: [
-          Obx(
-            () {
-              final order = controller.order.value;
-              return PopupMenuButton<V>(
-                tooltip: '排序',
-                icon: const Icon(Icons.sort),
-                initialValue: order,
-                onSelected: controller.queryBySort,
-                itemBuilder: (_) => values
-                    .map(
-                      (e) => AppPopupMenuItem(value: e, child: Text(e.label)),
-                    )
-                    .toList(),
-              );
+          PopupMenuButton<V>(
+            tooltip: '排序',
+            icon: const Icon(Icons.sort),
+            initialValue: selectedOrder,
+            onSelected: (value) {
+              if (snapshot.busy) return;
+              reload = true;
+              controller.selectOrder(value);
             },
+            itemBuilder: (_) => values
+                .map((e) => AppPopupMenuItem(value: e, child: Text(e.label)))
+                .toList(),
           ),
           const SizedBox(width: 6),
         ],
       ),
       body: refreshIndicator(
-        onRefresh: controller.onRefresh,
-        child: CustomScrollView(
-          physics: ReloadScrollPhysics(controller: controller),
-          slivers: [
-            SliverPadding(
-              padding: .only(
-                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+        onRefresh: controller.refresh,
+        child: FeedPagination.notifications(
+          dataSource: state.source,
+          dataRevision: state,
+          canLoadMore: () => state.canLoadMore,
+          onLoadMore: controller.more,
+          child: CustomScrollView(
+            physics: ReloadScrollPhysics(controller: this),
+            slivers: [
+              SliverPadding(
+                padding: .only(
+                  bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+                ),
+                sliver: buildBody(colorScheme, state.loading),
               ),
-              sliver: Obx(
-                () => buildBody(colorScheme, controller.loadingState.value),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -86,12 +110,12 @@ abstract class BaseVideoWebState<
 
   Widget buildBody(
     ColorScheme colorScheme,
-    LoadingState<List<T>?> loadingState,
+    LoadingState<List<HorizontalVideoModel>> loadingState,
   ) {
     return switch (loadingState) {
       Loading() => gridSkeleton,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? SliverMainAxisGroup(
                 slivers: [
                   buildHeader(colorScheme),
@@ -100,18 +124,20 @@ abstract class BaseVideoWebState<
                     gridDelegate: gridDelegate,
                     itemCount: response.length,
                     itemBuilder: (context, index) {
-                      if (index == response.length - 1) {
-                        controller.onLoadMore();
-                      }
                       return VideoCardH(videoItem: response[index]);
                     },
                   ),
+                  if (snapshot.pageError case final error?)
+                    HttpError(
+                      errMsg: error.errMsg,
+                      onReload: () => controller.more(retry: true),
+                    ),
                 ],
               )
-            : HttpError(onReload: controller.onReload),
+            : HttpError(onReload: _retry),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: controller.onReload,
+        onReload: _retry,
       ),
     };
   }
@@ -136,7 +162,7 @@ abstract class BaseVideoWebState<
   }
 
   Widget? buildCount() {
-    final count = controller.count;
+    final count = snapshot.count;
     if (count == null) return null;
     return Text(
       '共 $count 视频',
@@ -146,9 +172,9 @@ abstract class BaseVideoWebState<
   }
 
   Widget? buildPageBtn(ColorScheme colorScheme) {
-    final totalPage = controller.totalPage;
+    final totalPage = snapshot.totalPage;
     if (totalPage == null) return null;
-    final page = controller.page - 1;
+    final page = snapshot.page;
     final canBackward = page > 1;
     final canForward = page < totalPage;
     const size = 30.0;
@@ -159,7 +185,7 @@ abstract class BaseVideoWebState<
       iconSize: iconSize,
       tooltip: canBackward ? '上一页' : null,
       icon: const Icon(Icons.keyboard_arrow_left),
-      onPressed: canBackward ? () => controller.jumpToPage(page - 1) : null,
+      onPressed: canBackward ? () => _jump(page - 1) : null,
     );
 
     final forwardBtn = iconButton(
@@ -167,7 +193,7 @@ abstract class BaseVideoWebState<
       iconSize: iconSize,
       tooltip: canForward ? '下一页' : null,
       icon: const Icon(Icons.keyboard_arrow_right),
-      onPressed: canForward ? () => controller.jumpToPage(page + 1) : null,
+      onPressed: canForward ? () => _jump(page + 1) : null,
     );
 
     final pageIndicator = SearchText(
@@ -191,23 +217,20 @@ abstract class BaseVideoWebState<
 
   void showJumpDialog(int page) {
     var pageStr = page.toString();
-    final owner = controller.queryContext;
-    final source = controller.loadingState.value;
+    final current = controller.capture();
 
     void onSubmit([_]) {
-      if (controller.isClosed ||
-          !identical(owner, controller.queryContext) ||
-          !identical(source, controller.loadingState.value)) {
+      if (!mounted || !current()) {
         SmartDialog.showToast('列表已更新，请重新选择页数');
         return;
       }
       final target = int.tryParse(pageStr);
-      final total = controller.totalPage;
+      final total = snapshot.totalPage;
       if (target == null || total == null || total < 1) {
         SmartDialog.showToast('请输入有效页数');
         return;
       }
-      controller.jumpToPage(target.clamp(1, total));
+      _jump(target.clamp(1, total));
     }
 
     showConfirmDialog(

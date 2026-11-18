@@ -6,6 +6,8 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_listings.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
+import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -30,7 +32,8 @@ void main() {
     close = subscription.close;
   }
 
-  state() => container.read(spaceBangumiProvider(query));
+  DiscoveryListingState<SpaceArchiveItem, int> state() =>
+      container.read(spaceBangumiProvider(query));
   LoginAccount account(String token) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': token}),
     null,
@@ -83,7 +86,7 @@ void main() {
     await interceptor.waitForRequests(2);
     await resolve(1, data([1], count: 1));
     await reload;
-    expect(state().loading.data!.single.param, '1');
+    expect(state().loading.data.single.param, '1');
     expect(!state().hasMore, isTrue);
   });
 
@@ -99,7 +102,7 @@ void main() {
     await resolve(1, {'code': -403, 'message': '暂不可读取'});
     await pending;
     expect(state().error, isA<Error>());
-    expect(state().loading.data!.single.param, '1');
+    expect(state().loading.data.single.param, '1');
     pending = controller().retry();
     await interceptor.waitForRequests(3);
     expect(requests.last.options.queryParameters['pn'], 2);
@@ -107,7 +110,7 @@ void main() {
     await pending;
     expect(state().error, isNull);
     expect(!state().hasMore, isTrue);
-    expect(state().loading.data!.map((row) => row.param), [
+    expect(state().loading.data.map((row) => row.param), [
       '1',
       '2',
     ]);
@@ -128,7 +131,7 @@ void main() {
     await resolve(2, data([3], count: 1));
     await resolve(1, {'code': -403, 'message': '旧分页错误'});
     await oldPage;
-    expect(state().loading.data!.single.param, '3');
+    expect(state().loading.data.single.param, '3');
     expect(state().error, isNull);
     close();
     await container.pump();
@@ -151,7 +154,7 @@ void main() {
     await resolve(1, {'code': -403, 'message': '旧错误'});
     await oldPage;
     expect(state().error, isNull);
-    expect(state().loading.data!.single.param, '2');
+    expect(state().loading.data.single.param, '2');
   });
   testWidgets('番剧页无需父控制器，目标变化与卸载释放旧查询和账号订阅', (tester) async {
     Widget view(int mid) => ProviderScope(

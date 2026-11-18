@@ -4,14 +4,13 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space_fav/data.dart';
-import 'package:pili_aurora_next/pages/member_favorite/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_favorites.dart';
 import 'package:pili_aurora_next/pages/member_favorite/widget/item.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MemberFavorite extends StatefulWidget {
+class MemberFavorite extends ConsumerStatefulWidget {
   const MemberFavorite({
     super.key,
     required this.heroTag,
@@ -22,42 +21,44 @@ class MemberFavorite extends StatefulWidget {
   final int mid;
 
   @override
-  State<MemberFavorite> createState() => _MemberFavoriteState();
+  ConsumerState<MemberFavorite> createState() => _MemberFavoriteState();
 }
 
-class _MemberFavoriteState extends State<MemberFavorite>
+class _MemberFavoriteState extends ConsumerState<MemberFavorite>
     with AutomaticKeepAliveClientMixin, GridMixin {
   @override
   bool get wantKeepAlive => true;
 
-  late final MemberFavoriteCtr _controller;
+  final _owner = Object();
+  SpaceFavoritesQuery get _query => (owner: _owner, mid: widget.mid);
+  SpaceFavorites get _favorites =>
+      ref.read(spaceFavoritesProvider(_query).notifier);
+  bool _showFolders = true;
+  bool _showSubscriptions = true;
+  bool _returnToTop = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      MemberFavoriteCtr(mid: widget.mid),
-      tag: widget.heroTag,
-    );
+  bool _consumeReturnToTop() {
+    final flag = _returnToTop;
+    _returnToTop = false;
+    return flag;
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final state = ref.watch(spaceFavoritesProvider(_query));
     return refreshIndicator(
       isClampingScrollPhysics: true,
-      onRefresh: _controller.onRefresh,
+      onRefresh: _favorites.refresh,
       child: CustomScrollView(
-        physics: _FavScrollPhysics(controller: _controller),
+        physics: _FavScrollPhysics(returnToTop: _consumeReturnToTop),
         slivers: [
           SliverPadding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
             ),
-            sliver: Obx(
-              () => _buildBody(theme, _controller.loadingState.value),
-            ),
+            sliver: _buildBody(theme, state),
           ),
         ],
       ),
@@ -66,7 +67,7 @@ class _MemberFavoriteState extends State<MemberFavorite>
 
   Widget _buildBody(
     ThemeData theme,
-    LoadingState<List<SpaceFavData>?> loadingState,
+    LoadingState<FavoriteSections> loadingState,
   ) {
     return switch (loadingState) {
       Loading() => SliverPadding(
@@ -80,129 +81,102 @@ class _MemberFavoriteState extends State<MemberFavorite>
         ),
       ),
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.folders != null && response.subscriptions != null
             ? SliverMainAxisGroup(
                 slivers: [
-                  _buildItem(
-                    theme,
-                    data: _controller.favState,
-                    isEnd: _controller.favEnd,
-                    isFav: true,
-                  ),
-                  _buildItem(
-                    theme,
-                    data: _controller.subState,
-                    isEnd: _controller.subEnd,
-                    isFav: false,
-                  ),
+                  _buildItem(theme, response.folders!, subscribed: false),
+                  _buildItem(theme, response.subscriptions!, subscribed: true),
                 ],
               )
-            : HttpError(onReload: _controller.onReload),
+            : HttpError(onReload: () => _favorites.refresh(clear: true)),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: () => _favorites.refresh(clear: true),
       ),
     };
   }
 
   Widget _buildItem(
-    ThemeData theme, {
-    required Rx<SpaceFavData> data,
-    required RxBool isEnd,
-    required bool isFav,
+    ThemeData theme,
+    FavoriteSection data, {
+    required bool subscribed,
   }) {
+    final expanded = subscribed ? _showSubscriptions : _showFolders;
     return SliverMainAxisGroup(
       slivers: [
         SliverPinnedHeader(
           child: Material(
             color: theme.colorScheme.surface,
-            child: Builder(
-              builder: (context) {
-                return InkWell(
-                  onTap: () {
-                    _controller.setExpand(isFav);
-                    (context as Element).markNeedsBuild();
-                    data.refresh();
-                    if (!isEnd.value) {
-                      isEnd.refresh();
-                    }
-                  },
-                  child: Padding(
-                    padding: const .symmetric(horizontal: 12, vertical: 10),
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          WidgetSpan(
-                            alignment: .middle,
-                            child: Icon(
-                              _controller.isExpand(isFav)
-                                  ? Icons.expand_less
-                                  : Icons.expand_more,
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' ${data.value.name}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          TextSpan(
-                            text: ' ${data.value.mediaListResponse?.count}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                        ],
+            child: InkWell(
+              onTap: () => setState(() {
+                if (subscribed) {
+                  _showSubscriptions = !_showSubscriptions;
+                } else {
+                  _returnToTop = _showFolders;
+                  _showFolders = !_showFolders;
+                }
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      WidgetSpan(
+                        alignment: .middle,
+                        child: Icon(
+                          expanded ? Icons.expand_less : Icons.expand_more,
+                          color: theme.colorScheme.outline,
+                        ),
                       ),
-                    ),
+                      TextSpan(
+                        text: ' ${data.name}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      TextSpan(
+                        text: ' ${data.count}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         ),
-        Obx(() {
-          final list = data.value.mediaListResponse?.list;
-          if (!_controller.isExpand(isFav)) {
-            return const SliverToBoxAdapter();
-          }
-          if (list != null && list.isNotEmpty) {
-            return SliverGrid.builder(
-              gridDelegate: gridDelegate,
-              itemCount: list.length,
-              itemBuilder: (context, index) {
-                final item = list[index];
-                return SizedBox(
-                  height: 110,
-                  child: MemberFavItem(
-                    item: item,
-                    onDelete: _controller.folderDeletionAction(!isFav, item),
-                  ),
-                );
-              },
-            );
-          }
-          return const SliverToBoxAdapter();
-        }),
-        Obx(
-          () => isEnd.value || !_controller.isExpand(isFav)
-              ? const SliverToBoxAdapter()
-              : SliverToBoxAdapter(child: _buildLoadMoreItem(theme, isFav)),
-        ),
+        if (expanded && data.items.isNotEmpty)
+          SliverGrid.builder(
+            gridDelegate: gridDelegate,
+            itemCount: data.items.length,
+            itemBuilder: (context, index) {
+              final item = data.items[index];
+              return SizedBox(
+                height: 110,
+                child: MemberFavItem(
+                  item: item,
+                  onDelete: _favorites.deletionAction(subscribed, item),
+                ),
+              );
+            },
+          ),
+        if (expanded && data.nextPage != null)
+          SliverToBoxAdapter(child: _buildLoadMoreItem(theme, subscribed)),
       ],
     );
   }
 
-  Widget _buildLoadMoreItem(ThemeData theme, bool isFav) {
+  Widget _buildLoadMoreItem(ThemeData theme, bool subscribed) {
     return Padding(
       padding: const .only(top: 7),
       child: InkWell(
-        onTap: () {
-          if (isFav) {
-            _controller.userFavFolder();
-          } else {
-            _controller.userSubFolder();
-          }
+        onTap: () async {
+          final result = await _favorites.more(subscribed: subscribed);
+          if (mounted && result is Error) result.toast();
         },
         child: Container(
           height: 40,
@@ -219,15 +193,15 @@ class _MemberFavoriteState extends State<MemberFavorite>
 }
 
 class _FavScrollPhysics extends AlwaysScrollableScrollPhysics {
-  const _FavScrollPhysics({super.parent, required this.controller});
+  const _FavScrollPhysics({super.parent, required this.returnToTop});
 
-  final MemberFavoriteCtr controller;
+  final bool Function() returnToTop;
 
   @override
   _FavScrollPhysics applyTo(ScrollPhysics? ancestor) {
     return _FavScrollPhysics(
       parent: buildParent(ancestor),
-      controller: controller,
+      returnToTop: returnToTop,
     );
   }
 
@@ -238,8 +212,7 @@ class _FavScrollPhysics extends AlwaysScrollableScrollPhysics {
     required bool isScrolling,
     required double velocity,
   }) {
-    if (controller.flag) {
-      controller.flag = false;
+    if (returnToTop()) {
       return 0;
     }
     return super.adjustPositionForNewDimensions(

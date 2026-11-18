@@ -1,19 +1,17 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/self_sized_horizontal_list.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
-import 'package:pili_aurora_next/models/remote/member/search_archive/data.dart';
-import 'package:pili_aurora_next/models/remote/member/search_archive/vlist.dart';
-import 'package:pili_aurora_next/pages/member_video_web/archive/controller.dart';
 import 'package:pili_aurora_next/pages/member_video_web/base/view.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MemberVideoWeb extends StatefulWidget {
+class MemberVideoWeb extends ConsumerStatefulWidget {
   const MemberVideoWeb({super.key});
 
   @override
-  State<MemberVideoWeb> createState() => _MemberVideoWebState();
+  ConsumerState<MemberVideoWeb> createState() => _MemberVideoWebState();
 
   static Future<void>? toMemberVideoWeb({
     required Object mid,
@@ -30,28 +28,16 @@ class MemberVideoWeb extends StatefulWidget {
 }
 
 class _MemberVideoWebState
-    extends
-        BaseVideoWebState<
-          MemberVideoWeb,
-          SearchArchiveData,
-          VListItemModel,
-          ArchiveOrderTypeWeb
-        > {
+    extends BaseVideoWebState<MemberVideoWeb, ArchiveOrderTypeWeb> {
   @override
-  late final MemberVideoWebCtr controller;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = Get.put(MemberVideoWebCtr(), tag: name);
-  }
+  ArchiveOrderTypeWeb get selectedOrder => controller.order;
 
   @override
   List<ArchiveOrderTypeWeb> get values => ArchiveOrderTypeWeb.values;
 
   @override
   Widget? buildTags(ColorScheme colorScheme) {
-    if (controller.tags case final tags?) {
+    if (snapshot.tags case final tags?) {
       return SliverPinnedHeader(
         backgroundColor: colorScheme.surface,
         child: SelfSizedHorizontalList(
@@ -70,10 +56,8 @@ class _MemberVideoWebState
               textColor: isCurr ? colorScheme.onSecondaryContainer : null,
               onTap: (_) {
                 if (isCurr) return;
-                controller
-                  ..tid = item.tid ?? 0
-                  ..specialType = item.specialType
-                  ..onReload();
+                reload = true;
+                controller.selectTag(item);
               },
             );
           },
