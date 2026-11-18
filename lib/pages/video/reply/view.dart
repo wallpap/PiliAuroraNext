@@ -266,6 +266,7 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
       final comments = _comments;
       final current = comments.capture();
+      final targetIsCurrent = widget.targetIsCurrent;
       final state = _snapshot;
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
@@ -281,7 +282,7 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
           isNested: widget.isNested,
           upMid: state.upMid,
           onUpdate: () {
-            if (current()) comments.touch();
+            if (mounted && targetIsCurrent() && current()) comments.touch();
           },
         ),
       );

@@ -66,7 +66,7 @@ class Comments extends Notifier<CommentsState> {
   late _Owner _owner;
   late Object _accountGeneration;
   Object? _pinOperation;
-  bool get _writingPin => identical(_pinOperation, _owner);
+  bool get _writingPin => identical(_pinOperation, _accountGeneration);
   late ReplySortType _sort;
 
   @override
@@ -92,6 +92,10 @@ class Comments extends Notifier<CommentsState> {
       identical(owner, _owner) &&
       identical(owner.account, ref.read(mainAccountProvider));
 
+  bool get checkCommentVisibility =>
+      Pref.enableCommAntifraud || sendVisibilityCheck;
+  bool get sendVisibilityCheck => Pref.biliSendCommAntifraud;
+
   Account get accountIdentity => _owner.account;
 
   bool Function() capture() {
@@ -114,6 +118,8 @@ class Comments extends Notifier<CommentsState> {
       sort: _sort,
       count: previous.count,
       root: previous.root,
+      subject: clear ? null : previous.subject,
+      vote: clear ? null : previous.vote,
     );
     await _load(owner, replacing: true);
   }
@@ -337,7 +343,11 @@ class Comments extends Notifier<CommentsState> {
   void remove(ReplyInfo item, int? childIndex) {
     if (!_current(_owner)) return;
     final current = state.loading.dataOrNull;
-    if (current == null || state.busy) return;
+    if (state.busy) {
+      unawaited(refresh());
+      return;
+    }
+    if (current == null) return;
     final items = [...current];
     final index = items.indexWhere((row) => row.id == item.id);
     if (index < 0) return;
@@ -363,34 +373,42 @@ class Comments extends Notifier<CommentsState> {
     final owner = _owner;
     if (!_current(owner) ||
         _writingPin ||
-        state.busy ||
         state.loading.dataOrNull?.any((row) => identical(row, item)) != true) {
       return null;
     }
     final isPinned = item.replyControl.isUpTop;
-    _pinOperation = owner;
+    final generation = _accountGeneration;
+    final current = capture();
+    _pinOperation = generation;
     try {
       final result = await ref
           .read(commentsRepositoryProvider)
           .togglePinned(owner.account, target ?? query.target, item);
-      if (!_current(owner)) return null;
+      if (!current()) return null;
       final items = [...?state.loading.dataOrNull];
       final index = items.indexWhere((row) => row.id == item.id);
-      if (index < 0) return null;
+      if (result.isSuccess && (!_current(owner) || state.busy || index < 0)) {
+        unawaited(refresh());
+        return result;
+      }
       if (result.isSuccess) {
         final updated = items[index].deepCopy()
           ..ensureReplyControl().isUpTop = !isPinned;
         items[index] = updated;
-        if (!isPinned && index != 0) {
-          items[0] = items.first.deepCopy()
-            ..ensureReplyControl().isUpTop = false;
-          items.insert(0, items.removeAt(index));
+        if (!isPinned) {
+          for (var i = 0; i < items.length; i++) {
+            if (i != index && items[i].replyControl.isUpTop) {
+              items[i] = items[i].deepCopy()
+                ..ensureReplyControl().isUpTop = false;
+            }
+          }
+          if (index != 0) items.insert(0, items.removeAt(index));
         }
         _replace(items, state.count);
       }
       return result;
     } finally {
-      if (identical(_pinOperation, owner)) _pinOperation = null;
+      if (identical(_pinOperation, generation)) _pinOperation = null;
     }
   }
 

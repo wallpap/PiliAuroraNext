@@ -276,8 +276,12 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
                   replyItem: response[index],
                   replyLevel: 1,
                   replyReply: (item, id) => replyReply(context, item, id),
-                  onReply: (item, {oid, replyType, index}) =>
-                      _compose(context, item, oid: oid, replyType: replyType),
+                  onReply: (item, {oid, replyType, index}) => _compose(
+                    this.context,
+                    item,
+                    oid: oid,
+                    replyType: replyType,
+                  ),
                   onDelete: (item, subIndex) =>
                       comments?.remove(item, subIndex),
                   upMid: snapshot?.upMid,
@@ -307,7 +311,9 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
                   ? '暂无符合等级条件的评论'
                   : '还没有评论'),
           btnText: snapshot?.hasMore == true ? '继续加载' : null,
-          onReload: snapshot?.hasMore == true
+          onReload: snapshot == null
+              ? controller.onReload
+              : snapshot.hasMore
               ? () => comments?.loadMore(retry: true)
               : () => refreshComments(clear: true),
         );

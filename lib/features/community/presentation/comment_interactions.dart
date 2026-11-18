@@ -10,7 +10,6 @@ import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/video/reply_new/view.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/reply_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 编辑器路由暂存当前页面的草稿，提交结果交回原评论目标。
 class CommentInteractions {
@@ -84,14 +83,14 @@ class CommentInteractions {
             if (!context.mounted || !current()) return;
             _drafts.remove(key);
             comments.published(reply, parent: item);
-            if (reply != null &&
-                (Pref.enableCommAntifraud || Pref.biliSendCommAntifraud)) {
+            if (reply != null && comments.checkCommentVisibility) {
               check(
                 comments,
                 sourceId,
                 reply,
                 isManual: false,
                 sourceRoute: route,
+                targetIsCurrent: current,
               );
             }
           },
@@ -106,13 +105,14 @@ class CommentInteractions {
     ReplyInfo item, {
     bool isManual = true,
     Route<dynamic>? sourceRoute,
+    bool Function()? targetIsCurrent,
   }) => ReplyUtils.onCheckReply(
     replyInfo: item,
-    biliSendCommAntifraud: Pref.biliSendCommAntifraud,
+    biliSendCommAntifraud: comments.sendVisibilityCheck,
     sourceId: sourceId,
     isManual: isManual,
     sourceRoute: sourceRoute,
-    ownerIsCurrent: comments.capture(),
+    ownerIsCurrent: targetIsCurrent ?? comments.capture(),
   );
 
   Future<void> togglePinned(

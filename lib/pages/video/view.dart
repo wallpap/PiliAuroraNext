@@ -69,6 +69,7 @@ import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart'
     show shutdownTimerService;
+import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
@@ -107,6 +108,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   final _replyCount = ValueNotifier<int?>(null);
   final _loadedReplyCount = ValueNotifier<int?>(null);
 
+  void _onReplyAccountChanged() {
+    _replyCount.value = null;
+    _loadedReplyCount.value = null;
+  }
+
   void _onReplyTargetChanged() {
     final controller = videoDetailController;
     final oid = controller.videoType == VideoType.pugv
@@ -118,8 +124,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             aid: controller.aid,
             target: (oid: oid, type: controller.videoType.replyType),
           );
-    _replyCount.value = null;
-    _loadedReplyCount.value = null;
+    _onReplyAccountChanged();
+    if (_replyScroll.hasClients) _replyScroll.jumpTo(0);
   }
 
   PlPlayerController? plPlayerController;
@@ -205,6 +211,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
 
     if (videoDetailController.showReply) {
+      Accounts.mainChanges.addListener(_onReplyAccountChanged);
       _onReplyTargetChanged();
       videoDetailController.onReplyTargetChanged = _onReplyTargetChanged;
       videoDetailController.onReplyCount = (count) => _replyCount.value = count;
@@ -374,6 +381,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    Accounts.mainChanges.removeListener(_onReplyAccountChanged);
     videoDetailController.onReplyTargetChanged = null;
     videoDetailController.onReplyCount = null;
     _replyTarget.dispose();

@@ -469,6 +469,38 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('置顶确认跨刷新保留操作锁，并重读已确认的顺序', (tester) async {
+    await mount(tester, const SizedBox());
+    final first = ReplyInfo(id: Int64.ONE);
+    final second = ReplyInfo(id: Int64(2));
+    MainListReply page({ReplyInfo? pinned}) => MainListReply(
+      replies: [first, second],
+      upTop: pinned,
+      cursor: CursorReply(isEnd: true),
+    );
+    final fixture = _PinFixture()..responses.add(Success(page()));
+    final container = commentContainer(fixture);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    final comments = container.read(provider.notifier);
+    await tester.pump();
+    List<ReplyInfo> rows() => container.read(provider).loading.data;
+    final pending = comments.togglePinned(rows().last);
+    await until(tester, () => requests.length == 1);
+    fixture.responses.add(Success(page()));
+    await comments.refresh();
+    expect(await comments.togglePinned(rows().last), isNull);
+    expect(requests, hasLength(1));
+    fixture.responses.add(Success(page(pinned: second)));
+    requests.single.reply.complete({'code': 0});
+    await settle(tester);
+    expect(await pending, isA<Success>());
+    expect(fixture.reads, hasLength(3));
+    expect(rows().first.id, second.id);
+    expect(rows().first.replyControl.isUpTop, isTrue);
+    await finish(tester);
+  });
+
   testWidgets('评论管理：评论开关保留失败与成功文案，切号取消延迟刷新', (tester) async {
     await mount(tester, const SizedBox());
     final controller = _Detail()

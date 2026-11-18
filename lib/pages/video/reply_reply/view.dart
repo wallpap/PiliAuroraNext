@@ -120,7 +120,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   ExtendedNestedScrollController? _nestedController;
   Int64? _highlight;
   late int? _pendingReply = widget.id;
-  late final Object _seedAccount;
+  late Object _seedAccount;
   bool _showSeed = true;
 
   bool get isDialogue => widget.dialog != null;
@@ -149,6 +149,25 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       context,
       listen: false,
     ).read(mainAccountProvider);
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoReplyReplyPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.oid == widget.oid &&
+        oldWidget.rpid == widget.rpid &&
+        oldWidget.id == widget.id &&
+        oldWidget.dialog == widget.dialog &&
+        oldWidget.replyType == widget.replyType) {
+      return;
+    }
+    _highlight = null;
+    _pendingReply = widget.id;
+    _seedAccount = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(mainAccountProvider);
+    _showSeed = true;
   }
 
   @override
@@ -231,7 +250,11 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       final snapshot = ref.watch(provider);
       final comments = ref.read(provider.notifier);
       final account = ref.watch(mainAccountProvider);
-      if (!identical(_seedAccount, account)) _showSeed = false;
+      if (!identical(_seedAccount, account)) {
+        _showSeed = false;
+        _highlight = null;
+        _pendingReply = null;
+      }
       final root = snapshot.root ?? (_showSeed ? widget.firstFloor : null);
       final controller = _nestedController ?? _scrollController;
       final rows = snapshot.loading.dataOrNull;
