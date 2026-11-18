@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/skeleton/video_card_h.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/models/common/search/video_search_type.dart';
@@ -104,13 +105,21 @@ mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
 
   @override
   Widget buildList(List<SearchVideoItemModel> list) {
+    final pending = controller.results?.pendingItems;
+    final indexes = {for (final (index, item) in list.indexed) item: index};
     return SliverGrid.builder(
       gridDelegate: gridDelegate,
+      findChildIndexCallback: (key) => indexes[(key as ObjectKey).value],
       itemBuilder: (context, index) {
-        return VideoCardH(
-          videoItem: list[index],
-          onRemove: () => removeItem(list[index]),
-        );
+        final item = list[index];
+        final key = ObjectKey(item);
+        return pending?.contains(item) == true
+            ? VideoCardHSkeleton(key: key)
+            : VideoCardH(
+                key: key,
+                videoItem: item,
+                onRemove: () => removeItem(item),
+              );
       },
       itemCount: list.length,
     );

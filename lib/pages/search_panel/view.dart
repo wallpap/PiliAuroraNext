@@ -203,6 +203,8 @@ abstract class CommonSearchPanelState<
                   controller.results?.activities.isNotEmpty == true ||
                   controller.results?.esports != null)
           ? buildList(response)
+          : controller.results?.loadingMore == true
+          ? buildLoading
           : HttpError(onReload: _reload),
     Error(:final errMsg) => HttpError(errMsg: errMsg, onReload: _reload),
   };

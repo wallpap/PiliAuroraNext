@@ -47,6 +47,7 @@ class CooperativeAuthors {
   Future<void> prepare(
     List<CooperativeVideo> videos, {
     required bool Function() isCurrent,
+    void Function(CooperativeVideo)? onChecked,
   }) async {
     var index = 0;
     Future<void> worker() async {
@@ -58,9 +59,10 @@ class CooperativeAuthors {
             : video.aid != null && video.aid! > 0
             ? IdUtils.av2bv(video.aid!)
             : null;
-        if (bvid == null) continue;
-        final mids = await _resolve(bvid);
-        if (isCurrent() && mids != null) video.authors.mids = mids;
+        final mids = bvid == null ? null : await _resolve(bvid);
+        if (!isCurrent()) return;
+        if (mids != null) video.authors.mids = mids;
+        onChecked?.call(video);
       }
     }
 

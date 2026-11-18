@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
+import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/models/search/search_esports.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
@@ -38,17 +41,20 @@ class SearchResultsState {
     this.error,
     this.emptyPages = 0,
     this.firstAid,
+    Iterable<Object> pendingItems = const [],
     Iterable<SearchUser> users = const [],
     Iterable<SearchPgcItemModel> media = const [],
     Iterable<SearchActivity> activities = const [],
     this.esports,
     Object? source,
   }) : items = List.unmodifiable(items),
+       pendingItems = Set.unmodifiable(pendingItems),
        users = List.unmodifiable(users),
        media = List.unmodifiable(media),
        activities = List.unmodifiable(activities),
        source = source ?? Object();
   final List<dynamic> items;
+  final Set<Object> pendingItems;
   final List<SearchUser> users;
   final List<SearchPgcItemModel> media;
   final List<SearchActivity> activities;
@@ -68,6 +74,7 @@ class SearchResultsState {
     Iterable<dynamic>? items,
   }) => SearchResultsState(
     items: items ?? this.items,
+    pendingItems: pendingItems,
     nextPage: nextPage,
     hasMore: hasMore,
     total: total,
@@ -94,7 +101,9 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
     final main = ref.watch(mainAccountProvider);
     _token = null;
     _hidden = {};
-    return _page(ref, account, main, null);
+    final initial = Completer<SearchResultsState>();
+    unawaited(_readPages(ref, account, main, null, initial: initial));
+    return initial.future;
   }
 
   bool _current(Ref owner, Account account, Account main) =>
@@ -109,12 +118,13 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
     Account account,
     Account main,
     SearchResultsState? before,
+    void Function(SearchResultsState) publish,
   ) async {
     final hidden = _hidden;
     final filters = Map<String, dynamic>.from(jsonDecode(query.filters) as Map);
     final filtering = Pref.filterBlockedAuthors;
-    await BlockedAuthors.ensureLoaded();
-    if (!_current(owner, account, main)) throw const Error('查询已更新');
+    final blacklist = BlockedAuthors.ensureLoaded();
+    final includeCoauthors = Pref.checkCooperativeAuthors;
     var page = before?.nextPage ?? 1;
     var emptyPages = before?.emptyPages ?? 0;
     var more = false;
@@ -124,11 +134,37 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
     var media = before?.media ?? <SearchPgcItemModel>[];
     var activities = before?.activities ?? <SearchActivity>[];
     var esports = before?.esports;
+    final source = before?.source ?? Object();
     final items = <dynamic>[...?before?.items];
+    final pending = <CooperativeVideo, Object>{};
     final seen = <Object>{
       for (final item in items) _identity(item),
     };
     final startLength = items.length;
+    bool isCurrent() => _current(owner, account, main);
+    bool isBlocked(Object? item) =>
+        filtering &&
+        MediaAuthorFilter.isBlocked(
+          item,
+          BlockedAuthors.contains,
+          includeCoauthors: includeCoauthors,
+        );
+    SearchResultsState snapshot({bool loadingMore = false}) =>
+        SearchResultsState(
+          items: items.where((item) => !hidden.contains(_identity(item))),
+          pendingItems: pending.values,
+          total: total,
+          nextPage: page,
+          hasMore: more,
+          firstAid: firstAid,
+          users: users,
+          media: media,
+          activities: activities,
+          esports: esports,
+          source: source,
+          emptyPages: emptyPages,
+          loadingMore: loadingMore,
+        );
     for (var attempt = 0; attempt < 5; attempt++) {
       final type =
           query.type == SearchType.all &&
@@ -150,7 +186,8 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
         pubEnd: filters['pubEnd'],
         gaiaVtoken: _token,
       );
-      if (!_current(owner, account, main)) throw const Error('查询已更新');
+      if (attempt == 0 && blacklist != null) await blacklist;
+      if (!isCurrent()) throw const Error('查询已更新');
       final data = result.data;
       final rows = data.list ?? <dynamic>[];
       if (page == 1) {
@@ -165,75 +202,79 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
           esports = data.searchEsports;
         }
       }
-      if (filtering && Pref.checkCooperativeAuthors) {
-        final videos = MediaAuthorFilter.videos(rows)
-            .where(
-              (e) =>
-                  e.authors.isCooperation &&
-                  e.authors.mids == null &&
-                  !BlockedAuthors.contains(e.ownerMid),
-            )
-            .toList();
-        if (videos.isNotEmpty) {
-          await CooperativeAuthors.shared.prepare(
-            videos,
-            isCurrent: () => _current(owner, account, main),
-          );
-        }
-      }
-      if (!_current(owner, account, main)) throw const Error('查询已更新');
       final oldLength = items.length;
       for (final item in rows) {
-        if (filtering &&
-            MediaAuthorFilter.isBlocked(
-              item,
-              BlockedAuthors.contains,
-              includeCoauthors: Pref.checkCooperativeAuthors,
-            )) {
-          continue;
-        }
+        if (isBlocked(item)) continue;
         final key = _identity(item);
-        if (!hidden.contains(key) && seen.add(key)) items.add(item);
+        if (hidden.contains(key) || !seen.add(key)) continue;
+        items.add(item);
+        if (const DiscoveryFilter().authorsToCheck(item).firstOrNull
+            case final video?) {
+          pending[video] = item as Object;
+        }
       }
-      emptyPages = items.length == oldLength ? emptyPages + 1 : 0;
       more =
           rows.isNotEmpty &&
-          (total == null ? rows.length >= 20 : page * 20 < total) &&
-          emptyPages < 5;
-      if (!filtering && items.length == oldLength) more = false;
+          (total == null ? rows.length >= 20 : page * 20 < total);
       page++;
-      if (!more || !filtering || items.length - startLength >= 20) break;
+      if (pending.isNotEmpty) {
+        publish(snapshot(loadingMore: true));
+        await CooperativeAuthors.shared.prepare(
+          pending.keys.toList(),
+          isCurrent: isCurrent,
+          onChecked: (video) {
+            final item = pending.remove(video)!;
+            if (isBlocked(item)) {
+              items.remove(item);
+              seen.remove(_identity(item));
+            }
+            if (pending.isNotEmpty) publish(snapshot(loadingMore: true));
+          },
+        );
+        if (!isCurrent()) throw const Error('查询已更新');
+      }
+      emptyPages = items.length == oldLength ? emptyPages + 1 : 0;
+      more = more && emptyPages < 5 && (filtering || items.length > oldLength);
+      if (!more ||
+          !filtering ||
+          items.length - startLength >= 20 ||
+          attempt == 4) {
+        break;
+      }
+      publish(snapshot(loadingMore: true));
     }
-    return SearchResultsState(
-      items: items.where((item) => !hidden.contains(_identity(item))),
-      total: total,
-      nextPage: page,
-      hasMore: more,
-      firstAid: firstAid,
-      users: users,
-      media: media,
-      activities: activities,
-      esports: esports,
-      source: before?.source,
-      emptyPages: emptyPages,
-    );
+    return snapshot();
   }
 
-  Future<void> _verified(
+  Future<void> _readPages(
     Ref owner,
     Account account,
     Account main,
-    SearchResultsState? before,
-  ) async {
-    state = before == null
-        ? const AsyncLoading()
-        : AsyncData(before.operation(loadingMore: true));
+    SearchResultsState? before, {
+    Completer<SearchResultsState>? initial,
+  }) async {
+    if (initial == null) {
+      state = before == null
+          ? const AsyncLoading()
+          : AsyncData(before.operation(loadingMore: true));
+    }
+    var latest = before;
+    void publish(SearchResultsState snapshot) {
+      latest = snapshot;
+      if (initial != null && !initial.isCompleted) {
+        initial.complete(snapshot);
+      } else if (_current(owner, account, main)) {
+        state = AsyncData(snapshot);
+      }
+    }
+
     try {
-      final result = await _page(owner, account, main, before);
-      if (_current(owner, account, main)) state = AsyncData(result);
+      publish(await _page(owner, account, main, before, publish));
     } catch (error, stack) {
-      if (_current(owner, account, main)) {
-        state = before == null
+      if (initial != null && !initial.isCompleted) {
+        initial.completeError(error, stack);
+      } else if (_current(owner, account, main)) {
+        state = latest == null
             ? AsyncError(error, stack)
             : AsyncData(state.requireValue.operation(error: error));
       }
@@ -254,7 +295,7 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
     final main = owner.read(mainAccountProvider);
     if (!_current(owner, account, main)) return;
     _token = token;
-    await _verified(owner, account, main, before);
+    await _readPages(owner, account, main, before);
   }
 
   Future<void> loadMore({bool retry = false}) async {
@@ -271,7 +312,7 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
     final account = owner.read(recommendAccountProvider);
     final main = owner.read(mainAccountProvider);
     if (!_current(owner, account, main)) return;
-    await _verified(owner, account, main, before);
+    await _readPages(owner, account, main, before);
   }
 
   void remove(Object item) {

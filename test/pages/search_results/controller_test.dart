@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:pili_aurora_next/http/validate.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 
@@ -134,6 +136,67 @@ void main() {
   tearDownAll(() async {
     Request.dio.close(force: true);
     await interceptor.close();
+  });
+
+  test('搜索和黑名单并行，黑名单未完成时不发布结果', () async {
+    GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
+    final provider = searchResultsProvider(query());
+    container.listen(provider, (_, _) {});
+    await dispatched(2);
+    final blacklist = requests.singleWhere(
+      (r) => r.options.path == Api.blackLst,
+    );
+    final search = requests.singleWhere((r) => r.options.path != Api.blackLst);
+    search.reply.complete(page([1], total: 1));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(provider).isLoading, isTrue);
+    blacklist.reply.complete({
+      'code': 0,
+      'data': {'total': 0, 'list': []},
+    });
+    expect((await container.read(provider.future)).items.single.aid, 1);
+  });
+
+  test('普通结果先发布，合作卡片保持原位并在核验后移除', () async {
+    Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
+    GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
+    GStorage.setting.put(SettingBoxKey.checkCooperativeAuthors, true);
+    GlobalData().blackMids = {500};
+    final provider = searchResultsProvider(query());
+    final settled = Completer<SearchResultsState>();
+    container.listen(provider, (_, next) {
+      if (next.value case final data? when !data.loadingMore) {
+        settled.complete(data);
+      }
+    });
+    await dispatched(1);
+    requests.single.reply.complete({
+      'code': 0,
+      'data': {
+        'numResults': 3,
+        'result': [
+          video(40),
+          {...video(41), 'is_union_video': 1},
+          video(42),
+        ],
+      },
+    });
+    await dispatched(2);
+    final first = await container.read(provider.future);
+    expect(first.items.map((item) => item.aid), [40, 41, 42]);
+    expect(first.pendingItems.single, same(first.items[1]));
+    expect(requests.last.options.path, Api.videoIntro);
+    requests.last.reply.complete({
+      'code': 0,
+      'data': {
+        'staff': [
+          {'mid': 500},
+        ],
+      },
+    });
+    final finalPage = await settled.future;
+    expect(finalPage.items, [first.items.first, first.items.last]);
+    expect(finalPage.pendingItems, isEmpty);
   });
 
   test('分类、关键词、页面与筛选快照隔离，请求固定推荐账号', () async {
@@ -410,12 +473,17 @@ void main() {
     GlobalData().blackMids = {200};
     final q = query();
     final provider = searchResultsProvider(q);
-    container.listen(provider, (_, _) {});
+    final settled = Completer<SearchResultsState>();
+    container.listen(provider, (_, next) {
+      if (next.value case final data? when !data.loadingMore) {
+        settled.complete(data);
+      }
+    });
     for (var i = 0; i < 5; i++) {
       await dispatched(i + 1);
       requests[i].reply.complete(page(range(i * 20 + 1, 20), total: 500));
     }
-    final data = await container.read(provider.future);
+    final data = await settled.future;
     expect(data.items, isEmpty);
     expect(data.nextPage, 6);
     expect(data.hasMore, isFalse);
@@ -444,10 +512,18 @@ void main() {
     GlobalData().blackMids = {200};
     final q = query(type: SearchType.all);
     final provider = searchResultsProvider(q);
-    container.listen(provider, (_, _) {});
+    final settled = Completer<SearchResultsState>();
+    container.listen(provider, (_, next) {
+      if (next.value case final data? when !data.loadingMore) {
+        settled.complete(data);
+      }
+    });
     await dispatched(1);
     requests.single.reply.complete(page(range(1, 20), all: true));
     await dispatched(2);
+    final first = await container.read(provider.future);
+    expect(first.users.single.mid, 2);
+    expect(first.loadingMore, isTrue);
     expect(requests.last.options.queryParameters['page'], 2);
     expect(requests.last.options.queryParameters['search_type'], 'video');
     requests.last.reply.complete({
@@ -457,7 +533,7 @@ void main() {
         'result': [for (final id in range(21, 20)) video(id, mid: 300)],
       },
     });
-    final data = await container.read(provider.future);
+    final data = await settled.future;
     expect(data.items, hasLength(20));
     expect(data.items.first.aid, 21);
     expect(data.users.single.mid, 2);
