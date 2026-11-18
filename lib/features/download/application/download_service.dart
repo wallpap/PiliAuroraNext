@@ -8,6 +8,7 @@ import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/domain/download_media.dart';
+import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
     as pgc;
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
@@ -844,12 +845,38 @@ class DownloadService extends ChangeNotifier {
     return const Success(null);
   });
 
-  Future<LoadingState<void>> deletePage({
-    required String pageDirPath,
-    bool refresh = true,
-  }) => _lock.synchronized(() async {
+  Future<LoadingState<void>> deletePage(List<DownloadTask> tasks) {
+    final confirmed = List<DownloadTask>.of(tasks);
+    return _lock.synchronized(() => _deleteConfirmedPage(confirmed));
+  }
+
+  Future<LoadingState<void>> _deleteConfirmedPage(
+    List<DownloadTask> confirmed,
+  ) async {
+    if (_closed ||
+        confirmed.isEmpty ||
+        confirmed.any((task) => task.generation != generation)) {
+      return const DownloadCancelled();
+    }
+    final pageDirPath = confirmed.first.pageDirPath;
     final current = curDownload;
     final isCurrent = current?.pageDirPath == pageDirPath;
+    final expected = Set<Object>.identity()
+      ..addAll(confirmed.map((task) => task.identity));
+    final members = Set<Object>.identity()
+      ..addAll(
+        downloadList
+            .followedBy(waitDownloadQueue)
+            .where(
+              (entry) => entry.pageDirPath == pageDirPath,
+            ),
+      )
+      ..addAll([if (isCurrent) current!]);
+    if (confirmed.any((task) => task.pageDirPath != pageDirPath) ||
+        members.length != expected.length ||
+        !members.containsAll(expected)) {
+      return const Error('下载分组已变化或仍有待下载任务，请重新选择要删除的分 P');
+    }
     try {
       if (isCurrent) {
         await _cancelCurrent(isDelete: true, downloadNext: false);
@@ -864,10 +891,10 @@ class DownloadService extends ChangeNotifier {
     }
     waitDownloadQueue.removeWhere((entry) => entry.pageDirPath == pageDirPath);
     downloadList.removeWhere((e) => e.pageDirPath == pageDirPath);
-    _publishDeletion(refresh);
+    _publishDeletion(true);
     if (isCurrent) nextDownload();
     return const Success(null);
-  });
+  }
 
   Error _deleteFailure(Object error, StackTrace stack) {
     if (_schedulingHolds > 0) _batchDeletionFailed = true;

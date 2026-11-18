@@ -135,14 +135,6 @@ class DownloadLibrary extends Notifier<LoadingState<DownloadSnapshot>> {
           );
   }
 
-  Future<LoadingState<void>> removeGroup(List<DownloadTask> tasks) {
-    if (tasks.isEmpty || tasks.any((task) => _resolve(task) == null)) {
-      return Future.value(const DownloadCancelled());
-    }
-    final directory = tasks.first.pageDirPath;
-    if (tasks.any((task) => task.pageDirPath != directory)) {
-      return Future.value(const Error('下载分组已变化，请刷新后重试'));
-    }
-    return _service.deletePage(pageDirPath: directory);
-  }
+  Future<LoadingState<void>> removeGroup(List<DownloadTask> tasks) =>
+      _service.deletePage(tasks);
 }

@@ -46,23 +46,7 @@ class _Service extends ChangeNotifier implements DownloadService {
     return reply.future;
   }
 
-  final pageRequests = <String>[];
   final replies = <Completer<LoadingState<void>>>[];
-  @override
-  Future<LoadingState<void>> deletePage({
-    required String pageDirPath,
-    bool refresh = true,
-  }) async {
-    pageRequests.add(pageDirPath);
-    final reply = Completer<LoadingState<void>>();
-    replies.add(reply);
-    final result = await reply.future;
-    if (result.isSuccess) {
-      downloadList.removeWhere((entry) => entry.pageDirPath == pageDirPath);
-      notifyListeners();
-    }
-    return result;
-  }
 
   @override
   Future<LoadingState<void>> deleteDownload({

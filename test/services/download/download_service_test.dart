@@ -8,10 +8,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/domain/download_media.dart';
+import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/features/download/application/download_service.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
@@ -451,7 +454,9 @@ void main() {
       pending.curDownload = entry;
       entry.status = DownloadStatus.downloading;
       Future<LoadingState<void>> remove() => wholePage
-          ? pending.deletePage(pageDirPath: entry.pageDirPath)
+          ? pending.deletePage(
+              [entry, completed].map(DownloadTask.capture).toList(),
+            )
           : pending.deleteDownload(entry: entry, removeQueue: true);
       final deletion = remove();
       await repo.started.future;
@@ -644,9 +649,10 @@ void main() {
     expect(Directory(path.join(entry.entryDirPath, '999')).existsSync(), false);
   });
 
-  test('准备完成后提交媒体信息并正常完成下载', () async {
+  test('确认范围之外的新分 P 完成后，旧删除请求不得清理整组', () async {
     final entry = downloadEntry();
     await repository.create(entry);
+    await repository.create(downloadEntry(cid: 22, completed: true));
     await File(path.join(entry.entryDirPath, PathUtils.danmakuName))
         .writeAsBytes([]);
     await File(path.join(entry.entryDirPath, PathUtils.coverName))
@@ -677,11 +683,21 @@ void main() {
         );
       },
     );
-    pending.waitDownloadQueue.add(entry);
+    final container = ProviderContainer.test(
+      overrides: [downloadServiceProvider.overrideWithValue(pending)],
+    );
+    await pending.initDownloadList();
+    container.listen(downloadLibraryProvider, (_, _) {});
+    final confirmed = container.read(downloadLibraryProvider).data.completed;
+    expect(confirmed.single.cid, 22);
+    final commands = container.read(downloadLibraryProvider.notifier);
+    expect(await commands.removeGroup(confirmed), isA<Error>());
+    expect(pending.waitDownloadQueue.single.cid, 11);
+    final active = pending.waitDownloadQueue.single;
     final completion = Completer<void>();
     void changed() {
       if (pending.curDownload == null &&
-          pending.downloadList.isNotEmpty &&
+          pending.downloadList.length == 2 &&
           !completion.isCompleted) {
         completion.complete();
       }
@@ -690,17 +706,24 @@ void main() {
     pending.addListener(changed);
     addTearDown(() => pending.removeListener(changed));
     final completed = completion.future;
-    await pending.startDownload(entry);
+    await pending.startDownload(active);
     await completed.timeout(const Duration(seconds: 5));
-    expect(entry.isCompleted, true);
-    expect(entry.typeTag, '64');
-    expect(entry.pageData!.width, 1920);
+    expect(active.isCompleted, true);
+    expect(active.typeTag, '64');
+    expect(active.pageData!.width, 1920);
     expect(
       await File(path.join(entry.entryDirPath, '64', PathUtils.videoNameType2))
           .readAsBytes(),
       [1, 2, 3],
     );
-    expect((await repository.load()).single.isCompleted, true);
+    expect(await commands.removeGroup(confirmed), isA<Error>());
+    expect(
+      (await repository.load()).map((entry) => entry.cid),
+      unorderedEquals([11, 22]),
+    );
+    final refreshed = container.read(downloadLibraryProvider).data.completed;
+    expect(await commands.removeGroup(refreshed), isA<Success>());
+    expect(await repository.load(), isEmpty);
   });
 
   test('删除等待已开始的文件提交结束，随后清理目录', () async {
@@ -858,7 +881,10 @@ void main() {
     schedulingService.waitDownloadQueue.addAll([active, sibling, remaining]);
     schedulingService.curDownload = active;
 
-    await schedulingService.deletePage(pageDirPath: active.pageDirPath);
+    await schedulingService.deletePage([
+      DownloadTask.capture(active),
+      DownloadTask.capture(sibling),
+    ]);
 
     expect(schedulingService.waitDownloadQueue.map((entry) => entry.cid), [22]);
     expect(schedulingService.started, [22]);
@@ -956,9 +982,10 @@ void main() {
       downloadClient: client,
     );
     schedulingService.waitDownloadQueue.add(active);
+    schedulingService.downloadList.add(removed);
     schedulingService.curDownload = active;
 
-    await schedulingService.deletePage(pageDirPath: removed.pageDirPath);
+    await schedulingService.deletePage([DownloadTask.capture(removed)]);
 
     expect(schedulingService.curDownload, same(active));
     expect(schedulingService.started, isEmpty);
