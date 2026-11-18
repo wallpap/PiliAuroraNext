@@ -41,7 +41,9 @@ class _DynamicsTabPageState extends ConsumerState<DynamicsTabPage>
     with DynMixin {
   VoidCallback? _unregister;
   final _owner = Object();
-  final _scroll = ScrollController();
+  late final _scroll = ScrollController(
+    keepScrollOffset: widget.dynamicsType != DynamicsTabType.up,
+  );
   DynamicsQuery get _query => (
     owner: _owner,
     type: widget.dynamicsType,
@@ -80,7 +82,8 @@ class _DynamicsTabPageState extends ConsumerState<DynamicsTabPage>
     if (widget.dynamicsType == DynamicsTabType.up) {
       ref.watch(dynamicsSelectionProvider.select((value) => value.hostMid));
     }
-    final state = ref.watch(dynamicsFeedProvider(_query));
+    final query = _query;
+    final state = ref.watch(dynamicsFeedProvider(query));
     return refreshIndicator(
       onRefresh: onRefresh,
       child: FeedPagination(
@@ -92,7 +95,9 @@ class _DynamicsTabPageState extends ConsumerState<DynamicsTabPage>
         onLoadMore: controller.onLoadMore,
         child: CustomScrollView(
           scrollCacheExtent: const ScrollCacheExtent.pixels(0),
-          key: PageStorageKey(widget.dynamicsType.name),
+          key: query.type == DynamicsTabType.up
+              ? ValueKey(query.hostMid)
+              : PageStorageKey(query.type.name),
           physics: const AlwaysScrollableScrollPhysics(),
           controller: _scroll,
           slivers: [

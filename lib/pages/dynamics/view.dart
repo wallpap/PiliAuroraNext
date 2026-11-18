@@ -81,6 +81,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     _tabs.index = mid == -1 ? 0 : 4;
     if (same) {
       if (mid == -1) _authors.onRefresh();
+      _active?.scrollController.jumpToTop();
       _active?.onRefresh();
     }
   }

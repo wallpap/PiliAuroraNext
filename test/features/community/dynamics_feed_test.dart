@@ -26,6 +26,8 @@ import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
 class _Repository extends DynamicsRepository {
+  int authorFeedLength = 1;
+  final queriedAuthors = <int>[];
   Completer<LoadingState<FollowUpModel>>? author;
   Completer<LoadingState<DiscoveryPage<DynamicItemModel, DynamicCursor>>>?
   listing;
@@ -37,7 +39,10 @@ class _Repository extends DynamicsRepository {
   }) async => author == null
       ? Success(
           FollowUpModel.fromUpList(null)
-            ..upList = [UpItem(mid: 2, uname: '关注作者')]
+            ..upList = [
+              UpItem(mid: 2, uname: '关注作者'),
+              UpItem(mid: 3, uname: '另一位作者'),
+            ]
             ..hasMore = false,
         )
       : author!.future;
@@ -48,28 +53,41 @@ class _Repository extends DynamicsRepository {
     int hostMid,
     Set<int> banned,
     DynamicCursor? cursor,
-  ) async => listing == null
-      ? Success(
-          DiscoveryPage(
-            [
-              DynamicItemModel.fromJson({
-                'id_str': 'old',
-                'type': 'DYNAMIC_TYPE_WORD',
-                'modules': {
-                  'module_author': {'mid': 1, 'name': '卡片作者'},
-                  'module_stat': {
-                    'forward': {'count': 0},
-                    'comment': {'count': 0},
-                    'like': {'count': 0, 'status': false},
-                  },
-                },
-              }),
-            ],
-            metadata: const DynamicCursor(null, {}),
-            hasMore: false,
-          ),
-        )
-      : listing!.future;
+  ) async {
+    if (type == DynamicsTabType.up) queriedAuthors.add(hostMid);
+    return listing == null
+        ? Success(
+            DiscoveryPage(
+              [
+                for (
+                  var index = 0;
+                  index < (type == DynamicsTabType.up ? authorFeedLength : 1);
+                  index++
+                )
+                  DynamicItemModel.fromJson({
+                    'id_str': '$hostMid-$index',
+                    'type': 'DYNAMIC_TYPE_WORD',
+                    'modules': {
+                      'module_author': {
+                        'mid': 1,
+                        'name': index == 0 && type == DynamicsTabType.all
+                            ? '卡片作者'
+                            : '$hostMid 的动态 $index',
+                      },
+                      'module_stat': {
+                        'forward': {'count': 0},
+                        'comment': {'count': 0},
+                        'like': {'count': 0, 'status': false},
+                      },
+                    },
+                  }),
+              ],
+              metadata: const DynamicCursor(null, {}),
+              hasMore: false,
+            ),
+          )
+        : await listing!.future;
+  }
 }
 
 void main() {
@@ -319,5 +337,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(main.dynamicController, isNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重复选择作者刷新并回顶，切换作者的列表从顶部打开', (tester) async {
+    final repository = _Repository()..authorFeedLength = 30;
+    await GStorage.setting.put(SettingBoxKey.navBarSort, [1]);
+    await GStorage.setting.put(SettingBoxKey.autoUpdate, false);
+    final main = Get.put<MainController>(MainController());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [dynamicsRepositoryProvider.overrideWithValue(repository)],
+        child: const GetMaterialApp(home: DynamicsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> select(String author) async {
+      await tester.tap(find.text(author));
+      await tester.pumpAndSettle();
+    }
+
+    await select('关注作者');
+    final handle = main.dynamicController!;
+    final first = find.text('2 的动态 0');
+    expect(first, findsOneWidget);
+    handle.scrollController.jumpTo(360);
+    await tester.pumpAndSettle();
+    expect(first.hitTestable(), findsNothing);
+    final reads = repository.queriedAuthors.where((mid) => mid == 2).length;
+    await select('关注作者');
+    expect(first.hitTestable(), findsOneWidget);
+    expect(
+      repository.queriedAuthors.where((mid) => mid == 2),
+      hasLength(reads + 1),
+    );
+
+    handle.scrollController.jumpTo(360);
+    await tester.pumpAndSettle();
+    await select('另一位作者');
+    expect(find.text('3 的动态 0').hitTestable(), findsOneWidget);
+    handle.scrollController.jumpTo(360);
+    await tester.pumpAndSettle();
+    await select('关注作者');
+    expect(first.hitTestable(), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 }
