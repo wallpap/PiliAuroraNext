@@ -91,8 +91,8 @@ void main() {
     GStorage.setting = MemoryBox();
     GStorage.video = MemoryBox();
   });
-  Account account() => LoginAccount(
-    BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': 'fixture'}),
+  Account account([String csrf = 'fixture']) => LoginAccount(
+    BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': csrf}),
     null,
     null,
   );
@@ -163,10 +163,13 @@ void main() {
     final provider = laterFeedProvider(query);
     final old = await container.read(provider.future);
     (container.read(mainAccountProvider.notifier) as TestMainAccount).replace(
-      account(),
+      account('replacement'),
     );
-    final current = await container.read(provider.future);
-    expect(identical(old.account, current.account), isFalse);
+    await container.read(provider.future);
+    expect(repository.requests.map((request) => request.account.csrf), [
+      'fixture',
+      'replacement',
+    ]);
     expect(
       await container.read(provider.notifier).remove(old, [old.items.first]),
       isA<Error>(),
@@ -183,14 +186,33 @@ void main() {
     ));
     container.listen(search, (_, _) {});
     final first = await container.read(laterFeedProvider(query).future);
-    final oldSearch = await container.read(search.future);
+    await container.read(search.future);
+    repository.requests.clear();
+    repository.read = (_, _, _, keyword, _) async => LaterData(
+      count: 1,
+      list: [LaterItemModel(aid: keyword.isEmpty ? 2 : 3)],
+    );
     expect(await library.remove([1]), isA<Success>());
     final current = await container.read(laterFeedProvider(query).future);
     final newSearch = await container.read(search.future);
-    expect(current.source, isNot(same(first.source)));
-    expect(newSearch.source, isNot(same(oldSearch.source)));
-    expect(repository.requests.last.keyword, 'test');
-    expect(repository.requests.last.asc, isTrue);
+    expect(current.items.single.aid, 2);
+    expect(newSearch.items.single.aid, 3);
+    expect(
+      repository.requests.map(
+        (request) =>
+            (request.page, request.viewed, request.keyword, request.asc),
+      ),
+      unorderedEquals([(1, 0, '', false), (1, 2, 'test', true)]),
+    );
+    expect(
+      await container.read(laterFeedProvider(query).notifier).remove(first, [
+        first.items.first,
+      ]),
+      isA<Error>(),
+    );
+    expect(repository.removed, [
+      [1],
+    ]);
   });
 
   test('删除、清空共用写锁，待确认保留查询并允许核对后重试', () async {
@@ -203,7 +225,11 @@ void main() {
     expect(repository.removed, hasLength(1));
     pending.complete(const UnknownResult());
     expect(await remove, isA<UnknownResult>());
-    expect(container.read(provider).value!.source, same(first.source));
+    expect(repository.requests, hasLength(1));
+    expect(
+      container.read(provider).value!.items.map((item) => item.aid),
+      first.items.map((item) => item.aid),
+    );
     repository.mutation = () async => const Success(null);
     expect(await library.remove([1]), isA<Success>());
     await container.read(provider.future);
@@ -223,13 +249,11 @@ void main() {
     (container.read(mainAccountProvider.notifier) as TestMainAccount).replace(
       account(),
     );
-    final current = await container.read(laterFeedProvider(query).future);
+    await container.read(laterFeedProvider(query).future);
     pending.complete(const Success(null));
     expect(await old, isA<Success>());
-    expect(
-      container.read(laterFeedProvider(query)).value!.source,
-      same(current.source),
-    );
+    await container.read(laterFeedProvider(query).future);
+    expect(repository.requests, hasLength(2));
   });
 
   test('释放查询后迟到分页被消费，Module 仍能供其他入口写入', () async {

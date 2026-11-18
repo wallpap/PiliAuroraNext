@@ -279,16 +279,22 @@ void main() {
     expect(result.next, isNull);
     expect(repository.requests, hasLength(4));
   });
-  test('写入成功统一失效列表、详情、搜索和面板；失败及待确认保留原快照', () async {
-    final detail = await keep(query), list = await keep(folders);
+  test('待确认不重读；确认后同步列表、详情、搜索和面板并拒绝旧选择', () async {
+    final detail = await keep(query);
+    await keep(folders);
     const search = FavoriteQuery(
       owner: Object(),
       kind: FavoriteKind.detail,
       mediaId: 7,
       keyword: 'test',
     );
-    final searched = await keep(search);
+    await keep(search);
     final membershipQuery = (owner: Object(), target: (42 as Object, 2));
+    var membershipReads = 0;
+    repository.readMembership = () async {
+      membershipReads++;
+      return Success(FavFolderData(list: repository.available));
+    };
     container.listen(favoriteMembershipProvider(membershipQuery), (_, _) {});
     final membership = await container.read(
       favoriteMembershipProvider(membershipQuery).future,
@@ -298,29 +304,59 @@ void main() {
       await library.folderAction(original, 7, FolderAction.clean),
       isA<UnknownResult>(),
     );
-    expect(container.read(favoriteFeedProvider(query)).value, same(detail));
+    await container.read(favoriteFeedProvider(query).future);
+    expect(repository.requests, hasLength(3));
+    expect(membershipReads, 1);
+    repository.requests.clear();
+    repository.read = (query, _) async => FeedPage(
+      switch (query.kind) {
+        FavoriteKind.folders => [FavFolderInfo(id: 2)],
+        _ => [favoriteVideo(query.keyword.isEmpty ? 8 : 9)],
+      },
+      metadata: const FavoriteMetadata(),
+    );
+    repository.readMembership = () async {
+      membershipReads++;
+      return Success(
+        FavFolderData(list: [FavFolderInfo(id: 2, favState: 1)]),
+      );
+    };
     repository.mutation = null;
     expect(
       await library.folderAction(original, 7, FolderAction.clean),
       isA<Success>(),
     );
     expect(
-      (await container.read(favoriteFeedProvider(query).future)).source,
-      isNot(same(detail.source)),
+      (await container.read(favoriteFeedProvider(query).future)).items.single,
+      isA<FavDetailItemModel>().having((item) => item.id, 'id', 8),
     );
     expect(
-      (await container.read(favoriteFeedProvider(folders).future)).source,
-      isNot(same(list.source)),
+      (await container.read(favoriteFeedProvider(folders).future)).items.single,
+      isA<FavFolderInfo>().having((item) => item.id, 'id', 2),
     );
     expect(
-      (await container.read(favoriteFeedProvider(search).future)).source,
-      isNot(same(searched.source)),
+      (await container.read(favoriteFeedProvider(search).future)).items.single,
+      isA<FavDetailItemModel>().having((item) => item.id, 'id', 9),
     );
     expect(
-      await container.read(favoriteMembershipProvider(membershipQuery).future),
-      isNot(same(membership)),
+      (await container.read(favoriteMembershipProvider(membershipQuery).future))
+          .selected,
+      {2},
+    );
+    expect(
+      repository.requests.map((request) => request.query),
+      unorderedEquals([query, folders, search]),
+    );
+    expect(membershipReads, 2);
+    expect(
+      await container.read(favoriteFeedProvider(query).notifier).remove(
+        detail,
+        [detail.items.first],
+      ),
+      isA<Error>(),
     );
     expect(await library.select(membership, {2}), isA<Error>());
+    expect(repository.writes, ['folder:7:clean', 'folder:7:clean']);
   });
   test('删除与编辑共用账号锁；刷新和换凭据拒绝旧选择', () async {
     final source = await keep(query);
