@@ -15,6 +15,7 @@ import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/features/download/presentation/downloading_page.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
@@ -37,7 +38,7 @@ class DetailItem extends ConsumerWidget {
     this.onUpdate,
     this.onDelete,
     required this.showTitle,
-    this.isCurr = false,
+    this.currentTask,
     //
     this.enableMultiSelect = false,
     this.checked,
@@ -51,7 +52,7 @@ class DetailItem extends ConsumerWidget {
   final Future<void> Function()? onUpdate;
   final VoidCallback? onDelete;
   final bool showTitle;
-  final bool isCurr;
+  final DownloadTask? currentTask;
   //
   final bool enableMultiSelect;
   final bool? checked;
@@ -60,10 +61,7 @@ class DetailItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final current = isCurr ? ref.watch(downloadCurrentTaskProvider) : null;
-    final entry = current?.key == this.entry.entryDirPath
-        ? current!.toEntry()
-        : this.entry;
+    final task = currentTask;
     final theme = Theme.of(context);
     final outline = theme.colorScheme.outline;
     final cid = entry.source?.cid ?? entry.pageData?.cid;
@@ -77,13 +75,14 @@ class DetailItem extends ConsumerWidget {
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               children: [
                 DialogOption(
-                  onPressed: () {
+                  onPressed: () async {
                     Get.back();
-                    showConfirmDialog(
+                    final confirmed = await showConfirmDialog(
                       context: context,
                       title: const Text('确定删除该视频？'),
-                      onConfirm: onDelete,
                     );
+                    if (!confirmed || !context.mounted) return;
+                    onDelete?.call();
                   },
                   child: const Text('删除', style: TextStyle(fontSize: 14)),
                 ),
@@ -159,35 +158,34 @@ class DetailItem extends ConsumerWidget {
                         );
                         final maxWidth = constraints.maxWidth;
                         final maxHeight = constraints.maxHeight;
-                        return cover.existsSync()
-                            ? ClipRRect(
-                                borderRadius: Style.mdRadius,
-                                child: Image(
-                                  image: LocalImageProvider(
-                                    cover,
-                                    decodeTarget: ImageDecodeTarget.forDisplay(
-                                      Size(maxWidth, maxHeight),
-                                      MediaQuery.devicePixelRatioOf(context),
-                                      BoxFit.cover,
-                                    ),
-                                  ),
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                  fit: BoxFit.cover,
-                                  colorBlendMode: NetworkImgLayer.reduce
-                                      ? BlendMode.modulate
-                                      : null,
-                                  color: NetworkImgLayer.reduce
-                                      ? NetworkImgLayer.reduceLuxColor
-                                      : null,
-                                ),
-                              )
-                            : NetworkImgLayer(
-                                src: entry.cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                                cacheWidth: entry.pageData?.cacheWidth,
-                              );
+                        return ClipRRect(
+                          borderRadius: Style.mdRadius,
+                          child: Image(
+                            image: LocalImageProvider(
+                              cover,
+                              decodeTarget: ImageDecodeTarget.forDisplay(
+                                Size(maxWidth, maxHeight),
+                                MediaQuery.devicePixelRatioOf(context),
+                                BoxFit.cover,
+                              ),
+                            ),
+                            width: maxWidth,
+                            height: maxHeight,
+                            fit: BoxFit.cover,
+                            colorBlendMode: NetworkImgLayer.reduce
+                                ? BlendMode.modulate
+                                : null,
+                            color: NetworkImgLayer.reduce
+                                ? NetworkImgLayer.reduceLuxColor
+                                : null,
+                            errorBuilder: (_, _, _) => NetworkImgLayer(
+                              src: entry.cover,
+                              width: maxWidth,
+                              height: maxHeight,
+                              cacheWidth: entry.pageData?.cacheWidth,
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -336,7 +334,27 @@ class DetailItem extends ConsumerWidget {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: entryProgress(theme, entry),
+                        child: task != null
+                            ? Consumer(
+                                builder: (context, ref, _) {
+                                  final progress = ref.watch(
+                                    downloadCurrentTaskProvider,
+                                  );
+                                  return entryProgress(
+                                    theme,
+                                    progress != null &&
+                                            identical(
+                                              progress.identity,
+                                              task.identity,
+                                            ) &&
+                                            progress.generation ==
+                                                task.generation
+                                        ? progress
+                                        : null,
+                                  );
+                                },
+                              )
+                            : entryProgress(theme),
                       ),
                   ],
                 ),
@@ -348,22 +366,22 @@ class DetailItem extends ConsumerWidget {
     );
   }
 
-  Widget entryProgress(
-    ThemeData theme,
-    BiliDownloadEntryInfo entry,
-  ) => progressWidget(
-    statusMsg: entry.status.message,
-    progressStr: entry.totalBytes == 0
-        ? ''
-        : '${CacheManager.formatSize(entry.downloadedBytes)}/${CacheManager.formatSize(entry.totalBytes)}',
-    progress: entry.totalBytes == 0
-        ? 0
-        : entry.downloadedBytes / entry.totalBytes,
-    color: isCurr && entry.status != DownloadStatus.pause
-        ? theme.colorScheme.primary
-        : theme.colorScheme.outline,
-    highlightColor: theme.highlightColor,
-  );
+  Widget entryProgress(ThemeData theme, [DownloadTaskProgress? progress]) {
+    final status = progress?.status ?? entry.status;
+    final total = progress?.totalBytes ?? entry.totalBytes;
+    final downloaded = progress?.downloadedBytes ?? entry.downloadedBytes;
+    return progressWidget(
+      statusMsg: status.message,
+      progressStr: total == 0
+          ? ''
+          : '${CacheManager.formatSize(downloaded)}/${CacheManager.formatSize(total)}',
+      progress: total == 0 ? 0 : downloaded / total,
+      color: currentTask != null && status != DownloadStatus.pause
+          ? theme.colorScheme.primary
+          : theme.colorScheme.outline,
+      highlightColor: theme.highlightColor,
+    );
+  }
 
   Widget progressWidget({
     required String statusMsg,

@@ -26,10 +26,10 @@ class _Progress implements DownloadProgressStore {
 
 class _Current extends DownloadCurrentTask {
   _Current(this.initial);
-  final DownloadTask initial;
+  final DownloadTaskProgress initial;
   @override
-  DownloadTask? build() => initial;
-  void publish(DownloadTask task) => state = task;
+  DownloadTaskProgress? build() => initial;
+  void publish(DownloadTaskProgress progress) => state = progress;
 }
 
 class _Library extends DownloadLibrary {
@@ -134,7 +134,14 @@ void main() {
       current: initial,
     );
     final library = _Library(snapshot);
-    final current = _Current(initial);
+    DownloadTaskProgress progress({Object? identity, int? generation}) => (
+      identity: identity ?? entry,
+      generation: generation ?? initial.generation,
+      status: entry.status,
+      downloadedBytes: entry.downloadedBytes,
+      totalBytes: entry.totalBytes,
+    );
+    final current = _Current(progress());
     final container = ProviderContainer(
       overrides: [
         downloadLibraryProvider.overrideWith(() => library),
@@ -155,7 +162,23 @@ void main() {
       0.1,
     );
     entry.downloadedBytes = 50;
-    current.publish(DownloadTask.capture(entry));
+    current.publish(progress(identity: Object()));
+    await tester.pump();
+    expect(
+      tester
+          .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
+          .value,
+      0.1,
+    );
+    current.publish(progress(generation: initial.generation + 1));
+    await tester.pump();
+    expect(
+      tester
+          .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
+          .value,
+      0.1,
+    );
+    current.publish(progress());
     await tester.pump();
     expect(
       tester
@@ -189,6 +212,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('全选'));
     await tester.pumpAndSettle();
+    expect(find.text('已选: 2'), findsOneWidget);
+    await tester.tap(find.text('移除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(library.removals, isEmpty);
     expect(find.text('已选: 2'), findsOneWidget);
     await tester.tap(find.text('移除'));
     await tester.pumpAndSettle();

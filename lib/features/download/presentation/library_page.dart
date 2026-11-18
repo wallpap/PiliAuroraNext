@@ -182,21 +182,28 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
     });
   }
 
-  void _confirmRemove(List<DownloadTask> tasks, List<_DownloadGroup> groups) {
+  Future<void> _confirmRemove(
+    List<DownloadTask> tasks,
+    List<_DownloadGroup> groups,
+  ) async {
     if (_deletion.busy || _selected.isEmpty) return;
+    final mode = widget.mode;
     final selectedTasks = tasks
         .where((task) => _selected.contains(task.key))
         .toList();
     final selectedGroups = groups
         .where((group) => _selected.contains(group.dirPath))
         .toList();
-    showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context: context,
       title: const Text('确定删除选中视频？'),
-      onConfirm: () => widget.mode == DownloadViewMode.library
-          ? _removeGroups(selectedGroups)
-          : _removeTasks(selectedTasks),
     );
+    if (!confirmed || !mounted || widget.mode != mode) return;
+    if (mode == DownloadViewMode.library) {
+      await _removeGroups(selectedGroups);
+    } else {
+      await _removeTasks(selectedTasks);
+    }
   }
 
   Widget _item(
@@ -211,7 +218,9 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
     ],
     progress: widget.mode == DownloadViewMode.queued ? null : _progress,
     showTitle: widget.mode != DownloadViewMode.detail,
-    isCurr: identical(_snapshot?.current?.identity, task.identity),
+    currentTask: identical(_snapshot?.current?.identity, task.identity)
+        ? task
+        : null,
     enableMultiSelect: _selecting,
     checked: _selected.contains(selectionKey ?? task.key),
     onSelect: (_) => _toggleSelection(selectionKey ?? task.key),
@@ -408,13 +417,14 @@ class _DownloadLibraryPageState extends ConsumerState<DownloadLibraryPage>
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               children: [
                 DialogOption(
-                  onPressed: () {
+                  onPressed: () async {
                     Get.back();
-                    showConfirmDialog(
+                    final confirmed = await showConfirmDialog(
                       context: context,
                       title: const Text('确定删除？'),
-                      onConfirm: () => _removeGroups([pageInfo]),
                     );
+                    if (!confirmed || !context.mounted) return;
+                    await _removeGroups([pageInfo]);
                   },
                   child: const Text('删除', style: TextStyle(fontSize: 14)),
                 ),

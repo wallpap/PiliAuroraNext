@@ -36,23 +36,43 @@ final downloadLibraryProvider =
       isAutoDispose: true,
     );
 
-/// 字节进度只重建当前任务行，避免每个网络分片复制整份完成列表。
+typedef DownloadTaskProgress = ({
+  Object identity,
+  int generation,
+  DownloadStatus status,
+  int downloadedBytes,
+  int totalBytes,
+});
+
 final downloadCurrentTaskProvider =
-    NotifierProvider<DownloadCurrentTask, DownloadTask?>(
+    NotifierProvider<DownloadCurrentTask, DownloadTaskProgress?>(
       DownloadCurrentTask.new,
       isAutoDispose: true,
     );
 
-class DownloadCurrentTask extends Notifier<DownloadTask?> {
+class DownloadCurrentTask extends Notifier<DownloadTaskProgress?> {
   @override
-  DownloadTask? build() {
+  bool updateShouldNotify(
+    DownloadTaskProgress? previous,
+    DownloadTaskProgress? next,
+  ) => !identical(previous?.identity, next?.identity) || previous != next;
+
+  @override
+  DownloadTaskProgress? build() {
     final service = ref.watch(downloadServiceProvider);
-    DownloadTask? capture() => service.curDownload == null
-        ? null
-        : DownloadTask.capture(
-            service.curDownload!,
-            generation: service.generation,
-          );
+    DownloadTaskProgress? capture() {
+      final entry = service.curDownload;
+      return entry == null
+          ? null
+          : (
+              identity: entry,
+              generation: service.generation,
+              status: entry.status,
+              downloadedBytes: entry.downloadedBytes,
+              totalBytes: entry.totalBytes,
+            );
+    }
+
     void changed() => state = capture();
     service.progressNotifier.addListener(changed);
     ref.onDispose(() => service.progressNotifier.removeListener(changed));

@@ -128,6 +128,20 @@ void main() {
 
       expect(progress, [50]);
       expect(publications, 0);
+      final replacement = BiliDownloadEntryInfo.fromJson(entry.toJson())
+        ..pageDirPath = entry.pageDirPath
+        ..entryDirPath = entry.entryDirPath
+        ..status = entry.status;
+      expect(replacement, entry);
+      service.curDownload = replacement;
+      service.progressNotifier.notifyListeners();
+      await container.pump();
+      expect(progress, [50, 50]);
+      expect(
+        container.read(downloadCurrentTaskProvider)?.identity,
+        same(replacement),
+      );
+      expect(publications, 0);
     } finally {
       service.curDownload = null;
     }
