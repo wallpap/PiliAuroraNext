@@ -28,7 +28,6 @@ import 'package:pili_aurora_next/pages/member/widget/medal_wall.dart';
 import 'package:pili_aurora_next/pages/member/widget/reserve_button.dart';
 import 'package:pili_aurora_next/pages/member/widget/user_info_card.dart';
 import 'package:pili_aurora_next/pages/member_cheese/view.dart';
-import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
 import 'package:pili_aurora_next/utils/extension/nested_scroll_ext.dart';
 import 'package:pili_aurora_next/pages/member_contribute/view.dart';

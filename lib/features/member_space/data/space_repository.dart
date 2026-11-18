@@ -1,3 +1,6 @@
+import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
+import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
+import 'package:pili_aurora_next/models/remote/space/space_opus/data.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -18,6 +21,31 @@ class SpaceRepository {
     int mid,
     String? aid,
   ) => MemberHttp.space(account: account, mid: mid, fromViewAid: aid);
+
+  Future<LoadingState<SpaceArchiveData>> bangumi(
+    Account account,
+    int mid,
+    int page,
+  ) => MemberHttp.spaceArchive(
+    account: account,
+    type: ContributeType.bangumi,
+    mid: mid,
+    pn: page,
+  );
+
+  Future<LoadingState<SpaceOpusData>> opus(
+    Account account,
+    int mid,
+    int page,
+    String offset,
+    String filter,
+  ) => MemberHttp.spaceOpus(
+    account: account,
+    hostMid: mid,
+    page: page,
+    offset: offset,
+    type: filter,
+  );
 
   Future<LoadingState<void>> relation(Account account, int mid, int action) =>
       VideoHttp.relationMod(account: account, mid: mid, act: action, reSrc: 11);

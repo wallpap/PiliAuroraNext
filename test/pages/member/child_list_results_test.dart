@@ -10,7 +10,6 @@ import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/member_video/controller.dart';
-import 'package:pili_aurora_next/pages/member_opus/controller.dart';
 import 'package:pili_aurora_next/pages/member_video_web/base/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -46,23 +45,15 @@ void main() {
     null,
     null,
   )..activated = true;
-  Map<String, dynamic> page(String label, bool opus) => {
+  Map<String, dynamic> page(String label) => {
     'code': 0,
-    'data': opus
-        ? {
-            'offset': label,
-            'has_more': false,
-            'items': [
-              {'content': label, 'opus_id': label},
-            ],
-          }
-        : {
-            'count': 1,
-            'has_next': false,
-            'item': [
-              {'param': label, 'title': label},
-            ],
-          },
+    'data': {
+      'count': 1,
+      'has_next': false,
+      'item': [
+        {'param': label, 'title': label},
+      ],
+    },
   };
   Future<void> flush() async {
     for (var i = 0; i < 15; i++) {
@@ -95,7 +86,7 @@ void main() {
     Request.dio.close(force: true);
     await interceptor.close();
   });
-  for (final kind in ['video', 'opus', 'web']) {
+  for (final kind in ['video', 'web']) {
     void create() {
       controller = switch (kind) {
         'video' => MemberVideoCtr(
@@ -105,15 +96,13 @@ void main() {
           seasonId: null,
           seriesId: null,
         ),
-        'opus' => MemberOpusController(heroTag: null, mid: 2),
         _ => _Web(),
       };
       controller.onStart();
     }
 
-    String title() => kind == 'opus'
-        ? (controller.loadingState.value.data as List).single.content as String
-        : (controller.loadingState.value.data as List).single.title as String;
+    String title() =>
+        (controller.loadingState.value.data as List).single.title as String;
     test('$kind 同 UID 换凭据重新查询，拒绝旧响应且释放账号订阅', () async {
       create();
       await interceptor.waitForRequests(1);
@@ -123,10 +112,10 @@ void main() {
       await interceptor.waitForRequests(2);
       expect(requests.first.options.extra['account'], same(old));
       expect(requests.last.options.extra['account'], same(replacement));
-      requests.last.reply.complete(page('new', kind == 'opus'));
+      requests.last.reply.complete(page('new'));
       await flush();
       expect(title(), 'new');
-      requests.first.reply.complete(page('old', kind == 'opus'));
+      requests.first.reply.complete(page('old'));
       await flush();
       expect(title(), 'new');
       expect(controller.isLoading, false);
@@ -145,7 +134,7 @@ void main() {
       final refresh = controller.onReload();
       await interceptor.waitForRequests(2);
       controller.onDelete();
-      requests.last.reply.complete(page('late', kind == 'opus'));
+      requests.last.reply.complete(page('late'));
       await refresh;
       expect(controller.loadingState.value, isA<Loading>());
     });
@@ -161,7 +150,7 @@ void main() {
     controller = video;
     video.onStart();
     await interceptor.waitForRequests(1);
-    requests.single.reply.complete(page('first', false));
+    requests.single.reply.complete(page('first'));
     await flush();
     video.episodicButton = EpisodicButton(
       text: '继续播放',
@@ -176,7 +165,7 @@ void main() {
     requests[1].reply.complete({'code': -403, 'message': '旧账号失败'});
     await opening;
     expect(requests[1].options.extra['account'], same(original));
-    requests[2].reply.complete(page('replacement', false));
+    requests[2].reply.complete(page('replacement'));
     await flush();
     expect(video.loadingState.value.data!.single.title, 'replacement');
   });

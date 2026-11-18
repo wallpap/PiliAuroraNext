@@ -8,16 +8,17 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/space/space_opus/item.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
-import 'package:pili_aurora_next/pages/member_opus/controller.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_listings.dart';
 import 'package:pili_aurora_next/pages/member_opus/widgets/space_opus_item.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
-class MemberOpus extends StatefulWidget {
+class MemberOpus extends ConsumerStatefulWidget {
   const MemberOpus({
     super.key,
     this.isSingle = false,
@@ -32,56 +33,62 @@ class MemberOpus extends StatefulWidget {
   final int mid;
 
   @override
-  State<MemberOpus> createState() => _MemberOpusState();
+  ConsumerState<MemberOpus> createState() => _MemberOpusState();
 }
 
-class _MemberOpusState extends State<MemberOpus>
+class _MemberOpusState extends ConsumerState<MemberOpus>
     with
         AutomaticKeepAliveClientMixin,
         SingleTickerProviderStateMixin,
         BaseFabMixin,
         LazyFabMixin {
-  late final MemberOpusController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      MemberOpusController(
-        mid: widget.mid,
-        filter: widget.filters,
-        heroTag: widget.heroTag,
-      ),
-      tag: widget.heroTag,
-    );
-  }
+  final _owner = Object();
+  SpaceTabFilter _filter = const SpaceTabFilter(text: '全部图文', tabName: '图文');
+  SpaceOpusQuery get _query =>
+      (owner: _owner, mid: widget.mid, filter: _filter.meta);
+  SpaceOpus get _controller => ref.read(spaceOpusProvider(_query).notifier);
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    final state = ref.watch(spaceOpusProvider(_query));
     return ScaffoldLayout(
-      body: refreshIndicator(
-        isClampingScrollPhysics: true,
-        onRefresh: _controller.onRefresh,
-        child: fabAnimWrapper(
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  top: widget.isSingle ? 12 : 0,
-                  left: Style.safeSpace,
-                  right: Style.safeSpace,
-                  bottom: bottom + 100,
+      body: FeedPagination.notifications(
+        dataSource: state.source,
+        dataRevision: state,
+        canLoadMore: () => state.canLoadMore,
+        onLoadMore: _controller.onLoadMore,
+        child: refreshIndicator(
+          isClampingScrollPhysics: true,
+          onRefresh: _controller.onRefresh,
+          child: fabAnimWrapper(
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    top: widget.isSingle ? 12 : 0,
+                    left: Style.safeSpace,
+                    right: Style.safeSpace,
+                    bottom: bottom + 100,
+                  ),
+                  sliver: _buildBody(state.loading),
                 ),
-                sliver: Obx(() => _buildBody(_controller.loadingState.value)),
-              ),
-            ],
+                if ((state.loading is Success ? state.error : null)
+                    case final error?)
+                  SliverToBoxAdapter(
+                    child: TextButton(
+                      onPressed: _controller.retry,
+                      child: Text('$error，点击重试'),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-      fab: _controller.filter?.isNotEmpty == true
+      fab: widget.filters?.isNotEmpty == true
           ? SlideTransition(
               position: fabAnimation,
               child: Padding(
@@ -97,20 +104,18 @@ class _MemberOpusState extends State<MemberOpus>
                       contentPadding: const EdgeInsets.symmetric(
                         vertical: 12,
                       ),
-                      children: _controller.filter!
+                      children: widget.filters!
                           .map(
                             (e) => ListTile(
                               dense: true,
                               onTap: () {
-                                if (e == _controller.type.value) {
+                                if (e == _filter) {
                                   return;
                                 }
-                                Get.back();
-                                _controller
-                                  ..type.value = e
-                                  ..onReload();
+                                Navigator.of(context).pop();
+                                if (mounted) setState(() => _filter = e);
                               },
-                              tileColor: e == _controller.type.value
+                              tileColor: e == _filter
                                   ? ColorScheme.of(context).onInverseSurface
                                   : null,
                               title: Text(
@@ -123,12 +128,7 @@ class _MemberOpusState extends State<MemberOpus>
                     ),
                   ),
                   icon: const Icon(size: 20, Icons.sort),
-                  label: Obx(
-                    () {
-                      final type = _controller.type.value;
-                      return Text(type.text ?? type.tabName!);
-                    },
-                  ),
+                  label: Text(_filter.text ?? _filter.tabName!),
                 ),
               ),
             )
@@ -157,9 +157,6 @@ class _MemberOpusState extends State<MemberOpus>
                 gridDelegate: gridDelegate,
                 delegate: SliverChildBuilderDelegate(
                   (_, index) {
-                    if (index == response.length - 1) {
-                      _controller.onLoadMore();
-                    }
                     return SpaceOpusItem(item: response[index]);
                   },
                   childCount: response.length,
