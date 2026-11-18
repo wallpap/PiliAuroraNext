@@ -335,16 +335,13 @@ class RenderViewPointProgressBar
     }
   }
 
-  @pragma('vm:notify-debugger-on-exception')
   void _onTapUp(TapUpDetails details) {
-    try {
-      final seg = details.localPosition.dx / size.width;
-      final item = _segments[_segments.lowerBoundByKey((i) => i.end, seg)];
-      if (item.from case final from?) {
-        _onSeek?.call(Duration(seconds: from));
-      }
-      // if (kDebugMode) debugPrint('${item.title},,${item.from}');
-    } catch (_) {}
+    final fraction = details.localPosition.dx / size.width;
+    final index = _segments.lowerBoundByKey((segment) => segment.end, fraction);
+    if (index == _segments.length) return;
+    if (_segments[index].from case final from?) {
+      _onSeek?.call(Duration(seconds: from));
+    }
   }
 }
 

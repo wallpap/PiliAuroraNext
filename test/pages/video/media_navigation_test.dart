@@ -33,13 +33,18 @@ class _Owner extends Fake implements PlaybackOwner {
 class _Player extends Fake implements PlPlayerController {
   @override
   PlayRepeat playRepeat = PlayRepeat.listOrder;
+  bool repeated = false;
+
+  @override
+  Future<void> play({bool repeat = false, bool hideControls = true}) async =>
+      repeated = repeat;
 }
 
 class _Video extends Fake implements VideoDetailController {
   @override
   final _Owner playbackOwner = _Owner();
   @override
-  final plPlayerController = _Player();
+  final _Player plPlayerController = _Player();
   @override
   final cid = 1.obs;
   @override
@@ -93,6 +98,42 @@ void main() {
     GStorage.setting = MemoryBox();
     GStorage.video = MemoryBox();
     GStorage.localCache = MemoryBox();
+  });
+
+  test('合集缺少分区或分集时安全处理首尾与列表循环', () {
+    final video = _Video();
+    final ugc = _Ugc(video)..cid = 1.obs;
+    final season = UgcSeason();
+    ugc.videoDetail.value.ugcSeason = season;
+    expect(ugc.nextPlay(), isFalse);
+    video.plPlayerController.playRepeat = PlayRepeat.listCycle;
+    expect(ugc.prevPlay(), isFalse);
+    expect(ugc.nextPlay(), isTrue);
+    expect(video.plPlayerController.repeated, isTrue);
+
+    season.sections = [
+      SectionItem(),
+      SectionItem(episodes: [EpisodeItem(), EpisodeItem(cid: 2)]),
+    ];
+    expect(ugc.nextPlay(), isTrue);
+    expect(ugc.cid.value, 2);
+    expect(ugc.nextPlay(), isFalse);
+  });
+
+  test('倒序分 P 到末尾后按合集锚点继续播放', () {
+    final ugc = _Ugc(_Video())..cid = 12.obs;
+    ugc.videoDetail.value
+      ..pages = [Part(cid: 12), Part(cid: 11)]
+      ..isPageReversed = true
+      ..ugcSeason = UgcSeason(
+        sections: [
+          SectionItem(episodes: [EpisodeItem(cid: 11), EpisodeItem(cid: 21)]),
+        ],
+      );
+    expect(ugc.nextPlay(), isTrue);
+    expect(ugc.cid.value, 11);
+    expect(ugc.nextPlay(), isTrue);
+    expect(ugc.cid.value, 21);
   });
 
   for (final mode in ['UGC 分P', 'UGC 合集', 'PGC', '本地列表']) {

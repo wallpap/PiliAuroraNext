@@ -25,10 +25,8 @@ import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/model_r
 import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/section.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/ugc_season.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/pages/video/related/controller.dart';
@@ -614,163 +612,82 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
   }
 
-  /// 播放上一个
   @override
-  bool prevPlay([bool skipPart = false]) {
-    final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
-    bool isPart = false;
+  bool prevPlay([bool skipPart = false]) =>
+      _playAdjacent(forward: false, skipPart: skipPart);
 
-    final videoDetail = this.videoDetail.value;
-
-    if (!skipPart && (videoDetail.pages?.length ?? 0) > 1) {
-      isPart = true;
-      episodes.addAll(videoDetail.pages!);
-    } else if (videoDetailCtr.isPlayAll) {
-      episodes.addAll(videoDetailCtr.mediaList);
-    } else if (videoDetail.ugcSeason != null) {
-      final UgcSeason ugcSeason = videoDetail.ugcSeason!;
-      final List<SectionItem> sections = ugcSeason.sections!;
-      for (int i = 0; i < sections.length; i++) {
-        final List<EpisodeItem> episodesList = sections[i].episodes!;
-        episodes.addAll(episodesList);
-      }
-    }
-
-    final int currentIndex = episodes.indexWhere(
-      (e) =>
-          e.cid ==
-          (skipPart
-              ? videoDetail.isPageReversed
-                    ? videoDetail.pages!.last.cid
-                    : videoDetail.pages!.first.cid
-              : this.cid.value),
-    );
-
-    int prevIndex = currentIndex - 1;
-    final PlayRepeat playRepeat = videoDetailCtr.plPlayerController.playRepeat;
-
-    // 列表循环
-    if (prevIndex < 0) {
-      if (isPart &&
-          (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-        return prevPlay(true);
-      }
-      if (playRepeat == PlayRepeat.listCycle) {
-        prevIndex = episodes.length - 1;
-      } else {
-        return false;
-      }
-    }
-
-    int? cid = episodes[prevIndex].cid;
-    while (cid == null) {
-      prevIndex--;
-      if (prevIndex < 0) {
-        return false;
-      }
-      cid = episodes[prevIndex].cid;
-    }
-
-    if (cid != this.cid.value) {
-      onChangeEpisode(episodes[prevIndex]);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  /// 列表循环或者顺序播放时，自动播放下一个
   @override
-  bool nextPlay([bool skipPart = false]) {
-    try {
-      final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
-      bool isPart = false;
-      final videoDetail = this.videoDetail.value;
+  bool nextPlay([bool skipPart = false]) =>
+      _playAdjacent(forward: true, skipPart: skipPart);
 
-      // part -> playall -> season
-      if (!skipPart && (videoDetail.pages?.length ?? 0) > 1) {
-        isPart = true;
-        final List<Part> pages = videoDetail.pages!;
-        episodes.addAll(pages);
-      } else if (videoDetailCtr.isPlayAll) {
-        episodes.addAll(videoDetailCtr.mediaList);
-      } else if (videoDetail.ugcSeason != null) {
-        final UgcSeason ugcSeason = videoDetail.ugcSeason!;
-        final List<SectionItem> sections = ugcSeason.sections!;
-        for (int i = 0; i < sections.length; i++) {
-          final List<EpisodeItem> episodesList = sections[i].episodes!;
-          episodes.addAll(episodesList);
-        }
-      }
-
-      final PlayRepeat playRepeat =
-          videoDetailCtr.plPlayerController.playRepeat;
-
-      if (episodes.isEmpty) {
-        if (playRepeat == PlayRepeat.listCycle) {
-          videoDetailCtr.plPlayerController.play(repeat: true);
-          return true;
-        }
-        if (playRepeat == PlayRepeat.autoPlayRelated &&
-            videoDetailCtr.plPlayerController.showRelatedVideo) {
-          return playRelated();
-        }
-        return false;
-      }
-
-      final int currentIndex = episodes.indexWhere(
-        (e) =>
-            e.cid ==
-            (skipPart
-                ? videoDetail.isPageReversed
-                      ? videoDetail.pages!.last.cid
-                      : videoDetail.pages!.first.cid
-                : this.cid.value),
-      );
-
-      int nextIndex = currentIndex + 1;
-
-      if (!isPart &&
-          videoDetailCtr.isPlayAll &&
-          currentIndex == episodes.length - 2) {
-        videoDetailCtr.getMediaList();
-      }
-
-      // 列表循环
-      if (nextIndex >= episodes.length) {
-        if (isPart &&
-            (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-          return nextPlay(true);
-        }
-
-        if (playRepeat == PlayRepeat.listCycle) {
-          nextIndex = 0;
-        } else if (playRepeat == PlayRepeat.autoPlayRelated &&
-            videoDetailCtr.plPlayerController.showRelatedVideo) {
-          return playRelated();
-        } else {
-          return false;
-        }
-      }
-
-      int? cid = episodes[nextIndex].cid;
-      while (cid == null) {
-        nextIndex++;
-        if (nextIndex >= episodes.length) {
-          return false;
-        }
-        cid = episodes[nextIndex].cid;
-      }
-
-      if (cid != this.cid.value) {
-        onChangeEpisode(episodes[nextIndex]);
+  bool _playAdjacent({required bool forward, required bool skipPart}) {
+    final detail = videoDetail.value;
+    final parts = detail.pages;
+    final isPart = !skipPart && parts != null && parts.length > 1;
+    final playAll = videoDetailCtr.isPlayAll;
+    final player = videoDetailCtr.plPlayerController;
+    final repeat = player.playRepeat;
+    final episodes = isPart
+        ? parts
+        : playAll
+        ? videoDetailCtr.mediaList
+        : <BaseEpisodeItem>[
+            for (final section in detail.ugcSeason?.sections ?? const [])
+              ...?section.episodes,
+          ];
+    if (episodes.isEmpty) {
+      if (!forward) return false;
+      if (repeat == PlayRepeat.listCycle) {
+        player.play(repeat: true);
         return true;
-      } else {
-        return false;
       }
-    } catch (_) {
-      return false;
+      return repeat == PlayRepeat.autoPlayRelated &&
+          player.showRelatedVideo &&
+          playRelated();
     }
+
+    final currentCid = cid.value;
+    final anchor = skipPart
+        ? (detail.isPageReversed ? parts?.lastOrNull : parts?.firstOrNull)
+                  ?.cid ??
+              currentCid
+        : currentCid;
+    final currentIndex = episodes.indexWhere(
+      (episode) => episode.cid == anchor,
+    );
+    if (forward &&
+        !isPart &&
+        playAll &&
+        currentIndex >= 0 &&
+        currentIndex == episodes.length - 2) {
+      videoDetailCtr.getMediaList();
+    }
+
+    final step = forward ? 1 : -1;
+    var index = currentIndex < 0 ? (forward ? 0 : -1) : currentIndex + step;
+    if (index < 0 || index >= episodes.length) {
+      if (isPart && (playAll || detail.ugcSeason != null)) {
+        return _playAdjacent(forward: forward, skipPart: true);
+      }
+      if (repeat == PlayRepeat.listCycle) {
+        index = forward ? 0 : episodes.length - 1;
+      } else {
+        return forward &&
+            repeat == PlayRepeat.autoPlayRelated &&
+            player.showRelatedVideo &&
+            playRelated();
+      }
+    }
+
+    for (; index >= 0 && index < episodes.length; index += step) {
+      final episode = episodes[index];
+      final targetCid = episode.cid;
+      if (targetCid == null) continue;
+      if (targetCid == currentCid) return false;
+      onChangeEpisode(episode);
+      return true;
+    }
+    return false;
   }
 
   bool playRelated() {

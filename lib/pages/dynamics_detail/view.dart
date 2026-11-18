@@ -715,10 +715,12 @@ class _DynamicDetailPageState
   }
 
   void _jumpToComment([_]) {
-    if (!isPortrait) return;
-    try {
-      final position = PrimaryScrollController.of(context).position;
+    if (!mounted || !isPortrait) return;
+    final positions = PrimaryScrollController.maybeOf(context)?.positions;
+    if (positions == null || positions.length != 1) return;
+    final position = positions.single;
+    if (position.hasContentDimensions) {
       position.jumpTo(position.maxScrollExtent);
-    } catch (_) {}
+    }
   }
 }
