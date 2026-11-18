@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/recent_emote.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
@@ -27,28 +28,63 @@ class EmotePanel extends ConsumerStatefulWidget {
 }
 
 class _EmotePanelState extends ConsumerState<EmotePanel>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   final _owner = Object();
+  TabController? _tabs;
+  List<Package> _packages = const [];
+  Object? _account;
   Future<void> _reload() =>
       ref.read(emotePackagesProvider(_owner).notifier).onRefresh();
   @override
   bool get wantKeepAlive => true;
 
   @override
+  void dispose() {
+    _tabs?.dispose();
+    super.dispose();
+  }
+
+  void _syncTabs(Object account, List<Package> packages) {
+    final sameAccount = identical(account, _account);
+    if (sameAccount && identical(_packages, packages)) return;
+    final previous = sameAccount ? _tabs?.index : null;
+    final previousId = previous == null || previous == 0
+        ? null
+        : _packages[previous - 1].id;
+    final restored = previousId == null
+        ? -1
+        : packages.indexWhere((package) => package.id == previousId);
+    final index = restored >= 0
+        ? restored + 1
+        : previous?.clamp(0, packages.length) ??
+              (ref.read(recentEmotesProvider).isEmpty ? 1 : 0);
+    _account = account;
+    _packages = packages;
+    if (sameAccount &&
+        _tabs?.length == packages.length + 1 &&
+        _tabs?.index == index) {
+      return;
+    }
+    _tabs?.dispose();
+    _tabs = packages.isEmpty
+        ? null
+        : TabController(
+            length: packages.length + 1,
+            initialIndex: index,
+            vsync: this,
+          );
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
     final ThemeData theme = Theme.of(context);
     final state = ref.watch(emotePackagesProvider(_owner));
-    final packages = state.loading.dataOrNull;
-    if (packages == null || packages.isEmpty) {
-      return _buildBody(theme, state.loading);
-    }
-    return DefaultTabController(
-      key: ObjectKey(packages),
-      length: packages.length + 1,
-      initialIndex: ref.read(recentEmotesProvider).isEmpty ? 1 : 0,
-      child: _buildBody(theme, state.loading),
+    _syncTabs(
+      ref.watch(mainAccountProvider),
+      state.loading.dataOrNull ?? const [],
     );
+    return _buildBody(theme, state.loading);
   }
 
   Widget _buildBody(
@@ -63,6 +99,7 @@ class _EmotePanelState extends ConsumerState<EmotePanel>
                 children: [
                   Expanded(
                     child: tabBarView(
+                      controller: _tabs,
                       children: [
                         Builder(
                           builder: (_) {
@@ -121,6 +158,7 @@ class _EmotePanelState extends ConsumerState<EmotePanel>
                       Expanded(
                         child: HorizontalWheelScroll(
                           child: TabBar(
+                            controller: _tabs,
                             padding: const EdgeInsets.only(right: 60),
                             dividerColor: Colors.transparent,
                             dividerHeight: 0,

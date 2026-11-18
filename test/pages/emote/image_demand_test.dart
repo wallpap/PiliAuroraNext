@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
@@ -10,17 +12,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
+import 'package:pili_aurora_next/pages/emote/manage.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
 
 import '../../support/memory_box.dart';
+import '../../support/controlled_interceptor.dart';
 
 class _Repository extends EmoteRepository {
-  _Repository(this.package);
-  final Package package;
+  _Repository(Package package) : current = [package];
+  List<Package> current;
   @override
   Future<LoadingState<List<Package>?>> packages(Account account) async =>
-      Success([package]);
+      Success(current);
 }
 
 void main() {
@@ -182,9 +186,7 @@ void main() {
     await tester.pumpAndSettle();
     final tabs = tester
         .widgetList<TabBar>(find.byType(TabBar))
-        .map(
-          (tab) => DefaultTabController.of(tester.element(find.byWidget(tab))),
-        )
+        .map((tab) => tab.controller!)
         .toList();
     expect(tabs, hasLength(2));
     expect(identical(tabs[0], tabs[1]), isFalse);
@@ -201,5 +203,68 @@ void main() {
     await tester.pumpAndSettle();
     expect(tabs[0].animation, isNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('从表情管理返回后按包 ID 恢复，删除当前包后回退到有效位置', (tester) async {
+    final interceptor = ControlledInterceptor();
+    Request();
+    Request.dio.interceptors
+      ..clear()
+      ..add(interceptor);
+    addTearDown(() async {
+      Request.dio.close(force: true);
+      await interceptor.close();
+    });
+    Package pack(int id) => Package(
+      id: id,
+      type: 4,
+      url: 'https://example.test/pack-$id.png',
+      emote: [Emote(text: '表情 $id')],
+    );
+    final repository = _Repository(pack(1))
+      ..current = [pack(1), pack(2), pack(3)];
+    await tester.pumpWidget(
+      ImageLoadingScope(
+        enabled: false,
+        child: ProviderScope(
+          overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+          child: GetMaterialApp(
+            home: Scaffold(body: EmotePanel(onChoose: (_, _, _) {})),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tab = tester.widget<TabBar>(find.byType(TabBar)).tabs.last;
+    await tester.tapAt(tester.getCenter(find.byWidget(tab)));
+    await tester.pumpAndSettle();
+    expect(find.text('表情 3'), findsOneWidget);
+
+    Future<void> returnFromManage(List<Package> next) async {
+      final expected = interceptor.requests.length + 1;
+      await tester.tap(find.byIcon(Icons.settings));
+      final deadline = tester.binding.clock.now().add(
+        const Duration(seconds: 1),
+      );
+      while (interceptor.requests.length < expected &&
+          tester.binding.clock.now().isBefore(deadline)) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+      expect(interceptor.requests, hasLength(expected));
+      final request = interceptor.requests.last;
+      expect(request.options.path, Api.emoteSettingPanel);
+      request.reply.complete({'code': -42, 'message': '测试管理页'});
+      await tester.pumpAndSettle();
+      expect(find.byType(EmoteManagePage), findsOneWidget);
+      repository.current = next;
+      Get.back();
+      await tester.pumpAndSettle();
+    }
+
+    await returnFromManage([pack(1), pack(3), pack(2)]);
+    expect(find.text('表情 3'), findsOneWidget);
+    await returnFromManage([pack(1)]);
+    expect(find.text('表情 1'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 }
