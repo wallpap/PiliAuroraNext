@@ -107,4 +107,6 @@ jobs:
           python -m unittest discover -s tool/probes/windows -p image_region_probe_test.py -v
 
       - name: Test native image pixels and lifecycle
+        env:
+          REGION_TEST_REQUIRED: '1'
         run: flutter test --no-pub test/common/widgets/image --concurrency 2
