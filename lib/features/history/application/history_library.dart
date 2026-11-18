@@ -20,7 +20,7 @@ class HistoryLibrary extends LibraryModule {
   Stream<({Account account, bool paused})> get pauseChanges =>
       _pauseChanges.stream;
   int _statusVersion = 0;
-  bool _savingPause = false;
+  final _savingPauseFor = Set<Account>.identity();
   Future<void>? _cacheInFlight;
   Future<void> _cache(Account account, bool paused, int version) async {
     while (_cacheInFlight != null) {
@@ -47,9 +47,10 @@ class HistoryLibrary extends LibraryModule {
   /// 启动和页面使用同一查询代次；持久化失败沿原 Future 交付。
   Future<LoadingState<bool>> status(Account account) async {
     if (!owns(account) || !account.isLogin) return const Error('账号已切换或未登录');
+    if (_savingPauseFor.contains(account)) return const Error('历史状态已更新');
     final version = ++_statusVersion;
     final result = await _repository.status(account);
-    if (version != _statusVersion || _savingPause || !owns(account)) {
+    if (version != _statusVersion || !owns(account)) {
       return const Error('历史状态已更新');
     }
     if (result case Success(:final response)) {
@@ -66,7 +67,7 @@ class HistoryLibrary extends LibraryModule {
   Future<LoadingState<void>> pause(Account account, bool paused) =>
       write(account, () async {
         final version = ++_statusVersion;
-        _savingPause = true;
+        _savingPauseFor.add(account);
         try {
           final result = await _repository.pause(account, paused);
           if (result.isSuccess && owns(account)) {
@@ -79,7 +80,7 @@ class HistoryLibrary extends LibraryModule {
           }
           return result;
         } finally {
-          _savingPause = false;
+          _savingPauseFor.remove(account);
         }
       });
   Future<LoadingState<void>> clear(Account account) =>

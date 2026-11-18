@@ -16,6 +16,8 @@ import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 import '../../support/memory_box.dart';
 
@@ -98,6 +100,7 @@ class FakeHistoryRepository extends HistoryRepository {
   Future<void> cachePause(bool paused) async {
     if (cacheFailure != null) throw cacheFailure!;
     cached.add(paused);
+    await super.cachePause(paused);
   }
 }
 
@@ -232,6 +235,34 @@ void main() {
     expect(repository.cached, [true]);
     expect(paused, [true]);
     await sub.cancel();
+  });
+  for (final paused in [true, false]) {
+    test('保存历史暂停状态 $paused 时，状态查询不能阻止更新播放偏好', () async {
+      await GStorage.localCache.put(LocalCacheKey.historyPause, !paused);
+      final pending = Completer<LoadingState<void>>();
+      repository.mutation = () => pending.future;
+      repository.readStatus = () => fail('保存期间不应读取远端状态');
+      final current = Accounts.history;
+      final save = library.pause(current, paused);
+      expect(repository.pauses, 1);
+      expect(await library.status(current), isA<Error>());
+      pending.complete(const Success(null));
+      expect(await save, isA<Success>());
+      expect(Pref.historyPause, paused);
+    });
+  }
+  test('旧凭据保存未结束时，新凭据仍能读取并缓存历史状态', () async {
+    final pending = Completer<LoadingState<void>>();
+    repository.mutation = () => pending.future;
+    final save = library.pause(Accounts.history, true);
+    final replacement = account(2);
+    (container.read(historyAccountProvider.notifier) as TestHistoryAccount)
+        .replace(replacement);
+    expect(await library.status(replacement), isA<Success>());
+    pending.complete(const Success(null));
+    expect(await save, isA<Success>());
+    expect(repository.cached, [false]);
+    expect(Pref.historyPause, isFalse);
   });
   test('暂停 provider 的旧初始化不覆盖写入回执', () async {
     final old = Completer<LoadingState<bool>>();
