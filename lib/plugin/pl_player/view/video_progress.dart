@@ -32,32 +32,22 @@ class CompactVideoProgress extends StatelessWidget {
       right: 0,
       child: Obx(
         () {
-          final showControls = plPlayerController.showControls.value;
-          final bool offstage;
-          switch (plPlayerController.progressType) {
-            case .alwaysShow:
-              offstage = showControls;
-            case .alwaysHide:
-              if (!plPlayerController.isSeeking.value) {
-                return const SizedBox.shrink();
-              }
-              offstage = showControls;
-            case .onlyShowFullScreen:
-              offstage =
-                  showControls ||
-                  (!isFullScreen && !plPlayerController.isSeeking.value);
-            case .onlyHideFullScreen:
-              offstage =
-                  showControls ||
-                  (isFullScreen && !plPlayerController.isSeeking.value);
+          if (plPlayerController.showControls.value) {
+            return const SizedBox.shrink();
           }
-          return Offstage(
-            offstage: offstage,
-            child: VideoProgressTrack(
-              controller: plPlayerController,
-              videoDetailController: videoDetailController,
-              color: primary,
-            ),
+          final visible = switch (plPlayerController.progressType) {
+            .alwaysShow => true,
+            .alwaysHide => plPlayerController.isSeeking.value,
+            .onlyShowFullScreen =>
+              isFullScreen || plPlayerController.isSeeking.value,
+            .onlyHideFullScreen =>
+              !isFullScreen || plPlayerController.isSeeking.value,
+          };
+          if (!visible) return const SizedBox.shrink();
+          return VideoProgressTrack(
+            controller: plPlayerController,
+            videoDetailController: videoDetailController,
+            color: primary,
           );
         },
       ),
@@ -98,12 +88,12 @@ class VideoProgressTrack extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Obx(
-    () => Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.bottomCenter,
-      children: [
-        ProgressBar(
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    alignment: Alignment.bottomCenter,
+    children: [
+      Obx(
+        () => ProgressBar(
           progress: controller.progress,
           buffered: controller.buffered.value,
           total: controller.duration.value,
@@ -119,23 +109,28 @@ class VideoProgressTrack extends StatelessWidget {
           onDragUpdate: interactive ? onDragUpdate : null,
           onSeek: interactive ? onSeek : null,
         ),
-        if (controller.enableBlock &&
-            videoDetailController.segmentProgressList.isNotEmpty)
-          Positioned(
+      ),
+      if (controller.enableBlock)
+        Obx(() {
+          final segments = videoDetailController.segmentProgressList;
+          if (segments.isEmpty) return const SizedBox.shrink();
+          return Positioned(
             left: 0,
             right: 0,
             bottom: interactive ? 5.25 : 0.75,
-            child: SegmentProgressBar(
-              segments: videoDetailController.segmentProgressList,
-            ),
-          ),
-        if (controller.showViewPoints &&
-            videoDetailController.viewPointList.isNotEmpty &&
-            videoDetailController.showVP.value)
-          Padding(
+            child: SegmentProgressBar(segments: List.of(segments)),
+          );
+        }),
+      if (controller.showViewPoints)
+        Obx(() {
+          final segments = videoDetailController.viewPointList;
+          if (segments.isEmpty || !videoDetailController.showVP.value) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
             padding: EdgeInsets.only(bottom: interactive ? 8.75 : 4.25),
             child: ViewPointSegmentProgressBar(
-              segments: videoDetailController.viewPointList,
+              segments: segments,
               onSeek:
                   (interactive
                       ? PlatformUtils.isDesktop
@@ -147,17 +142,24 @@ class VideoProgressTrack extends StatelessWidget {
                     }
                   : null,
             ),
-          ),
-        if ((interactive || controller.showDmChart) &&
-            videoDetailController.showDmTrendChart.value)
-          if (videoDetailController.dmTrend.value?.dataOrNull case final list?)
-            buildDmChart(
-              color,
-              list,
-              videoDetailController,
-              interactive ? 4.5 : 0,
-            ),
-      ],
-    ),
+          );
+        }),
+      if (interactive || controller.showDmChart)
+        Obx(() {
+          if (!videoDetailController.showDmTrendChart.value) {
+            return const SizedBox.shrink();
+          }
+          final trend = videoDetailController.dmTrend.value?.dataOrNull;
+          if (trend == null || trend.isEmpty) return const SizedBox.shrink();
+          final showPoints =
+              videoDetailController.viewPointList.isNotEmpty &&
+              videoDetailController.showVP.value;
+          return DanmakuTrendChart(
+            themeColor: color,
+            trend: trend,
+            bottom: (showPoints ? 19.25 : 4.25) + (interactive ? 4.5 : 0),
+          );
+        }),
+    ],
   );
 }
