@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -21,8 +23,9 @@ import '../../support/memory_box.dart';
 import 'live_fixture.dart';
 
 class _Filter extends DiscoveryFilter {
+  Future<void>? pending;
   @override
-  Future<void>? prepare() => null;
+  Future<void>? prepare() => pending;
   @override
   Iterable<Never> authorsToCheck(Object? items) => [];
   @override
@@ -40,6 +43,7 @@ void main() {
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
   late ProviderContainer container;
+  late _Filter filter;
   LoginAccount account(int mid) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': 'fixture'}),
     null,
@@ -57,8 +61,9 @@ void main() {
   });
   setUp(() {
     requests.clear();
+    filter = _Filter();
     container = ProviderContainer(
-      overrides: [discoveryFilterProvider.overrideWithValue(_Filter())],
+      overrides: [discoveryFilterProvider.overrideWithValue(filter)],
     );
     Accounts.accountMode[AccountType.main.index] = account(2);
     Accounts.accountMode[AccountType.recommend.index] = account(3);
@@ -223,6 +228,23 @@ void main() {
       3,
     ]);
     expect(before.loading.data.single.roomid, 2);
+  });
+  test('独立直播目录等待作者规则，旧凭据不发请求', () async {
+    final gate = Completer<void>();
+    filter.pending = gate.future;
+    final provider = liveHomeHeaderProvider(Object());
+    container.listen(provider, (_, _) {});
+    await tick();
+    expect(requests, isEmpty);
+    final replacement = account(3);
+    Accounts.replaceCredentials(replacement);
+    gate.complete();
+    await interceptor.waitForRequests(1);
+    expect(requests.single.options.extra['account'], same(replacement));
+    requests.single.reply.complete(liveIndex(1));
+    final result = await container.read(provider.future);
+    expect(result.data.followed?.cardData?.myIdolV1?.list, isEmpty);
+    expect(result.data.areas, isNotNull);
   });
   testWidgets('房间和顶部目录分别失败，仍可重试目录或切回推荐', (tester) async {
     Future<void> waitForRequests(int count) async {

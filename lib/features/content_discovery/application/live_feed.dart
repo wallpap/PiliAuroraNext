@@ -25,13 +25,16 @@ final liveHomeHeaderProvider = FutureProvider.autoDispose
     .family<LoadingState<LiveCatalog>, Object>((ref, owner) async {
       final account = ref.watch(recommendAccountProvider);
       final main = ref.watch(mainAccountProvider);
+      bool current() =>
+          ref.mounted &&
+          identical(account, ref.read(recommendAccountProvider)) &&
+          identical(main, ref.read(mainAccountProvider));
+      await ref.read(discoveryFilterProvider).prepare();
+      if (!current()) return LoadingState.loading();
       final result = await ref
           .read(liveCatalogRepositoryProvider)
           .homeHeader(account);
-      if (result case Success(:final response)
-          when ref.mounted &&
-              identical(account, ref.read(recommendAccountProvider)) &&
-              identical(main, ref.read(mainAccountProvider))) {
+      if (result case Success(:final response) when current()) {
         _filterFollowed(ref, response);
       }
       return result;
