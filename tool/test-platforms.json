@@ -9,7 +9,9 @@
     "test/common/widgets/inactive_sliver_semantics_test.dart",
     "test/common/widgets/pipeline_owner_semantics_test.dart",
     "test/pages/setting/decoder_test_process_test.dart",
+    "test/plugin/pl_player/volume_controller_test.dart",
     "test/services/desktop_playback_windows_test.dart",
+    "test/services/diagnostics/windows_graphics_memory_metrics_test.dart",
     "test/utils/desktop_window_background_test.dart"
   ],
   "androidHost": [
