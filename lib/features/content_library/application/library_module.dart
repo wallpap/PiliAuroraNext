@@ -17,10 +17,9 @@ abstract class LibraryModule {
   ) async {
     if (!owns(account) || !account.isLogin) return const Error('账号已切换或未登录');
     // Account 的值相等语义不能合并同 UID 的新凭据。
-    if (_writing.any((item) => identical(item, account))) {
+    if (!_writing.add(account)) {
       return const Error('操作进行中');
     }
-    _writing.add(account);
     try {
       final result = await send();
       if (result.isSuccess && owns(account) && !_changes.isClosed) {

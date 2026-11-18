@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/features/content_library/data/library_preferences.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
 
-final libraryPreferencesProvider = Provider<LibraryPreferences>(
-  (ref) => LibraryPreferences(),
-);
 final playAllProvider = NotifierProvider<PlayAllPreference, bool>(
   PlayAllPreference.new,
 );
@@ -13,12 +12,11 @@ class PlayAllPreference extends Notifier<bool> {
   bool _saving = false;
   @override
   bool build() {
-    final preferences = ref.watch(libraryPreferencesProvider);
-    final subscription = preferences.changes.listen(
-      (_) => state = preferences.playAll,
-    );
+    final subscription = GStorage.setting
+        .watch(key: SettingBoxKey.enablePlayAll)
+        .listen((_) => state = Pref.enablePlayAll);
     ref.onDispose(subscription.cancel);
-    return preferences.playAll;
+    return Pref.enablePlayAll;
   }
 
   Future<LoadingState<void>> set(bool value) async {
@@ -26,7 +24,7 @@ class PlayAllPreference extends Notifier<bool> {
     _saving = true;
     final owner = ref;
     try {
-      await owner.read(libraryPreferencesProvider).savePlayAll(value);
+      await GStorage.setting.put(SettingBoxKey.enablePlayAll, value);
       if (owner.mounted) state = value;
       return const Success(null);
     } catch (error, stack) {

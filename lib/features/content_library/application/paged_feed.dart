@@ -14,13 +14,29 @@ class FeedPage<T, M> {
 class FeedState<T, M> {
   FeedState({
     required Iterable<T> items,
+    required M metadata,
+    required Account account,
+    required Object source,
+    Object? next,
+    Error? error,
+  }) : this._(
+         items: List.unmodifiable(items),
+         metadata: metadata,
+         account: account,
+         source: source,
+         next: next,
+         error: error,
+       );
+
+  FeedState._({
+    required this.items,
     required this.metadata,
     required this.account,
     required this.source,
     this.next,
     this.loadingMore = false,
     this.error,
-  }) : items = List.unmodifiable(items);
+  });
   final List<T> items;
   final M metadata;
   final Account account;
@@ -30,7 +46,7 @@ class FeedState<T, M> {
   final Error? error;
   bool get canLoadMore => next != null && !loadingMore && error == null;
   FeedState<T, M> operation({bool loadingMore = false, Error? error}) =>
-      FeedState(
+      FeedState._(
         items: items,
         metadata: metadata,
         account: account,
