@@ -21,19 +21,21 @@ This project has moved from [PiliAurora](https://github.com/wallpap/PiliAurora) 
 
 The new repository starts an independent commit history from the migrated source snapshot. Earlier commits remain in the original repository. Existing features and dependency changes are carried forward; local customized packages start their new revision sequence at `+piliauroranext.1`, as described in the [dependency maintenance guide](third_party/README.md#版本与来源). Existing copyright, license, and upstream provenance notices are preserved.
 
-`1.0.0` is the first version after the migration to PiliAuroraNext and starts the new repository's independent version sequence. See the [changelog](CHANGELOG.md) for version history and the Releases page for packages and publication status.
+Version numbering in the new repository starts at `1.0.0`. See the [changelog](CHANGELOG.md) for release history.
 
 ## Supported platforms and downloads
 
-Choose the package for your device from [GitHub Releases](https://github.com/wallpap/PiliAuroraNext/releases/latest). The Releases page lists the versions available to download.
+On [GitHub Releases](https://github.com/wallpap/PiliAuroraNext/releases/latest), choose the file whose name ends as shown for your device.
 
-| Device | Package |
+| Device | Filename ends with |
 | --- | --- |
 | Android ARM64, including many recent phones and tablets | `arm64-v8a.apk` |
 | Android 32-bit ARM | `armeabi-v7a.apk` |
 | Android x86_64 device or matching emulator | `x86_64.apk` |
 | Windows x64, with installation and shortcuts | `x64_setup.exe` |
-| Windows x64, portable | Extract the complete `x64_portable.zip` and run `PiliAuroraNext.exe` |
+| Windows x64, portable | `x64_portable.zip` |
+
+For the Windows portable version, extract the entire ZIP before running `PiliAuroraNext.exe`.
 
 The in-app update check compares stable release version numbers and opens your browser to download an installer. Download prereleases manually from the Releases page.
 

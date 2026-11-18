@@ -72,7 +72,10 @@ pwsh -NoProfile -File tool/setup-android-signing.ps1
 
 ### 本地构建与发布工作流
 
-本地发布验证使用上节默认构建命令。
+本地验证发布包时，运行上节的默认构建命令。构建完成后，按平台查找产物：
+
+- Android：`build/release-apks/PiliAuroraNext-android-<ABI>-release.apk`。每个 APK 旁都有引擎身份 JSON 和构建日志。只构建一个架构时，脚本还会将签名后的 APK 和身份 JSON 复制到 `build/app/outputs/flutter-apk/`，APK 名为 `app-release.apk`。
+- Windows：程序位于 `build/windows/x64/runner/Release/`。打包前会读取 `build/windows-engine-config.json`，核对编译时使用的引擎配置。
 
 迁移后从 `1.0.0` 建立独立版本序列，版本记录维护在[更新日志](../../CHANGELOG.md)。发布前同步 `pubspec.yaml` 与更新日志，将发布提交推送至远端，并创建指向同一提交的版本 tag。以首版为例，在签名 Secrets 已配置后运行以下命令，工作流从固定 tag 构建 Android 与 Windows，保留默认测试并上传正式 Release 附件：
 
@@ -80,7 +83,16 @@ pwsh -NoProfile -File tool/setup-android-signing.ps1
 gh workflow run build.yml --repo wallpap/PiliAuroraNext --ref 1.0.0 -f tag=1.0.0 -f build_android=true -f build_win_x64=true -f skip_ci_tests=false -f draft_release=false -f prerelease=false
 ```
 
-Android APK 位于 `build/release-apks/PiliAuroraNext-android-<ABI>-release.apk`，每包旁有身份 JSON 和构建日志；单架构构建也将最终签署的 APK 与身份同步到 `build/app/outputs/flutter-apk/app-release.apk` 及同名 JSON。Windows 运行目录位于 `build/windows/x64/runner/Release/`，编译期引擎配置自动写入 `build/windows-engine-config.json`，供打包前置校验使用。GitHub Release 由 `.github/workflows/build.yml` 手动触发并传入 `X.Y.Z` 或 `vX.Y.Z`，通过 `build_android` 和 `build_win_x64` 选择平台；预发布须启用 `prerelease`，需要先验证附件时可同时启用 `draft_release`。发布说明由 GitHub 根据本次发布的提交记录生成。不填 tag 时仅上传工作流附件；`skip_ci_tests` 可跳过主机 CI 测试与 Windows 安装器测试，依赖及预编译产物校验仍执行，默认不跳过。Android 使用对应架构的定制引擎生成三个分 ABI APK，Windows 使用定制引擎生成 x64 便携包和安装程序。引擎产物及身份文件随 Git 保存，CI 校验后直接装配，维护步骤见[预编译引擎](../../third_party/flutter_engine/README.md)。发布工作流以 tag 指定版本名，用提交数生成构建号，并写入本次构建的 `pubspec.yaml` 和 `pili_release.json`。
+手动运行 `.github/workflows/build.yml` 时，按需要设置以下参数：
+
+| 参数 | 作用 |
+| --- | --- |
+| `tag` | 填 `X.Y.Z` 或 `vX.Y.Z`，将安装包上传到对应的 GitHub Release。留空则只上传工作流附件，不发布 Release。 |
+| `build_android`、`build_win_x64` | 选择构建平台。Android 生成三个按 ABI 区分的 APK；Windows 生成 x64 便携包和安装程序。 |
+| `prerelease`、`draft_release` | 发布预览版时启用 `prerelease`。要在公开前核对附件，可启用 `draft_release` 保存为草稿；两项可以同时启用。 |
+| `skip_ci_tests` | 默认运行主机 CI 测试和 Windows 安装器测试。启用后跳过这些测试，仍校验依赖和预编译产物。 |
+
+CI 校验仓库中的引擎产物和身份文件后，为各平台和架构装配对应的定制引擎。维护步骤见[预编译引擎](../../third_party/flutter_engine/README.md)。发布时，工作流以 tag 指定版本名，用提交数生成构建号，并写入本次构建的 `pubspec.yaml` 和 `pili_release.json`。GitHub 根据本次发布的提交记录生成发布说明。
 
 Android APK 构建失败时，工作流会在步骤输出中打印对应 `.build.log` 的最后 200 行；完整日志以 `android-build-logs-<run_id>-<run_attempt>` 工作流附件保留，成功、失败或取消时均尝试上传已有日志。排查 `flutter failed` 时先查看这些日志，定位 Flutter 或 Gradle 的实际错误。
 
