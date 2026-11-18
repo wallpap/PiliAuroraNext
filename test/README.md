@@ -34,7 +34,7 @@ pwsh -NoProfile -File tool/run-ci-tests.ps1
 
 合并或替换用例时保留账号隔离、确认写入、分页重试和资源释放等边界，预期结果须独立于被测实现。异步用例优先等待请求或完成事件，计时边界使用模拟时钟。`testWidgets` 中持续创建 Timer 的对象须在用例体结束前释放，外层 `tearDown` 晚于测试绑定的计时器检查。
 
-跨页面共同行为集中在共享入口验证：列表刷新契约见 `features/content_discovery/discovery_listing_test.dart`，通用内容库与订阅视图复用 `features/subscriptions/subscription_library_test.dart` 中的参数化场景。页面保留真实接线、领域游标、标题、选择和滚动等特有行为；展示连续性以可见内容和位置判断，避免绑定 Element、控制器或集合的对象身份。
+跨页面共同行为集中在共享入口验证：发现列表的刷新契约见 `features/content_discovery/discovery_listing_test.dart`，通用内容库视图见 `features/content_library/feed_view_test.dart`。订阅等页面保留真实接线、领域游标、标题、选择和滚动等特有行为；展示连续性以可见内容和位置判断，避免绑定 Element、控制器或集合的对象身份。
 
 ## 平台前提
 
