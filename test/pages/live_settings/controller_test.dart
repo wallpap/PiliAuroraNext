@@ -263,7 +263,10 @@ void main() {
     await container.pump();
     await dispatched(4);
     requests.last.reply.complete({'code': -1, 'message': 'failed'});
-    await expectLater(container.read(provider.future), throwsA(anything));
+    await expectLater(
+      container.read(provider.future),
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
+    );
     expect(
       (await notifier.change(
         source: source,

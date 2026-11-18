@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
 import 'package:pili_aurora_next/pages/live_search/view.dart';
@@ -160,7 +161,10 @@ void main() {
     final refresh = container.refresh(scopedSearchProvider(query).future);
     await dispatched(3);
     requests.last.reply.complete({'code': -1, 'message': 'failed'});
-    await expectLater(refresh, throwsA(anything));
+    await expectLater(
+      refresh,
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
+    );
     requests[1].reply.complete(page([99]));
     await pending;
     expect(container.read(scopedSearchProvider(query)).hasError, isTrue);

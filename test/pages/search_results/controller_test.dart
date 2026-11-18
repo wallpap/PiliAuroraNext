@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/search_panel/controller.dart';
 import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
@@ -312,7 +313,10 @@ void main() {
     await container.pump();
     await dispatched(4);
     requests.last.reply.complete({'code': -1, 'message': 'failed'});
-    await expectLater(container.read(provider.future), throwsA(anything));
+    await expectLater(
+      container.read(provider.future),
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
+    );
     await notifier.loadMore();
     expect(requests, hasLength(4));
   });

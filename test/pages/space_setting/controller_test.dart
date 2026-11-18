@@ -169,7 +169,7 @@ void main() {
     requests.last.reply.complete({'code': -1, 'message': 'query failed'});
     await expectLater(
       container.read(spacePrivacyProvider.future),
-      throwsA(anything),
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
     );
     notifier.setValue('fav_video', false);
     expect((await notifier.save()).isSuccess, isFalse);

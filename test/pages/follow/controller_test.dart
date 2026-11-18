@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/follow/controller.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
@@ -260,7 +261,10 @@ void main() {
     final refresh = container.refresh(followingProvider(all).future);
     await dispatched(3);
     requests.last.reply.complete({'code': -1, 'message': 'failed'});
-    await expectLater(refresh, throwsA(anything));
+    await expectLater(
+      refresh,
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
+    );
     await container.read(followingProvider(all).notifier).loadMore();
     expect(requests, hasLength(3));
     requests[1].reply.complete(page([99], total: 1));
