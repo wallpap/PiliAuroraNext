@@ -59,6 +59,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/extension/nested_scroll_ext.dart';
@@ -122,6 +123,7 @@ class VideoDetailController extends GetxController
 
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
+  final availableVideoQualities = Rx<Set<int>>(const {});
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
 
@@ -146,6 +148,7 @@ class VideoDetailController extends GetxController
   late final PlaybackOwner playbackOwner;
   PlaybackPlan? _playbackPlan;
   int _sourceSelectionGeneration = 0;
+  CancelToken? _videoQueryCancel;
   ({
     VideoPlaybackSource source,
     bool videoChanged,
@@ -1101,6 +1104,7 @@ class VideoDetailController extends GetxController
 
   Future<LoadingState<PlayUrlModel>> Function(int) _captureVideoQuery(
     CancelToken cancelToken,
+    Account account,
   ) {
     final request = (
       cid: cid.value,
@@ -1109,6 +1113,8 @@ class VideoDetailController extends GetxController
       seasonId: seasonId,
       videoType: _actualVideoType ?? videoType,
       language: currLang.value,
+      tryLook: plPlayerController.tryLook,
+      voiceBalance: plPlayerController.enableAudioNormalization,
     );
     return (quality) => VideoHttp.videoUrl(
       cid: request.cid,
@@ -1116,26 +1122,30 @@ class VideoDetailController extends GetxController
       qn: quality,
       epid: request.epid,
       seasonId: request.seasonId,
-      tryLook: plPlayerController.tryLook,
+      tryLook: request.tryLook,
       videoType: request.videoType,
       language: request.language,
-      voiceBalance: plPlayerController.enableAudioNormalization,
+      voiceBalance: request.voiceBalance,
       cancelToken: cancelToken,
+      account: account,
     );
   }
 
-  Future<void> _supplementVideoQualities(
+  Future<bool> _supplementVideoQualities(
     PlayUrlModel response,
+    int quality,
     Future<LoadingState<PlayUrlModel>> Function(int) fetch,
     bool Function() isCurrent,
   ) async {
-    final quality = response.missingVideoQualityBelowHighest;
-    if (quality == -1 || !isCurrent()) return;
+    if (!isCurrent()) return false;
     final result = await fetch(quality);
-    if (!isCurrent()) return;
-    if (result case Success(response: final supplement)) {
-      response.dash!.video!.merge(supplement.dash?.video);
+    if (result case Success(response: final supplement) when isCurrent()) {
+      if (supplement.dash?.video case final tracks? when tracks.isNotEmpty) {
+        response.dash!.video!.merge(tracks);
+        return true;
+      }
     }
+    return false;
   }
 
   Volume? volume;
@@ -1180,7 +1190,18 @@ class VideoDetailController extends GetxController
       mediaVolume: volume,
     );
     final cancelToken = CancelToken();
-    final fetch = _captureVideoQuery(cancelToken);
+    _videoQueryCancel?.cancel();
+    _videoQueryCancel = cancelToken;
+    final account = Accounts.get(AccountType.video);
+    final fetch = _captureVideoQuery(cancelToken, account);
+    final ownsPlayback = playbackOwner.guard();
+    bool ownsSource() =>
+        !isClosed &&
+        ownsPlayback() &&
+        !cancelToken.isCancelled &&
+        identical(_videoQueryCancel, cancelToken) &&
+        identical(account, Accounts.get(AccountType.video)) &&
+        identity == (bvid, cid.value, epId, seasonId);
     final start =
         startPolicy ??
         (plPlayerController.currentPlaybackContentKey == contentKey
@@ -1189,6 +1210,7 @@ class VideoDetailController extends GetxController
             ? PlaybackStartPolicy.play
             : PlaybackStartPolicy.pause);
     PlaybackQuery? acceptedQuery;
+    int? deferredQuality;
     final result = await submitPlaybackQuery(
       (query) {
         acceptedQuery = query;
@@ -1198,18 +1220,15 @@ class VideoDetailController extends GetxController
           fetch,
           configuration,
           query,
-          identity,
+          ownsSource,
+          (quality) => deferredQuality = quality,
         );
       },
       start: start,
       shouldLoad: () => _shouldInitializePlayer(force: fromReset),
     );
     final query = acceptedQuery;
-    bool valid() =>
-        query?.isCurrent == true &&
-        !isClosed &&
-        playbackOwner.isActive &&
-        identity == (bvid, cid.value, epId, seasonId);
+    bool valid() => query?.isCurrent == true && ownsSource();
     if (!valid()) return;
     if (result.outcome == LoadOutcome.ready) {
       videoState.value = true;
@@ -1220,6 +1239,24 @@ class VideoDetailController extends GetxController
       afterPlaybackReady(valid);
       defaultST = null;
     }
+    if (deferredQuality case final quality?
+        when result.outcome == LoadOutcome.ready ||
+            result.outcome == LoadOutcome.noMedia) {
+      final sourceData = data;
+      bool stillOwnsData() => ownsSource() && identical(data, sourceData);
+      unawaited(() async {
+        if (await _supplementVideoQualities(
+              sourceData,
+              quality,
+              fetch,
+              stillOwnsData,
+            ) &&
+            stillOwnsData()) {
+          availableVideoQualities.value =
+              sourceData.dash!.video!.availableVideoQualities;
+        }
+      }());
+    }
   }
 
   Future<PlaybackPlan?> _queryVideoUrl(
@@ -1227,18 +1264,20 @@ class VideoDetailController extends GetxController
     Future<LoadingState<PlayUrlModel>> Function(int) fetch,
     PlaybackConfiguration configuration,
     PlaybackQuery query,
-    (String, int, int?, int?) identity,
+    bool Function() ownsSource,
+    void Function(int) deferSupplement,
   ) async {
-    bool isCurrent() =>
-        !isClosed &&
-        playbackOwner.isActive &&
-        query.isCurrent &&
-        identity == (bvid, cid.value, epId, seasonId);
+    bool isCurrent() => query.isCurrent && ownsSource();
     if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
       querySponsorBlock(bvid: bvid, cid: cid.value, isCurrent: isCurrent);
     }
-    if (plPlayerController.cacheVideoQa == null) {
-      final isWiFi = await ConnectivityUtils.isWiFi;
+    if (!isCurrent()) return null;
+    final network = plPlayerController.cacheVideoQa == null
+        ? ConnectivityUtils.isWiFi
+        : null;
+    final result = await fetch(VideoQuality.hdrVivid.code);
+    if (network != null) {
+      final isWiFi = await network;
       if (!isCurrent()) return null;
       plPlayerController
         ..cacheVideoQa = isWiFi
@@ -1251,15 +1290,24 @@ class VideoDetailController extends GetxController
     }
 
     if (!isCurrent()) return null;
-    final result = await fetch(VideoQuality.hdrVivid.code);
-    if (!isCurrent()) return null;
 
     if (result case Success(:final response)) {
-      if (response.dash != null) {
-        await _supplementVideoQualities(response, fetch, isCurrent);
+      final targetQuality = response.targetVideoQuality(
+        plPlayerController.cacheVideoQa!,
+      );
+      if (response.missingVideoQualityBelowHighest case final quality?) {
+        if (response.findAvailableVideoQuality(targetQuality) !=
+                targetQuality &&
+            quality >= targetQuality) {
+          await _supplementVideoQualities(response, quality, fetch, isCurrent);
+        } else {
+          deferSupplement(quality);
+        }
       }
       if (!isCurrent()) return null;
       data = response;
+      availableVideoQualities.value =
+          data.dash?.video?.availableVideoQualities ?? const {};
 
       languages.value = data.language?.items;
       currLang.value = data.curLanguage;
@@ -1312,9 +1360,7 @@ class VideoDetailController extends GetxController
         _applyPlaybackSource(
           VideoPlaybackSource.resolve(
             data,
-            videoQuality: data.findAvailableVideoQuality(
-              plPlayerController.cacheVideoQa!,
-            ),
+            videoQuality: data.findAvailableVideoQuality(targetQuality),
             audioQuality: plPlayerController.cacheAudioQa,
             preferredCodecs: preferCodecs,
           ),
@@ -1643,6 +1689,7 @@ class VideoDetailController extends GetxController
 
   @override
   void onClose() {
+    _videoQueryCancel?.cancel();
     _subtitleGeneration++;
     plPlayerController.closePlaybackOwner(playbackOwner);
     cid.close();
@@ -1662,6 +1709,7 @@ class VideoDetailController extends GetxController
   }
 
   void onReset({bool isStein = false}) {
+    _videoQueryCancel?.cancel();
     _subtitleGeneration++;
     playbackOwner.invalidateRequests();
     if (isFileSource) {

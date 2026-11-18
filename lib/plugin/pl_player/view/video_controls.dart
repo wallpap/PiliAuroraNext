@@ -499,7 +499,8 @@ class _VideoControlsState extends State<VideoControls> {
           final videoFormat = videoInfo.supportFormats ?? const <FormatItem>[];
           final tracks = videoInfo.dash?.video;
           if (tracks == null || tracks.isEmpty) return const SizedBox.shrink();
-          final availableQa = tracks.availableVideoQualities;
+          final availableQa =
+              videoDetailController.availableVideoQualities.value;
           return PopupMenuButton<int>(
             tooltip: '画质',
             requestFocus: false,

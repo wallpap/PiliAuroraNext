@@ -144,6 +144,40 @@ void main() {
     await GStorage.setting.delete(SettingBoxKey.videoBufferPolicy);
   });
 
+  test('首包满足起播画质，补档不阻塞且只更新菜单', () async {
+    final controller = page();
+    final query = controller.queryVideoUrl();
+    (await adapter.next()).complete(media(1, supplement: true));
+    final supplement = await adapter.next();
+    expect(controller.loads.map((entry) => entry.cid), [1]);
+    await query;
+    final sourceData = controller.data;
+    final updated = controller.availableVideoQualities.stream.firstWhere(
+      (qualities) => qualities.contains(64),
+    );
+    supplement.complete(media(1, quality: 64));
+    expect(await updated.timeout(const Duration(seconds: 2)), {80, 64});
+    expect(controller.data, same(sourceData));
+    expect(sourceData.dash!.video!.availableVideoQualities, {80, 64});
+    expect(controller.currentVideoQa.value?.code, 80);
+    expect(controller.loads, hasLength(1));
+    controller.closePlayback();
+  });
+
+  test('缺少起播画质时等待补档，补档失败仍选择实际存在的轨道', () async {
+    final controller = page();
+    controller.plPlayerController.cacheVideoQa = 64;
+    final query = controller.queryVideoUrl();
+    (await adapter.next()).complete(media(1, supplement: true));
+    final supplement = await adapter.next();
+    expect(controller.loads, isEmpty);
+    supplement.complete({'code': -1, 'message': '补档失败'}, raw: true);
+    await query;
+    expect(controller.currentVideoQa.value?.code, 80);
+    expect(controller.loads, hasLength(1));
+    controller.closePlayback();
+  });
+
   test('补充画质请求也绑定原媒体，迟到补充不能污染当前数据', () async {
     final controller = page();
     final old = controller.queryVideoUrl();
@@ -158,7 +192,7 @@ void main() {
     supplement.complete(media(1, quality: 64));
     await old;
     expect(controller.data.dash!.video!.map((e) => e.id), [80]);
-    expect(controller.loads.map((e) => e.cid), [2]);
+    expect(controller.loads.map((e) => e.cid), [1, 2]);
     controller.closePlayback();
   });
 

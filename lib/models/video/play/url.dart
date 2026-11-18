@@ -58,34 +58,50 @@ class PlayUrlModel {
   Language? language;
   List<SegmentItemModel>? clipInfoList;
 
-  int findAvailableVideoQuality(int preferredQuality) {
-    final curHighestVideoQa = dash!.video!.first.quality.code;
-    if (acceptQuality case final qualitys?
-        when preferredQuality <= curHighestVideoQa) {
-      return qualitys.findClosestTarget((e) => e <= preferredQuality, max);
-    } else {
-      return curHighestVideoQa;
-    }
+  int targetVideoQuality(int preferredQuality) {
+    final highest = dash?.video?.firstOrNull?.id;
+    if (highest == null) return preferredQuality;
+    if (preferredQuality > highest) return highest;
+    return _closestVideoQuality(acceptQuality ?? const [], preferredQuality) ??
+        min(preferredQuality, highest);
   }
 
-  @pragma('vm:notify-debugger-on-exception')
-  int get missingVideoQualityBelowHighest {
-    int best = -1;
-    try {
-      final video = dash!.video!;
-      final available = video.availableVideoQualities;
-      final highest = video.first.id;
+  int findAvailableVideoQuality(int targetQuality) =>
+      _closestVideoQuality(
+        dash?.video?.map((track) => track.id) ?? const [],
+        targetQuality,
+      ) ??
+      targetQuality;
 
-      for (final item in supportFormats!) {
-        final quality = item.quality;
-        if (quality != null &&
-            best < quality &&
-            quality < highest &&
-            !available.contains(quality)) {
-          best = quality;
-        }
+  static int? _closestVideoQuality(Iterable<int> qualities, int target) {
+    int? highest;
+    int? closest;
+    for (final quality in qualities) {
+      if (quality == target) return quality;
+      if (highest == null || quality > highest) highest = quality;
+      if (quality < target && (closest == null || quality > closest)) {
+        closest = quality;
       }
-    } catch (_) {}
+    }
+    return closest ?? highest;
+  }
+
+  int? get missingVideoQualityBelowHighest {
+    final tracks = dash?.video;
+    final formats = supportFormats;
+    if (tracks == null || tracks.isEmpty || formats == null) return null;
+    final available = tracks.availableVideoQualities;
+    final highest = tracks.first.id;
+    int? best;
+    for (final item in formats) {
+      final quality = item.quality;
+      if (quality != null &&
+          quality < highest &&
+          (best == null || best < quality) &&
+          !available.contains(quality)) {
+        best = quality;
+      }
+    }
     return best;
   }
 
