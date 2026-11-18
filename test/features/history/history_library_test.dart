@@ -192,14 +192,28 @@ void main() {
     expect(old.next, isNull);
     expect(repository.requests.last.search, isTrue);
     expect(repository.requests.last.keyword, 'test');
+    final requestCount = repository.requests.length;
+    repository.read = (_) async => HistoryData(list: [item(9)]);
     expect(
       await container.read(search.notifier).remove(old, old.items),
       isA<Success>(),
     );
     final current = await container.read(search.future);
-    await container.read(historyFeedProvider(query).future);
-    expect(current.source, isNot(same(old.source)));
+    final list = await container.read(historyFeedProvider(query).future);
+    expect(current.items.map((record) => record.kid), [9]);
+    expect(list.items.map((record) => record.kid), [9]);
+    expect(
+      repository.requests
+          .skip(requestCount)
+          .map((request) => (request.search, request.keyword, request.cursor)),
+      unorderedEquals([(true, 'test', null), (false, '', null)]),
+    );
     expect(repository.removed.single, ['archive_1']);
+    expect(
+      await container.read(search.notifier).remove(old, old.items),
+      isA<Error>(),
+    );
+    expect(repository.removed, hasLength(1));
   });
   test('删除和清空互斥，待确认不失效；同 UID 换凭据拒绝旧快照', () async {
     final provider = historyFeedProvider(query);
@@ -211,7 +225,11 @@ void main() {
     expect(repository.clears, 0);
     pending.complete(const UnknownResult());
     await remove;
-    expect(container.read(provider).value!.source, same(first.source));
+    expect(
+      container.read(provider).requireValue.items.map((record) => record.kid),
+      [1],
+    );
+    expect(repository.requests, hasLength(1));
     (container.read(historyAccountProvider.notifier) as TestHistoryAccount)
         .replace(account(2));
     await container.read(provider.future);
