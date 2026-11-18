@@ -107,6 +107,7 @@ void main() {
     'content_library',
     'content_discovery',
     'community',
+    'member_space',
     'history',
     'favorites',
     'subscriptions',
@@ -295,6 +296,50 @@ void main() {
       expect(violations, isEmpty, reason: violations.join('\n'));
     },
   );
+  test('space pages and shared comment panels do not restore legacy query controllers', () {
+    const removed = [
+      'pages/member/controller.dart',
+      'pages/member_contribute/controller.dart',
+      'pages/member_favorite/controller.dart',
+      'pages/member_opus/controller.dart',
+      'pages/member_pgc/controller.dart',
+      'pages/member_video/controller.dart',
+      'pages/member_video_web/archive/controller.dart',
+      'pages/member_video_web/base/controller.dart',
+      'pages/member_video_web/season_series/controller.dart',
+      'pages/common/reply_controller.dart',
+      'pages/main_reply/controller.dart',
+      'pages/video/reply/controller.dart',
+      'pages/video/reply_reply/controller.dart',
+    ];
+    for (final entry in removed) {
+      expect(File('lib/$entry').existsSync(), isFalse, reason: entry);
+    }
+    const views = [
+      'pages/member_favorite/view.dart',
+      'pages/member_video/view.dart',
+      'pages/member_video_web/base/view.dart',
+      'pages/common/dyn/common_dyn_page.dart',
+      'pages/main_reply/view.dart',
+      'pages/video/reply/view.dart',
+      'pages/video/reply_reply/view.dart',
+    ];
+    for (final entry in views) {
+      final file = File('lib/$entry');
+      final forbidden = dependencies(file)
+          .map((uri) => localDependency(file, uri))
+          .where(
+            (target) =>
+                target != null &&
+                (removed.contains(target) ||
+                    (target.startsWith('http/') &&
+                        target != 'http/loading_state.dart') ||
+                    target == 'grpc/reply.dart'),
+          );
+      expect(forbidden, isEmpty, reason: entry);
+    }
+  });
+
   test('subscription legacy entries stay removed', () {
     const legacy = [
       'pages/subscription/',
