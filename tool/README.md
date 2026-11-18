@@ -34,7 +34,9 @@
 pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-`run-ci-tests.ps1` 自动发现 `test/` 下的共享回归；[`test-platforms.json`](test-platforms.json)只登记平台特例。`-PlatformOnly` 供 Windows PR 任务补跑宿主行为，`-NativeImages` 要求区域解码夹具并单独执行，`-List` 输出本次文件。`bothHosts` 仅收录有实际宿主分支的套件。设备探针和实验使用各自入口。应用测试使用 `--no-pub`，先准备依赖与对应 Flutter 补丁。
+`run-ci-tests.ps1` 自动发现 `test/` 下的共享测试。[`test-platforms.json`](test-platforms.json) 记录有平台要求的套件。`bothHosts` 只登记需要在 Linux 和 Windows 上分别验证实际宿主行为的套件。
+
+Windows PR 任务用 `-PlatformOnly` 补跑宿主测试。原生图片用 `-NativeImages` 单独运行，缺少区域解码夹具会失败。用 `-List` 查看本次选中的文件。脚本用 `--no-pub` 运行应用测试，须先准备依赖并应用对应的 Flutter 补丁。设备探针和实验各有自己的入口。
 
 独立测试文件由 Flutter 并行执行，默认采用其并发配置；传入 `-Concurrency 4` 可指定同时运行的文件数。共用构建输出的 Flutter 命令仍使用同一入口执行。
 

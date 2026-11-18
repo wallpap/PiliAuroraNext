@@ -63,16 +63,16 @@ gRPC 调用必须声明 `GrpcCallKind`。查询的传输和解码失败返回可
 fvm flutter test --no-pub test/services/messaging/
 ```
 
-以下共享测试由 `tool/run-ci-tests.ps1` 自动发现：
+`tool/run-ci-tests.ps1` 会运行本目录的共享测试。
 
 | 文件 | 覆盖范围 |
 | --- | --- |
-| `messaging_test.dart` | 账号切换、订阅释放、共享会话列表、旧响应失效、分类分页和未读角标 |
-| `conversation_test.dart` | 发送锁、聊天分页、撤回、缓存租约与 ACK 水位 |
+| `messaging_test.dart` | 切换账号后丢弃旧响应；状态桥接释放后取消监听；共享会话列表、按分类分页和未读角标 |
+| `conversation_test.dart` | 聊天分页和撤回、发送期间防重、缓存租约释放和 ACK 水位 |
 | `sharing_test.dart` | 卡片与附言账号绑定、聊天共享锁、切换账号中止、未知结果和部分成功 |
 | `protocol_test.dart` | 发送关闭重试、分享卡片协议字段、系统通知展示与 ACK 超时重试 |
 | `preferences_test.dart` | 本地入口偏好的即时更新与订阅释放 |
-| `settings_test.dart` | 接收设置的同项串行写入、失败回滚、刷新等待和账号失效 |
+| `settings_test.dart` | 同一项接收设置串行写入；写入失败回滚，刷新等待写入，切换账号后丢弃旧结果 |
 
 测试使用模拟响应。涉及页面或协议改动时，还需登录后在 Android、Windows 检查实际服务与界面：
 

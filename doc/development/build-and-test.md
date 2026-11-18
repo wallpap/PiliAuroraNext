@@ -144,7 +144,9 @@ uv run --locked python tool/run_python_tests.py --suite android
 pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-`tool/run-ci-tests.ps1` 默认调用 `fvm flutter test --no-pub`，自动发现共享回归并执行当前平台回归；用 `-List` 查看文件，`-Concurrency 4` 指定并行数。PR 由 Linux 跑共享与 Android 模拟通道，Windows 用 `-PlatformOnly` 跑宿主补丁及平台分支，生成区域解码夹具后另跑 `-NativeImages`。平台特例见 [`tool/test-platforms.json`](../../tool/test-platforms.json)。独立构建保留默认范围。依赖、补丁和来源检查需预先准备，脚本只运行测试。
+`tool/run-ci-tests.ps1` 默认用 `fvm flutter test --no-pub` 运行自动发现的共享测试和当前主机的测试。用 `-List` 查看选中的文件；`-Concurrency 4` 一次运行最多四个测试文件。独立构建用默认范围，运行前先准备依赖、应用补丁并检查依赖来源。
+
+PR 的 Linux 任务运行共享测试和 Android 模拟通道测试。Windows 用 `-PlatformOnly` 运行 Windows 专用测试，并补测需要在两种主机上验证的行为。生成区域解码夹具后，再用 `-NativeImages` 跑原生图片测试。各套件的平台要求见 [`tool/test-platforms.json`](../../tool/test-platforms.json)。
 
 Python 回归使用 `uv run --locked python tool/run_python_tests.py --jobs 4`，`--suite` 选择分组，`--native` 追加三项 C++ 主机探针。组间进程隔离并汇总退出码，Linux CI 复用同一入口。分组与平台条件见[工具说明](../../tool/README.md#python-回归与并行执行)。
 

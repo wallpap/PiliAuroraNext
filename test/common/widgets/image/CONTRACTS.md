@@ -31,7 +31,9 @@ uv run --locked python -m unittest discover -s tool/probes/windows -p image_regi
 pwsh -NoProfile -File tool/run-ci-tests.ps1 -NativeImages -Concurrency 2
 ```
 
-产物位于 `build/probes/image-region/`，可通过 `REGION_TEST_WORKER` 和 `REGION_FIXTURES` 覆盖。普通主机测试缺少 Windows worker 时会跳过原生用例；专用 CI 步骤设置 `REGION_TEST_REQUIRED=1`，缺少 worker 或清单则失败。固定 libwebp 来源和裁剪修复见[上游登记](../../../../third_party/libwebp/UPSTREAM.md)。
+构建产物在 `build/probes/image-region/`。要使用其他位置，可设置 `REGION_TEST_WORKER` 和 `REGION_FIXTURES`。普通主机测试找不到 Windows worker 时会跳过原生用例。专用 CI 步骤设置 `REGION_TEST_REQUIRED=1`，找不到 worker 或夹具清单就会失败。
+
+固定 libwebp 来源和裁剪修复见[上游登记](../../../../third_party/libwebp/UPSTREAM.md)。
 
 缺少 WIC codec 的格式回退完整帧，并与独立 Flutter 解码参照比较。当前 Windows 引擎也不支持测试 AVIF 夹具，回退保留同样的格式错误。
 

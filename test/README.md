@@ -9,9 +9,9 @@ fvm flutter test
 pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-第一条直接运行 `test/`；第二条与 CI 共用入口，自动发现共享测试，并根据[平台分类](../tool/test-platforms.json)选择当前主机回归。用 `-List` 查看执行文件；新增普通测试无须登记。只在依赖 Windows 补丁、Android 模拟通道、真实区域解码器或必须跑两端分支时登记分类。PR 分工见[工作流](../.github/workflows/checks.yml)。
+第一条运行 `test/` 下的所有套件。第二条是 CI 用的脚本，自动发现共享测试，按[平台分类](../tool/test-platforms.json)选择当前主机还要运行的套件。加 `-List` 可查看选中的文件。PR 分工见[工作流](../.github/workflows/checks.yml)。
 
-Windows 分类也包含受真实操作系统判断约束的契约，例如桌面音量迁移、图形内存采样；这些测试保留在 Windows CI 中，Flutter 的模拟目标平台不会启用相关宿主逻辑。
+新增共享测试不用登记。依赖 Windows 补丁、Android 模拟通道或真实区域解码器的套件要登记；需要在两种主机上分别验证实际平台行为的套件也要登记。桌面音量迁移和图形内存采样读取实际操作系统，所以 CI 只在 Windows 上运行这些测试。Flutter 的模拟目标平台无法进入这些分支。
 
 定位单个功能时，将相应文件或目录传给 `fvm flutter test --no-pub`。先验证直接受影响的行为，再按公共接口或平台影响扩大范围。原生或设备探针见[探针目录](../tool/probes/README.md)，按需对照见[实验目录](../tool/experiments/README.md)。
 
@@ -36,7 +36,7 @@ Windows 分类也包含受真实操作系统判断约束的契约，例如桌面
 
 合并或替换用例时保留账号隔离、确认写入、分页重试和资源释放等边界，预期结果须独立于被测实现。异步用例优先等待请求或完成事件，计时边界使用模拟时钟。`testWidgets` 中持续创建 Timer 的对象须在用例体结束前释放，外层 `tearDown` 晚于测试绑定的计时器检查。
 
-跨页面共同行为集中在共享入口验证：发现列表的刷新契约见 `features/content_discovery/discovery_listing_test.dart`，通用内容库视图见 `features/content_library/feed_view_test.dart`。订阅等页面保留真实接线、领域游标、标题、选择和滚动等特有行为；展示连续性以可见内容和位置判断，避免绑定 Element、控制器或集合的对象身份。
+列表刷新在 `features/content_discovery/discovery_listing_test.dart` 验证，通用内容库视图在 `features/content_library/feed_view_test.dart` 验证。订阅等页面的测试检查实际接线和各自的游标、标题、选择和滚动。用可见内容和滚动位置判断页面是否保持原样，无须比较 Element、控制器或集合是不是同一个对象。
 
 ## 平台前提
 
