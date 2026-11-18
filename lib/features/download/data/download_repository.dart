@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,12 +13,12 @@ class DownloadRepository {
 
   static const _entryFile = 'entry.json';
   static const _indexFile = 'index.json';
-  final String Function() _rootPath;
+  final FutureOr<String> Function() _rootPath;
   final void Function(String, Object, StackTrace)? _onReadError;
   final _lock = Lock();
 
   Future<List<BiliDownloadEntryInfo>> load() => _lock.synchronized(() async {
-    final root = await Directory(_rootPath()).create(recursive: true);
+    final root = await Directory(await _rootPath()).create(recursive: true);
     final entries = <BiliDownloadEntryInfo>[];
     await for (final pageDir in root.list(followLinks: false)) {
       if (pageDir is! Directory) continue;
@@ -62,7 +63,7 @@ class DownloadRepository {
       throw ArgumentError('下载记录必须包含视频分 P 或剧集信息');
     }
     final directory = await Directory(
-      path.join(_rootPath(), pageName, entryName),
+      path.join(await _rootPath(), pageName, entryName),
     ).create(recursive: true);
     entry
       ..pageDirPath = directory.parent.path

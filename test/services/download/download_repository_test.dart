@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -29,6 +30,28 @@ void main() {
 
   tearDown(() async {
     await directory.delete(recursive: true);
+  });
+
+  test('首次读取和写入都等待下载目录就绪', () async {
+    final root = Completer<String>();
+    var calls = 0;
+    repository = DownloadRepository(
+      rootPath: () {
+        calls++;
+        return root.future;
+      },
+    );
+    expect(calls, 0);
+    final scan = repository.load();
+    final entry = downloadEntry();
+    final create = repository.create(entry);
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 2);
+    expect(Directory(rootPath).existsSync(), isFalse);
+    root.complete(rootPath);
+    await scan;
+    await create;
+    expect((await repository.load()).single.cid, entry.cid);
   });
 
   for (final episode in [false, true]) {

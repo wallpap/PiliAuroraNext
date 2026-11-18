@@ -16,6 +16,7 @@ import 'package:pili_aurora_next/features/download/application/download_provider
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
+import 'package:pili_aurora_next/utils/download_path.dart';
 import 'package:pili_aurora_next/utils/filtering_text.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -176,7 +177,20 @@ Future<void> _setDownloadPath(
   }
 }
 
-void _showDownPathDialog(BuildContext context, VoidCallback setState) {
+Future<void> _showDownPathDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final previous = downloadPath;
+  try {
+    await resolveDownloadPath();
+  } catch (error, stack) {
+    logger.w('下载目录初始化失败', error: error.runtimeType, stackTrace: stack);
+    if (context.mounted) SmartDialog.showToast('下载目录初始化失败，请重试');
+    return;
+  }
+  if (!context.mounted) return;
+  if (downloadPath != previous) setState();
   showDialog(
     context: context,
     builder: (_) => SimpleDialog(

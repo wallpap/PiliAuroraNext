@@ -8,8 +8,6 @@ late final String tmpDirPath;
 
 late final String appSupportDirPath;
 
-late String downloadPath;
-
 String get defDownloadPath =>
     path.join(appSupportDirPath, PathUtils.downloadDir);
 

@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/utils/download_path.dart';
 import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/app/desktop_playback_launch.dart';
 import 'package:pili_aurora_next/app/desktop_theme.dart';
@@ -41,7 +41,7 @@ class PiliAuroraNextApp extends StatelessWidget {
         ),
         downloadRepositoryProvider.overrideWith(
           (ref) => DownloadRepository(
-            rootPath: () => downloadPath,
+            rootPath: resolveDownloadPath,
             onReadError: (path, error, stack) => logger.w(
               '下载元数据读取或恢复异常: $path',
               error: error.runtimeType,

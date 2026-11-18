@@ -115,11 +115,6 @@ Future<void> _bootstrapApplication(
   progress.phase = StartupPhase.storage;
   await GStorage.init(memorySnapshot: initialization?.storage);
   AppIcon.load();
-  try {
-    await AppIcon.syncLauncher();
-  } catch (error, stack) {
-    logger.w('同步桌面图标失败', error: error.runtimeType, stackTrace: stack);
-  }
   if (playerWindow) {
     await GStorage.setting.putAll({
       SettingBoxKey.desktopVolume: ?windows.initialVolume,
@@ -138,7 +133,6 @@ Future<void> _bootstrapApplication(
   if (playerWindow) await windows.applyDiagnosticSettings();
   progress.phase = StartupPhase.resources;
   await Future.wait([
-    initializeDownloadPath(),
     initializeTemporaryPath(),
     CacheManager.ensureInitialized(directory: windows.cacheDirectory),
     FontUtils.init().then<void>((result) {
@@ -254,6 +248,13 @@ Future<void> _bootstrapApplication(
   );
   if (!playerWindow) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Platform.isAndroid) {
+        unawaited(
+          AppIcon.syncLauncher().catchError((Object error, StackTrace stack) {
+            logger.w('同步桌面图标失败', error: error.runtimeType, stackTrace: stack);
+          }),
+        );
+      }
       final diagnostics = Diagnostics.instance;
       if (shouldWarnAboutDiagnosticRecording(
         tracing: diagnostics.tracing,
