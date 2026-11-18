@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart';
@@ -20,8 +21,10 @@ class SeasonSeriesPage extends ConsumerStatefulWidget {
     super.key,
     required this.mid,
     this.heroTag,
+    this.navigation,
   });
 
+  final SpaceArchiveNavigation? navigation;
   final int mid;
   final String? heroTag;
 
@@ -82,6 +85,7 @@ class _SeasonSeriesPageState extends ConsumerState<SeasonSeriesPage>
                           appBar: AppBar(title: Text(item.meta!.name!)),
                           body: ViewSafeArea(
                             child: MemberVideo(
+                              navigation: widget.navigation,
                               type: isSeason
                                   ? ContributeType.season
                                   : ContributeType.series,

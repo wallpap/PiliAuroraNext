@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/episodic_button.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
@@ -34,9 +34,13 @@ class MemberVideoCtr
     required this.seriesId,
     this.username,
     this.title,
+    this.routeAid,
+    this.scrollState,
   }) : isVideo = type == .video;
 
   final String? heroTag;
+  final String? routeAid;
+  final ExtendedNestedScrollViewState? Function()? scrollState;
   final ContributeType type;
   final bool isVideo;
   int? seasonId;
@@ -63,10 +67,7 @@ class MemberVideoCtr
   }
 
   set onlyInnerScroll(bool value) {
-    if (!Get.isRegistered<MemberController>(tag: heroTag)) return;
-    final state = Get.find<MemberController>(tag: heroTag)
-        .scrollKey
-        .currentState;
+    final state = scrollState?.call();
     if (state != null && state.mounted) {
       state.onlyInnerScroll = value;
     }
@@ -109,7 +110,7 @@ class MemberVideoCtr
     super.onInit();
     Accounts.mainChanges.addListener(_onAccountChanged);
     if (isVideo) {
-      fromViewAid = Get.parameters['from_view_aid'];
+      fromViewAid = routeAid;
       if (fromViewAid?.isNotEmpty ?? false) {
         refreshKey = GlobalKey();
       }

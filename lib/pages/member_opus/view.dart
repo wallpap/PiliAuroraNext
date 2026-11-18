@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
 import 'package:pili_aurora_next/common/skeleton/space_opus.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -20,10 +21,12 @@ class MemberOpus extends StatefulWidget {
   const MemberOpus({
     super.key,
     this.isSingle = false,
+    this.filters,
     required this.heroTag,
     required this.mid,
   });
 
+  final List<SpaceTabFilter>? filters;
   final bool isSingle;
   final String? heroTag;
   final int mid;
@@ -46,6 +49,7 @@ class _MemberOpusState extends State<MemberOpus>
     _controller = Get.put(
       MemberOpusController(
         mid: widget.mid,
+        filter: widget.filters,
         heroTag: widget.heroTag,
       ),
       tag: widget.heroTag,

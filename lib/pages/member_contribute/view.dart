@@ -1,27 +1,29 @@
+import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
 import 'package:pili_aurora_next/pages/member_article/view.dart';
 import 'package:pili_aurora_next/pages/member_audio/view.dart';
 import 'package:pili_aurora_next/pages/member_comic/view.dart';
-import 'package:pili_aurora_next/pages/member_contribute/controller.dart';
 import 'package:pili_aurora_next/pages/member_opus/view.dart';
 import 'package:pili_aurora_next/pages/member_season_series/view.dart';
 import 'package:pili_aurora_next/pages/member_video/view.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberContribute extends StatefulWidget {
   const MemberContribute({
     super.key,
     this.heroTag,
-    this.initialIndex,
+    required this.items,
+    required this.controller,
+    required this.navigation,
     required this.mid,
   });
 
   final String? heroTag;
-  final int? initialIndex;
+  final List<SpaceTab2Item> items;
+  final TabController? controller;
+  final SpaceArchiveNavigation navigation;
   final int mid;
 
   @override
@@ -33,25 +35,11 @@ class _MemberContributeState extends State<MemberContribute>
   @override
   bool get wantKeepAlive => true;
 
-  late final MemberContributeCtr _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.putOrFind(
-      () => MemberContributeCtr(
-        heroTag: widget.heroTag,
-        initialIndex: widget.initialIndex,
-      ),
-      tag: widget.heroTag,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
-    return _controller.tabs != null
+    return widget.controller != null
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -60,9 +48,11 @@ class _MemberContributeState extends State<MemberContribute>
                 splashFactory: NoSplash.splashFactory,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 isScrollable: true,
-                tabs: _controller.tabs!,
+                tabs: widget.items
+                    .map((item) => Tab(text: item.title))
+                    .toList(),
                 tabAlignment: TabAlignment.start,
-                controller: _controller.tabController,
+                controller: widget.controller,
                 dividerHeight: 0,
                 indicatorWeight: 0,
                 indicatorPadding: const EdgeInsets.symmetric(
@@ -85,21 +75,22 @@ class _MemberContributeState extends State<MemberContribute>
               Expanded(
                 child: TabBarView(
                   physics: const NeverScrollableScrollPhysics(),
-                  controller: _controller.tabController,
-                  children: _controller.items!.map(_getPageFromType).toList(),
+                  controller: widget.controller,
+                  children: widget.items.map(_getPageFromType).toList(),
                 ),
               ),
             ],
           )
-        : _controller.items?.isNotEmpty == true
-        ? _getPageFromType(_controller.items!.first)
+        : widget.items.isNotEmpty
+        ? _getPageFromType(widget.items.first)
         : scrollableError;
   }
 
   Widget _getPageFromType(SpaceTab2Item item) {
-    final isSingle = _controller.tabs == null;
+    final isSingle = widget.controller == null;
     return switch (item.param) {
       'video' => MemberVideo(
+        navigation: widget.navigation,
         type: ContributeType.video,
         heroTag: widget.heroTag,
         mid: widget.mid,
@@ -107,6 +98,7 @@ class _MemberContributeState extends State<MemberContribute>
         isSingle: isSingle,
       ),
       'charging_video' => MemberVideo(
+        navigation: widget.navigation,
         type: ContributeType.charging,
         heroTag: widget.heroTag,
         mid: widget.mid,
@@ -117,6 +109,7 @@ class _MemberContributeState extends State<MemberContribute>
         mid: widget.mid,
       ),
       'opus' => MemberOpus(
+        filters: item.filter,
         heroTag: widget.heroTag,
         mid: widget.mid,
         isSingle: isSingle,
@@ -130,6 +123,7 @@ class _MemberContributeState extends State<MemberContribute>
         mid: widget.mid,
       ),
       'season_video' => MemberVideo(
+        navigation: widget.navigation,
         type: ContributeType.season,
         heroTag: widget.heroTag,
         mid: widget.mid,
@@ -137,6 +131,7 @@ class _MemberContributeState extends State<MemberContribute>
         title: item.title,
       ),
       'series' => MemberVideo(
+        navigation: widget.navigation,
         type: ContributeType.series,
         heroTag: widget.heroTag,
         mid: widget.mid,
@@ -144,6 +139,7 @@ class _MemberContributeState extends State<MemberContribute>
         title: item.title,
       ),
       'ugcSeason' => SeasonSeriesPage(
+        navigation: widget.navigation,
         mid: widget.mid,
         heroTag: widget.heroTag,
       ),

@@ -5,8 +5,6 @@ import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
 import 'package:pili_aurora_next/models/remote/space/space_opus/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_opus/item.dart';
 import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
-import 'package:collection/collection.dart';
 import 'package:get/get.dart';
 
 class MemberOpusController
@@ -14,6 +12,7 @@ class MemberOpusController
   MemberOpusController({
     required this.heroTag,
     required this.mid,
+    this.filter,
   });
 
   final String? heroTag;
@@ -25,7 +24,7 @@ class MemberOpusController
     meta: "all",
     tabName: "图文",
   ).obs;
-  List<SpaceTabFilter>? filter;
+  final List<SpaceTabFilter>? filter;
 
   @override
   Object get queryContext => Accounts.main;
@@ -42,14 +41,6 @@ class MemberOpusController
   void onInit() {
     super.onInit();
     Accounts.mainChanges.addListener(_onAccountChanged);
-    filter =
-        (Get.isRegistered<MemberController>(tag: heroTag)
-                ? Get.find<MemberController>(tag: heroTag).tab2
-                : null)
-            ?.firstWhereOrNull((e) => e.param == 'contribute')
-            ?.items
-            ?.firstWhereOrNull((e) => e.param == 'opus')
-            ?.filter;
     queryData();
   }
 

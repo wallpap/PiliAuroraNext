@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
+import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:pili_aurora_next/pages/member_video/controller.dart';
 import 'package:pili_aurora_next/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
@@ -26,9 +26,11 @@ class MemberVideo extends StatefulWidget {
     this.seasonId,
     this.seriesId,
     this.title,
+    this.navigation,
     this.isSingle = false,
   });
 
+  final SpaceArchiveNavigation? navigation;
   final ContributeType type;
   final String? heroTag;
   final int mid;
@@ -58,9 +60,7 @@ class _MemberVideoState extends State<MemberVideo>
         .getGeometryForChildIndex(index)
         .scrollOffset;
     try {
-      final state = Get.find<MemberController>(
-        tag: widget.heroTag,
-      ).scrollKey.currentState;
+      final state = widget.navigation?.scrollState();
       if (state != null && state.mounted) {
         state.innerNestedPositions.first.localJumpTo(scrollOffset);
       }
@@ -79,7 +79,9 @@ class _MemberVideoState extends State<MemberVideo>
         mid: widget.mid,
         seasonId: widget.seasonId,
         seriesId: widget.seriesId,
-        username: Get.find<MemberController>(tag: widget.heroTag).username,
+        username: widget.navigation?.username,
+        routeAid: widget.navigation?.fromViewAid,
+        scrollState: widget.navigation?.scrollState,
         title: widget.title,
       ),
       tag:

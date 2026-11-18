@@ -10,7 +10,8 @@ import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.d
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/user.dart';
@@ -25,7 +26,10 @@ import 'package:pili_aurora_next/pages/member/widget/medal_wall.dart';
 import 'package:pili_aurora_next/pages/member/widget/reserve_button.dart';
 import 'package:pili_aurora_next/pages/member/widget/user_info_card.dart';
 import 'package:pili_aurora_next/pages/member_cheese/view.dart';
-import 'package:pili_aurora_next/pages/member_contribute/controller.dart';
+import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
+import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
+import 'package:pili_aurora_next/models/remote/space/space/data.dart';
+import 'package:pili_aurora_next/utils/extension/nested_scroll_ext.dart';
 import 'package:pili_aurora_next/pages/member_contribute/view.dart';
 import 'package:pili_aurora_next/pages/member_dynamics/view.dart';
 import 'package:pili_aurora_next/pages/member_favorite/view.dart';
@@ -53,11 +57,68 @@ class MemberPage extends StatefulWidget {
   State<MemberPage> createState() => _MemberPageState();
 }
 
-class _MemberPageState extends State<MemberPage> {
+class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
   late final int _mid;
   late final String _heroTag;
   late final MemberController _userController;
+  final _scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
+  TabController? _sections;
+  TabController? _contributions;
+  SpaceTabs? _renderedSections;
+  bool _contributionOpened = false;
   PageController? _headerController;
+
+  void _syncTabs(SpaceTabs? sections) {
+    if (identical(sections, _renderedSections)) return;
+    _renderedSections = sections;
+    _sections?.dispose();
+    _contributions?.dispose();
+    _contributionOpened = false;
+    _sections =
+        sections == null || sections.tabs.isEmpty
+              ? null
+              : TabController(
+                  vsync: this,
+                  length: sections.tabs.length,
+                  initialIndex: sections.initialIndex,
+                );
+    _sections?.addListener(_trackContribution);
+    final items = sections?.contributions ?? const [];
+    _contributions = items.length < 2
+        ? null
+        : TabController(vsync: this, length: items.length);
+    _trackContribution();
+  }
+
+  void _trackContribution() {
+    final sections = _renderedSections;
+    if (sections != null &&
+        _sections?.index == sections.indexOf('contribute')) {
+      _contributionOpened = true;
+    }
+  }
+
+  bool _openSection(String section, String? contribution) {
+    final sections = _renderedSections;
+    if (sections == null) return false;
+    final index = sections.indexOf(section);
+    if (index < 0) return false;
+    if (section == 'contribute' && contribution != null) {
+      final subIndex = sections.contributions.indexWhere(
+        (item) => item.param == contribution,
+      );
+      if (subIndex >= 0) _contributions?.index = subIndex;
+    }
+    _sections?.animateTo(index);
+    return true;
+  }
+
+  void _onTapTab(int _) {
+    if (_sections?.indexIsChanging == false) {
+      _scrollKey.currentState?.animToTop();
+    }
+  }
+
   PageController getHeaderController() =>
       _headerController ??= PageController();
 
@@ -74,6 +135,8 @@ class _MemberPageState extends State<MemberPage> {
 
   @override
   void dispose() {
+    _sections?.dispose();
+    _contributions?.dispose();
     _headerController?.dispose();
     _headerController = null;
     _cacheFollowTime = null;
@@ -88,81 +151,96 @@ class _MemberPageState extends State<MemberPage> {
     return Material(
       color: theme.surface,
       child: Obx(
-        () => switch (_userController.loadingState.value) {
-          Loading() => m3eLoading,
-          Success(:final response) => ExtendedNestedScrollView(
-            onlyOneScrollInBody: true,
-            key: _userController.scrollKey,
-            scrollBehavior: const NoOverscrollIndicator(),
-            pinnedHeaderSliverHeightBuilder: () =>
-                kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              if (response != null) {
-                return [
-                  DynamicSliverAppBar.medium(
-                    actions: _actions(theme),
-                    title: Text(_userController.username ?? ''),
-                    flexibleSpace: Obx(
-                      () => UserInfoCard(
-                        isOwner:
-                            _userController.mid == _userController.account.mid,
-                        relation: _userController.relation.value,
-                        card: response.card!,
-                        images: response.images!,
-                        onFollow: () => _userController.onFollow(context),
-                        live: _userController.live,
-                        silence: _userController.silence,
-                        headerControllerBuilder: getHeaderController,
-                        showLiveMedalWall: _showLiveMedalWall,
-                        charges: _userController.charges,
-                        chargeCount: _userController.chargeCount,
-                        guards: _userController.guards,
-                        guardCount: _userController.guardCount,
+        () {
+          final loading = _userController.loadingState.value;
+          _syncTabs(loading is Success ? _userController.sections : null);
+          return switch (loading) {
+            Loading() => m3eLoading,
+            Success(:final response) => ExtendedNestedScrollView(
+              onlyOneScrollInBody: true,
+              key: _scrollKey,
+              scrollBehavior: const NoOverscrollIndicator(),
+              pinnedHeaderSliverHeightBuilder: () =>
+                  kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                if (response != null) {
+                  return [
+                    DynamicSliverAppBar.medium(
+                      actions: _actions(theme),
+                      title: Text(_userController.username ?? ''),
+                      flexibleSpace: Obx(
+                        () => UserInfoCard(
+                          isOwner:
+                              _userController.mid ==
+                              _userController.account.mid,
+                          relation: _userController.relation.value,
+                          card: response.card!,
+                          images: response.images!,
+                          onFollow: () => _userController.onFollow(context),
+                          live: _userController.live,
+                          silence: _userController.silence,
+                          headerControllerBuilder: getHeaderController,
+                          showLiveMedalWall: _showLiveMedalWall,
+                          charges: _userController.charges,
+                          chargeCount: _userController.chargeCount,
+                          guards: _userController.guards,
+                          guardCount: _userController.guardCount,
+                        ),
                       ),
+                    ),
+                  ];
+                }
+                return [
+                  SliverAppBar(
+                    pinned: true,
+                    actions: _actions(theme),
+                    title: GestureDetector(
+                      onTap: _userController.onReload,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(_userController.username ?? ''),
                     ),
                   ),
                 ];
-              }
-              return [
-                SliverAppBar(
-                  pinned: true,
-                  actions: _actions(theme),
-                  title: GestureDetector(
-                    onTap: _userController.onReload,
-                    behavior: HitTestBehavior.opaque,
-                    child: Text(_userController.username ?? ''),
-                  ),
-                ),
-              ];
-            },
-            body: _userController.tab2?.isNotEmpty == true
-                ? Padding(
-                    padding: .only(left: padding.left, right: padding.right),
-                    child: Column(
-                      children: [
-                        if ((_userController.tab2?.length ?? 0) > 1)
-                          SizedBox(
-                            height: 45,
-                            child: TabBar(
-                              labelPadding: .zero,
-                              controller: _userController.tabController,
-                              tabs: _userController.tabs,
-                              onTap: _userController.onTapTab,
-                              dividerColor: theme.outline.withValues(
-                                alpha: 0.2,
+              },
+              body: _sections != null
+                  ? Padding(
+                      padding: .only(left: padding.left, right: padding.right),
+                      child: Column(
+                        children: [
+                          if ((_sections?.length ?? 0) > 1)
+                            SizedBox(
+                              height: 45,
+                              child: TabBar(
+                                labelPadding: .zero,
+                                controller: _sections,
+                                tabs: _userController.sections.tabs
+                                    .map(
+                                      (item) => Tab(
+                                        child: Text(
+                                          item.title ?? '',
+                                          softWrap: false,
+                                          overflow: .fade,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onTap: _onTapTab,
+                                dividerColor: theme.outline.withValues(
+                                  alpha: 0.2,
+                                ),
                               ),
                             ),
-                          ),
-                        Expanded(child: _buildBody),
-                      ],
-                    ),
-                  )
-                : scrollableError,
-          ),
-          Error(:final errMsg) => scrollErrorWidget(
-            errMsg: errMsg,
-            onReload: _userController.onReload,
-          ),
+                          Expanded(child: _buildBody(response)),
+                        ],
+                      ),
+                    )
+                  : scrollableError,
+            ),
+            Error(:final errMsg) => scrollErrorWidget(
+              errMsg: errMsg,
+              onReload: _userController.onReload,
+            ),
+          };
         },
       ),
     );
@@ -398,7 +476,7 @@ class _MemberPageState extends State<MemberPage> {
               ],
             ),
           ),
-        if (Get.isRegistered<MemberContributeCtr>(tag: _heroTag))
+        if (_contributionOpened)
           AppPopupMenuItem(
             onTap: _toWebArchive,
             child: const Row(
@@ -529,18 +607,28 @@ class _MemberPageState extends State<MemberPage> {
     const SizedBox(width: 4),
   ];
 
-  Widget get _buildBody => tabBarView(
+  Widget _buildBody(SpaceData? data) => tabBarView(
     hitTestBehavior: .translucent,
-    controller: _userController.tabController,
-    children: _userController.tab2!.map((item) {
+    controller: _sections,
+    children: _userController.sections.tabs.map((item) {
       return switch (item.param!) {
-        'home' => MemberHome(heroTag: _heroTag),
+        'home' => MemberHome(
+          data: data,
+          mid: _mid,
+          name: _userController.username,
+          setting: _userController.spaceSetting,
+          openSection: _openSection,
+        ),
         'dynamic' => MemberDynamicsPage(mid: _mid),
-        'contribute' => Obx(
-          () => MemberContribute(
-            heroTag: _heroTag,
-            initialIndex: _userController.contributeInitialIndex.value,
-            mid: _mid,
+        'contribute' => MemberContribute(
+          heroTag: _heroTag,
+          items: _userController.sections.contributions,
+          controller: _contributions,
+          mid: _mid,
+          navigation: (
+            username: _userController.username,
+            fromViewAid: _userController.fromViewAid,
+            scrollState: () => _scrollKey.currentState,
           ),
         ),
         'bangumi' => MemberBangumi(
@@ -629,28 +717,24 @@ class _MemberPageState extends State<MemberPage> {
   }
 
   void _toWebArchive() {
-    try {
-      final ctr = Get.find<MemberContributeCtr>(tag: _heroTag);
-      final item = ctr.items?[ctr.tabController?.index ?? 0];
-      if (item != null) {
-        final id = item.seasonId ?? item.seriesId;
-        if (id != null) {
-          MemberSSWeb.toMemberSSWeb(
-            type: item.seasonId != null ? .season : .series,
-            id: id,
-            mid: _mid,
-            name: _userController.username ?? '',
-          );
-          return;
-        }
+    final items = _renderedSections?.contributions;
+    final index = _contributions?.index ?? 0;
+    if (items != null && index < items.length) {
+      final archive = spaceWebArchive(items[index]);
+      if (archive != null) {
+        MemberSSWeb.toMemberSSWeb(
+          type: archive.isSeason ? .season : .series,
+          id: archive.id,
+          mid: _mid,
+          name: _userController.username ?? '',
+        );
+        return;
       }
-      MemberVideoWeb.toMemberVideoWeb(
-        mid: _mid,
-        name: _userController.username ?? '',
-      );
-    } catch (e) {
-      SmartDialog.showToast(e.toString());
     }
+    MemberVideoWeb.toMemberVideoWeb(
+      mid: _mid,
+      name: _userController.username ?? '',
+    );
   }
 
   void _createShortcut() {

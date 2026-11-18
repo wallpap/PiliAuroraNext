@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
 
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/member.dart';
@@ -11,22 +11,17 @@ import 'package:pili_aurora_next/models/remote/space/space/elec.dart';
 import 'package:pili_aurora_next/models/remote/space/space/live.dart';
 import 'package:pili_aurora_next/models/remote/space/space/reservation_card_list.dart';
 import 'package:pili_aurora_next/models/remote/space/space/setting.dart';
-import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
 import 'package:pili_aurora_next/pages/common/common_data_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/extension/nested_scroll_ext.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
-    show ExtendedNestedScrollViewState;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MemberController extends CommonDataController<SpaceData, SpaceData?>
-    with GetTickerProviderStateMixin {
+class MemberController extends CommonDataController<SpaceData, SpaceData?> {
   MemberController({required this.mid});
   int mid;
   String? username;
@@ -57,7 +52,6 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
     relation.value = 0;
     isFollowed = null;
     spaceSetting = null;
-    hasSeasonOrSeries = false;
     charges = null;
     chargeCount = null;
     guards = null;
@@ -119,12 +113,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   }
 
   SpaceSetting? spaceSetting;
-  List<SpaceTab2>? tab2;
-  late List<Tab> tabs;
-  TabController? tabController;
-  RxInt contributeInitialIndex = 0.obs;
-
-  bool? hasSeasonOrSeries;
+  late SpaceTabs sections;
 
   List<ElecItem>? charges;
   int? chargeCount;
@@ -137,8 +126,6 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   List<ReservationCardItem>? reserves;
 
   final fromViewAid = Get.parameters['from_view_aid'];
-
-  final scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
 
   @override
   void onInit() {
@@ -181,55 +168,9 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
                   : card?.relation?.status ?? 2
             : data.relation ?? 0;
     }
-    tab2 = data.tab2;
     live = data.live;
     silence = card?.silence;
-    hasSeasonOrSeries =
-        (data.ugcSeason?.count ?? 0) > 0 ||
-        data.series?.item?.isNotEmpty == true;
-    tab2?.retainWhere(
-      (item) => item.param != null && MemberTabType.contains(item.param!),
-    );
-    if (tab2?.isNotEmpty == true) {
-      if (data.hasItem != true && tab2!.first.param == 'home') {
-        // remove empty home tab
-        tab2!.removeAt(0);
-      }
-      if (tab2!.isNotEmpty) {
-        int initialIndex = -1;
-        MemberTabType memberTab = Pref.memberTab;
-        if (memberTab != MemberTabType.def) {
-          initialIndex = tab2!.indexWhere((item) {
-            return item.param == memberTab.name;
-          });
-        }
-        if (initialIndex == -1) {
-          if (data.defaultTab == 'video') {
-            data.defaultTab = 'contribute';
-          }
-          initialIndex = tab2!.indexWhere((item) {
-            return item.param == data.defaultTab;
-          });
-        }
-        tabs = tab2!
-            .map(
-              (item) => Tab(
-                child: Text(
-                  item.title ?? '',
-                  softWrap: false,
-                  overflow: .fade,
-                ),
-              ),
-            )
-            .toList();
-        tabController?.dispose();
-        tabController = TabController(
-          vsync: this,
-          length: tabs.length,
-          initialIndex: max(0, initialIndex),
-        );
-      }
-    }
+    sections = SpaceTabs(data, Pref.memberTab);
     spaceSetting = mid == account.mid ? data.setting : null;
     loadingState.value = response;
     return true;
@@ -238,22 +179,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   @override
   bool handleError(String? errMsg) {
     _resetAccountData();
-    tab2 = const [
-      SpaceTab2(title: '动态', param: 'dynamic'),
-      SpaceTab2(
-        title: '投稿',
-        param: 'contribute',
-        items: [SpaceTab2Item(title: '视频', param: 'video')],
-      ),
-      SpaceTab2(title: '收藏', param: 'favorite'),
-      SpaceTab2(title: '追番', param: 'bangumi'),
-    ];
-    tabs = tab2!.map((item) => Tab(text: item.title)).toList();
-    tabController?.dispose();
-    tabController = TabController(
-      vsync: this,
-      length: tabs.length,
-    );
+    sections = SpaceTabs(null, MemberTabType.def);
     username = errMsg;
     loadingState.value = const Success(null);
     return true;
@@ -343,7 +269,6 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
     _closed = true;
     _generation++;
     Accounts.mainChanges.removeListener(_onAccountChanged);
-    tabController?.dispose();
     super.onClose();
   }
 
@@ -366,12 +291,6 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
       if (result is UnknownResult) await onReload();
     }
   });
-
-  void onTapTab(int value) {
-    if (tabController?.indexIsChanging == false) {
-      scrollKey.currentState?.animToTop();
-    }
-  }
 
   Future<void> vipExpAdd() async {
     final owner = account;

@@ -7,13 +7,11 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
+import 'package:pili_aurora_next/models/remote/space/space/setting.dart';
 import 'package:pili_aurora_next/pages/member_article/widget/item.dart';
 import 'package:pili_aurora_next/pages/member_audio/widgets/item.dart';
 import 'package:pili_aurora_next/pages/member_coin_arc/view.dart';
 import 'package:pili_aurora_next/pages/member_comic/widgets/item.dart';
-import 'package:pili_aurora_next/pages/member_contribute/controller.dart';
 import 'package:pili_aurora_next/pages/member_home/widgets/fav_item.dart';
 import 'package:pili_aurora_next/pages/member_home/widgets/video_card_v_member_home.dart';
 import 'package:pili_aurora_next/pages/member_like_arc/view.dart';
@@ -25,9 +23,20 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberHome extends StatefulWidget {
-  const MemberHome({super.key, this.heroTag});
+  const MemberHome({
+    super.key,
+    required this.data,
+    required this.mid,
+    required this.name,
+    required this.setting,
+    required this.openSection,
+  });
 
-  final String? heroTag;
+  final SpaceData? data;
+  final int mid;
+  final String? name;
+  final SpaceSetting? setting;
+  final bool Function(String section, String? contribution) openSection;
 
   @override
   State<MemberHome> createState() => _MemberHomeState();
@@ -38,12 +47,10 @@ class _MemberHomeState extends State<MemberHome>
   @override
   bool get wantKeepAlive => true;
 
-  late final _ctr = Get.find<MemberController>(tag: widget.heroTag);
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return _buildBody(_ctr.loadingState.value);
+    return _buildBody(Success(widget.data));
   }
 
   late final gridDelegateV = SliverGridDelegateWithExtentAndRatio(
@@ -66,7 +73,7 @@ class _MemberHomeState extends State<MemberHome>
 
   Widget _buildBody(LoadingState<SpaceData?> loadingState) {
     final isVertical = context.width < 600;
-    final setting = _ctr.spaceSetting;
+    final setting = widget.setting;
     final isOwner = setting != null;
     final color = Theme.of(context).colorScheme.outline;
     return switch (loadingState) {
@@ -299,45 +306,12 @@ class _MemberHomeState extends State<MemberHome>
             ),
             moreTextButton(
               onTap: () {
-                int index = _ctr.tab2!.indexWhere(
-                  (item) => item.param == param,
-                );
-                if (index != -1) {
-                  if (const [
-                    'video',
-                    'opus',
-                    'audio',
-                    'comic',
-                  ].contains(param1)) {
-                    List<SpaceTab2Item> items = _ctr.tab2!
-                        .firstWhere((item) => item.param == param)
-                        .items!;
-                    int index1 = items.indexWhere(
-                      (item) => item.param == param1,
-                    );
-                    if (index1 != -1) {
-                      try {
-                        final contributeCtr = Get.find<MemberContributeCtr>(
-                          tag: widget.heroTag,
-                        );
-                        // contributeCtr.tabController?.animateTo(index1);
-                        if (contributeCtr.tabController?.index != index1) {
-                          contributeCtr.tabController?.index = index1;
-                        }
-                        // if (kDebugMode) debugPrint('initialized');
-                      } catch (e) {
-                        _ctr.contributeInitialIndex.value = index1;
-                        // if (kDebugMode) debugPrint('not initialized');
-                      }
-                    }
-                  }
-                  _ctr.tabController?.animateTo(index);
-                } else {
+                if (!widget.openSection(param, param1)) {
                   if (param == 'coinArchive') {
                     Get.to(
                       MemberCoinArcPage(
-                        mid: _ctr.mid,
-                        name: _ctr.username,
+                        mid: widget.mid,
+                        name: widget.name,
                       ),
                     );
                     return;
@@ -346,14 +320,14 @@ class _MemberHomeState extends State<MemberHome>
                   if (param == 'likeArchive') {
                     Get.to(
                       MemberLikeArcPage(
-                        mid: _ctr.mid,
-                        name: _ctr.username,
+                        mid: widget.mid,
+                        name: widget.name,
                       ),
                     );
                     return;
                   }
 
-                  // else 
+                  // else
                   SmartDialog.showToast('view $param');
                 }
               },
