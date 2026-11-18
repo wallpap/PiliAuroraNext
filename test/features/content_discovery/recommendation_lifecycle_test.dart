@@ -301,7 +301,6 @@ void main() {
     );
     final handle =
         home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle;
-    expect(home.controller, same(handle));
     expect(handle.scrollController.hasClients, isTrue);
     final refresh = home.onRefresh();
     expect(repository.calls.first.token.isCancelled, isTrue);

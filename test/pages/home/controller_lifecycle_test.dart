@@ -45,8 +45,9 @@ void main() {
     removeNext();
     expect(controller.registeredPage(HomeTabType.rcmd), isNull);
     await controller.onRefresh();
-    controller.toTopOrRefresh();
-    controller.animateToTop();
+    controller
+      ..toTopOrRefresh()
+      ..animateToTop();
     expect(
       Diagnostics.instance.readSources(prefix: 'homePage')['homePage'],
       containsPair('controllerReady', false),

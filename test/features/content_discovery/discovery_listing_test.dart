@@ -37,11 +37,7 @@ class _Filter extends DiscoveryFilter {
   @override
   Iterable<Never> authorsToCheck(Object? items) => [];
   @override
-  List<T> filter<T>(
-    Iterable<T> source, {
-    Iterable<T> existing = const [],
-    bool deduplicate = false,
-  }) => source.where((item) => item != -1 && !existing.contains(item)).toList();
+  bool isBlocked(Object? item) => item == -1;
 }
 
 class _Feed extends DiscoveryListing<int, String> {

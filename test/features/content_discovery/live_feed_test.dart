@@ -29,13 +29,13 @@ class _Filter extends DiscoveryFilter {
   @override
   Iterable<Never> authorsToCheck(Object? items) => [];
   @override
+  bool isBlocked(Object? item) => item is CardLiveItem && item.roomid == 1;
+  @override
   List<T> filter<T>(
     Iterable<T> source, {
     Iterable<T> existing = const [],
     bool deduplicate = false,
-  }) => source
-      .where((item) => item is! CardLiveItem || item.roomid != 1)
-      .toList();
+  }) => source.where((item) => !isBlocked(item)).toList();
 }
 
 void main() {

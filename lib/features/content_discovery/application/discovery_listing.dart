@@ -155,9 +155,7 @@ abstract class DiscoveryListing<T, M>
     final authors = ref.read(cooperativeAuthorsProvider);
     // 刷新保留的快照只用于展示，首包必须替换，不能与旧列表合并。
     final replacing = owner.page == 1;
-    var items = List<T>.of(
-      replacing ? <T>[] : state.loading.dataOrNull ?? [],
-    );
+    List<T>? merged;
     M? metadata = state.metadata;
     var hasMore = state.hasMore;
     Error? error;
@@ -179,21 +177,14 @@ abstract class DiscoveryListing<T, M>
           }
         }
         if (!_current(owner)) return;
-        if (!replacing) {
-          items = List<T>.of(state.loading.dataOrNull ?? items);
+        final existing = replacing ? null : state.loading.dataOrNull;
+        final seen = existing?.map(itemKey).toSet() ?? <Object>{};
+        final accepted = <T>[];
+        for (final item in page.items) {
+          final key = itemKey(item);
+          if (owner.removed.contains(key) || !seen.add(key)) continue;
+          if (!filterAuthors || !filter.isBlocked(item)) accepted.add(item);
         }
-        final seen = items.map(itemKey).toSet();
-        final candidates = page.items
-            .where(
-              (item) =>
-                  !owner.removed.contains(itemKey(item)) &&
-                  seen.add(itemKey(item)),
-            )
-            .toList();
-        final accepted = filterAuthors
-            ? filter.filter(candidates, existing: items, deduplicate: true)
-            : candidates;
-        items.addAll(accepted);
         metadata = owner.metadata = page.metadata;
         owner.count += page.items.length;
         owner.page++;
@@ -202,13 +193,20 @@ abstract class DiscoveryListing<T, M>
             (page.hasMore ?? page.items.isNotEmpty) &&
             (page.total == null || owner.count < page.total!);
         // 无增长预算耗尽后保留游标，关闭自动补读，允许用户显式继续。
-        if (!hasMore || accepted.isNotEmpty) break;
+        if (accepted.isNotEmpty) {
+          merged = existing == null ? accepted : [...existing, ...accepted];
+          break;
+        }
+        if (!hasMore) break;
         if (attempt == 4) error = const Error('连续多页无可展示内容，点击继续加载');
       }
     } catch (cause, stack) {
       error = Error.fromException(cause, stack);
     }
     if (!_current(owner)) return;
+    final items =
+        merged ??
+        (replacing ? <T>[] : List<T>.of(state.loading.dataOrNull ?? []));
     state = DiscoveryListingState(
       source: owner,
       loading: error != null && owner.page == 1

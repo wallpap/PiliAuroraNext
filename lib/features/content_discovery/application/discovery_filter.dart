@@ -26,6 +26,14 @@ class DiscoveryFilter {
 
   bool needsAuthorCheck(Object? item) => authorsToCheck(item).isNotEmpty;
 
+  bool isBlocked(Object? item) =>
+      Pref.filterBlockedAuthors &&
+      MediaAuthorFilter.isBlocked(
+        item,
+        BlockedAuthors.contains,
+        includeCoauthors: Pref.checkCooperativeAuthors,
+      );
+
   List<T> filter<T>(
     Iterable<T> source, {
     Iterable<T> existing = const [],
@@ -37,14 +45,7 @@ class DiscoveryFilter {
         .whereType<Object>()
         .toSet();
     return source.where((item) {
-      if (Pref.filterBlockedAuthors &&
-          MediaAuthorFilter.isBlocked(
-            item,
-            BlockedAuthors.contains,
-            includeCoauthors: Pref.checkCooperativeAuthors,
-          )) {
-        return false;
-      }
+      if (isBlocked(item)) return false;
       final key = MediaAuthorFilter.contentKey(item);
       return key == null || seen.add(key);
     }).toList();
