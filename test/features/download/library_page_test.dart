@@ -121,7 +121,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('当前任务进度单独更新，列表快照保持不变', (tester) async {
+  testWidgets('当前任务行显示订阅到的字节进度', (tester) async {
     final entry =
         BiliDownloadEntryInfo.fromJson(downloadEntry().toJson()..['cover'] = '')
           ..pageDirPath = 'page'
@@ -163,7 +163,6 @@ void main() {
           .value,
       0.5,
     );
-    expect(container.read(downloadLibraryProvider).data, same(snapshot));
     await tester.pumpWidget(const SizedBox());
   });
 

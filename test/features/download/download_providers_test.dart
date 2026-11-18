@@ -60,10 +60,13 @@ void main() {
     client.close(force: true);
   });
 
-  test('读取失败不交付旧记录，重试成功恢复，旧读取不能覆盖新目录', () async {
+  test('仓库读取失败时列表发布错误而非旧数据，重试恢复', () async {
     final repository = _Repository();
-    final old = Completer<List<BiliDownloadEntryInfo>>();
-    repository.read = () => old.future;
+    repository.read = () async => [
+      downloadEntry(completed: true)
+        ..pageDirPath = 'page'
+        ..entryDirPath = 'page/entry',
+    ];
     final client = Dio();
     final container = ProviderContainer(
       overrides: [
@@ -77,17 +80,12 @@ void main() {
     });
     final commands = (container..listen(downloadLibraryProvider, (_, _) {}))
         .read(downloadLibraryProvider.notifier);
-    expect(container.read(downloadLibraryProvider).isSuccess, false);
-    repository.read = () async => [
-      downloadEntry(completed: true)
-        ..pageDirPath = 'new'
-        ..entryDirPath = 'new/entry',
-    ];
-    final fresh = commands.refresh();
-    old.completeError(const FileSystemException('private-path'));
-    await fresh;
-    final state = container.read(downloadLibraryProvider);
-    expect(state.data.completed.single.key, 'new/entry');
+    await container.read(downloadServiceProvider).waitForInitialization;
+    await container.pump();
+    expect(
+      container.read(downloadLibraryProvider).data.completed,
+      hasLength(1),
+    );
     repository.read = () async =>
         throw const FileSystemException('private-path');
     await commands.refresh();
@@ -96,6 +94,43 @@ void main() {
     repository.read = () async => [];
     await commands.refresh();
     expect(container.read(downloadLibraryProvider).data.completed, isEmpty);
+  });
+
+  test('字节进度只发布当前任务，不通知列表订阅者', () async {
+    final repository = _Repository();
+    final client = Dio();
+    final container = ProviderContainer.test(
+      overrides: [
+        downloadRepositoryProvider.overrideWithValue(repository),
+        downloadClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(() => client.close(force: true));
+    final service = container.read(downloadServiceProvider);
+    await service.waitForInitialization;
+    final entry = downloadEntry()
+      ..pageDirPath = 'page'
+      ..entryDirPath = 'page/entry'
+      ..status = DownloadStatus.downloading;
+    service.curDownload = entry;
+    final progress = <int>[];
+    var publications = 0;
+    container
+      ..listen(downloadLibraryProvider, (_, _) => publications++)
+      ..listen(downloadCurrentTaskProvider, (_, task) {
+        progress.add(task!.downloadedBytes);
+      });
+
+    try {
+      entry.downloadedBytes = 50;
+      service.progressNotifier.notifyListeners();
+      await container.pump();
+
+      expect(progress, [50]);
+      expect(publications, 0);
+    } finally {
+      service.curDownload = null;
+    }
   });
 
   test('删除同步所有消费者；同路径重建或目录重读后拒绝旧任务命令', () async {

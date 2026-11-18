@@ -65,6 +65,42 @@ void main() {
     });
   }
 
+  test('读取未记录音频画质的离线条目并保留已下载进度', () async {
+    final entryDirectory = await Directory(path.join(rootPath, '7', 'c_13'))
+        .create(recursive: true);
+    await File(path.join(entryDirectory.path, 'entry.json')).writeAsString('''{
+  "media_type": 2,
+  "has_dash_audio": true,
+  "is_completed": false,
+  "total_bytes": 200,
+  "downloaded_bytes": 45,
+  "title": "离线旧记录",
+  "type_tag": "80",
+  "cover": "",
+  "prefered_video_quality": 80,
+  "quality_pithy_description": "1080P",
+  "guessed_total_bytes": 200,
+  "total_time_milli": 12000,
+  "danmaku_count": 0,
+  "time_update_stamp": 12,
+  "time_create_stamp": 10,
+  "can_play_in_advance": false,
+  "interrupt_transform_temp_file": false,
+  "avid": 7,
+  "bvid": "BV-fixture",
+  "page_data": {"cid": 13, "page": 1, "has_alias": false, "tid": 0,
+                "width": 1920, "height": 1080, "rotate": 0}
+}''');
+
+    final restored = (await repository.load()).single;
+    expect(restored.cid, 13);
+    expect(restored.downloadedBytes, 45);
+    expect(restored.totalBytes, 200);
+    expect(restored.preferredAudioQuality, isNull);
+    expect(restored.status, DownloadStatus.wait);
+    expect(corruptPaths, isEmpty);
+  });
+
   test('serializes saves and restores the final snapshot', () async {
     final entry = downloadEntry();
     await repository.create(entry);
