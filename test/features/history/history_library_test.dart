@@ -241,8 +241,8 @@ void main() {
       await GStorage.localCache.put(LocalCacheKey.historyPause, !paused);
       final pending = Completer<LoadingState<void>>();
       repository
-        ..mutation = () =>
-            pending.future..readStatus = () => fail('保存期间不应读取远端状态');
+        ..mutation = (() => pending.future)
+        ..readStatus = () => fail('保存期间不应读取远端状态');
       final current = Accounts.history;
       final save = library.pause(current, paused);
       expect(repository.pauses, 1);
