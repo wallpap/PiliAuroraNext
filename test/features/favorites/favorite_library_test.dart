@@ -309,21 +309,20 @@ void main() {
     expect(membershipReads, 1);
     repository.requests.clear();
     repository
-      ..read = (query, _) async =>
-          FeedPage(
-              switch (query.kind) {
-                FavoriteKind.folders => [FavFolderInfo(id: 2)],
-                _ => [favoriteVideo(query.keyword.isEmpty ? 8 : 9)],
-              },
-              metadata: const FavoriteMetadata(),
-            )
-            ..readMembership = () async {
-              membershipReads++;
-              return Success(
-                FavFolderData(list: [FavFolderInfo(id: 2, favState: 1)]),
-              );
-            };
-    repository.mutation = null;
+      ..mutation = null
+      ..readMembership = () async {
+        membershipReads++;
+        return Success(
+          FavFolderData(list: [FavFolderInfo(id: 2, favState: 1)]),
+        );
+      }
+      ..read = (query, _) async => FeedPage(
+        switch (query.kind) {
+          FavoriteKind.folders => [FavFolderInfo(id: 2)],
+          _ => [favoriteVideo(query.keyword.isEmpty ? 8 : 9)],
+        },
+        metadata: const FavoriteMetadata(),
+      );
     expect(
       await library.folderAction(original, 7, FolderAction.clean),
       isA<Success>(),
