@@ -5,8 +5,6 @@ Future<bool> showConfirmDialog({
   required BuildContext context,
   required Widget title,
   Widget? content,
-  // @Deprecated('use `bool result = await showConfirmDialog()` instead')
-  VoidCallback? onConfirm,
 }) async {
   return await showDialog<bool>(
         context: context,
@@ -15,17 +13,14 @@ Future<bool> showConfirmDialog({
           content: content,
           actions: [
             TextButton(
-              onPressed: Get.back,
+              onPressed: () => Navigator.of(context).pop(false),
               child: Text(
                 '取消',
                 style: TextStyle(color: ColorScheme.of(context).outline),
               ),
             ),
             TextButton(
-              onPressed: () {
-                Get.back(result: true);
-                onConfirm?.call();
-              },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('确认'),
             ),
           ],

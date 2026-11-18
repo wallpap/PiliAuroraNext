@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/models/common/stat_type.dart';
 import 'package:pili_aurora_next/models/remote/media_list/media_list.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -290,11 +291,24 @@ class _MediaListPanelState extends State<MediaListPanel>
                     bottom: -6,
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () => showConfirmDialog(
-                        context: context,
-                        title: const Text('确定移除该视频？'),
-                        onConfirm: () => widget.onDelete!(item, index),
-                      ),
+                      onTap: () async {
+                        final account = Accounts.main;
+                        final remove = widget.onDelete;
+                        final confirmed = await showConfirmDialog(
+                          context: context,
+                          title: const Text('确定移除该视频？'),
+                        );
+                        if (!confirmed ||
+                            !context.mounted ||
+                            !identical(account, Accounts.main) ||
+                            !identical(remove, widget.onDelete)) {
+                          return;
+                        }
+                        final currentIndex = widget.mediaList.indexWhere(
+                          (entry) => identical(entry, item),
+                        );
+                        if (currentIndex >= 0) remove?.call(item, currentIndex);
+                      },
                       onLongPress: () => widget.onDelete!(item, index),
                       child: Padding(
                         padding: const EdgeInsets.all(9),

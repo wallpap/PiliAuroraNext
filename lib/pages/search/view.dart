@@ -94,13 +94,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _submit();
   }
 
-  void _clearHistory() {
+  Future<void> _clearHistory() async {
     final history = ref.read(searchHistoryProvider.notifier);
-    showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context: context,
       title: const Text('确定清空搜索历史？'),
-      onConfirm: history.clear,
     );
+    if (!confirmed || !context.mounted) return;
+    history.clear();
   }
 
   late ThemeData theme;

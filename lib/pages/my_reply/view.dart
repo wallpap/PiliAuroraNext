@@ -50,15 +50,16 @@ class _MyReplyState extends State<MyReply> with DynMixin {
           if (kDebugMode)
             IconButton(
               tooltip: 'Clear',
-              onPressed: () => showConfirmDialog(
-                context: context,
-                title: const Text('Clear Local Storage?'),
-                onConfirm: () {
-                  GStorage.reply!.clear();
-                  _replies.clear();
-                  setState(() {});
-                },
-              ),
+              onPressed: () async {
+                final confirmed = await showConfirmDialog(
+                  context: context,
+                  title: const Text('Clear Local Storage?'),
+                );
+                if (!confirmed || !context.mounted) return;
+                GStorage.reply!.clear();
+                _replies.clear();
+                setState(() {});
+              },
               icon: const Icon(Icons.clear_all),
             ),
           IconButton(

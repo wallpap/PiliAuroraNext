@@ -215,11 +215,11 @@ abstract class BaseVideoWebState<
     );
   }
 
-  void showJumpDialog(int page) {
+  Future<void> showJumpDialog(int page) async {
     var pageStr = page.toString();
     final current = controller.capture();
 
-    void onSubmit([_]) {
+    void onSubmit() {
       if (!mounted || !current()) {
         SmartDialog.showToast('列表已更新，请重新选择页数');
         return;
@@ -233,24 +233,24 @@ abstract class BaseVideoWebState<
       _jump(target.clamp(1, total));
     }
 
-    showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context: context,
       title: const Text('跳至: '),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: pageStr,
-        onChanged: (value) => pageStr = value,
-        decoration: const InputDecoration(
-          labelText: '页数',
-          border: OutlineInputBorder(),
+      content: Builder(
+        builder: (dialogContext) => TextFormField(
+          autofocus: true,
+          initialValue: pageStr,
+          onChanged: (value) => pageStr = value,
+          decoration: const InputDecoration(
+            labelText: '页数',
+            border: OutlineInputBorder(),
+          ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onFieldSubmitted: (_) => Navigator.of(dialogContext).pop(true),
         ),
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onFieldSubmitted: (_) {
-          Get.back();
-          onSubmit();
-        },
       ),
-      onConfirm: onSubmit,
     );
+    if (!confirmed || !context.mounted) return;
+    onSubmit();
   }
 }

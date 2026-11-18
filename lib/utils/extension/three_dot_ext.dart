@@ -1,5 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart' show IMSettingType;
+import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart'
+    show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/common_whisper_controller.dart';
 import 'package:pili_aurora_next/pages/contact/view.dart';
@@ -33,35 +34,37 @@ extension SessionMenuActionExt on SessionMenuAction {
     SessionMenuAction.other => const Icon(MdiIcons.circleMedium, size: 20),
   };
 
-  void action({
+  Future<void> action({
     required BuildContext context,
     required CommonWhisperController controller,
     required SessionMenuItem item,
-  }) {
+  }) async {
     switch (this) {
       case SessionMenuAction.readAll:
-        showConfirmDialog(
+        final confirmed = await showConfirmDialog(
           context: context,
           title: const Text('一键已读'),
           content: const Text('是否清除全部新消息提醒？'),
-          onConfirm: () => _complete(
-            context,
-            controller,
-            controller.onClearUnread(),
-            success: '已标记为已读',
-          ),
+        );
+        if (!confirmed || !context.mounted || !controller.isActive) return;
+        await _complete(
+          context,
+          controller,
+          controller.onClearUnread(),
+          success: '已标记为已读',
         );
       case SessionMenuAction.clearList:
-        showConfirmDialog(
+        final confirmed = await showConfirmDialog(
           context: context,
           title: const Text('清空列表'),
           content: const Text('清空后所有消息将被删除，无法恢复'),
-          onConfirm: () => _complete(
-            context,
-            controller,
-            controller.onDeleteList(),
-            success: '列表已清空',
-          ),
+        );
+        if (!confirmed || !context.mounted || !controller.isActive) return;
+        await _complete(
+          context,
+          controller,
+          controller.onDeleteList(),
+          success: '列表已清空',
         );
       case SessionMenuAction.messageSettings:
         Get.to(

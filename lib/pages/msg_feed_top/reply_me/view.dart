@@ -98,20 +98,21 @@ class _ReplyMePageState extends ConsumerState<ReplyMePage> {
 
               MsgReplyItem item = response[index];
 
-              void onLongPress() => showConfirmDialog(
-                context: context,
-                title: const Text('确定删除该通知?'),
-                onConfirm: () async {
-                  final id = item.id;
-                  if (id == null) return;
-                  final result = await controller.remove(id);
-                  if (result.isSuccess) {
-                    SmartDialog.showToast('删除成功');
-                  } else {
-                    result.toast();
-                  }
-                },
-              );
+              Future<void> onLongPress() async {
+                final confirmed = await showConfirmDialog(
+                  context: context,
+                  title: const Text('确定删除该通知?'),
+                );
+                if (!confirmed || !context.mounted) return;
+                final id = item.id;
+                if (id == null) return;
+                final result = await controller.remove(id);
+                if (result.isSuccess) {
+                  SmartDialog.showToast('删除成功');
+                } else {
+                  result.toast();
+                }
+              }
 
               return ListTile(
                 safeArea: true,

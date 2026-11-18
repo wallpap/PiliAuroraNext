@@ -170,16 +170,15 @@ class _PgcReviewChildPageState extends State<PgcReviewChildPage>
             ),
             DialogOption(
               child: const Text('删除', style: TextStyle(fontSize: 14)),
-              onPressed: () {
+              onPressed: () async {
                 Get.back();
                 if (!isCurrent()) return;
-                showConfirmDialog(
+                final confirmed = await showConfirmDialog(
                   context: context,
                   title: const Text('删除短评，同时删除评分？'),
-                  onConfirm: () {
-                    if (isCurrent()) _controller.onDel(item.reviewId!);
-                  },
                 );
+                if (!confirmed || !context.mounted) return;
+                if (isCurrent()) _controller.onDel(item.reviewId!);
               },
             ),
           ],

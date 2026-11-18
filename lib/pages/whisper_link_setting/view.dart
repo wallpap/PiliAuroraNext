@@ -275,14 +275,15 @@ class _WhisperLinkSettingPageState
     }
 
     if (receivesPush) {
-      showConfirmDialog(
+      final confirmed = await showConfirmDialog(
         context: context,
         title: const Text('确认关闭内容推送吗？'),
         content: const Text(
           '若关闭此开关，你将不再收到该账号的图文消息与稿件推送，但通知类消息不受影响',
         ),
-        onConfirm: update,
       );
+      if (!confirmed || !context.mounted) return;
+      await update();
     } else {
       await update();
     }
@@ -313,14 +314,15 @@ class _WhisperLinkSettingPageState
     if (isBlocked) {
       await update();
     } else {
-      showConfirmDialog(
+      final confirmed = await showConfirmDialog(
         context: context,
         title: const Text('确认拉黑该用户'),
         content: const Text(
           '加入黑名单后，将自动解除关注关系和对该用户的合集订阅关系，禁止该用户与我互动或查看我的空间',
         ),
-        onConfirm: update,
       );
+      if (!confirmed || !context.mounted) return;
+      await update();
     }
   }
 

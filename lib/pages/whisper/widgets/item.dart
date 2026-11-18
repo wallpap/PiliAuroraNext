@@ -105,13 +105,14 @@ class WhisperSessionItem extends StatelessWidget {
                 child: Text('${item.isMuted ? '关闭' : '开启'}免打扰'),
               ),
               DialogOption(
-                onPressed: () {
+                onPressed: () async {
                   Get.back();
-                  showConfirmDialog(
+                  final confirmed = await showConfirmDialog(
                     context: context,
                     title: const Text('确定删除该对话？'),
-                    onConfirm: () => onRemove(item.key),
                   );
+                  if (!confirmed || !context.mounted) return;
+                  onRemove(item.key);
                 },
                 child: const Text('删除'),
               ),
@@ -144,11 +145,14 @@ class WhisperSessionItem extends StatelessWidget {
                   const PopupMenuDivider(height: 10),
                   AppPopupMenuItem(
                     height: 42,
-                    onTap: () => showConfirmDialog(
-                      context: context,
-                      title: const Text('确定删除该对话？'),
-                      onConfirm: () => onRemove(item.key),
-                    ),
+                    onTap: () async {
+                      final confirmed = await showConfirmDialog(
+                        context: context,
+                        title: const Text('确定删除该对话？'),
+                      );
+                      if (!confirmed || !context.mounted) return;
+                      onRemove(item.key);
+                    },
                     child: Text(
                       '删除',
                       style: TextStyle(color: theme.colorScheme.error),

@@ -2,7 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_user_list.dart';
 import 'package:pili_aurora_next/pages/live_dm_block/controller.dart';
@@ -152,19 +153,18 @@ class _LiveDmBlockPageState extends ConsumerState<LiveDmBlockPage>
           for (final item in rules)
             SearchText(
               text: item is ShieldUserList ? item.uname : item as String,
-              onTap: (_) {
+              onTap: (_) async {
                 if (data.saving) return;
-                showConfirmDialog(
+                final confirmed = await showConfirmDialog(
                   context: context,
                   title: const Text('确定删除该规则？'),
-                  onConfirm: () => _change(
-                    data,
-                    item is String,
-                    item is ShieldUserList
-                        ? item.uid.toString()
-                        : item as String,
-                    remove: true,
-                  ),
+                );
+                if (!confirmed || !context.mounted) return;
+                _change(
+                  data,
+                  item is String,
+                  item is ShieldUserList ? item.uid.toString() : item as String,
+                  remove: true,
                 );
               },
             ),
@@ -173,10 +173,10 @@ class _LiveDmBlockPageState extends ConsumerState<LiveDmBlockPage>
     );
   }
 
-  void _add(LiveBlockState data) {
+  Future<void> _add(LiveBlockState data) async {
     final keyword = _tabs.index == 0;
     var value = '';
-    showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context: context,
       title: Text('${keyword ? '关键词' : '用户'}屏蔽'),
       content: TextFormField(
@@ -188,7 +188,8 @@ class _LiveDmBlockPageState extends ConsumerState<LiveDmBlockPage>
             ? null
             : [FilteringTextInputFormatter.digitsOnly],
       ),
-      onConfirm: () => _change(data, keyword, value),
     );
+    if (!confirmed || !context.mounted) return;
+    _change(data, keyword, value);
   }
 }

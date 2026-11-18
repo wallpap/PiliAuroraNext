@@ -229,27 +229,29 @@ class _LikeMePageState extends ConsumerState<LikeMePage> {
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           children: [
             DialogOption(
-              onPressed: () {
+              onPressed: () async {
                 Get.back();
-                showConfirmDialog(
+                final confirmed = await showConfirmDialog(
                   context: context,
                   title: const Text('删除'),
                   content: const Text('该条通知删除后，当有新点赞时会重新出现在列表，是否继续？'),
-                  onConfirm: () => onRemove(item.id),
                 );
+                if (!confirmed || !context.mounted) return;
+                onRemove(item.id);
               },
               child: const Text('删除', style: TextStyle(fontSize: 14)),
             ),
             DialogOption(
-              onPressed: () {
+              onPressed: () async {
                 Get.back();
                 if (isNotice) {
-                  showConfirmDialog(
+                  final confirmed = await showConfirmDialog(
                     context: context,
                     title: const Text('不再通知'),
                     content: const Text('这条内容的点赞将不再通知，但仍可在列表内查看，是否继续？'),
-                    onConfirm: () => _setNotice(controller, item, isNotice),
                   );
+                  if (!confirmed || !context.mounted) return;
+                  _setNotice(controller, item, isNotice);
                 } else {
                   _setNotice(controller, item, isNotice);
                 }

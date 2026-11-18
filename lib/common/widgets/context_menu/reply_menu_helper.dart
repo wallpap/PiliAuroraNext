@@ -109,16 +109,18 @@ void showReplyCopyDialog(
             if (state.isUncollapsed) {
               buttonItems.add(
                 ContextMenuButtonItem(
-                  onPressed: () {
-                    String text = RegExp.escape(state.selectedText!);
-                    if (ReplyGrpc.enableFilter) text = '|$text';
+                  onPressed: () async {
+                    final previous = ReplyGrpc.replyRegExp;
+                    final enabled = ReplyGrpc.enableFilter;
+                    final selected = RegExp.escape(state.selectedText!);
+                    final text = enabled ? '|$selected' : selected;
 
-                    showConfirmDialog(
+                    final confirmed = await showConfirmDialog(
                       context: context,
                       title: const Text('是否确认评论过滤的变更：'),
                       content: Text.rich(
                         TextSpan(
-                          text: ReplyGrpc.replyRegExp.pattern,
+                          text: previous.pattern,
                           children: [
                             TextSpan(
                               text: text,
@@ -130,20 +132,24 @@ void showReplyCopyDialog(
                           ],
                         ),
                       ),
-                      onConfirm: () {
-                        final filter = ReplyGrpc.replyRegExp.pattern + text;
-                        ReplyGrpc.replyRegExp = RegExp(
-                          filter,
-                          caseSensitive: true,
-                        );
-                        ReplyGrpc.enableFilter = true;
-                        GStorage.setting.put(
-                          SettingBoxKey.banWordForReply,
-                          filter,
-                        );
-                        SmartDialog.showToast('已保存');
-                      },
                     );
+                    if (!confirmed ||
+                        !context.mounted ||
+                        previous != ReplyGrpc.replyRegExp ||
+                        enabled != ReplyGrpc.enableFilter) {
+                      return;
+                    }
+                    final filter = previous.pattern + text;
+                    ReplyGrpc.replyRegExp = RegExp(
+                      filter,
+                      caseSensitive: true,
+                    );
+                    ReplyGrpc.enableFilter = true;
+                    GStorage.setting.put(
+                      SettingBoxKey.banWordForReply,
+                      filter,
+                    );
+                    SmartDialog.showToast('已保存');
                   },
                   label: '加入过滤',
                 ),

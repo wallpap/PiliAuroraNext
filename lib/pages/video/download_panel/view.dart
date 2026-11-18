@@ -579,22 +579,21 @@ class _DownloadPanelState extends ConsumerState<DownloadPanel> {
         children: [
           _buildBottomBtn(
             text: '缓存全部',
-            onTap: () {
-              showConfirmDialog(
+            onTap: () async {
+              final confirmed = await showConfirmDialog(
                 context: context,
                 title: const Text('确定缓存全部？'),
-                onConfirm: () async {
-                  for (int i = 0; i < widget.episodes.length; i++) {
-                    if (!mounted) break;
-                    await _onDownload(
-                      index: i,
-                      episode: widget.episodes[i],
-                      isDownloadAll: true,
-                    );
-                  }
-                  if (mounted) setState(() {});
-                },
               );
+              if (!confirmed || !context.mounted) return;
+              for (int i = 0; i < widget.episodes.length; i++) {
+                if (!mounted) break;
+                await _onDownload(
+                  index: i,
+                  episode: widget.episodes[i],
+                  isDownloadAll: true,
+                );
+              }
+              if (mounted) setState(() {});
             },
           ),
           SizedBox(

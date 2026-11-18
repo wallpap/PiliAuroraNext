@@ -3,7 +3,8 @@ import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/dm_block_type.dart';
 import 'package:pili_aurora_next/models/user/danmaku_block.dart';
@@ -156,27 +157,26 @@ class _DanmakuBlockPageState extends ConsumerState<DanmakuBlockPage>
           icon: const Icon(Icons.delete_outlined),
           onPressed: isSaving
               ? null
-              : () {
+              : () async {
                   final rules = ref.read(danmakuBlockProvider).rules.dataOrNull;
-                  showConfirmDialog(
+                  final confirmed = await showConfirmDialog(
                     context: context,
                     title: const Text('确定删除该规则？'),
-                    onConfirm: () async {
-                      if (!_hasCurrentRules(rules)) return;
-                      final result = await ref
-                          .read(danmakuBlockProvider.notifier)
-                          .remove(
-                            DmBlockType.values[tabIndex],
-                            item.id,
-                          );
-                      if (!mounted) return;
-                      if (result.isSuccess) {
-                        SmartDialog.showToast('删除成功');
-                      } else {
-                        result.toast();
-                      }
-                    },
                   );
+                  if (!confirmed || !context.mounted) return;
+                  if (!_hasCurrentRules(rules)) return;
+                  final result = await ref
+                      .read(danmakuBlockProvider.notifier)
+                      .remove(
+                        DmBlockType.values[tabIndex],
+                        item.id,
+                      );
+                  if (!mounted) return;
+                  if (result.isSuccess) {
+                    SmartDialog.showToast('删除成功');
+                  } else {
+                    result.toast();
+                  }
                 },
         );
         return ListTile(

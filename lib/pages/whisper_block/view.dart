@@ -81,22 +81,21 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                             .map(
                               (e) => SearchText(
                                 text: e.keyword,
-                                onTap: (keyword) {
-                                  showConfirmDialog(
+                                onTap: (keyword) async {
+                                  final confirmed = await showConfirmDialog(
                                     context: context,
                                     title: const Text('删除屏蔽词？'),
                                     content: const Text('该屏蔽词将不再生效'),
-                                    onConfirm: () async {
-                                      final result = await controller.onRemove(
-                                        e.keyword,
-                                      );
-                                      if (result.isSuccess) {
-                                        SmartDialog.showToast('删除成功');
-                                      } else {
-                                        result.toast();
-                                      }
-                                    },
                                   );
+                                  if (!confirmed || !context.mounted) return;
+                                  final result = await controller.onRemove(
+                                    e.keyword,
+                                  );
+                                  if (result.isSuccess) {
+                                    SmartDialog.showToast('删除成功');
+                                  } else {
+                                    result.toast();
+                                  }
                                 },
                               ),
                             )
