@@ -240,8 +240,9 @@ void main() {
     test('保存历史暂停状态 $paused 时，状态查询不能阻止更新播放偏好', () async {
       await GStorage.localCache.put(LocalCacheKey.historyPause, !paused);
       final pending = Completer<LoadingState<void>>();
-      repository.mutation = () => pending.future;
-      repository.readStatus = () => fail('保存期间不应读取远端状态');
+      repository
+        ..mutation = () =>
+            pending.future..readStatus = () => fail('保存期间不应读取远端状态');
       final current = Accounts.history;
       final save = library.pause(current, paused);
       expect(repository.pauses, 1);
