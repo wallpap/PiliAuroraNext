@@ -14,7 +14,6 @@ import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.da
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
@@ -38,6 +37,7 @@ import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
+import '../common/publish/upload_fixture.dart';
 import '../../support/memory_box.dart';
 
 class _CapturePlayer implements Player {
@@ -186,15 +186,6 @@ void main() {
     editor.editController.text = text;
   }
 
-  Object uploaded() => {
-    'code': 0,
-    'data': {
-      'image_url': 'https://example.invalid/image.png',
-      'image_width': 1,
-      'image_height': 1,
-    },
-  };
-
   for (final change in ['切号', '替换播放器', '离页再返回']) {
     testWidgets('评论截图$change后不进入新草稿', (
       tester,
@@ -303,20 +294,16 @@ void main() {
     final editor = state(tester);
     draft(editor, '原草稿');
     editor.imageList.add(FilePicModel(path: image.path));
-    late Future<void> pending;
-    await tester.runAsync(() async {
-      pending = editor.onPublish();
-      await editor.onPublish();
-      await interceptor.waitForRequests(1);
-    });
-    expect(requests.single.options.path, Api.uploadBfs);
-    draft(editor, '新草稿');
-    editor.imageList.clear();
-    await tester.runAsync(() async {
-      requests.first.reply.complete(uploaded());
-      await interceptor.waitForRequests(2);
-    });
-    final body = requests.last.options.data as Map;
+    final submission = await reachPublishRequest(
+      tester,
+      interceptor: interceptor,
+      publish: editor.onPublish,
+      replaceDraft: () {
+        draft(editor, '新草稿');
+        editor.imageList.clear();
+      },
+    );
+    final body = submission.request.data as Map;
     expect(body['message'], '原草稿');
     expect(body['root'], 2);
     expect(body['parent'], 3);
@@ -324,7 +311,7 @@ void main() {
     expect(requests.last.options.extra['account'], same(original));
     await tester.runAsync(() async {
       requests.last.reply.complete({'code': 0});
-      await pending;
+      await submission.completion;
     });
     await settle(tester);
     expect(delivered, 1);
@@ -348,7 +335,7 @@ void main() {
     });
     Accounts.accountMode[AccountType.main.index] = replacement;
     await tester.runAsync(() async {
-      requests.first.reply.complete(uploaded());
+      requests.first.reply.complete(uploadedPicture());
       await uploading;
     });
     await settle(tester);

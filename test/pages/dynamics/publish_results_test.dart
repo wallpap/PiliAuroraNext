@@ -23,6 +23,7 @@ import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
+import '../common/publish/upload_fixture.dart';
 import '../../support/memory_box.dart';
 
 void main() {
@@ -143,15 +144,6 @@ void main() {
     );
   }
 
-  Object uploaded() => {
-    'code': 0,
-    'data': {
-      'image_url': 'https://example.invalid/image.png',
-      'image_width': 1,
-      'image_height': 1,
-    },
-  };
-
   testWidgets('动态发布在图片上传前固定草稿，成功保留新草稿且阻止并发提交', (tester) async {
     var saved = 0;
     await mount(
@@ -168,25 +160,21 @@ void main() {
     );
     state.editController.text = '原草稿';
     state.imageList.add(FilePicModel(path: image.path));
-    late Future<void> pending;
-    await tester.runAsync(() async {
-      pending = state.onPublish();
-      await state.onPublish();
-      await interceptor.waitForRequests(1);
-    });
-    expect(requests.single.options.path, Api.uploadBfs);
-    state.editController.text = '新草稿';
-    state.imageList.clear();
-    await tester.runAsync(() async {
-      requests[0].reply.complete(uploaded());
-      await interceptor.waitForRequests(2);
-    });
-    final body = requests[1].options.data as Map;
+    final submission = await reachPublishRequest(
+      tester,
+      interceptor: interceptor,
+      publish: state.onPublish,
+      replaceDraft: () {
+        state.editController.text = '新草稿';
+        state.imageList.clear();
+      },
+    );
+    final body = submission.request.data as Map;
     expect(body['dyn_req']['content']['contents'].first['raw_text'], '原草稿');
     expect(body['dyn_req']['pics'], hasLength(1));
     await tester.runAsync(() async {
       requests[1].reply.complete({'code': 0});
-      await pending;
+      await submission.completion;
     });
     await settle(tester);
     expect(saved, 1);
@@ -212,7 +200,7 @@ void main() {
     });
     Accounts.accountMode[AccountType.main.index] = replacement;
     await tester.runAsync(() async {
-      requests[0].reply.complete(uploaded());
+      requests[0].reply.complete(uploadedPicture());
       await uploading;
     });
     await settle(tester);
