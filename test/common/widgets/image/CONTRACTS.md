@@ -28,9 +28,7 @@ Windows 先生成确定性夹具并构建 worker：
 uv sync --locked
 uv run --locked python tool/probes/windows/image_region_probe.py
 uv run --locked python -m unittest discover -s tool/probes/windows -p image_region_probe_test.py -v
-$env:REGION_TEST_REQUIRED = '1'
-fvm flutter test --no-pub test/common/widgets/image --concurrency 2
-Remove-Item Env:REGION_TEST_REQUIRED
+pwsh -NoProfile -File tool/run-ci-tests.ps1 -NativeImages -Concurrency 2
 ```
 
 产物位于 `build/probes/image-region/`，可通过 `REGION_TEST_WORKER` 和 `REGION_FIXTURES` 覆盖。普通主机测试缺少 Windows worker 时会跳过原生用例；专用 CI 步骤设置 `REGION_TEST_REQUIRED=1`，缺少 worker 或清单则失败。固定 libwebp 来源和裁剪修复见[上游登记](../../../../third_party/libwebp/UPSTREAM.md)。

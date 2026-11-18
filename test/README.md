@@ -9,7 +9,7 @@ fvm flutter test
 pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-第一条运行 `test/` 下的业务测试；第二条运行 CI 选定的共享与当前主机回归。选中文件、平台条件和排除项以[CI 测试脚本](../tool/run-ci-tests.ps1)为准，PR 分工以[工作流](../.github/workflows/checks.yml)为准。调整范围时检查目录与文件是否重叠，避免重复执行。
+第一条直接运行 `test/`；第二条与 CI 共用入口，自动发现共享测试，并根据[平台分类](../tool/test-platforms.json)选择当前主机回归。用 `-List` 查看执行文件；新增普通测试无须登记。只在依赖 Windows 补丁、Android 模拟通道、真实区域解码器或必须跑两端分支时登记分类。PR 分工见[工作流](../.github/workflows/checks.yml)。
 
 定位单个功能时，将相应文件或目录传给 `fvm flutter test --no-pub`。先验证直接受影响的行为，再按公共接口或平台影响扩大范围。原生或设备探针见[探针目录](../tool/probes/README.md)，按需对照见[实验目录](../tool/experiments/README.md)。
 

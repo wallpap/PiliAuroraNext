@@ -34,7 +34,7 @@
 pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-`run-ci-tests.ps1` 默认使用 FVM，通过 `flutter test --no-pub` 执行共享回归与当前平台回归，覆盖依赖政策、诊断、消息、设置、弹幕及播放恢复等模块；清单以脚本为准。`-PlatformOnly` 只运行当前主机的平台回归，供 PR 的 Windows 任务补充 Linux 已执行的共享回归；独立构建和本地默认仍包含共享回归。扩大帧率矩阵、实验对照和其余模块测试通过 `fvm flutter test` 按需运行。依赖需预先准备；脚本不解析或安装依赖、不修改 Flutter SDK、不应用补丁，也不构建应用。GitHub Actions 由补丁步骤统一解析一次依赖，随后运行依赖验收工具并调用同一测试脚本；测试和构建阶段均使用 `--no-pub`。
+`run-ci-tests.ps1` 自动发现 `test/` 下的共享回归；[`test-platforms.json`](test-platforms.json)只登记平台特例。`-PlatformOnly` 供 Windows PR 任务补跑宿主行为，`-NativeImages` 要求区域解码夹具并单独执行，`-List` 输出本次文件。`bothHosts` 仅收录有实际宿主分支的套件。设备探针和实验使用各自入口。应用测试使用 `--no-pub`，先准备依赖与对应 Flutter 补丁。
 
 独立测试文件由 Flutter 并行执行，默认采用其并发配置；传入 `-Concurrency 4` 可指定同时运行的文件数。共用构建输出的 Flutter 命令仍使用同一入口执行。
 
