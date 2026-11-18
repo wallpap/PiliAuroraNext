@@ -1,20 +1,26 @@
 import 'dart:io';
 
+import 'package:analyzer/dart/ast/ast.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'dependency_rules_test.dart' show dependencies, localDependency;
+import 'dart_source.dart';
 
 void main() {
   test('播放器展示模块独立成库，不反向依赖视图装配入口', () {
     final violations = <String>[];
-    for (final file in Directory('lib/plugin/pl_player/view').listSync()) {
+    for (final file in Directory(
+      'lib/plugin/pl_player/view',
+    ).listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       for (final uri in dependencies(file)) {
         if (localDependency(file, uri) == 'plugin/pl_player/view/view.dart') {
           violations.add('${file.path} -> $uri');
         }
       }
-      if (RegExp(r'^\s*part\s', multiLine: true).hasMatch(file.readAsStringSync())) {
+      if (parseSource(file.readAsStringSync()).directives.any(
+        (directive) =>
+            directive is PartDirective || directive is PartOfDirective,
+      )) {
         violations.add('${file.path} shares a library through part');
       }
     }

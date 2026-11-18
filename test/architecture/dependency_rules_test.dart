@@ -3,25 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 
-final _directives = RegExp(
-  r'''(?:import|export|part)\s+['"]([^'"]+)['"]''',
-);
-
-Iterable<String> dependencies(File file) => _directives
-    .allMatches(file.readAsStringSync())
-    .map((match) => match.group(1)!);
-
-String? localDependency(File file, String uri) {
-  const prefix = 'package:pili_aurora_next/';
-  if (uri.startsWith(prefix)) return uri.substring(prefix.length);
-  if (uri.contains(':')) return null;
-  return path
-      .relative(
-        path.normalize(path.join(file.parent.path, uri)),
-        from: 'lib',
-      )
-      .replaceAll('\\', '/');
-}
+import 'dart_source.dart';
 
 void main() {
   const sharedRestrictions = [
@@ -268,28 +250,31 @@ void main() {
     () {
       final violations = <String>[];
       const owners = {
-        'MemberHttp.memberDynamic(':
+        'MemberHttp.memberDynamic':
             'features/community/data/dynamics_repository.dart',
-        'MsgHttp.removeDynamic(':
+        'MsgHttp.removeDynamic':
             'features/community/data/dynamics_repository.dart',
-        'DynamicsHttp.setTop(':
+        'DynamicsHttp.setTop':
             'features/community/data/dynamics_repository.dart',
-        'DynamicsHttp.rmTop(':
+        'DynamicsHttp.rmTop':
             'features/community/data/dynamics_repository.dart',
-        'DynGrpc.likeList(':
+        'DynGrpc.likeList':
             'features/community/data/dynamic_activity_repository.dart',
-        'DynGrpc.repostList(':
+        'DynGrpc.repostList':
             'features/community/data/dynamic_activity_repository.dart',
       };
+      final candidates = owners.keys.toSet();
+      final transportNames = candidates.map((key) => key.split('.').first).toSet();
       for (final file in Directory('lib').listSync(recursive: true)) {
         if (file is! File || !file.path.endsWith('.dart')) continue;
         final source = path
             .relative(file.path, from: 'lib')
             .replaceAll('\\', '/');
         final body = file.readAsStringSync();
-        for (final entry in owners.entries) {
-          if (body.contains(entry.key) && source != entry.value) {
-            violations.add('$source calls ${entry.key}');
+        if (!transportNames.any(body.contains)) continue;
+        for (final call in matchingStaticCalls(body, candidates)) {
+          if (source != owners[call]) {
+            violations.add('$source calls $call');
           }
         }
       }
