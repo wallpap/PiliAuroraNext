@@ -280,7 +280,11 @@ class _FavoriteDetailPageState extends ConsumerState<FavoriteDetailPage> {
                       ),
               ),
             Expanded(
-              child: FavoritePanel(query: query, playAll: _playAll),
+              child: FavoritePanel(
+                query: query,
+                playAll: _playAll,
+                search: widget.search,
+              ),
             ),
           ],
         ),

@@ -1,21 +1,29 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/content_library/application/paged_feed.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/features/favorites/data/favorite_repository.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_detail/ugc.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_folder/data.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/favorite_detail_page.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_panel.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_sort_page.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/selection_panel.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/transfer_dialog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../../support/memory_box.dart';
 
@@ -151,11 +159,15 @@ void main() {
     mediaId: 7,
   );
   const folders = FavoriteQuery(owner: Object(), kind: FavoriteKind.folders);
-  setUpAll(() {
-    GStorage.setting = MemoryBox();
+  setUpAll(() async {
+    GStorage.setting = await Hive.openBox(
+      'favorite-library-settings',
+      bytes: Uint8List(0),
+    );
     GStorage.video = MemoryBox();
     GStorage.localCache = MemoryBox();
   });
+  tearDownAll(() => GStorage.setting.close());
   setUp(() {
     original = account('first');
     Accounts.accountMode[AccountType.main.index] = original;
@@ -466,6 +478,66 @@ void main() {
       child: MaterialApp(home: Scaffold(body: child)),
     ),
   );
+  for (final playAll in [false, true]) {
+    testWidgets('搜索首个命中项从自身继续播放，连续播放偏好为 $playAll', (tester) async {
+      Get.testMode = true;
+      addTearDown(Get.reset);
+      await GStorage.setting.put(SettingBoxKey.enablePlayAll, playAll);
+      repository.read = (query, _) async => FeedPage(
+        query.keyword == '命中'
+            ? [
+                favoriteVideo(75)
+                  ..ugc = Ugc(firstCid: 125)
+                  ..bvid = IdUtils.av2bv(75),
+              ]
+            : [favoriteVideo(1)],
+        metadata: FavoriteMetadata(
+          folder: FavFolderInfo(mid: 1, title: '收藏夹', mediaCount: 100),
+        ),
+      );
+      Map? played;
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: GetMaterialApp(
+            home: Scaffold(
+              body: TextButton(
+                onPressed: () =>
+                    Get.toNamed('/favSearch', arguments: {'mediaId': 7}),
+                child: const Text('打开搜索'),
+              ),
+            ),
+            getPages: [
+              GetPage(
+                name: '/favSearch',
+                page: () => const FavoriteDetailPage(search: true),
+              ),
+              GetPage(
+                name: '/videoV',
+                page: () {
+                  played = Get.arguments as Map;
+                  return const SizedBox();
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.tap(find.text('打开搜索'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '命中');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('视频 75'));
+      await tester.pumpAndSettle();
+      expect(played, containsPair('cid', 125));
+      expect(played, containsPair('sourceType', SourceType.fav));
+      expect(played, containsPair('mediaId', 7));
+      expect(played, containsPair('oid', 75));
+      expect(played, containsPair('isContinuePlaying', true));
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
   testWidgets('收藏详情待确认保留选择，确认成功刷新清除选择', (tester) async {
     await keep(query);
     await mount(tester, const FavoritePanel(query: query));

@@ -8,7 +8,7 @@
 
 视频收藏面板使用 `favoriteMembershipProvider` 查询确认归属，页面只保存勾选差量；创建收藏夹后合并原草稿并勾选新夹。提交须核对账号、目标和查询修订，只有确认成功才回调播放器。播放器/音频通过固定目标、来源归属判断和确认回调接入；快速收藏将查询、目标检查和写入放在同一个账号锁中。文章、话题、追番、三连和稍后再看转入收藏的旧入口通过同一写入 Interface 发布成功失效，不持有第二份收藏列表。
 
-连续播放偏好复用 `content_library` 的 `playAllProvider`，保存确认后才发布，与稍后再看保持一致。排序保留页面自己的草稿，收藏夹首项保持固定；详情排序按服务端相邻资源协议提交，后续页加入草稿前核对来源和已加载前缀。
+收藏详情与稍后再看共用 `playAllProvider`，偏好保存成功后才更新。收藏搜索始终从点击的命中项继续播放，不受该开关影响。排序草稿归页面，收藏夹首项保持固定；详情排序按服务端相邻资源协议提交，后续页加入草稿前核对来源和已加载前缀。
 
 ```powershell
 fvm flutter test --no-pub test/features/favorites test/features/watch_later test/features/history test/http/fav_response_test.dart test/pages/article/controller_results_test.dart test/pages/pgc/follow_results_test.dart test/architecture/dependency_rules_test.dart

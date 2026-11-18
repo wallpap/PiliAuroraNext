@@ -16,9 +16,15 @@ import 'package:pili_aurora_next/pages/member_cheese/widgets/item.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 
 class FavoritePanel extends ConsumerStatefulWidget {
-  const FavoritePanel({super.key, required this.query, this.playAll = false});
+  const FavoritePanel({
+    super.key,
+    required this.query,
+    this.playAll = false,
+    this.search = false,
+  });
   final FavoriteQuery query;
   final bool playAll;
+  final bool search;
   @override
   ConsumerState<FavoritePanel> createState() => _FavoritePanelState();
 }
@@ -59,7 +65,7 @@ class _FavoritePanelState extends ConsumerState<FavoritePanel>
       cid: item.ugc!.firstCid!,
       cover: item.cover,
       title: item.title,
-      extraArguments: widget.playAll
+      extraArguments: widget.search || widget.playAll
           ? {
               'sourceType': SourceType.fav,
               'mediaId': widget.query.mediaId,
@@ -67,7 +73,7 @@ class _FavoritePanelState extends ConsumerState<FavoritePanel>
               'favTitle': folder?.title,
               'count': folder?.mediaCount,
               'desc': !widget.query.reverse,
-              'isContinuePlaying': index != 0,
+              'isContinuePlaying': widget.search || index != 0,
               'isOwner': folder?.mid == data.account.mid,
             }
           : null,
