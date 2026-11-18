@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/rank_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/pages/rank/zone/widget/pgc_rank_item.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
@@ -66,6 +67,8 @@ class _ZonePageState extends ConsumerState<ZonePage>
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          if (state.loading is Success && state.error != null)
+            DiscoveryFooter(error: state.error, retry: controller.retry),
           SliverPadding(
             padding: const EdgeInsets.only(top: 7, bottom: 100),
             sliver: _buildBody(state.loading),

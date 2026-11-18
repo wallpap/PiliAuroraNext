@@ -93,6 +93,9 @@ class _PgcPageState extends ConsumerState<PgcPage>
     final showTimeline =
         widget.tabType == HomeTabType.bangumi &&
         ref.watch(showPgcTimelineProvider);
+    final timeline = showTimeline
+        ? ref.watch(pgcTimelineProvider(_owner))
+        : null;
     return refreshIndicator(
       onRefresh: _refresh,
       child: FeedPagination(
@@ -107,7 +110,9 @@ class _PgcPageState extends ConsumerState<PgcPage>
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _buildFollow(theme),
-            if (showTimeline)
+            if (timeline != null) ...[
+              if (timeline.loading is Success && timeline.error != null)
+                DiscoveryFooter(error: timeline.error, retry: _timelineRefresh),
               SliverToBoxAdapter(
                 child: SizedBox(
                   height:
@@ -115,10 +120,12 @@ class _PgcPageState extends ConsumerState<PgcPage>
                       MediaQuery.textScalerOf(context).scale(96),
                   child: _buildTimeline(
                     theme,
-                    ref.watch(pgcTimelineProvider(_owner)).loading,
+                    timeline.loading,
+                    timeline.metadata,
                   ),
                 ),
               ),
+            ],
             ..._buildRcmd(theme),
             DiscoveryFooter(error: state.error, retry: controller.retry),
           ],
@@ -130,6 +137,7 @@ class _PgcPageState extends ConsumerState<PgcPage>
   Widget _buildTimeline(
     ThemeData theme,
     LoadingState<List<TimelineResult>> loadingState,
+    String? warning,
   ) => switch (loadingState) {
     Loading() => m3eLoading,
     Success(:final response) =>
@@ -203,8 +211,7 @@ class _PgcPageState extends ConsumerState<PgcPage>
                           ),
                         ],
                       ),
-                      if (ref.watch(pgcTimelineProvider(_owner)).metadata
-                          case final warning?)
+                      if (warning != null)
                         TextButton(
                           onPressed: _timelineRefresh,
                           child: Text(warning),

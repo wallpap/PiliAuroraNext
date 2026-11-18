@@ -5,15 +5,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
+    as refresh;
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/hot_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/curated_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/pgc_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/rank_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
+import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
+import 'package:pili_aurora_next/pages/pgc/view.dart';
+import 'package:pili_aurora_next/pages/popular_series/view.dart';
+import 'package:pili_aurora_next/pages/rank/zone/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -31,6 +43,69 @@ class _Hot extends HotRepository {
     requests++;
     return const Success(DiscoveryPage([], metadata: null, hasMore: false));
   }
+}
+
+const _refreshError = Error('网络暂不可用');
+
+class _Rank extends RankRepository {
+  int requests = 0;
+  @override
+  Future<LoadingState<DiscoveryPage<Object, void>>> fetch(
+    Account account, {
+    int? rid,
+    int? seasonType,
+  }) async => ++requests == 2
+      ? _refreshError
+      : const Success(DiscoveryPage([], metadata: null, hasMore: false));
+}
+
+class _Weekly extends CuratedRepository {
+  int requests = 0;
+  @override
+  Future<LoadingState<DiscoveryPage<HotVideoItemModel, WeeklyCatalog>>> weekly(
+    Account account,
+    int? number, {
+    required bool Function() isCurrent,
+  }) async => ++requests == 2
+      ? _refreshError
+      : Success(
+          DiscoveryPage(
+            [],
+            metadata: WeeklyCatalog(
+              series: [],
+              config: PopularSeriesConfig(name: '第 42 期', label: '测试期数'),
+            ),
+            hasMore: false,
+          ),
+        );
+}
+
+class _Pgc extends PgcRepository {
+  int timelineRequests = 0;
+  int catalogRequests = 0;
+
+  @override
+  Future<LoadingState<DiscoveryPage<PgcIndexItem, void>>> catalog(
+    Account account,
+    int page,
+    bool cinema,
+  ) async {
+    catalogRequests++;
+    return const Success(DiscoveryPage([], metadata: null, hasMore: false));
+  }
+
+  @override
+  Future<LoadingState<DiscoveryPage<TimelineResult, String?>>> timeline(
+    Account account,
+  ) async => ++timelineRequests == 2
+      ? _refreshError
+      : Success(
+          DiscoveryPage(
+            [TimelineResult(date: '11-18', isToday: 1)],
+            metadata: null,
+            hasMore: false,
+          ),
+        );
 }
 
 void main() {
@@ -102,4 +177,60 @@ void main() {
     expect(scroll.hasClients, isFalse);
     expect(tester.takeException(), isNull);
   });
+
+  for (final page in ['排行榜', '每周必看', '追番时间表']) {
+    testWidgets('$page 刷新失败保留快照并提供就地重试', (tester) async {
+      final rank = _Rank();
+      final weekly = _Weekly();
+      final pgc = _Pgc();
+      await GStorage.setting.put(SettingBoxKey.showPgcTimeline, true);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            rankRepositoryProvider.overrideWithValue(rank),
+            curatedRepositoryProvider.overrideWithValue(weekly),
+            pgcRepositoryProvider.overrideWithValue(pgc),
+          ],
+          child: GetMaterialApp(
+            home: switch (page) {
+              '排行榜' => const Scaffold(body: ZonePage(rid: 1)),
+              '每周必看' => const PopularSeriesPage(),
+              _ => const Scaffold(body: PgcPage(tabType: HomeTabType.bangumi)),
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final snapshot = find.text(switch (page) {
+        '排行榜' => '没有数据',
+        '每周必看' => '第 42 期',
+        _ => '11-18 今天',
+      });
+      final retry = find.text('网络暂不可用 · 重试');
+      expect(snapshot, findsOneWidget);
+      expect(retry, findsNothing);
+      await tester
+          .widget<refresh.RefreshIndicator>(
+            find.byType(refresh.RefreshIndicator),
+          )
+          .onRefresh();
+      await tester.pumpAndSettle();
+      expect(snapshot, findsOneWidget);
+      expect(retry, findsOneWidget);
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(retry, findsNothing);
+      expect(snapshot, findsOneWidget);
+      switch (page) {
+        case '排行榜':
+          expect(rank.requests, 3);
+        case '每周必看':
+          expect(weekly.requests, 3);
+        default:
+          expect(pgc.timelineRequests, 3);
+          expect(pgc.catalogRequests, 2);
+      }
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 }

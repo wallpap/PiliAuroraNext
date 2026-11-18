@@ -15,6 +15,7 @@ import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/curated_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:get/get.dart';
@@ -47,6 +48,8 @@ class _PopularSeriesPageState extends ConsumerState<PopularSeriesPage>
         child: CustomScrollView(
           physics: ReloadScrollPhysics(controller: this),
           slivers: [
+            if (state.loading is Success && state.error != null)
+              DiscoveryFooter(error: state.error, retry: _controller.retry),
             ViewSliverSafeArea(
               sliver: _buildBody(state.loading),
             ),
