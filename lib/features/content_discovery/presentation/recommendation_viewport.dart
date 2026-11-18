@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/rendering.dart' show SliverGridRegularTileLayout;
 import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
@@ -18,7 +19,7 @@ class RecommendationViewport extends StatelessWidget {
   final Widget Function(
     SliverGridDelegateWithExtentAndRatio delegate,
     int items,
-    double rowStride,
+    SliverGridRegularTileLayout layout,
   )
   builder;
 
@@ -45,7 +46,7 @@ class RecommendationViewport extends StatelessWidget {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) onChanged(items, layout.crossAxisCount, active);
         });
-        return builder(delegate, items, layout.mainAxisStride);
+        return builder(delegate, items, layout);
       },
     );
   }

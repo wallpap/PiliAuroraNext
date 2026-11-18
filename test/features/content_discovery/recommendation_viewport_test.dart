@@ -84,8 +84,8 @@ void main() {
                     columns = count;
                     expect(active, isTrue);
                   },
-                  builder: (delegate, items, rowStride) {
-                    stride = rowStride;
+                  builder: (delegate, items, layout) {
+                    stride = layout.mainAxisStride;
                     return const SizedBox.expand();
                   },
                 ),
