@@ -214,8 +214,6 @@ $ciTests = @(
     "test/pages/video/reply/filter_pagination_test.dart",
     "test/grpc/reply_filter_test.dart",
     "test/pages/video/reply/timestamp_test.dart",
-    "test/pages/video/reply_reply/level_filter_test.dart",
-    "test/pages/video/reply_reply/lifecycle_test.dart",
     "test/utils/reply_filter_test.dart",
     "test/pages/setting/decoder_test_test.dart",
     "test/pages/setting/decoder_test_process_test.dart",

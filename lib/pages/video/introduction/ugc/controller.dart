@@ -32,7 +32,6 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/ugc_season.dar
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/pages/video/related/controller.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -138,12 +137,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                 !videoDetailCtr.isQuerying)) {
           videoDetailCtr.cover.value = response.pic ?? '';
         }
-        if (videoDetailCtr.showReply) {
-          try {
-            Get.find<VideoReplyController>(tag: heroTag).count.value =
-                response.stat?.reply ?? 0;
-          } catch (_) {}
-        }
+        videoDetailCtr.onReplyCount?.call(response.stat?.reply ?? 0);
       } catch (_) {}
       final pages = videoDetail.value.pages;
       if (pages != null && pages.isNotEmpty && cid.value == 0) {
@@ -591,16 +585,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           } catch (_) {}
         }
 
-        // 重新请求评论
-        if (videoDetailCtr.showReply) {
-          try {
-            final replyCtr = Get.find<VideoReplyController>(tag: heroTag)
-              ..aid = aid;
-            if (replyCtr.loadingState.value is! Loading) {
-              replyCtr.onReload();
-            }
-          } catch (_) {}
-        }
+        videoDetailCtr.onReplyTargetChanged?.call();
 
         hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
         this.bvid = bvid;

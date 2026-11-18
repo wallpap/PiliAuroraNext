@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
@@ -20,11 +21,11 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MatchInfoPage extends StatefulWidget {
+class MatchInfoPage extends ConsumerStatefulWidget {
   const MatchInfoPage({super.key});
 
   @override
-  State<MatchInfoPage> createState() => _MatchInfoPageState();
+  ConsumerState<MatchInfoPage> createState() => _MatchInfoPageState();
 }
 
 class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
@@ -48,14 +49,16 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
         appBar: AppBar(title: const Text('比赛详情')),
         body: ViewSafeArea(
           child: refreshIndicator(
-            onRefresh: controller.onRefresh,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                Obx(() => _buildInfo(controller.infoState.value)),
-                buildReplyHeader(),
-                Obx(() => replyList(controller.loadingState.value)),
-              ],
+            onRefresh: refreshDetailsAndComments,
+            child: commentPagination(
+              CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  Obx(() => _buildInfo(controller.infoState.value)),
+                  buildReplyHeader(),
+                  replyList(),
+                ],
+              ),
             ),
           ),
         ).constraintWidth(),
@@ -232,7 +235,7 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
               isVideoDetail: false,
               replyType: controller.replyType,
               firstFloor: replyItem,
-              onUpdate: controller.loadingState.refresh,
+              onUpdate: commentUpdate(),
             ),
           ).constraintWidth(),
         ),

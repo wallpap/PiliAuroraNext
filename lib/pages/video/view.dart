@@ -43,7 +43,10 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/season.dar
 import 'package:pili_aurora_next/pages/video/member/controller.dart';
 import 'package:pili_aurora_next/pages/video/member/view.dart';
 import 'package:pili_aurora_next/pages/video/related/view.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/pages/video/reply/view.dart';
 import 'package:pili_aurora_next/pages/video/view_point/view.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
@@ -98,7 +101,27 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   final heroTag = Get.arguments['heroTag'];
 
   late final VideoDetailController videoDetailController;
-  late final VideoReplyController _videoReplyController;
+  final _replyOwner = Object();
+  final _replyScroll = ScrollController();
+  final _replyTarget = ValueNotifier<({int aid, CommentTarget target})?>(null);
+  final _replyCount = ValueNotifier<int?>(null);
+  final _loadedReplyCount = ValueNotifier<int?>(null);
+
+  void _onReplyTargetChanged() {
+    final controller = videoDetailController;
+    final oid = controller.videoType == VideoType.pugv
+        ? controller.epId
+        : controller.aid;
+    _replyTarget.value = oid == null || oid <= 0
+        ? null
+        : (
+            aid: controller.aid,
+            target: (oid: oid, type: controller.videoType.replyType),
+          );
+    _replyCount.value = null;
+    _loadedReplyCount.value = null;
+  }
+
   PlPlayerController? plPlayerController;
 
   // intro ctr
@@ -182,14 +205,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
 
     if (videoDetailController.showReply) {
-      _videoReplyController = Get.put(
-        VideoReplyController(
-          aid: videoDetailController.aid,
-          videoType: videoDetailController.videoType,
-          heroTag: heroTag,
-        ),
-        tag: heroTag,
-      );
+      _onReplyTargetChanged();
+      videoDetailController.onReplyTargetChanged = _onReplyTargetChanged;
+      videoDetailController.onReplyCount = (count) => _replyCount.value = count;
     }
 
     if (videoDetailController.isFileSource) {
@@ -356,6 +374,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    videoDetailController.onReplyTargetChanged = null;
+    videoDetailController.onReplyCount = null;
+    _replyTarget.dispose();
+    _replyCount.dispose();
+    _loadedReplyCount.dispose();
+    _replyScroll.dispose();
     PlPlayerController.setPlayCallBack(null, owner: this);
     plPlayerController
       ?..removeStatusLister(playerListener)
@@ -1318,7 +1342,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                 text == '相关视频') {
               videoDetailController.introScrollCtr?.animToTop();
             } else if (text.startsWith('评论')) {
-              _videoReplyController.animateToTop();
+              _replyScroll.animToTop();
             }
           }
 
@@ -1330,16 +1354,19 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         },
         tabs: tabs.map((text) {
           if (text == '评论') {
-            return Obx(() {
-              final count = _videoReplyController.count.value;
-              return Tab(
-                child: Text(
-                  '评论${count == -1 ? '' : ' ${NumUtils.numFormat(count)}'}',
-                  softWrap: false,
-                  overflow: .visible,
-                ),
-              );
-            });
+            return ListenableBuilder(
+              listenable: Listenable.merge([_replyCount, _loadedReplyCount]),
+              builder: (context, _) {
+                final count = _loadedReplyCount.value ?? _replyCount.value;
+                return Tab(
+                  child: Text(
+                    '评论${count == null ? '' : ' ${NumUtils.numFormat(count)}'}',
+                    softWrap: false,
+                    overflow: .visible,
+                  ),
+                );
+              },
+            );
           } else {
             return Tab(
               child: Text(text, softWrap: false, overflow: .visible),
@@ -1795,10 +1822,37 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     );
   }
 
-  Widget videoReplyPanel({bool isNested = false}) => VideoReplyPanel(
-    key: videoReplyPanelKey,
-    isNested: isNested,
-    heroTag: heroTag,
+  Widget videoReplyPanel({bool isNested = false}) => ValueListenableBuilder(
+    valueListenable: _replyTarget,
+    builder: (context, target, _) => target == null
+        ? const SizedBox.shrink()
+        : Consumer(
+            builder: (context, ref, _) {
+              final query = (
+                owner: _replyOwner,
+                target: target.target,
+                thread: null,
+              );
+              ref.listen(
+                commentsProvider(query).select((state) => state.count),
+                (_, count) {
+                  if (mounted && _replyTarget.value == target) {
+                    _loadedReplyCount.value = count < 0 ? null : count;
+                  }
+                },
+              );
+              return VideoReplyPanel(
+                key: videoReplyPanelKey,
+                isNested: isNested,
+                heroTag: heroTag,
+                query: query,
+                sourceId: IdUtils.av2bv(target.aid),
+                writeTarget: (oid: target.aid, type: target.target.type),
+                targetIsCurrent: () => mounted && _replyTarget.value == target,
+                scrollController: _replyScroll,
+              );
+            },
+          ),
   );
 
   // ai总结

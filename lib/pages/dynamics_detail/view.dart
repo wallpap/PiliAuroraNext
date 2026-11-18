@@ -45,16 +45,17 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 const Set<TargetPlatform> _kDesktopPlatforms = <TargetPlatform>{
   TargetPlatform.windows,
 };
 
-class DynamicDetailPage extends StatefulWidget {
+class DynamicDetailPage extends ConsumerStatefulWidget {
   const DynamicDetailPage({super.key});
 
   @override
-  State<DynamicDetailPage> createState() => _DynamicDetailPageState();
+  ConsumerState<DynamicDetailPage> createState() => _DynamicDetailPageState();
 }
 
 class _DynamicDetailPageState
@@ -101,12 +102,14 @@ class _DynamicDetailPageState
 
   @override
   void dispose() {
+    controller.refreshComments = null;
     _scrollable = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    controller.refreshComments = () => refreshComments(clear: true);
     return SelectionTapRegionSurface(
       /// apply `lib/scripts/scrollable.patch`
       isScrolling: () => _scrollable?.shouldIgnorePointer ?? false,
@@ -224,7 +227,7 @@ class _DynamicDetailPageState
       }
     }
     ReplyOptionType? replyOption;
-    if (controller.loadingState.value case Error(:final code)) {
+    if (commentSnapshot?.loading case Error(:final code)) {
       if (code == 12061 || code == 12002) {
         replyOption = .close;
       }
@@ -340,7 +343,7 @@ class _DynamicDetailPageState
                             .onRefresh(),
                       );
                     case 1:
-                      _onRefresh(controller.onRefresh());
+                      _onRefresh(refreshDynamicComments());
                     case 2:
                       _onRefresh(
                         ref
@@ -357,7 +360,14 @@ class _DynamicDetailPageState
                 .map(
                   (e) => Tab(
                     child: e == DynType.reply
-                        ? Obx(() => label(e, controller.count.value))
+                        ? commentBuilder(
+                            (_, snapshot) => label(
+                              e,
+                              (snapshot?.count ?? -1) >= 0
+                                  ? snapshot!.count
+                                  : controller.count,
+                            ),
+                          )
                         : label(
                             e,
                             e == DynType.repost ? repostCount : likeCount,
@@ -371,20 +381,27 @@ class _DynamicDetailPageState
     );
   }
 
+  Future<void> refreshDynamicComments() =>
+      controller.commentSource.value.dataOrNull == null
+      ? controller.onReload()
+      : refreshComments();
+
   Widget _buildTabBody([bool isPortrait = true]) {
-    Widget reply = CustomScrollView(
-      key: const PageStorageKey(DynType.reply),
-      physics: ReloadScrollPhysics(
-        controller: controller,
-        parent: isPortrait ? platformAlwaysClampingPhysics : null,
+    Widget reply = commentPagination(
+      CustomScrollView(
+        key: const PageStorageKey(DynType.reply),
+        physics: ReloadScrollPhysics(
+          controller: controller,
+          parent: isPortrait ? platformAlwaysClampingPhysics : null,
+        ),
+        slivers: [
+          buildReplyHeader(isPortrait),
+          replyList(),
+        ],
       ),
-      slivers: [
-        buildReplyHeader(isPortrait),
-        Obx(() => replyList(controller.loadingState.value)),
-      ],
     );
     if (!isPortrait) {
-      reply = refreshIndicator(onRefresh: controller.onRefresh, child: reply);
+      reply = refreshIndicator(onRefresh: refreshDynamicComments, child: reply);
     }
 
     final child = TabBarView(
@@ -670,26 +687,26 @@ class _DynamicDetailPageState
     final secondary = theme.colorScheme.secondary;
     final child = Padding(
       padding: const .fromLTRB(12, 2.5, 6, 2.5),
-      child: Obx(
-        () {
-          final sortType = controller.sortType.value;
-          return Row(
-            mainAxisAlignment: .spaceBetween,
-            children: [
-              Text(sortType.desc),
-              TextButton.icon(
-                style: Style.buttonStyle,
-                onPressed: controller.queryBySort,
-                icon: Icon(Icons.sort, size: 16, color: secondary),
-                label: Text(
-                  sortType.descShort,
-                  style: TextStyle(fontSize: 13, color: secondary),
-                ),
+      child: commentBuilder((comments, snapshot) {
+        final sortType = snapshot?.sort ?? Pref.replySortType;
+        return Row(
+          mainAxisAlignment: .spaceBetween,
+          children: [
+            Text(sortType.desc),
+            TextButton.icon(
+              style: Style.buttonStyle,
+              onPressed: comments == null || snapshot == null
+                  ? null
+                  : () => toggleCommentSort(comments, snapshot),
+              icon: Icon(Icons.sort, size: 16, color: secondary),
+              label: Text(
+                sortType.descShort,
+                style: TextStyle(fontSize: 13, color: secondary),
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      }),
     );
     return SliverFloatingHeaderWidget(
       backgroundColor: theme.colorScheme.surface,

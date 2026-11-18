@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:math';
 
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
@@ -40,11 +42,11 @@ import 'package:get/get.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:material_ui/material_ui.dart';
 
-class ArticlePage extends StatefulWidget {
+class ArticlePage extends ConsumerStatefulWidget {
   const ArticlePage({super.key});
 
   @override
-  State<ArticlePage> createState() => _ArticlePageState();
+  ConsumerState<ArticlePage> createState() => _ArticlePageState();
 }
 
 class _ArticlePageState extends CommonDynPageState<ArticlePage> {
@@ -96,25 +98,27 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       return Padding(
         padding: .symmetric(horizontal: padding),
         child: SelectionArea(
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              _buildContent(
-                maxWidth - this.padding.horizontal - 2 * padding - 24,
-              ),
-              SelectionContainer.disabled(
-                child: SliverToBoxAdapter(
-                  child: Divider(
-                    thickness: 8,
-                    color: theme.dividerColor.withValues(alpha: 0.05),
+          child: commentPagination(
+            CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _buildContent(
+                  maxWidth - this.padding.horizontal - 2 * padding - 24,
+                ),
+                SelectionContainer.disabled(
+                  child: SliverToBoxAdapter(
+                    child: Divider(
+                      thickness: 8,
+                      color: theme.dividerColor.withValues(alpha: 0.05),
+                    ),
                   ),
                 ),
-              ),
-              SelectionContainer.disabled(child: buildReplyHeader()),
-              SelectionContainer.disabled(
-                child: Obx(() => replyList(controller.loadingState.value)),
-              ),
-            ],
+                SelectionContainer.disabled(child: buildReplyHeader()),
+                SelectionContainer.disabled(
+                  child: replyList(),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -159,13 +163,15 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             padding: .only(right: padding),
             child: MiniScaffold(
               body: refreshIndicator(
-                onRefresh: controller.onRefresh,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    buildReplyHeader(),
-                    Obx(() => replyList(controller.loadingState.value)),
-                  ],
+                onRefresh: refreshComments,
+                child: commentPagination(
+                  CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      buildReplyHeader(),
+                      replyList(),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -14,12 +14,17 @@ import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:pili_aurora_next/pages/video/reply_reply/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/parse_string.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -102,44 +107,81 @@ class VideoReplyReplyPanel extends CommonSlidePage {
 }
 
 class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
-    with SingleTickerProviderStateMixin, CommonSlideMixin {
-  late VideoReplyReplyController _controller;
-  late final _tag = Utils.makeHeroTag('${widget.rpid}${widget.dialog}');
+    with TickerProviderStateMixin, CommonSlideMixin {
+  final _owner = Object();
+  final _scrollController = ScrollController();
+  final _listController = ListController();
+  final _interactions = CommentInteractions();
+  late final _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  );
   Animation<Color?>? _colorAnimation;
+  ExtendedNestedScrollController? _nestedController;
+  Int64? _highlight;
+  late int? _pendingReply = widget.id;
+  late final Object _seedAccount;
+  bool _showSeed = true;
 
-  late final bool isDialogue = widget.dialog != null;
+  bool get isDialogue => widget.dialog != null;
+  CommentsQuery get _query => (
+    owner: _owner,
+    target: (oid: widget.oid, type: widget.replyType),
+    thread: (root: widget.rpid, reply: widget.id, dialog: widget.dialog),
+  );
+  Object get _source =>
+      widget.replyType == 1 ? IdUtils.av2bv(widget.oid) : widget.oid;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _colorAnimation = null;
-    final controller = PrimaryScrollController.of(context);
-    _controller
-      ..didChangeDependencies(context)
-      ..nestedController = controller is ExtendedNestedScrollController
-          ? controller
-          : null;
+    final controller = PrimaryScrollController.maybeOf(context);
+    _nestedController = controller is ExtendedNestedScrollController
+        ? controller
+        : null;
   }
 
   @override
   void initState() {
     super.initState();
-    _controller = Get.put(
-      VideoReplyReplyController(
-        id: widget.id,
-        oid: widget.oid,
-        rpid: widget.rpid,
-        dialog: widget.dialog,
-        replyType: widget.replyType,
-      )..firstFloor.value = widget.firstFloor,
-      tag: _tag,
-    );
+    _seedAccount = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(mainAccountProvider);
   }
 
   @override
   void dispose() {
-    Get.delete<VideoReplyReplyController>(tag: _tag);
+    _animation.dispose();
+    _scrollController.dispose();
+    _listController.dispose();
     super.dispose();
+  }
+
+  bool _jump(Int64 id, List<ReplyInfo> rows) {
+    final index = rows.indexWhere((row) => row.id == id);
+    if (index < 0) return false;
+    _highlight = id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _highlight != id) return;
+      _animation.forward(from: 0);
+      try {
+        // ignore: invalid_use_of_visible_for_testing_member
+        final offset = _listController.getOffsetToReveal(index, 0.25);
+        if (!offset.isFinite) return;
+        if (_nestedController case final nested?) {
+          nested.nestedPositions.last.localJumpTo(offset);
+        } else if (_scrollController.hasClients) {
+          _scrollController.jumpTo(offset);
+        }
+      } on StateError {
+        // 关闭面板时滚动位置可能已脱离。
+      } on FlutterError {
+        // 首次快照尚未布局时没有可用位置。
+      }
+    });
+    return true;
   }
 
   @override
@@ -182,39 +224,59 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     );
   }
 
-  ReplyInfo? get firstFloor => _controller.firstFloor.value;
-
-  ScrollController get scrollController =>
-      _controller.nestedController ?? _controller.scrollController;
-
   @override
-  Widget buildList(ThemeData theme) {
-    return refreshIndicator(
-      onRefresh: _controller.onRefresh,
-      isClampingScrollPhysics: widget.isNested,
-      child: CustomScrollView(
-        key: ValueKey(scrollController.hashCode),
-        controller: scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          if (!isDialogue) ...[
-            Obx(() {
-              final firstFloor = this.firstFloor;
-              return firstFloor == null
-                  ? const SliverToBoxAdapter()
-                  : _header(theme, firstFloor);
-            }),
-            _sortWidget(theme.colorScheme),
-          ],
-          Obx(
-            () => _buildBody(theme.colorScheme, _controller.loadingState.value),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget buildList(ThemeData theme) => Consumer(
+    builder: (context, ref, _) {
+      final provider = commentsProvider(_query);
+      final snapshot = ref.watch(provider);
+      final comments = ref.read(provider.notifier);
+      final account = ref.watch(mainAccountProvider);
+      if (!identical(_seedAccount, account)) _showSeed = false;
+      final root = snapshot.root ?? (_showSeed ? widget.firstFloor : null);
+      final controller = _nestedController ?? _scrollController;
+      final rows = snapshot.loading.dataOrNull;
+      if (rows != null) {
+        if (_pendingReply case final id?) {
+          _pendingReply = null;
+          _jump(Int64(id), rows);
+        }
+      }
+      Future<void> reload({bool clear = false}) {
+        _highlight = null;
+        return comments.refresh(clear: clear);
+      }
 
-  Widget _header(ThemeData theme, ReplyInfo firstFloor) {
+      return refreshIndicator(
+        onRefresh: reload,
+        isClampingScrollPhysics: widget.isNested,
+        child: FeedPagination.notifications(
+          dataSource: snapshot.source,
+          dataRevision: snapshot,
+          canLoadMore: () => snapshot.canLoadMore,
+          onLoadMore: comments.loadMore,
+          child: CustomScrollView(
+            key: ObjectKey(controller),
+            controller: controller,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              if (!isDialogue) ...[
+                if (root != null) _header(theme, root, comments, snapshot),
+                _sortWidget(theme.colorScheme, comments, snapshot),
+              ],
+              _buildBody(theme.colorScheme, comments, snapshot, reload),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _header(
+    ThemeData theme,
+    ReplyInfo firstFloor,
+    Comments comments,
+    CommentsState snapshot,
+  ) {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -222,9 +284,16 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             replyItem: firstFloor,
             replyLevel: 2,
             needDivider: false,
-            onReply: (replyItem) => _controller.onReply(replyItem, index: -1),
-            upMid: widget.upMid ?? _controller.upMid,
-            onCheckReply: _controller.onCheckReply,
+            onReply: (replyItem) => _interactions.compose(
+              context,
+              comments,
+              snapshot,
+              _source,
+              replyItem,
+            ),
+            upMid: (_showSeed ? widget.upMid : null) ?? snapshot.upMid,
+            onCheckReply: (item) =>
+                _interactions.check(comments, _source, item),
             onUpdate: widget.onUpdate,
           ),
         ),
@@ -239,7 +308,11 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     );
   }
 
-  Widget _sortWidget(ColorScheme colorScheme) {
+  Widget _sortWidget(
+    ColorScheme colorScheme,
+    Comments comments,
+    CommentsState snapshot,
+  ) {
     return SliverPinnedHeader(
       backgroundColor: colorScheme.surface,
       child: Padding(
@@ -247,26 +320,24 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         child: Row(
           mainAxisAlignment: .spaceBetween,
           children: [
-            Obx(
-              () {
-                final count = _controller.count.value;
-                return count != -1
-                    ? Text(
-                        '相关回复共${NumUtils.numFormat(count)}条',
-                        style: const TextStyle(fontSize: 13),
-                      )
-                    : const SizedBox.shrink();
-              },
-            ),
+            if (snapshot.count >= 0)
+              Text(
+                '相关回复共${NumUtils.numFormat(snapshot.count)}条',
+                style: const TextStyle(fontSize: 13),
+              )
+            else
+              const SizedBox.shrink(),
             TextButton.icon(
               style: Style.buttonStyle,
-              onPressed: _controller.queryBySort,
+              onPressed: () {
+                if (snapshot.busy) return;
+                _highlight = null;
+                _interactions.toggleSort(comments, snapshot);
+              },
               icon: Icon(Icons.sort, size: 16, color: colorScheme.secondary),
-              label: Obx(
-                () => Text(
-                  _controller.sortType.value.label,
-                  style: TextStyle(fontSize: 13, color: colorScheme.secondary),
-                ),
+              label: Text(
+                snapshot.sort.label,
+                style: TextStyle(fontSize: 13, color: colorScheme.secondary),
               ),
             ),
           ],
@@ -277,10 +348,11 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
 
   Widget _buildBody(
     ColorScheme colorScheme,
-    LoadingState<List<ReplyInfo>?> loadingState,
+    Comments comments,
+    CommentsState snapshot,
+    Future<void> Function({bool clear}) reload,
   ) {
-    final jumpIndex = _controller.index.value;
-    return switch (loadingState) {
+    return switch (snapshot.loading) {
       Loading() => const SliverPrototypeExtentList(
         prototypeItem: VideoReplySkeleton(),
         delegate: SliverSingleChildDelegate(
@@ -288,24 +360,31 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
           child: VideoReplySkeleton(),
         ),
       ),
-      Success(:final response!) when response.isEmpty => HttpError(
-        errMsg: _controller.emptyReplyMessage,
-        btnText: _controller.canLoadMore ? '继续加载' : null,
-        onReload: _controller.canLoadMore
-            ? _controller.onLoadMore
-            : _controller.onReload,
+      Success(:final response) when response.isEmpty => HttpError(
+        errMsg:
+            snapshot.pageError?.errMsg ??
+            (Pref.minimumReplyUserLevel > 0 ? '暂无符合等级条件的评论' : '还没有评论'),
+        btnText: snapshot.hasMore ? '继续加载' : null,
+        onReload: snapshot.hasMore
+            ? () => comments.loadMore(retry: true)
+            : () => reload(clear: true),
       ),
-      Success(:final response!) => SuperSliverList.builder(
-        listController: _controller.listController,
+      Success(:final response) => SuperSliverList.builder(
+        listController: _listController,
         itemBuilder: (context, index) {
           if (index == response.length) {
-            _controller.onLoadMore();
+            if (snapshot.pageError case final error?) {
+              return TextButton(
+                onPressed: () => comments.loadMore(retry: true),
+                child: Text(error.errMsg ?? '加载失败，点击重试'),
+              );
+            }
             return Container(
               height: 125,
               alignment: Alignment.center,
               margin: .only(bottom: MediaQuery.viewPaddingOf(context).bottom),
               child: Text(
-                _controller.isEnd ? '没有更多了' : '加载中...',
+                !snapshot.hasMore ? '没有更多了' : '加载中...',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -314,10 +393,15 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               ),
             );
           }
-          final child = _replyItem(context, response[index], index);
-          if (jumpIndex == index) {
+          final child = _replyItem(
+            context,
+            response[index],
+            comments,
+            snapshot,
+          );
+          if (_highlight == response[index].id) {
             return ColoredBoxTransition(
-              color: _colorAnimation ??= _controller.animController.drive(
+              color: _colorAnimation ??= _animation.drive(
                 ColorTween(
                   begin: colorScheme.onInverseSurface,
                   end: colorScheme.surface,
@@ -333,18 +417,24 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       ),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: () => reload(clear: true),
       ),
     };
   }
 
-  Widget _replyItem(BuildContext context, ReplyInfo replyItem, int index) {
+  Widget _replyItem(
+    BuildContext context,
+    ReplyInfo replyItem,
+    Comments comments,
+    CommentsState snapshot,
+  ) {
     return ReplyItemGrpc(
       replyItem: replyItem,
       replyLevel: isDialogue ? 3 : 2,
-      onReply: (replyItem) => _controller.onReply(replyItem, index: index),
-      onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
-      upMid: _controller.upMid,
+      onReply: (item) =>
+          _interactions.compose(context, comments, snapshot, _source, item),
+      onDelete: (item, _) => comments.remove(item, null),
+      upMid: snapshot.upMid,
       showDialogue: () => MiniScaffold.of(context).showBottomSheet(
         constraints: const BoxConstraints(),
         (context) => VideoReplyReplyPanel(
@@ -357,11 +447,13 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         ),
       ),
       jumpToDialogue: () {
-        if (!_controller.setIndexById(replyItem.parent)) {
+        if (_jump(replyItem.parent, snapshot.loading.dataOrNull ?? const [])) {
+          setState(() {});
+        } else {
           SmartDialog.showToast('评论可能已被删除');
         }
       },
-      onCheckReply: _controller.onCheckReply,
+      onCheckReply: (item) => _interactions.check(comments, _source, item),
     );
   }
 }

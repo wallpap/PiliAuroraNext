@@ -1,11 +1,9 @@
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show MainListReply;
 import 'package:pili_aurora_next/http/music.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_detail.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -21,31 +19,17 @@ class MusicDetailController extends CommonDynController {
   int get replyType => _replyType;
 
   bool get canComment => oid > 0;
-  int _detailsVersion = 0;
   Account? _detailsAccount;
+  int _detailsVersion = 0;
   final _updatingWish = false.obs;
   bool get updatingWish => _updatingWish.value;
 
   @override
-  dynamic get sourceId => oid.toString();
+  Object get sourceId => oid.toString();
 
   final infoState = LoadingState<MusicDetail>.loading().obs;
 
   final String musicId;
-
-  @override
-  // 评论同时属于当前账号和详情快照，刷新为无评论详情时也要废弃旧评论。
-  Object get queryContext => identical(_detailsAccount, Accounts.main)
-      ? infoState.value.dataOrNull ?? Accounts.main
-      : Accounts.main;
-
-  @override
-  String get emptyReplyMessage =>
-      canComment ? super.emptyReplyMessage : '该音乐暂不支持评论';
-
-  @override
-  Future<LoadingState<MainListReply>> customGetData() async =>
-      canComment ? await super.customGetData() : const Error('该音乐暂不支持评论');
 
   String get shareUrl =>
       'https://music.bilibili.com/h5/music-detail?music_id=$musicId';
@@ -53,6 +37,7 @@ class MusicDetailController extends CommonDynController {
   @override
   void onInit() {
     super.onInit();
+    Accounts.mainChanges.addListener(_accountChanged);
     getMusicDetail();
   }
 
@@ -61,46 +46,42 @@ class MusicDetailController extends CommonDynController {
     final version = ++_detailsVersion;
     final account = Accounts.main;
     if (infoState.value is Error) infoState.value = LoadingState.loading();
-    bool owned() => !isClosed && version == _detailsVersion;
-    void retireAccount() {
-      infoState.value = const Error('账号已切换，请刷新音乐详情');
-      loadingState.value = const Error('账号已切换，请刷新评论');
-    }
-
-    final res = await MusicHttp.bgmDetail(musicId, account: account);
-    if (!owned()) return;
-    if (!identical(account, Accounts.main)) {
-      retireAccount();
-      return;
-    }
-    infoState.value = res;
-    if (res case Success(:final response)) {
-      _detailsAccount = account;
-      final comment = response.musicComment;
-      _oid = comment?.oid ?? 0;
-      _replyType = comment?.pageType ?? 47;
-      count.value = comment?.nums ?? -1;
-      if (canComment) {
-        try {
-          await super.onRefresh();
-        } catch (error, stackTrace) {
-          if (!isClosed &&
-              version == _detailsVersion &&
-              identical(account, Accounts.main)) {
-            loadingState.value = Error.fromException(error, stackTrace);
-          }
+    bool current() =>
+        !isClosed &&
+        version == _detailsVersion &&
+        identical(account, Accounts.main);
+    try {
+      final res = await MusicHttp.bgmDetail(musicId, account: account);
+      if (!current()) {
+        if (!isClosed && version == _detailsVersion) {
+          infoState.value = const Error('账号已切换，请刷新音乐详情');
         }
-        if (owned() && !identical(account, Accounts.main)) retireAccount();
-      } else {
-        count.value = 0;
-        isEnd = true;
-        loadingState.value = const Success([]);
+        return;
       }
+      if (res case Success(:final response)) {
+        _detailsAccount = account;
+        final comment = response.musicComment;
+        _oid = comment?.oid ?? 0;
+        _replyType = comment?.pageType ?? 47;
+        count = canComment ? comment?.nums ?? -1 : 0;
+        showComments();
+      }
+      infoState.value = res;
+    } catch (error, stackTrace) {
+      if (current()) infoState.value = Error.fromException(error, stackTrace);
     }
   }
 
+  void _accountChanged() {
+    _oid = 0;
+    count = -1;
+    commentSource.value = LoadingState.loading();
+    infoState.value = LoadingState.loading();
+    getMusicDetail();
+  }
+
   @override
-  Future<void> onRefresh() => getMusicDetail();
+  Future<void> onReload() => getMusicDetail();
 
   Future<void> toggleWish(MusicDetail item) async {
     if (updatingWish ||
@@ -157,6 +138,7 @@ class MusicDetailController extends CommonDynController {
 
   @override
   void onClose() {
+    Accounts.mainChanges.removeListener(_accountChanged);
     _detailsVersion++;
     super.onClose();
   }

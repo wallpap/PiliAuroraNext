@@ -91,6 +91,8 @@ class VideoDetailController extends GetxController
   late int aid;
   late final RxInt cid;
   int? epId;
+  VoidCallback? onReplyTargetChanged;
+  ValueChanged<int>? onReplyCount;
   int? seasonId;
   int? pgcType;
   late final String heroTag;

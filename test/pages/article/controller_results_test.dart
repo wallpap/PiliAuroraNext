@@ -20,13 +20,8 @@ import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
 class _Article extends ArticleController {
-  int repliesRequested = 0;
   @override
   bool get showDynActionBar => false;
-  @override
-  Future<void> queryData([bool isRefresh = true]) async {
-    repliesRequested++;
-  }
 }
 
 void main() {
@@ -158,13 +153,13 @@ void main() {
     await flush();
     expect(controller.isLoaded.value, isFalse);
     expect(controller.opusData, isNull);
-    expect(controller.repliesRequested, 0);
+    expect(controller.commentSource.value.dataOrNull, isNull);
     expect(requests, hasLength(2));
     requests.last.reply.complete(opus('新文章'));
     await interceptor.waitForRequests(3);
     expect(controller.isLoaded.value, isTrue);
     expect(controller.summary.title, '新文章');
-    expect(controller.repliesRequested, 1);
+    expect(controller.commentSource.value.dataOrNull, isNotNull);
     expect(requests.last.options.path, Api.historyReport);
     expect(requests.last.options.extra['account'], same(heartbeat));
     expect((requests.last.options.data as Map)['csrf'], heartbeat.csrf);
@@ -192,7 +187,7 @@ void main() {
       'data': {'id': 2, 'title': '错误目标'},
     });
     expect(await query, isFalse);
-    expect(controller.loadingState.value.toString(), '文章与请求目标不符，请重试');
+    expect(controller.commentSource.value.toString(), '文章与请求目标不符，请重试');
     query = controller.queryRead(1);
     await interceptor.waitForRequests(2);
     requests.last.reply.complete({

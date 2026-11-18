@@ -21,7 +21,12 @@ import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
 import 'package:pili_aurora_next/pages/emote/preview.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comments_repository.dart';
+
+import '../../support/comment_fixture.dart';
+
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:pili_aurora_next/pages/video/send_danmaku/view.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
@@ -33,6 +38,15 @@ import 'package:pili_aurora_next/utils/reply_utils.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
+
+class _PinFixture extends CommentFixture {
+  @override
+  Future<LoadingState<void>> togglePinned(
+    Account account,
+    CommentTarget target,
+    ReplyInfo item,
+  ) => const CommentsRepository().togglePinned(account, target, item);
+}
 
 class _Detail extends DynamicDetailController {
   int reloads = 0;
@@ -418,33 +432,40 @@ void main() {
 
   testWidgets('评论管理：置顶防重复，待确认保留列表，成功才调整置顶归属', (tester) async {
     await mount(tester, const SizedBox());
-    final controller = VideoReplyController(
-      aid: 1,
-      videoType: .ugc,
-      heroTag: 'top',
+    final first = ReplyInfo(id: Int64.ONE);
+    final second = ReplyInfo(id: Int64(2));
+    final fixture = _PinFixture()
+      ..responses.add(
+        Success(
+          MainListReply(
+            replies: [first, second],
+            cursor: CursorReply(isEnd: true),
+          ),
+        ),
+      );
+    final container = ProviderContainer.test(
+      overrides: [commentsRepositoryProvider.overrideWithValue(fixture)],
     );
-    final first = reply(2);
-    final second = reply(3);
-    final list = [first, second];
-    controller.loadingState.value = Success(list);
-    final rejected = controller.onToggleTop(second, 1, 1, 1);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    final comments = container.read(provider.notifier);
+    await tester.pump();
+    List<ReplyInfo> rows() => container.read(provider).loading.data;
+    final target = rows().last;
+    final rejected = comments.togglePinned(target);
     await until(tester, () => requests.length == 1);
-    await controller.onToggleTop(first, 0, 1, 1);
-    expect(requests, hasLength(1));
-    requests[0].reply.complete({'code': '0'});
+    expect(await comments.togglePinned(target), isNull);
+    requests.first.reply.complete({'code': '0'});
     await settle(tester);
-    await rejected;
-    expect(controller.hasUpTop, isFalse);
-    expect(list, [first, second]);
-    final confirmed = controller.onToggleTop(second, 1, 1, 1);
+    expect(await rejected, isA<Error>());
+    expect(rows().map((item) => item.id.toInt()), [1, 2]);
+    final confirmed = comments.togglePinned(target);
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': 0});
     await settle(tester);
-    await confirmed;
-    expect(controller.hasUpTop, isTrue);
-    expect(list, [second, first]);
-    expect(second.replyControl.isUpTop, isTrue);
-    controller.onClose();
+    expect(await confirmed, isA<Success>());
+    expect(rows().map((item) => item.id.toInt()), [2, 1]);
+    expect(rows().first.replyControl.isUpTop, isTrue);
     await finish(tester);
   });
 

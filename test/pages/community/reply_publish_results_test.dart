@@ -17,10 +17,16 @@ import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
+import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+    show MainListReply, CursorReply;
+import 'package:pili_aurora_next/http/loading_state.dart';
+
+import '../../support/comment_fixture.dart';
+
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/pages/video/reply_new/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
@@ -239,19 +245,29 @@ void main() {
   }
 
   testWidgets('评论编辑器保留楼中楼根 ID，草稿按完整目标隔离', (tester) async {
-    await mount(tester);
-    final controller = VideoReplyController(
-      aid: 1,
-      videoType: VideoType.ugc,
-      heroTag: 'reply-editor',
-    )..onInit();
+    final context = await mount(tester);
+    final fixture = CommentFixture()
+      ..responses.add(Success(MainListReply(cursor: CursorReply(isEnd: true))));
+    final container = commentContainer(fixture);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    final comments = container.read(provider.notifier);
+    final interactions = CommentInteractions();
+    await tester.pump();
+    void compose(ReplyInfo item) => interactions.compose(
+      context,
+      comments,
+      container.read(provider),
+      1,
+      item,
+    );
     final parent = ReplyInfo(
       id: Int64(3),
       oid: Int64.ONE,
       type: Int64.ONE,
       root: Int64(2),
     );
-    controller.onReply(parent);
+    compose(parent);
     await settle(tester);
     final target = tester.widget<ReplyPage>(find.byType(ReplyPage));
     expect(target.root, 2);
@@ -259,13 +275,16 @@ void main() {
     draft(state(tester), '草稿');
     Get.back();
     await settle(tester);
-    expect(controller.savedReplies, hasLength(1));
-    controller.onReply(
+    compose(parent);
+    await settle(tester);
+    expect(tester.widget<ReplyPage>(find.byType(ReplyPage)).items, isNotEmpty);
+    Get.back();
+    await settle(tester);
+    compose(
       ReplyInfo(id: Int64(2), oid: Int64(2), type: Int64.ONE),
     );
     await settle(tester);
     expect(tester.widget<ReplyPage>(find.byType(ReplyPage)).items, isNull);
-    controller.onDelete();
     await finish(tester);
   });
 

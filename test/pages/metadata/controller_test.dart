@@ -1,8 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show MainListReply, ReplyInfo;
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
@@ -18,33 +14,6 @@ import '../../support/memory_box.dart';
 
 class _Music extends MusicDetailController {
   _Music() : super(musicId: 'track');
-  int commentRequests = 0;
-  Object? commentFailure;
-  @override
-  Future<void> queryData([bool isRefresh = true]) async {
-    commentRequests++;
-    if (commentFailure case final failure?) throw failure;
-  }
-}
-
-class _Match extends MatchInfoController {
-  _Match({super.oid = 1});
-  int commentRequests = 0;
-  Completer<void>? commentGate;
-  @override
-  Future<void> queryData([bool isRefresh = true]) async {
-    commentRequests++;
-    final gate = commentGate;
-    if (gate != null) await gate.future;
-  }
-}
-
-class _MusicReplies extends MusicDetailController {
-  _MusicReplies() : super(musicId: 'track');
-  final replies = Completer<LoadingState<MainListReply>>();
-
-  @override
-  Future<LoadingState<MainListReply>> customGetData() => replies.future;
 }
 
 void main() {
@@ -109,8 +78,8 @@ void main() {
     await load(controller, music(oid: 2));
     expect(controller.oid, 2);
     expect(controller.replyType, 47);
-    expect(controller.commentRequests, 2);
-    expect(controller.count.value, 3);
+    expect(controller.commentSource.value.data, (oid: 2, type: 47));
+    expect(controller.count, 3);
   });
 
   test('没有评论元数据时详情可用，评论呈现空状态而非持续加载', () async {
@@ -119,27 +88,9 @@ void main() {
     await load(controller, music());
     expect(controller.infoState.value, isA<Success>());
     expect(controller.canComment, isFalse);
-    expect(controller.commentRequests, 0);
-    expect(controller.loadingState.value.data, isEmpty);
-    expect(controller.emptyReplyMessage, contains('不支持评论'));
-    expect(controller.isEnd, isTrue);
-  });
-
-  test('刷新为无评论详情后，旧评论的迟到响应不能覆盖空状态', () async {
-    final controller = _MusicReplies();
-    addTearDown(controller.onDelete.call);
-    final old = controller.getMusicDetail();
-    await interceptor.waitForRequests(1);
-    requests[0].reply.complete(music(oid: 1));
-    await Future<void>.delayed(Duration.zero);
-    expect(controller.isLoading, isTrue);
-    await load(controller, music(title: 'latest'));
-    controller.replies.complete(Success(MainListReply(replies: [ReplyInfo()])));
-    await old;
-    expect(controller.infoState.value.data.musicTitle, 'latest');
-    expect(controller.loadingState.value.data, isEmpty);
-    expect(controller.count.value, 0);
-    expect(controller.isEnd, isTrue);
+    expect(controller.commentSource.value, isA<Success>());
+    expect(controller.commentSource.value.data, isNull);
+    expect(controller.count, 0);
   });
 
   test('旧音乐详情不能覆盖新查询或重新发起旧评论查询', () async {
@@ -155,7 +106,7 @@ void main() {
     await old;
     expect(controller.infoState.value.data.musicTitle, 'latest');
     expect(controller.oid, 2);
-    expect(controller.commentRequests, 1);
+    expect(controller.commentSource.value.data, (oid: 2, type: 47));
   });
 
   test('关闭或切号后音乐迟到结果不再发布，也不让页面一直等待', () async {
@@ -167,7 +118,7 @@ void main() {
     requests[0].reply.complete(music(oid: 1));
     await pending;
     expect(closed.infoState.value, isA<Loading>());
-    expect(closed.commentRequests, 0);
+    expect(closed.commentSource.value.dataOrNull, isNull);
     final changed = _Music();
     addTearDown(changed.onDelete.call);
     final next = changed.getMusicDetail();
@@ -181,16 +132,7 @@ void main() {
     await next;
     expect(changed.infoState.value, isA<Error>());
     expect(changed.infoState.value.toString(), contains('账号已切换'));
-    expect(changed.commentRequests, 0);
-  });
-
-  test('评论消费失败保留原因，音乐详情仍可展示', () async {
-    final cause = StateError('synthetic comment failure');
-    final controller = _Music()..commentFailure = cause;
-    addTearDown(controller.onDelete.call);
-    await load(controller, music(oid: 1));
-    expect(controller.infoState.value, isA<Success>());
-    expect((controller.loadingState.value as Error).cause, same(cause));
+    expect(changed.commentSource.value.dataOrNull, isNull);
   });
 
   test('点赞等待服务端确认并拒绝重复提交，未知计数保持未知', () async {
@@ -228,45 +170,36 @@ void main() {
     expect(item.wishCount, 2);
   });
 
-  test('赛事详情和评论独立加载，缺少赛事对象仍是正常成功', () async {
-    final gate = Completer<void>();
-    final controller = _Match()..commentGate = gate;
+  test('赛事详情等待时已经提供独立评论目标', () async {
+    final controller = MatchInfoController(oid: 1);
     addTearDown(controller.onDelete.call);
-    var completed = false;
-    final pending = controller.getMatchInfo()
-      ..then<void>((_) {
-        completed = true;
-      });
+    final pending = controller.getMatchInfo();
     await interceptor.waitForRequests(1);
-    expect(controller.commentRequests, 1);
+    expect(controller.commentSource.value.data, (oid: 1, type: 27));
     requests[0].reply.complete({'code': 0, 'data': <String, dynamic>{}});
-    await Future<void>.delayed(Duration.zero);
-    expect(controller.infoState.value.data, isNull);
-    expect(completed, isFalse);
-    gate.complete();
     await pending;
-    expect(completed, isTrue);
+    expect(controller.infoState.value.data, isNull);
   });
 
   test('赛事详情失败不阻塞评论，非法路由标识不发出任何请求', () async {
-    final controller = _Match();
+    final controller = MatchInfoController(oid: 1);
     addTearDown(controller.onDelete.call);
     final pending = controller.getMatchInfo();
     await interceptor.waitForRequests(1);
     requests[0].reply.complete({'code': -403, 'message': '详情拒绝'});
     await pending;
     expect((controller.infoState.value as Error).code, -403);
-    expect(controller.commentRequests, 1);
-    final invalid = _Match(oid: 0);
+    expect(controller.commentSource.value.data, (oid: 1, type: 27));
+    final invalid = MatchInfoController(oid: 0);
     addTearDown(invalid.onDelete.call);
     await invalid.getMatchInfo();
     expect(requests, hasLength(1));
     expect(invalid.infoState.value, isA<Error>());
-    expect(invalid.commentRequests, 0);
+    expect(invalid.commentSource.value, isA<Error>());
   });
 
   test('旧赛事请求与关闭后的结果不更新当前详情', () async {
-    final controller = _Match();
+    final controller = MatchInfoController(oid: 1);
     addTearDown(controller.onDelete.call);
     final old = controller.getMatchInfo();
     await interceptor.waitForRequests(1);

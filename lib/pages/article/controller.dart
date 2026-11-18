@@ -46,7 +46,7 @@ class ArticleController extends CommonDynController {
   late final RxInt topIndex = 0.obs;
 
   @override
-  dynamic get sourceId => commentType == 12 ? 'cv$commentId' : id;
+  Object get sourceId => commentType == 12 ? 'cv$commentId' : id;
 
   bool _contentLoading = false;
   bool _initialized = false;
@@ -71,9 +71,6 @@ class ArticleController extends CommonDynController {
           SourceModel(url: url),
   ];
 
-  @override
-  Object get queryContext => Accounts.main;
-
   _ArticleContext get _context => (
     account: Accounts.main,
     version: _contentVersion,
@@ -91,6 +88,7 @@ class ArticleController extends CommonDynController {
   @override
   void onInit() {
     super.onInit();
+    Accounts.mainChanges.addListener(onAccountChanged);
     final params = Get.parameters;
     id = params['id']!;
     type = params['type']!;
@@ -117,10 +115,8 @@ class ArticleController extends CommonDynController {
     }
   }
 
-  @override
   void onAccountChanged() {
-    savedReplies.clear();
-    count.value = -1;
+    count = -1;
     _contentVersion++;
     _infoVersion++;
     _contentLoading = false;
@@ -135,7 +131,7 @@ class ArticleController extends CommonDynController {
       ..title = null
       ..cover = null;
     showTitle.value = false;
-    loadingState.value = LoadingState.loading();
+    commentSource.value = LoadingState.loading();
     if (_initialized) _queryContent();
   }
 
@@ -144,7 +140,7 @@ class ArticleController extends CommonDynController {
     commentType = type == 'picture' ? 11 : 12;
     _initialized = true;
     if ((int.tryParse(id) ?? 0) <= 0) {
-      loadingState.value = const Error('文章地址无效，请重新打开');
+      commentSource.value = const Error('文章地址无效，请重新打开');
       return;
     }
     _queryContent();
@@ -162,7 +158,7 @@ class ArticleController extends CommonDynController {
       if (response.fallback?.id != null) {
         final articleId = int.tryParse(response.fallback!.id!);
         if (articleId == null || articleId <= 0) {
-          loadingState.value = const Error('文章缺少有效编号，请重试');
+          commentSource.value = const Error('文章缺少有效编号，请重试');
           return false;
         }
         id = response.fallback!.id!;
@@ -172,7 +168,7 @@ class ArticleController extends CommonDynController {
         return queryRead(commentId);
       }
       if (response.idStr != null && response.idStr.toString() != opusId) {
-        loadingState.value = const Error('文章与请求目标不符，请重试');
+        commentSource.value = const Error('文章与请求目标不符，请重试');
         return false;
       }
       opusData = response;
@@ -192,7 +188,7 @@ class ArticleController extends CommonDynController {
         ..title ??= response.modules.moduleTag?.text;
       return true;
     } else {
-      loadingState.value = res as Error;
+      commentSource.value = res as Error;
       return false;
     }
   }
@@ -206,7 +202,7 @@ class ArticleController extends CommonDynController {
     if (!_owns(context)) return false;
     if (res case Success(:final response)) {
       if (response.id != null && response.id != cvid) {
-        loadingState.value = const Error('文章与请求目标不符，请重试');
+        commentSource.value = const Error('文章与请求目标不符，请重试');
         return false;
       }
       articleData = response;
@@ -222,7 +218,7 @@ class ArticleController extends CommonDynController {
       }
       return true;
     } else {
-      loadingState.value = res as Error;
+      commentSource.value = res as Error;
       return false;
     }
   }
@@ -278,7 +274,7 @@ class ArticleController extends CommonDynController {
       } else {
         final articleId = int.tryParse(id);
         if (articleId == null || articleId <= 0) {
-          loadingState.value = const Error('文章地址无效，请重新打开');
+          commentSource.value = const Error('文章地址无效，请重新打开');
           return;
         }
         commentId = articleId;
@@ -292,7 +288,7 @@ class ArticleController extends CommonDynController {
       }
       isLoaded.value = loaded;
       if (loaded) {
-        super.onRefresh();
+        showComments();
         if (heartbeat.isLogin &&
             identical(heartbeat, Accounts.heartbeat) &&
             !Pref.historyPause) {
@@ -398,14 +394,15 @@ class ArticleController extends CommonDynController {
   @override
   Future<void> onReload() {
     if (!isLoaded.value) {
-      loadingState.value = LoadingState.loading();
+      commentSource.value = LoadingState.loading();
       return _queryContent();
     }
-    return super.onReload();
+    return Future.value();
   }
 
   @override
   void onClose() {
+    Accounts.mainChanges.removeListener(onAccountChanged);
     _contentVersion++;
     _infoVersion++;
     super.onClose();

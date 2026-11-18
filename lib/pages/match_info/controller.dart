@@ -15,14 +15,11 @@ class MatchInfoController extends CommonDynController {
   final int replyType = 27;
 
   @override
-  dynamic get sourceId => oid.toString();
+  Object get sourceId => oid.toString();
 
   final Rx<LoadingState<MatchContest?>> infoState =
       LoadingState<MatchContest?>.loading().obs;
   int _infoVersion = 0;
-
-  @override
-  Object get queryContext => Accounts.main;
 
   @override
   void onInit() {
@@ -34,9 +31,10 @@ class MatchInfoController extends CommonDynController {
     if (isClosed) return;
     if (oid <= 0) {
       infoState.value = const Error('赛事标识无效，请重新打开页面');
-      loadingState.value = const Error('赛事标识无效，请重新打开页面');
+      commentSource.value = const Error('赛事标识无效，请重新打开页面');
       return;
     }
+    if (commentSource.value is! Success) showComments();
     final version = ++_infoVersion;
     final account = Accounts.main;
     if (infoState.value is Error) infoState.value = LoadingState.loading();
@@ -44,32 +42,21 @@ class MatchInfoController extends CommonDynController {
         !isClosed &&
         version == _infoVersion &&
         identical(account, Accounts.main);
-    // 评论的来源 ID 已由路由确定，详情失败不应阻塞评论加载。
-    final replies = super.onRefresh().catchError((
-      Object error,
-      StackTrace stackTrace,
-    ) {
-      if (current()) {
-        loadingState.value = Error.fromException(error, stackTrace);
-      }
-    });
     try {
       final res = await MatchHttp.matchInfo(oid, account: account);
       if (current()) infoState.value = res;
     } catch (error, stackTrace) {
       if (current()) infoState.value = Error.fromException(error, stackTrace);
     }
-    await replies;
     if (!isClosed &&
         version == _infoVersion &&
         !identical(account, Accounts.main)) {
       infoState.value = const Error('账号已切换，请刷新赛事信息');
-      loadingState.value = const Error('账号已切换，请刷新评论');
     }
   }
 
   @override
-  Future<void> onRefresh() => getMatchInfo();
+  Future<void> onReload() => getMatchInfo();
 
   @override
   void onClose() {

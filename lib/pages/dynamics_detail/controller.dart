@@ -24,9 +24,10 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   bool _changingVisibility = false;
   bool _loadingSource = false;
   bool _sourceReady = false;
+  Future<void> Function()? refreshComments;
 
   @override
-  dynamic get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
+  Object get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
 
   @override
   void onInit() {
@@ -62,7 +63,7 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
       if (result case Success(:final response)) {
         _init(response.basic?.commentIdStr, response.basic?.commentType);
       } else if (result is Error) {
-        loadingState.value = result;
+        commentSource.value = result;
       }
     } finally {
       _loadingSource = false;
@@ -72,13 +73,13 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   void _init(String? commentIdStr, int? commentType) {
     final id = int.tryParse(commentIdStr ?? '');
     if (id == null || id <= 0 || commentType == null || commentType <= 0) {
-      loadingState.value = const Error('动态缺少有效的评论来源，请重试');
+      commentSource.value = const Error('动态缺少有效的评论来源，请重试');
       return;
     }
     oid = id;
     replyType = commentType;
     _sourceReady = true;
-    queryData();
+    showComments();
   }
 
   Future<LoadingState<void>> onSetPubSetting(
@@ -161,6 +162,8 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   @override
   Future<void> onReload() {
     reload = true;
-    return _sourceReady ? super.onReload() : _loadCommentSource();
+    return _sourceReady
+        ? refreshComments?.call() ?? Future.value()
+        : _loadCommentSource();
   }
 }

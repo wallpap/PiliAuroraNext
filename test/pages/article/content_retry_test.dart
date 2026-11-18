@@ -66,7 +66,7 @@ void main() {
     expect(adapter.pending, hasLength(1));
     adapter.json(0, {'code': -1, 'message': 'synthetic temporary error'});
     await flush(tester);
-    expect(controller.loadingState.value, isA<Error>());
+    expect(controller.commentSource.value, isA<Error>());
     final retry = controller.onReload();
     await flush(tester);
     expect(adapter.pending, hasLength(2));

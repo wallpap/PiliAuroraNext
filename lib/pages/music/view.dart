@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:io';
 import 'dart:math';
 
@@ -34,11 +36,11 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MusicDetailPage extends StatefulWidget {
+class MusicDetailPage extends ConsumerStatefulWidget {
   const MusicDetailPage({super.key});
 
   @override
-  State<MusicDetailPage> createState() => _MusicDetailPageState();
+  ConsumerState<MusicDetailPage> createState() => _MusicDetailPageState();
 }
 
 class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
@@ -64,7 +66,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
           padding: EdgeInsets.only(left: padding.left, right: padding.right),
           child: isPortrait
               ? refreshIndicator(
-                  onRefresh: controller.onRefresh,
+                  onRefresh: () => refreshDetailsAndComments(parallel: false),
                   child: _buildBody(),
                 )
               : _buildBody(),
@@ -120,20 +122,22 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
         if (isPortrait) {
           child = Padding(
             padding: EdgeInsets.symmetric(horizontal: padding),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxWithOffsetAdapter(
-                  offset: 45,
-                  onVisibilityChanged: controller.showTitle.call,
-                  child: _buildCard(response, maxWidth),
-                ),
-                SliverToBoxAdapter(
-                  child: _buildChart(response, maxWidth),
-                ),
-                buildReplyHeader(),
-                Obx(() => replyList(controller.loadingState.value)),
-              ],
+            child: commentPagination(
+              CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxWithOffsetAdapter(
+                    offset: 45,
+                    onVisibilityChanged: controller.showTitle.call,
+                    child: _buildCard(response, maxWidth),
+                  ),
+                  SliverToBoxAdapter(
+                    child: _buildChart(response, maxWidth),
+                  ),
+                  buildReplyHeader(),
+                  replyList(),
+                ],
+              ),
             ),
           );
         } else {
@@ -176,15 +180,16 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                   padding: EdgeInsets.only(right: padding),
                   child: MiniScaffold(
                     body: refreshIndicator(
-                      onRefresh: controller.onRefresh,
-                      child: CustomScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          buildReplyHeader(),
-                          Obx(
-                            () => replyList(controller.loadingState.value),
-                          ),
-                        ],
+                      onRefresh: () =>
+                          refreshDetailsAndComments(parallel: false),
+                      child: commentPagination(
+                        CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            buildReplyHeader(),
+                            replyList(),
+                          ],
+                        ),
                       ),
                     ),
                   ),

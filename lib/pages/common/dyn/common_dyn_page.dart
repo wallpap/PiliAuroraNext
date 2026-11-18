@@ -1,3 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -37,15 +42,16 @@ enum DynType implements EnumWithLabel {
   const DynType(this.label);
 }
 
-abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
+abstract class CommonDynPageState<T extends ConsumerStatefulWidget>
+    extends ConsumerState<T>
     with
         SingleTickerProviderStateMixin<T>,
         BaseFabMixin,
         FabMixin,
         CommonDynPageMixin<T> {}
 
-abstract class CommonDynPageMultiState<T extends StatefulWidget>
-    extends State<T>
+abstract class CommonDynPageMultiState<T extends ConsumerStatefulWidget>
+    extends ConsumerState<T>
     with
         TickerProviderStateMixin<T>,
         BaseFabMixin,
@@ -70,8 +76,8 @@ abstract class CommonDynPageMultiState<T extends StatefulWidget>
   }
 }
 
-mixin CommonDynPageMixin<T extends StatefulWidget>
-    on State<T>, TickerProvider, BaseFabMixin<T>, FabMixin<T> {
+mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
+    on ConsumerState<T>, TickerProvider, BaseFabMixin<T>, FabMixin<T> {
   CommonDynController get controller;
   bool get isArticle => false;
 
@@ -104,42 +110,121 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
     return false;
   }
 
+  final _commentOwner = Object();
+  final _interactions = CommentInteractions();
+  CommentsQuery? get _commentQuery {
+    final target = controller.commentSource.value.dataOrNull;
+    return target == null
+        ? null
+        : (owner: _commentOwner, target: target, thread: null);
+  }
+
+  Widget commentBuilder(Widget Function(Comments?, CommentsState?) builder) =>
+      Obx(() {
+        final query = _commentQuery;
+        return Consumer(
+          builder: (context, ref, _) {
+            final provider = query == null ? null : commentsProvider(query);
+            return builder(
+              provider == null ? null : ref.read(provider.notifier),
+              provider == null ? null : ref.watch(provider),
+            );
+          },
+        );
+      });
+
+  CommentsState? get commentSnapshot {
+    final query = _commentQuery;
+    return query == null ? null : ref.read(commentsProvider(query));
+  }
+
+  Future<void> refreshComments({bool clear = false}) async {
+    final query = _commentQuery;
+    if (query != null) {
+      await ref.read(commentsProvider(query).notifier).refresh(clear: clear);
+    }
+  }
+
+  Future<void> refreshDetailsAndComments({bool parallel = true}) async {
+    final query = _commentQuery;
+    final details = controller.onReload();
+    if (parallel) {
+      await Future.wait([details, if (query != null) refreshComments()]);
+    } else {
+      await details;
+      if (mounted && query != null && query == _commentQuery) {
+        await refreshComments();
+      }
+    }
+  }
+
+  Widget commentPagination(Widget child) => commentBuilder(
+    (comments, snapshot) => FeedPagination.notifications(
+      dataSource: snapshot?.source,
+      dataRevision: snapshot,
+      canLoadMore: () => snapshot?.canLoadMore ?? false,
+      onLoadMore: () async {
+        await comments?.loadMore();
+      },
+      child: child,
+    ),
+  );
+
   Widget buildReplyHeader() {
     final secondary = theme.colorScheme.secondary;
     return SliverPinnedHeader(
       backgroundColor: theme.colorScheme.surface,
       child: Padding(
         padding: const .fromLTRB(12, 2.5, 6, 2.5),
-        child: Row(
-          mainAxisAlignment: .spaceBetween,
-          children: [
-            Obx(
-              () {
-                final count = controller.count.value;
-                return Text(
-                  '${count == -1 ? 0 : NumUtils.numFormat(count)}条回复',
-                );
-              },
-            ),
-            TextButton.icon(
-              style: Style.buttonStyle,
-              onPressed: controller.queryBySort,
-              icon: Icon(Icons.sort, size: 16, color: secondary),
-              label: Obx(
-                () => Text(
-                  controller.sortType.value.descShort,
+        child: commentBuilder((comments, snapshot) {
+          final count = snapshot?.count ?? -1;
+          return Row(
+            mainAxisAlignment: .spaceBetween,
+            children: [
+              Text(
+                '${NumUtils.numFormat(count >= 0 ? count : (controller.count < 0 ? 0 : controller.count))}条回复',
+              ),
+              TextButton.icon(
+                style: Style.buttonStyle,
+                onPressed: snapshot == null || comments == null
+                    ? null
+                    : () => toggleCommentSort(comments, snapshot),
+                icon: Icon(Icons.sort, size: 16, color: secondary),
+                label: Text(
+                  (snapshot?.sort ?? Pref.replySortType).descShort,
                   style: TextStyle(fontSize: 13, color: secondary),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        }),
       ),
     );
   }
 
-  Widget replyList(LoadingState<List<ReplyInfo>?> loadingState) {
-    switch (loadingState) {
+  void toggleCommentSort(Comments comments, CommentsState state) =>
+      _interactions.toggleSort(comments, state);
+
+  Widget replyList() => Obx(() {
+    final source = controller.commentSource.value;
+    return commentBuilder(
+      (comments, snapshot) => _replyList(source, comments, snapshot),
+    );
+  });
+
+  Widget _replyList(
+    LoadingState<CommentTarget?> source,
+    Comments? comments,
+    CommentsState? snapshot,
+  ) {
+    final LoadingState<List<ReplyInfo>> loading =
+        snapshot?.loading ??
+        switch (source) {
+          Error error => error,
+          Success() => const Success(<ReplyInfo>[]),
+          _ => LoadingState<List<ReplyInfo>>.loading(),
+        };
+    switch (loading) {
       case Loading():
         return const SliverPrototypeExtentList(
           prototypeItem: VideoReplySkeleton(),
@@ -149,9 +234,9 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
           ),
         );
       case Success(:final response):
-        if (response != null && response.isNotEmpty) {
+        if (response.isNotEmpty) {
           var count = response.length + 1;
-          final voteCard = controller.voteCard;
+          final voteCard = snapshot?.vote;
           final hasVote = voteCard != null;
           if (hasVote) {
             count++;
@@ -168,13 +253,18 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
                 }
               }
               if (index == response.length) {
-                controller.onLoadMore();
+                if (snapshot?.pageError case final error?) {
+                  return TextButton(
+                    onPressed: () => comments?.loadMore(retry: true),
+                    child: Text(error.errMsg ?? '加载失败，点击重试'),
+                  );
+                }
                 return Container(
                   alignment: Alignment.center,
                   margin: EdgeInsets.only(bottom: padding.bottom),
                   height: 125,
                   child: Text(
-                    controller.isEnd ? '没有更多了' : '加载中...',
+                    snapshot?.hasMore != true ? '没有更多了' : '加载中...',
                     style: TextStyle(
                       fontSize: 12,
                       color: theme.colorScheme.outline,
@@ -186,18 +276,22 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
                   replyItem: response[index],
                   replyLevel: 1,
                   replyReply: (item, id) => replyReply(context, item, id),
-                  onReply: controller.onReply,
+                  onReply: (item, {oid, replyType, index}) =>
+                      _compose(context, item, oid: oid, replyType: replyType),
                   onDelete: (item, subIndex) =>
-                      controller.onRemove(index, item, subIndex),
-                  upMid: controller.upMid,
+                      comments?.remove(item, subIndex),
+                  upMid: snapshot?.upMid,
                   onViewImage: hideFab,
-                  onCheckReply: controller.onCheckReply,
-                  onToggleTop: (item) => controller.onToggleTop(
-                    item,
-                    index,
-                    controller.oid,
-                    controller.replyType,
-                  ),
+                  onCheckReply: (item) {
+                    if (comments != null) {
+                      _interactions.check(comments, controller.sourceId, item);
+                    }
+                  },
+                  onToggleTop: (item) async {
+                    if (comments != null) {
+                      await _interactions.togglePinned(context, comments, item);
+                    }
+                  },
                 );
               }
             },
@@ -205,13 +299,19 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
         }
 
         final child = httpError(
-          errMsg: controller.emptyReplyMessage,
-          btnText: controller.canLoadMore ? '继续加载' : null,
-          onReload: controller.canLoadMore
-              ? controller.onLoadMore
-              : controller.onReload,
+          errMsg:
+              snapshot?.pageError?.errMsg ??
+              (snapshot == null
+                  ? '该音乐暂不支持评论'
+                  : Pref.minimumReplyUserLevel > 0
+                  ? '暂无符合等级条件的评论'
+                  : '还没有评论'),
+          btnText: snapshot?.hasMore == true ? '继续加载' : null,
+          onReload: snapshot?.hasMore == true
+              ? () => comments?.loadMore(retry: true)
+              : () => refreshComments(clear: true),
         );
-        if (controller.voteCard case final voteCard?) {
+        if (snapshot?.vote case final voteCard?) {
           return SliverMainAxisGroup(
             slivers: [
               SliverToBoxAdapter(
@@ -225,7 +325,9 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
       case Error(:final errMsg):
         return httpError(
           errMsg: errMsg,
-          onReload: controller.onReload,
+          onReload: snapshot == null
+              ? controller.onReload
+              : () => refreshComments(clear: true),
         );
     }
   }
@@ -253,8 +355,8 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
             isVideoDetail: !showBackBtn,
             replyType: controller.replyType,
             firstFloor: replyItem,
-            upMid: controller.upMid,
-            onUpdate: controller.loadingState.refresh,
+            upMid: commentSnapshot?.upMid,
+            onUpdate: commentUpdate(),
           ),
         );
         if (showBackBtn) {
@@ -296,6 +398,37 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
         }
       }
     });
+  }
+
+  VoidCallback? commentUpdate() {
+    final query = _commentQuery;
+    if (query == null) return null;
+    final comments = ref.read(commentsProvider(query).notifier);
+    final current = comments.capture();
+    return () {
+      if (mounted && query == _commentQuery && current()) comments.touch();
+    };
+  }
+
+  void _compose(
+    BuildContext context,
+    ReplyInfo? item, {
+    int? oid,
+    int? replyType,
+  }) {
+    final query = _commentQuery;
+    if (query == null) return;
+    final provider = commentsProvider(query);
+    _interactions.compose(
+      context,
+      ref.read(provider.notifier),
+      ref.read(provider),
+      controller.sourceId,
+      item,
+      oid: oid,
+      replyType: replyType,
+      targetIsCurrent: () => mounted && query == _commentQuery,
+    );
   }
 
   Widget ratioWidget(double maxWidth) => IconButton(
@@ -347,14 +480,8 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
   Widget get replyButton => FloatingActionButton(
     heroTag: null,
     onPressed: () {
-      try {
-        feedBack();
-        controller.onReply(
-          null,
-          oid: controller.oid,
-          replyType: controller.replyType,
-        );
-      } catch (_) {}
+      feedBack();
+      _compose(context, null);
     },
     tooltip: '评论',
     child: const Icon(Icons.reply),
