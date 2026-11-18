@@ -6,9 +6,7 @@ class LiveCatalog {
     this.followed,
     this.areas,
     List<LiveSecondTag> tags = const [],
-    this.headerError,
   }) : tags = List.unmodifiable(tags);
   final LiveCardList? followed, areas;
   final List<LiveSecondTag> tags;
-  final String? headerError;
 }

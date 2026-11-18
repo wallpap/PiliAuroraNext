@@ -36,7 +36,7 @@ PGC 首页通过 `pgcFeedProvider`、`pgcFollowsProvider`、`pgcTimelineProvider
 
 精选合集由 `weeklyFeedProvider`（页面实例／期数）与 `preciousFeedProvider`（页面实例）持有。目录和详情固定同一推荐账号，多步查询在刷新、换凭据和释放后停止后续调度；列表、期数、说明和播放列表 ID 原子发布。切换期数由 Widget 更新查询键，迟到的选择弹窗按查询所有者失效。入站必刷接入实际视口分页及页尾重试。回归见 `curated_feed_test.dart` 与发现账号测试。
 
-直播首页使用 `liveFeedProvider`，查询键包含页面实例、分区和标签；关注、顶部分区和标签与房间列表一起发布。首帧／封面与滚动资源归 Widget。子分区读取成功后再检查所有者并读取顶部，顶部单独失败保留房间数据并显示重试提示；未收藏分区始终沿查询键加载。补读与续页保留同轮已确认的顶部元数据，分页按原始数量结束。`live_feed_test.dart` 覆盖真实 Adapter、两种账号角色和部分失败。
+直播首页的推荐房间和顶部目录共用首页响应。进入子分区后，`liveFeedProvider` 按分区和标签查询房间，`liveHomeHeaderProvider` 按页面查询关注和目录，两者独立重试。目录尚未返回或请求失败时仍可切回推荐。首帧／封面与滚动资源归 Widget，房间分页按原始数量结束。`live_feed_test.dart` 覆盖两种账号角色及目录和房间各自失败的行为。
 
 直播分区通过 `liveDirectoryProvider` 持有推荐账号目录，`liveAreaFeedProvider` 按页面实例、资源 ID 与标签持有双账号房间列表。纯目录不订阅主账号屏蔽角色。目录快照替换会销毁旧 Widget 子树、TabController 和子页订阅；默认分区 ID 按字符串归一比较。目录失败显示重试并保留按传入 ID 加载房间的入口。标签菜单、首帧偏好和滚动句柄属于 Widget；菜单离页后不访问已释放 TabController。`live_area_feed_test.dart` 同时验证真实 HTTP 归属及活动 Ticker 释放。
 

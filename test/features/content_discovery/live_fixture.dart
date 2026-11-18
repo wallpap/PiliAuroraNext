@@ -1,24 +1,30 @@
-Map<String, dynamic> liveIndex(int room, {int area = 7, int hasMore = 0}) => {
+Map<String, dynamic> liveIndex(
+  int room, {
+  int area = 7,
+  int hasMore = 0,
+  bool includeFollow = true,
+}) => {
   'code': 0,
   'data': {
     'has_more': hasMore,
     'card_list': [
-      {
-        'card_type': 'my_idol_v1',
-        'card_data': {
-          'my_idol_v1': {
-            'list': [
-              {'roomid': room},
-            ],
+      if (includeFollow)
+        {
+          'card_type': 'my_idol_v1',
+          'card_data': {
+            'my_idol_v1': {
+              'list': [
+                {'roomid': room},
+              ],
+            },
           },
         },
-      },
       {
         'card_type': 'area_entrance_v3',
         'card_data': {
           'area_entrance_v3': {
             'list': [
-              {'area_v2_id': area, 'area_v2_parent_id': 8},
+              {'area_v2_id': area, 'area_v2_parent_id': 8, 'title': '测试分区'},
             ],
           },
         },

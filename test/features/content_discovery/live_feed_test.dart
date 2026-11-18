@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/live_feed.dart';
@@ -8,6 +10,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/pages/live/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -106,7 +109,7 @@ void main() {
     await tick();
     expect(container.read(provider).loading.data.single.roomid, 23);
   });
-  test('未收藏分区按查询键加载，顶部及标签属于同一快照，原始总数决定结束', () async {
+  test('未收藏分区按查询键加载并保留标签，原始总数决定结束', () async {
     final provider = liveFeedProvider((
       owner: Object(),
       areaId: 7,
@@ -121,42 +124,24 @@ void main() {
     expect(requests[0].options.queryParameters['area_id'], 7);
     expect(requests[0].options.queryParameters['sort_type'], 'online');
     requests[0].reply.complete(liveSecond([1, 2], count: 3));
-    await interceptor.waitForRequests(2);
-    requests[1].reply.complete(liveIndex(1, area: 9));
     await tick();
     expect(container.read(provider).loading.data.map((item) => item.roomid), [
       2,
     ]);
-    expect(
-      container.read(provider).metadata?.followed?.cardData?.myIdolV1?.list,
-      isEmpty,
-    );
     expect(container.read(provider).metadata?.tags.single.sortType, 'online');
     final operation = container.read(provider.notifier).onLoadMore();
-    await interceptor.waitForRequests(3);
-    expect(requests[2].options.queryParameters['page'], 2);
-    requests[2].reply.complete(liveSecond([3], count: 3, tag: null));
+    await interceptor.waitForRequests(2);
+    expect(requests[1].options.queryParameters['page'], 2);
+    requests[1].reply.complete(liveSecond([3], count: 3, tag: null));
     await operation;
     expect(container.read(provider).loading.data.map((item) => item.roomid), [
       2,
       3,
     ]);
     expect(container.read(provider).hasMore, isFalse);
-    expect(
-      container
-          .read(provider)
-          .metadata
-          ?.areas
-          ?.cardData
-          ?.areaEntranceV3
-          ?.list
-          ?.single
-          .areaV2Id,
-      9,
-    );
     expect(container.read(provider).metadata?.tags.single.sortType, 'online');
   });
-  test('切换标签并释放旧查询后，旧分区结果不继续读取顶部', () async {
+  test('切换标签并释放旧查询后，旧分区结果不覆盖新房间', () async {
     final owner = Object();
     final before = liveFeedProvider((
       owner: owner,
@@ -183,12 +168,10 @@ void main() {
     await tick();
     expect(requests.length, 2);
     requests[1].reply.complete(liveSecond([22]));
-    await interceptor.waitForRequests(3);
-    requests[2].reply.complete(liveIndex(22));
     await tick();
     expect(container.read(next).loading.data.single.roomid, 22);
   });
-  test('过滤空页补读保留同轮顶部和标签，不重复查询顶部', () async {
+  test('过滤空页只补读房间，保留同轮标签', () async {
     final provider = liveFeedProvider((
       owner: Object(),
       areaId: 7,
@@ -201,16 +184,13 @@ void main() {
     await interceptor.waitForRequests(1);
     requests[0].reply.complete(liveSecond([1], count: 2));
     await interceptor.waitForRequests(2);
-    requests[1].reply.complete(liveIndex(2));
-    await interceptor.waitForRequests(3);
-    expect(requests[2].options.path, Api.liveSecondList);
-    expect(requests[2].options.queryParameters['page'], 2);
-    requests[2].reply.complete(liveSecond([2], count: 2, tag: null));
+    expect(requests[1].options.path, Api.liveSecondList);
+    expect(requests[1].options.queryParameters['page'], 2);
+    requests[1].reply.complete(liveSecond([2], count: 2, tag: null));
     await tick();
     expect(container.read(provider).loading.data.single.roomid, 2);
     expect(container.read(provider).metadata?.tags.single.sortType, 'online');
-    expect(container.read(provider).metadata?.areas, isNotNull);
-    expect(requests.length, 3);
+    expect(requests.length, 2);
   });
   test('直播首页续页保留首页关注和分区快照，不被续页附带顶部替换', () async {
     final provider = liveFeedProvider((
@@ -244,22 +224,53 @@ void main() {
     ]);
     expect(before.loading.data.single.roomid, 2);
   });
-  test('顶部失败保留当前分区数据，并交付独立重试提示', () async {
-    final provider = liveFeedProvider((
-      owner: Object(),
-      areaId: 7,
-      parentAreaId: 8,
-      sortType: null,
-    ));
-    container
-      ..listen(provider, (_, _) {})
-      ..read(provider);
-    await interceptor.waitForRequests(1);
-    requests[0].reply.complete(liveSecond([22]));
-    await interceptor.waitForRequests(2);
-    requests[1].reply.complete({'code': -42, 'message': '分区信息暂不可用'});
-    await tick();
-    expect(container.read(provider).loading.data.single.roomid, 22);
-    expect(container.read(provider).metadata?.headerError, '分区信息暂不可用');
+  testWidgets('房间和顶部目录分别失败，仍可重试目录或切回推荐', (tester) async {
+    Future<void> waitForRequests(int count) async {
+      final deadline = tester.binding.clock.now().add(
+        const Duration(seconds: 1),
+      );
+      while (requests.length < count &&
+          tester.binding.clock.now().isBefore(deadline)) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+      expect(requests, hasLength(count));
+    }
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const ImageLoadingScope(
+          enabled: false,
+          child: MaterialApp(home: Scaffold(body: LivePage())),
+        ),
+      ),
+    );
+    await waitForRequests(1);
+    requests.single.reply.complete(liveIndex(1, includeFollow: false));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('测试分区'));
+    await waitForRequests(3);
+    final room = requests.singleWhere(
+      (request) => request.options.path == Api.liveSecondList,
+    );
+    final header = requests.skip(1).singleWhere((request) => request != room);
+    room.reply.complete({'code': -42, 'message': '房间暂不可用'});
+    header.reply.complete({'code': -42, 'message': '分区信息暂不可用'});
+    await tester.pumpAndSettle();
+    expect(find.text('房间暂不可用'), findsOneWidget);
+    expect(find.text('推荐'), findsOneWidget);
+    await tester.tap(find.text('分区信息暂不可用 · 重试分区信息'));
+    await waitForRequests(4);
+    expect(requests.last.options.path, header.options.path);
+    requests.last.reply.complete(liveIndex(1, includeFollow: false));
+    await tester.pumpAndSettle();
+    expect(find.text('测试分区'), findsOneWidget);
+    expect(find.text('房间暂不可用'), findsOneWidget);
+    await tester.tap(find.text('推荐'));
+    await waitForRequests(5);
+    requests.last.reply.complete(liveIndex(1, includeFollow: false));
+    await tester.pumpAndSettle();
+    expect(find.text('房间暂不可用'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
   });
 }

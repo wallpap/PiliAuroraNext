@@ -54,10 +54,10 @@ class _LivePageState extends ConsumerState<LivePage>
   );
   LiveFeed get controller => ref.read(liveFeedProvider(_query).notifier);
   LiveCatalog? get _catalog => ref.read(liveFeedProvider(_query)).metadata;
-  int get _areaIndex {
+  int _areaIndex(LiveCardList? areas) {
     if (_areaId == null) return 0;
     final index =
-        _catalog?.areas?.cardData?.areaEntranceV3?.list?.indexWhere(
+        areas?.cardData?.areaEntranceV3?.list?.indexWhere(
           (e) => e.areaV2Id == _areaId && e.areaV2ParentId == _parentAreaId,
         ) ??
         -1;
@@ -88,6 +88,7 @@ class _LivePageState extends ConsumerState<LivePage>
 
   Future<void> _refresh() async {
     final query = _query;
+    if (query.areaId != null) ref.invalidate(liveHomeHeaderProvider(_owner));
     final refresh = controller.onRefresh();
     final source = ref.read(liveFeedProvider(query)).source;
     await refresh;
@@ -139,6 +140,11 @@ class _LivePageState extends ConsumerState<LivePage>
   Widget build(BuildContext context) {
     super.build(context);
     final state = ref.watch(liveFeedProvider(_query));
+    final header = _areaId == null
+        ? null
+        : ref.watch(liveHomeHeaderProvider(_owner));
+    final headerResult = header?.isReloading == true ? null : header?.value;
+    final catalog = _areaId == null ? state.metadata : headerResult?.dataOrNull;
     final ThemeData theme = Theme.of(context);
     return Container(
       clipBehavior: Clip.hardEdge,
@@ -166,15 +172,18 @@ class _LivePageState extends ConsumerState<LivePage>
                     _buildTop(
                       theme,
                       Pair(
-                        first: state.metadata?.followed,
-                        second: state.metadata?.areas,
+                        first: catalog?.followed,
+                        second: catalog?.areas,
                       ),
                     ),
-                    if (state.metadata?.headerError case final message?)
+                    if (headerResult is Error || header?.hasError == true)
                       SliverToBoxAdapter(
                         child: TextButton(
-                          onPressed: _refresh,
-                          child: Text('$message · 重试分区信息'),
+                          onPressed: () =>
+                              ref.invalidate(liveHomeHeaderProvider(_owner)),
+                          child: Text(
+                            '${headerResult is Error ? headerResult : '分区信息暂不可用'} · 重试分区信息',
+                          ),
                         ),
                       ),
                     _buildBody(theme, state.loading),
@@ -193,101 +202,102 @@ class _LivePageState extends ConsumerState<LivePage>
   }
 
   Widget _buildTop(ThemeData theme, Pair<LiveCardList?, LiveCardList?> data) {
+    final areas =
+        data.second?.cardData?.areaEntranceV3?.list ?? const <CardLiveItem>[];
     return SliverMainAxisGroup(
       slivers: [
         if (data.first != null) ..._buildFollowList(theme, data.first!),
-        if (data.second?.cardData?.areaEntranceV3?.list case final list?)
-          if (list.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const .only(bottom: 8.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        // 10+14*textScaler
-                        height: 10.0 + textScaler.scale(14),
-                        child: Builder(
-                          builder: (context) {
-                            final areaIndex = _areaIndex;
-                            return ListView.separated(
-                              scrollDirection: .horizontal,
-                              padding: const .only(right: 8),
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (context, index) {
-                                final isFirst = index == 0;
-                                late final item = list[index - 1];
-                                final isCurr = index == areaIndex;
-                                return SearchText(
-                                  fontSize: 14,
-                                  height: 1,
-                                  padding: const .symmetric(
-                                    horizontal: 8,
-                                    vertical: 5,
-                                  ),
-                                  text: isFirst ? '推荐' : item.title!,
-                                  bgColor: isCurr
-                                      ? theme.colorScheme.secondaryContainer
-                                      : Colors.transparent,
-                                  textColor: isCurr
-                                      ? theme.colorScheme.onSecondaryContainer
-                                      : null,
-                                  onTap: (_) => _selectArea(
-                                    index,
-                                    isFirst ? null : item,
-                                  ),
-                                );
-                              },
-                              itemCount: list.length + 1,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    iconButton(
-                      size: 26,
-                      iconSize: 18,
-                      context: context,
-                      tooltip: '切换${_showFirstFrame ? '封面' : '首帧'}',
-                      icon: _showFirstFrame
-                          ? const Icon(MdiIcons.alphaFBox)
-                          : const Icon(MdiIcons.image),
-                      onPressed: () {
-                        _showFirstFrame = !_showFirstFrame;
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    iconButton(
-                      size: 26,
-                      iconSize: 16,
-                      context: context,
-                      tooltip: '游戏赛事',
-                      icon: const Icon(Icons.gamepad),
-                      onPressed: () => Get.toNamed(
-                        '/webview',
-                        parameters: {
-                          'uaType': 'mob',
-                          'url':
-                              'https://www.bilibili.com/h5/match/data/home?navhide=1&${ThemeUtils.themeUrl(theme.isDark)}',
+        if (areas.isNotEmpty || _areaId != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const .only(bottom: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      // 10+14*textScaler
+                      height: 10.0 + textScaler.scale(14),
+                      child: Builder(
+                        builder: (context) {
+                          final areaIndex = _areaIndex(data.second);
+                          return ListView.separated(
+                            scrollDirection: .horizontal,
+                            padding: const .only(right: 8),
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              final isFirst = index == 0;
+                              late final item = areas[index - 1];
+                              final isCurr = index == areaIndex;
+                              return SearchText(
+                                fontSize: 14,
+                                height: 1,
+                                padding: const .symmetric(
+                                  horizontal: 8,
+                                  vertical: 5,
+                                ),
+                                text: isFirst ? '推荐' : item.title!,
+                                bgColor: isCurr
+                                    ? theme.colorScheme.secondaryContainer
+                                    : Colors.transparent,
+                                textColor: isCurr
+                                    ? theme.colorScheme.onSecondaryContainer
+                                    : null,
+                                onTap: (_) => _selectArea(
+                                  index,
+                                  isFirst ? null : item,
+                                ),
+                              );
+                            },
+                            itemCount: areas.length + 1,
+                          );
                         },
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    iconButton(
-                      size: 26,
-                      iconSize: 16,
-                      context: context,
-                      tooltip: '全部标签',
-                      icon: const Icon(Icons.widgets),
-                      onPressed: () => Get.to(const LiveAreaPage()),
+                  ),
+                  iconButton(
+                    size: 26,
+                    iconSize: 18,
+                    context: context,
+                    tooltip: '切换${_showFirstFrame ? '封面' : '首帧'}',
+                    icon: _showFirstFrame
+                        ? const Icon(MdiIcons.alphaFBox)
+                        : const Icon(MdiIcons.image),
+                    onPressed: () {
+                      _showFirstFrame = !_showFirstFrame;
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  iconButton(
+                    size: 26,
+                    iconSize: 16,
+                    context: context,
+                    tooltip: '游戏赛事',
+                    icon: const Icon(Icons.gamepad),
+                    onPressed: () => Get.toNamed(
+                      '/webview',
+                      parameters: {
+                        'uaType': 'mob',
+                        'url':
+                            'https://www.bilibili.com/h5/match/data/home?navhide=1&${ThemeUtils.themeUrl(theme.isDark)}',
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  iconButton(
+                    size: 26,
+                    iconSize: 16,
+                    context: context,
+                    tooltip: '全部标签',
+                    icon: const Icon(Icons.widgets),
+                    onPressed: () => Get.to(const LiveAreaPage()),
+                  ),
+                ],
               ),
             ),
+          ),
       ],
     );
   }

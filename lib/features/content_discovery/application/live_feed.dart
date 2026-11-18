@@ -5,6 +5,7 @@ import 'package:pili_aurora_next/features/content_discovery/domain/discovery_pag
 import 'package:pili_aurora_next/features/content_discovery/domain/live_catalog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 typedef LiveQuery = ({
@@ -20,6 +21,31 @@ final liveFeedProvider = NotifierProvider.autoDispose
       LiveQuery
     >(LiveFeed.new);
 
+final liveHomeHeaderProvider = FutureProvider.autoDispose
+    .family<LoadingState<LiveCatalog>, Object>((ref, owner) async {
+      final account = ref.watch(recommendAccountProvider);
+      final main = ref.watch(mainAccountProvider);
+      final result = await ref
+          .read(liveCatalogRepositoryProvider)
+          .homeHeader(account);
+      if (result case Success(:final response)
+          when ref.mounted &&
+              identical(account, ref.read(recommendAccountProvider)) &&
+              identical(main, ref.read(mainAccountProvider))) {
+        _filterFollowed(ref, response);
+      }
+      return result;
+    }, retry: (_, _) => null);
+
+void _filterFollowed(Ref ref, LiveCatalog catalog) {
+  final followed = catalog.followed?.cardData?.myIdolV1;
+  if (followed?.list case final list?) {
+    followed!.list = ref
+        .read(discoveryFilterProvider)
+        .filter(list, deduplicate: true);
+  }
+}
+
 class LiveFeed extends DiscoveryListing<CardLiveItem, LiveCatalog> {
   LiveFeed(this.query);
   final LiveQuery query;
@@ -29,27 +55,20 @@ class LiveFeed extends DiscoveryListing<CardLiveItem, LiveCatalog> {
     int page,
   ) async {
     final current = captureQuery();
-    final result = await ref
-        .read(liveCatalogRepositoryProvider)
-        .home(
-          account,
-          page,
-          areaId: query.areaId,
-          parentAreaId: query.parentAreaId,
-          sortType: query.sortType,
-          previous: queryMetadata,
-          isCurrent: current,
-        );
+    final repository = ref.read(liveCatalogRepositoryProvider);
+    final result = await (query.areaId == null
+        ? repository.home(account, page, previous: queryMetadata)
+        : repository.area(
+            account,
+            page,
+            areaId: query.areaId,
+            parentAreaId: query.parentAreaId,
+            sortType: query.sortType,
+            previous: queryMetadata,
+          ));
     if (!current()) return LoadingState.loading();
-    if (page == 1) {
-      if (result case Success(:final response)) {
-        final followed = response.metadata.followed?.cardData?.myIdolV1;
-        if (followed?.list case final list?) {
-          followed!.list = ref
-              .read(discoveryFilterProvider)
-              .filter(list, deduplicate: true);
-        }
-      }
+    if (result case Success(:final response) when page == 1) {
+      _filterFollowed(ref, response.metadata);
     }
     return result;
   }
