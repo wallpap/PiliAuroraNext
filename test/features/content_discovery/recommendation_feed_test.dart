@@ -707,10 +707,11 @@ void main() {
         ]),
       );
       await tester.pump();
-      final scroll = tester
-          .widget<CustomScrollView>(find.byType(CustomScrollView))
-          .controller!;
-      scroll.jumpTo(24);
+      final scroll =
+          tester
+                .widget<CustomScrollView>(find.byType(CustomScrollView))
+                .controller!
+            ..jumpTo(24);
       await tester.pump();
       final ordinary = find.text('视频 2');
       final cooperation = find.text('视频 1');

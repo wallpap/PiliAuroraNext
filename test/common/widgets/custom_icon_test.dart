@@ -72,18 +72,20 @@ void main() {
 
 Future<List<int>> _pixels(int codePoint) async {
   final recorder = ui.PictureRecorder();
-  final painter = TextPainter(
-    text: TextSpan(
-      text: String.fromCharCode(codePoint),
-      style: const TextStyle(
-        fontFamily: _family,
-        fontSize: 96,
-        color: Color(0xff000000),
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-  )..layout();
-  painter.paint(Canvas(recorder), Offset.zero);
+  final painter =
+      TextPainter(
+          text: TextSpan(
+            text: String.fromCharCode(codePoint),
+            style: const TextStyle(
+              fontFamily: _family,
+              fontSize: 96,
+              color: Color(0xff000000),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )
+        ..layout()
+        ..paint(Canvas(recorder), Offset.zero);
   final picture = recorder.endRecording();
   final image = await picture.toImage(96, 96);
   try {

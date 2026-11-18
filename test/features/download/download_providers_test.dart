@@ -61,12 +61,12 @@ void main() {
   });
 
   test('仓库读取失败时列表发布错误而非旧数据，重试恢复', () async {
-    final repository = _Repository();
-    repository.read = () async => [
-      downloadEntry(completed: true)
-        ..pageDirPath = 'page'
-        ..entryDirPath = 'page/entry',
-    ];
+    final repository = _Repository()
+      ..read = () async => [
+        downloadEntry(completed: true)
+          ..pageDirPath = 'page'
+          ..entryDirPath = 'page/entry',
+      ];
     final client = Dio();
     final container = ProviderContainer(
       overrides: [

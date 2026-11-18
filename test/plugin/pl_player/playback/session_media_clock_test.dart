@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_screen.dart';
