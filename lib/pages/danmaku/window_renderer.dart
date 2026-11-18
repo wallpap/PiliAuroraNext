@@ -1024,6 +1024,13 @@ class DanmakuWindowRenderer<T> extends ChangeNotifier {
     return visible != null;
   }
 
+  bool hasPresentedItem(Object identity) {
+    final active = _active[identity];
+    return active != null &&
+        !active.released &&
+        (active.specialBounds == null || active.specialFrame != null);
+  }
+
   DanmakuDisplaySnapshot<T>? _snapshotFor(_ActiveRaster<T> active) {
     if (active.released) return null;
     final content = active.item.payload.candidate.payload;

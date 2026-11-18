@@ -262,11 +262,8 @@ class _LiveDanmakuLayerState<T> extends State<LiveDanmakuLayer<T>> {
           ? _presentationUs
           : renderer.validUntilUs,
     );
-    final active = renderer.interaction.snapshot
-        .map((item) => item.identity)
-        .toSet();
     _contents.removeWhere((identity, content) {
-      if (active.contains(identity)) return false;
+      if (renderer.hasPresentedItem(identity)) return false;
       content.dispose();
       return true;
     });

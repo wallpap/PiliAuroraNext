@@ -1,6 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
+import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class LiveChatList<T> extends StatelessWidget {
@@ -32,8 +33,13 @@ class LiveChatList<T> extends StatelessWidget {
       itemCount: messages.length + (historyTruncated ? 1 : 0),
       findItemIndexCallback: (key) {
         if (key is! ValueKey<int>) return null;
-        final index = messages.indexWhere((message) => message.id == key.value);
-        return index < 0 ? null : messages.length - index - 1;
+        final index = messages.lowerBoundByKey(
+          (message) => message.id,
+          key.value,
+        );
+        return index < messages.length && messages[index].id == key.value
+            ? messages.length - index - 1
+            : null;
       },
       itemBuilder: (context, index) {
         if (index == messages.length) {
