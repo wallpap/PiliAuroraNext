@@ -684,93 +684,63 @@ void main() {
     expect((feed.loadingState.data.single as _Video).aid, 2);
   });
 
-  testWidgets('合作卡片先显示骨架，揭示不重发列表或重建普通卡片', (tester) async {
-    Get.testMode = true;
-    addTearDown(Get.reset);
-    final authors = Completer<Set<int>?>();
-    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
-    addTearDown(() {
-      if (!authors.isCompleted) authors.complete(null);
-    });
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
-      ),
-    );
-    final cooperation = _Video(1, cooperation: true);
-    final ordinary = _Video(2);
-    feed.requests.single.complete(
-      Success([
-        cooperation,
-        ordinary,
-        ...List.generate(30, (i) => _Video(i + 3)),
-      ]),
-    );
-    await tester.pump();
-    expect(find.byType(VideoCardVSkeleton), findsOneWidget);
-    expect(find.text('视频 1'), findsNothing);
-    expect(find.text('视频 2'), findsOneWidget);
-    final cards = find.byWidgetPredicate(
-      (widget) => widget is VideoCardV && identical(widget.videoItem, ordinary),
-    );
-    final before = tester.widget<VideoCardV>(cards);
-    final snapshot = feed.loadingState;
-    var publications = 0;
-    final subscription = container.listen(
-      recommendationFeedProvider.select((s) => s.loading),
-      (_, _) => publications++,
-    );
-    addTearDown(subscription.close);
-    authors.complete({8});
-    await tester.pump();
-    expect(find.text('视频 1'), findsOneWidget);
-    expect(find.byType(VideoCardVSkeleton), findsNothing);
-    expect(tester.widget<VideoCardV>(cards), same(before));
-    expect(feed.loadingState, same(snapshot));
-    expect(publications, 0);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  for (final blocked in [false, true]) {
+    final action = blocked ? '移除被屏蔽卡片' : '显示通过核验的卡片';
+    testWidgets('合作作者核验后$action，普通卡片仍可见且阅读位置不重置', (tester) async {
+      Get.testMode = true;
+      addTearDown(Get.reset);
+      final authors = Completer<Set<int>?>();
+      feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+      addTearDown(() {
+        if (!authors.isCompleted) authors.complete(null);
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+        ),
+      );
+      feed.requests.single.complete(
+        Success([
+          _Video(1, cooperation: true),
+          ...List.generate(39, (index) => _Video(index + 2)),
+        ]),
+      );
+      await tester.pump();
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      scroll.jumpTo(24);
+      await tester.pump();
+      final ordinary = find.text('视频 2');
+      final cooperation = find.text('视频 1');
+      expect(ordinary, findsOneWidget);
+      expect(cooperation, findsNothing);
+      expect(find.byType(VideoCardVSkeleton), findsOneWidget);
+      final position = tester.getTopLeft(ordinary);
+      var publications = 0;
+      final subscription = container.listen(
+        recommendationFeedProvider.select((state) => state.loading),
+        (_, _) => publications++,
+      );
+      addTearDown(subscription.close);
 
-  testWidgets('合作卡片被过滤后保留其他卡片元素和图片子树', (tester) async {
-    Get.testMode = true;
-    addTearDown(Get.reset);
-    final authors = Completer<Set<int>?>();
-    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
-    addTearDown(() {
-      if (!authors.isCompleted) authors.complete(null);
+      authors.complete({blocked ? 7 : 8});
+      await tester.pump();
+
+      expect(ordinary, findsOneWidget);
+      expect(cooperation, blocked ? findsNothing : findsOneWidget);
+      expect(find.byType(VideoCardVSkeleton), findsNothing);
+      expect(scroll.offset, 24);
+      if (blocked) {
+        expect(feed.loadingState.data.any((item) => item.aid == 1), isFalse);
+      } else {
+        expect(tester.getTopLeft(ordinary), position);
+        expect(publications, 0);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
     });
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
-      ),
-    );
-    final ordinary = _Video(2);
-    feed.requests.single.complete(
-      Success([
-        _Video(1, cooperation: true),
-        ordinary,
-        ...List.generate(30, (i) => _Video(i + 3)),
-      ]),
-    );
-    await tester.pump();
-    final cards = find.byWidgetPredicate(
-      (widget) => widget is VideoCardV && identical(widget.videoItem, ordinary),
-    );
-    final before = tester.element(cards);
-    final image = find.descendant(
-      of: cards,
-      matching: find.byType(LayoutBuilder),
-    );
-    final imageBefore = tester.element(image.first);
-    authors.complete({7});
-    await tester.pump();
-    expect(feed.loadingState.data.first, same(ordinary));
-    expect(tester.element(cards), same(before));
-    expect(tester.element(image.first), same(imageBefore));
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }
 
   testWidgets('卸载卡片取消局部揭示订阅', (tester) async {
     final authors = Completer<Set<int>?>();
