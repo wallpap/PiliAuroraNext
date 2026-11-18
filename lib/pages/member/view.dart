@@ -12,15 +12,17 @@ import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
-import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/models/remote/live/live_medal_wall/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space/reservation_card_list.dart';
 import 'package:pili_aurora_next/pages/log_table/controller.dart';
 import 'package:pili_aurora_next/pages/log_table/view.dart';
 import 'package:pili_aurora_next/pages/login_devices/view.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_space.dart';
+import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
+import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:pili_aurora_next/pages/member/shortcut_action.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_wall.dart';
 import 'package:pili_aurora_next/pages/member/widget/reserve_button.dart';
@@ -28,7 +30,6 @@ import 'package:pili_aurora_next/pages/member/widget/user_info_card.dart';
 import 'package:pili_aurora_next/pages/member_cheese/view.dart';
 import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
 import 'package:pili_aurora_next/utils/extension/nested_scroll_ext.dart';
 import 'package:pili_aurora_next/pages/member_contribute/view.dart';
 import 'package:pili_aurora_next/pages/member_dynamics/view.dart';
@@ -50,17 +51,20 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MemberPage extends StatefulWidget {
+class MemberPage extends ConsumerStatefulWidget {
   const MemberPage({super.key});
 
   @override
-  State<MemberPage> createState() => _MemberPageState();
+  ConsumerState<MemberPage> createState() => _MemberPageState();
 }
 
-class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
+class _MemberPageState extends ConsumerState<MemberPage>
+    with TickerProviderStateMixin {
   late final int _mid;
   late final String _heroTag;
-  late final MemberController _userController;
+  late final SpaceQuery _query;
+  MemberSpace get _space => ref.read(spaceProvider(_query).notifier);
+  Future<void> _reload() => _space.refresh();
   final _scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
   TabController? _sections;
   TabController? _contributions;
@@ -71,17 +75,18 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
   void _syncTabs(SpaceTabs? sections) {
     if (identical(sections, _renderedSections)) return;
     _renderedSections = sections;
+    _cacheFollowTime = null;
+    _cacheMedalData = null;
     _sections?.dispose();
     _contributions?.dispose();
     _contributionOpened = false;
-    _sections =
-        sections == null || sections.tabs.isEmpty
-              ? null
-              : TabController(
-                  vsync: this,
-                  length: sections.tabs.length,
-                  initialIndex: sections.initialIndex,
-                );
+    _sections = sections == null || sections.tabs.isEmpty
+        ? null
+        : TabController(
+            vsync: this,
+            length: sections.tabs.length,
+            initialIndex: sections.initialIndex,
+          );
     _sections?.addListener(_trackContribution);
     final items = sections?.contributions ?? const [];
     _contributions = items.length < 2
@@ -127,9 +132,10 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
     super.initState();
     _mid = int.tryParse(Get.parameters['mid']!) ?? -1;
     _heroTag = Utils.makeHeroTag(_mid);
-    _userController = Get.put(
-      MemberController(mid: _mid),
-      tag: _heroTag,
+    _query = (
+      owner: Object(),
+      mid: _mid,
+      fromViewAid: Get.parameters['from_view_aid'],
     );
   }
 
@@ -148,44 +154,45 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context).colorScheme;
     final padding = MediaQuery.viewPaddingOf(context);
+    final state = ref.watch(spaceProvider(_query));
+    final space = state.isLoading || state.hasError ? null : state.value;
+    final response = space?.data;
+    _syncTabs(space?.tabs);
     return Material(
       color: theme.surface,
-      child: Obx(
-        () {
-          final loading = _userController.loadingState.value;
-          _syncTabs(loading is Success ? _userController.sections : null);
-          return switch (loading) {
-            Loading() => m3eLoading,
-            Success(:final response) => ExtendedNestedScrollView(
+      child: space == null
+          ? state.hasError
+                ? scrollErrorWidget(
+                    errMsg: state.error.toString(),
+                    onReload: _reload,
+                  )
+                : m3eLoading
+          : ExtendedNestedScrollView(
               onlyOneScrollInBody: true,
               key: _scrollKey,
               scrollBehavior: const NoOverscrollIndicator(),
               pinnedHeaderSliverHeightBuilder: () =>
                   kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
               headerSliverBuilder: (context, innerBoxIsScrolled) {
-                if (response != null) {
+                if (response?.card != null && response?.images != null) {
                   return [
                     DynamicSliverAppBar.medium(
-                      actions: _actions(theme),
-                      title: Text(_userController.username ?? ''),
-                      flexibleSpace: Obx(
-                        () => UserInfoCard(
-                          isOwner:
-                              _userController.mid ==
-                              _userController.account.mid,
-                          relation: _userController.relation.value,
-                          card: response.card!,
-                          images: response.images!,
-                          onFollow: () => _userController.onFollow(context),
-                          live: _userController.live,
-                          silence: _userController.silence,
-                          headerControllerBuilder: getHeaderController,
-                          showLiveMedalWall: _showLiveMedalWall,
-                          charges: _userController.charges,
-                          chargeCount: _userController.chargeCount,
-                          guards: _userController.guards,
-                          guardCount: _userController.guardCount,
-                        ),
+                      actions: _actions(theme, space),
+                      title: Text(space.username ?? ''),
+                      flexibleSpace: UserInfoCard(
+                        isOwner: _mid == space.account.mid,
+                        relation: space.relation,
+                        card: response!.card!,
+                        images: response.images!,
+                        onFollow: _scoped(_onFollow),
+                        live: response.live,
+                        silence: response.card?.silence,
+                        headerControllerBuilder: getHeaderController,
+                        showLiveMedalWall: _scoped(_showLiveMedalWall),
+                        charges: response.elec?.list,
+                        chargeCount: response.elec?.total,
+                        guards: response.guard?.item,
+                        guardCount: response.guard?.count,
                       ),
                     ),
                   ];
@@ -193,11 +200,11 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
                 return [
                   SliverAppBar(
                     pinned: true,
-                    actions: _actions(theme),
+                    actions: _actions(theme, space),
                     title: GestureDetector(
-                      onTap: _userController.onReload,
+                      onTap: _reload,
                       behavior: HitTestBehavior.opaque,
-                      child: Text(_userController.username ?? ''),
+                      child: Text(space.username ?? ''),
                     ),
                   ),
                 ];
@@ -213,7 +220,7 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
                               child: TabBar(
                                 labelPadding: .zero,
                                 controller: _sections,
-                                tabs: _userController.sections.tabs
+                                tabs: space.tabs.tabs
                                     .map(
                                       (item) => Tab(
                                         child: Text(
@@ -230,19 +237,12 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
                                 ),
                               ),
                             ),
-                          Expanded(child: _buildBody(response)),
+                          Expanded(child: _buildBody(space)),
                         ],
                       ),
                     )
                   : scrollableError,
             ),
-            Error(:final errMsg) => scrollErrorWidget(
-              errMsg: errMsg,
-              onReload: _userController.onReload,
-            ),
-          };
-        },
-      ),
     );
   }
 
@@ -259,6 +259,7 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
   }
 
   void _showReserveList(List<ReservationCardItem> list) {
+    final current = _capture();
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
@@ -295,11 +296,11 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
                   builder: (context) {
                     Widget trailing = FilledButton.tonal(
                       onPressed: () async {
+                        final sid = e.sid;
+                        if (sid == null || !current()) return;
                         final isFollow = e.isFollow;
-                        final res = await UserHttp.spaceReserve(
-                          sid: e.sid!,
-                          isFollow: isFollow,
-                        );
+                        final res = await _space.reserve(sid, isFollow);
+                        if (res == null || !current()) return;
                         if (res.isSuccess) {
                           e
                             ..total += isFollow ? -1 : 1
@@ -408,39 +409,36 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
     );
   }
 
-  List<Widget> _actions(ColorScheme theme) => [
-    if (_userController.reserves?.isNotEmpty ?? false)
-      _reserveBtn(_userController.reserves!, theme),
+  List<Widget> _actions(ColorScheme theme, SpaceSnapshot space) => [
+    if (space.data?.reservationCardList?.isNotEmpty ?? false)
+      _reserveBtn(space.data!.reservationCardList!, theme),
     IconButton(
       tooltip: '搜索',
       onPressed: () => Get.toNamed(
-        '/memberSearch?mid=$_mid&uname=${_userController.username}',
+        '/memberSearch?mid=$_mid&uname=${space.username}',
       ),
       icon: const Icon(Icons.search_outlined),
     ),
     PopupMenuButton(
       icon: const Icon(Icons.more_vert),
       itemBuilder: (_) => <PopupMenuEntry>[
-        if (_userController.account.isLogin &&
-            _userController.account.mid != _mid) ...[
+        if (space.account.isLogin && space.account.mid != _mid) ...[
           AppPopupMenuItem(
-            onTap: _userController.scopedAction(
-              () => _userController.blockUser(context),
-            ),
+            onTap: _scoped(_blockUser),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.block, size: 19),
                 const SizedBox(width: 10),
                 Text(
-                  _userController.relation.value != 128 ? '加入黑名单' : '移除黑名单',
+                  space.relation != 128 ? '加入黑名单' : '移除黑名单',
                 ),
               ],
             ),
           ),
-          if (_userController.isFollowed == 1)
+          if (space.isFollowed == 1)
             AppPopupMenuItem(
-              onTap: _userController.scopedAction(_userController.onRemoveFan),
+              onTap: _scoped(_removeFan),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -452,14 +450,14 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
             ),
         ],
         AppPopupMenuItem(
-          onTap: _userController.shareUser,
+          onTap: () => ShareUtils.shareText('https://space.bilibili.com/$_mid'),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.share_outlined, size: 19),
               const SizedBox(width: 10),
               Text(
-                _userController.account.mid != _mid ? '分享UP主' : '分享我的主页',
+                space.account.mid != _mid ? '分享UP主' : '分享我的主页',
               ),
             ],
           ),
@@ -488,19 +486,11 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
               ],
             ),
           ),
-        if (_userController.account.isLogin)
-          if (_userController.mid == _userController.account.mid) ...[
-            if ((_userController
-                        .loadingState
-                        .value
-                        .dataOrNull
-                        ?.card
-                        ?.vip
-                        ?.status ??
-                    0) >
-                0)
+        if (space.account.isLogin)
+          if (_mid == space.account.mid) ...[
+            if ((space.data?.card?.vip?.status ?? 0) > 0)
               AppPopupMenuItem(
-                onTap: _userController.scopedAction(_userController.vipExpAdd),
+                onTap: _scoped(_claimExperience),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -566,9 +556,9 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
               ),
             ),
           ] else ...[
-            if (_userController.isFollow)
+            if (space.isFollow)
               AppPopupMenuItem(
-                onTap: _showFollowTime,
+                onTap: _scoped(_showFollowTime),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -582,7 +572,7 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
             AppPopupMenuItem(
               onTap: () => showMemberReportDialog(
                 context,
-                name: _userController.username,
+                name: space.username,
                 mid: _mid,
               ),
               child: Row(
@@ -607,27 +597,27 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
     const SizedBox(width: 4),
   ];
 
-  Widget _buildBody(SpaceData? data) => tabBarView(
+  Widget _buildBody(SpaceSnapshot space) => tabBarView(
     hitTestBehavior: .translucent,
     controller: _sections,
-    children: _userController.sections.tabs.map((item) {
+    children: space.tabs.tabs.map((item) {
       return switch (item.param!) {
         'home' => MemberHome(
-          data: data,
+          data: space.data,
           mid: _mid,
-          name: _userController.username,
-          setting: _userController.spaceSetting,
+          name: space.username,
+          setting: space.spaceSetting,
           openSection: _openSection,
         ),
         'dynamic' => MemberDynamicsPage(mid: _mid),
         'contribute' => MemberContribute(
           heroTag: _heroTag,
-          items: _userController.sections.contributions,
+          items: space.tabs.contributions,
           controller: _contributions,
           mid: _mid,
           navigation: (
-            username: _userController.username,
-            fromViewAid: _userController.fromViewAid,
+            username: space.username,
+            fromViewAid: _query.fromViewAid,
             scrollState: () => _scrollKey.currentState,
           ),
         ),
@@ -652,14 +642,132 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
     }).toList(),
   );
 
+  bool Function() _capture() {
+    final current = _space.capture();
+    return () => mounted && current();
+  }
+
+  Future<void> Function() _scoped(Future<void> Function() action) {
+    final current = _capture();
+    return () async {
+      if (current()) await action();
+    };
+  }
+
+  Future<void> _runRelation(
+    Future<void> Function(MemberSpace, SpaceSnapshot, bool Function()) action,
+  ) async {
+    final notifier = _space;
+    await notifier.runRelation((space, ownsQuery) async {
+      bool current() => mounted && ownsQuery();
+      if (!current()) return;
+      if (!space.account.isLogin) {
+        SmartDialog.showToast('账号未登录');
+      } else if (space.data == null) {
+        SmartDialog.showToast('请先刷新空间信息');
+      } else {
+        await action(notifier, space, current);
+      }
+    });
+  }
+
+  Future<void> _blockUser() => _runRelation((notifier, space, current) async {
+    if (_mid == space.account.mid) return;
+    final wasBlocked = space.relation == 128;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('提示'),
+        content: Text(wasBlocked ? '从黑名单移除UP主' : '确定拉黑UP主?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('点错了'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && current()) {
+      await _writeRelation(notifier, space, current, wasBlocked ? 6 : 5);
+    }
+  });
+
+  Future<void> _onFollow() => _runRelation((notifier, space, current) async {
+    if (_mid == space.account.mid) {
+      Get.toNamed('/editProfile');
+    } else if (space.relation == 128) {
+      await _writeRelation(notifier, space, current, 6);
+    } else {
+      await RequestUtils.actionRelationMod(
+        context: context,
+        account: space.account,
+        mid: _mid,
+        isFollow: space.isFollow,
+        isCurrent: current,
+        afterMod: notifier.updateRelation,
+      );
+    }
+  });
+
+  Future<void> _removeFan() => _runRelation((notifier, space, current) async {
+    if (_mid != space.account.mid && space.isFollowed == 1) {
+      await _writeRelation(notifier, space, current, 7);
+    }
+  });
+
+  Future<void> _writeRelation(
+    MemberSpace notifier,
+    SpaceSnapshot space,
+    bool Function() current,
+    int action,
+  ) async {
+    final result = await notifier.writeRelation(space.account, action);
+    if (!current()) return;
+    if (result.isSuccess) {
+      switch (action) {
+        case 5:
+          notifier.updateRelation(128);
+        case 6:
+          notifier.updateRelation(0);
+        case 7:
+          notifier.updateRelation(
+            space.relation == 4 ? 2 : space.relation,
+            removedFan: true,
+          );
+          SmartDialog.showToast('移除成功');
+      }
+    } else {
+      result.toast();
+      if (result is UnknownResult) await notifier.refresh();
+    }
+  }
+
+  Future<void> _claimExperience() async {
+    final current = _capture();
+    final result = await _space.claimExperience();
+    if (!current() || result == null) return;
+    if (result.isSuccess) {
+      SmartDialog.showToast('领取成功');
+    } else {
+      result.toast();
+    }
+  }
+
   String? _cacheFollowTime;
   Future<void> _showFollowTime() async {
+    final space = _space.snapshot;
+    final current = _capture();
+    if (space == null || !current()) return;
     void onShow() {
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(_userController.username ?? ''),
+          title: Text(space.username ?? ''),
           content: Text(_cacheFollowTime!),
           actions: [
             TextButton(
@@ -678,12 +786,15 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
       onShow();
       return;
     }
-    final res = await UserHttp.userRelation(_mid);
+    final res = await ref
+        .read(spaceRepositoryProvider)
+        .followTime(space.account, _mid);
+    if (!current()) return;
     if (res case Success(:final response)) {
-      if (response.mtime == null) return;
+      if (response == null) return;
       _cacheFollowTime =
           '关注时间: ${DateFormatUtils.longFormatDs.format(
-            DateTime.fromMillisecondsSinceEpoch(response.mtime! * 1000),
+            DateTime.fromMillisecondsSinceEpoch(response * 1000),
           )}';
       onShow();
     } else {
@@ -693,6 +804,8 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
 
   MedalWallData? _cacheMedalData;
   Future<void> _showLiveMedalWall() async {
+    final current = _capture();
+    if (!current()) return;
     void onShow() {
       if (!mounted) return;
       showDialog(
@@ -705,9 +818,8 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
       onShow();
       return;
     }
-    SmartDialog.showLoading();
-    final res = await LiveHttp.liveMedalWall(mid: _mid);
-    SmartDialog.dismiss();
+    final res = await ref.read(spaceRepositoryProvider).medals(_mid);
+    if (!current()) return;
     if (res case Success(:final response)) {
       _cacheMedalData = response;
       onShow();
@@ -717,6 +829,8 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
   }
 
   void _toWebArchive() {
+    final space = _space.snapshot;
+    if (space == null) return;
     final items = _renderedSections?.contributions;
     final index = _contributions?.index ?? 0;
     if (items != null && index < items.length) {
@@ -726,14 +840,14 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
           type: archive.isSeason ? .season : .series,
           id: archive.id,
           mid: _mid,
-          name: _userController.username ?? '',
+          name: space.username ?? '',
         );
         return;
       }
     }
     MemberVideoWeb.toMemberVideoWeb(
       mid: _mid,
-      name: _userController.username ?? '',
+      name: space.username ?? '',
     );
   }
 
@@ -747,24 +861,13 @@ class _MemberPageState extends State<MemberPage> with TickerProviderStateMixin {
 
   Future<void> _createShortcutAndroid() {
     final route = ModalRoute.of(context);
-    final source = _userController.loadingState.value;
-    final account = _userController.account;
-    final mid = _userController.mid;
-    final name = _userController.username;
-    final avatar = _userController.userAvatar;
+    final source = _space.snapshot;
+    final current = _capture();
     return _shortcutAction.run(
-      mid: mid,
-      username: name,
-      avatar: avatar,
-      isCurrent: () =>
-          mounted &&
-          (route?.isCurrent ?? true) &&
-          !_userController.isClosed &&
-          identical(source, _userController.loadingState.value) &&
-          identical(account, _userController.account) &&
-          _userController.mid == mid &&
-          _userController.username == name &&
-          _userController.userAvatar == avatar,
+      mid: _mid,
+      username: source?.username,
+      avatar: source?.userAvatar,
+      isCurrent: () => current() && (route?.isCurrent ?? true),
     );
   }
 }
