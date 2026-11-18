@@ -45,8 +45,8 @@ class FakeProfiles extends ProfileRepository {
   }
 }
 
-LoginAccount login(int mid) => LoginAccount(
-  BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': 'fixture'}),
+LoginAccount login(int mid, {String csrf = 'fixture'}) => LoginAccount(
+  BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': csrf}),
   null,
   null,
 )..activated = true;

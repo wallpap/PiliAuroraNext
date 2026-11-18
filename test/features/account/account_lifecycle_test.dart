@@ -129,7 +129,7 @@ void main() {
     expect(container.read(accountProfileProvider).info?.uname, 'third');
     expect(container.read(accountStatsProvider).value?.follower, 3);
     final pending = container.read(accountProfileProvider.notifier).refresh();
-    final renewed = login(3);
+    final renewed = login(3, csrf: 'renewed');
     Accounts.replaceCredentials(renewed);
     await settle();
     repository.requests[2].complete(Success(info(3, 'old credentials')));
@@ -137,7 +137,15 @@ void main() {
     repository.requests[3].complete(Success(info(3, 'renewed')));
     repository.statRequests[2].complete(const Success(UserStat(follower: 4)));
     await settle();
-    expect(repository.owners.last, same(renewed));
+    expect(
+      repository.owners.map((owner) => (owner.mid, owner.csrf)),
+      [(1, 'fixture'), (3, 'fixture'), (3, 'fixture'), (3, 'renewed')],
+    );
+    expect(repository.statOwners.map((owner) => (owner.mid, owner.csrf)), [
+      (1, 'fixture'),
+      (3, 'fixture'),
+      (3, 'renewed'),
+    ]);
     expect(container.read(accountProfileProvider).info?.uname, 'renewed');
     expect(repository.saved.map((info) => info.uname), ['third', 'renewed']);
   });
@@ -163,11 +171,13 @@ void main() {
 
   test('临时无痕期间更换凭据，后续保存不会把旧凭据写回账号存储', () async {
     AccountPrivacy.enableTemporarily();
-    final renewed = login(2);
+    final renewed = login(2, csrf: 'renewed');
     Accounts.replaceCredentials(renewed);
     await AccountPrivacy.saveEnabled();
-    expect(accounts.get('2'), same(renewed));
-    expect(renewed.type, isNot(contains(AccountType.heartbeat)));
+    final stored = accounts.get('2')!;
+    expect(stored.mid, 2);
+    expect(stored.csrf, 'renewed');
+    expect(stored.type, isNot(contains(AccountType.heartbeat)));
   });
 
   test('主题直接订阅偏好，其他设置入口写入也会更新个人中心', () async {
