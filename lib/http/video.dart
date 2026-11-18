@@ -1340,11 +1340,13 @@ abstract final class VideoHttp {
   static Future<LoadingState<VideoShotData>> videoshot({
     required String bvid,
     required int cid,
+    CancelToken? cancelToken,
   }) async {
     final result = await Request().requestApi<VideoShotData>(
       Api.videoshot,
       kind: ApiCallKind.query,
       decode: (body) => VideoShotData.fromJson(body['data']),
+      cancelToken: cancelToken,
       queryParameters: {
         // 'aid': IdUtils.bv2av(_bvid),
         'bvid': bvid,
@@ -1358,7 +1360,11 @@ abstract final class VideoHttp {
         },
       ),
     );
-    if (result case Success(:final response) when response.index.isEmpty) {
+    if (result case Success(:final response)
+        when response.index.isEmpty ||
+            response.image.isEmpty ||
+            response.imgXLen <= 0 ||
+            response.imgYLen <= 0) {
       return const Error('暂无视频预览');
     }
     return result;

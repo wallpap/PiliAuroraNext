@@ -3,15 +3,15 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/frame_timing.dart';
 import 'dart:async' show Completer, StreamSubscription, Timer, unawaited;
 import 'dart:convert' show ascii;
 import 'dart:io' show Platform;
-import 'dart:math' show max, min;
+import 'dart:math' show min;
 
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, visibleForTesting;
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/audio_normalization.dart';
@@ -37,6 +37,7 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/decode_fallback.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/android_decode_recovery.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/preview_image_cache.dart';
+import 'package:pili_aurora_next/plugin/pl_player/utils/seek_preview_timeline.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/hardware_video_configuration.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/native_video_options.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
@@ -915,6 +916,7 @@ class PlPlayerController
   }
 
   void closePlaybackOwner(PlaybackOwner owner) {
+    if (identical(_activeOwner, owner) && showSeekPreview) _clearPreview();
     owner.close();
     if (_session.isDisposed) _watchRuntimeRelease();
   }
@@ -1007,6 +1009,7 @@ class PlPlayerController
   void activatePlaybackOwner(PlaybackOwner owner) {
     owner.activate();
     if (identical(_activeOwner, owner)) return;
+    if (_activeOwner != null && showSeekPreview) _clearPreview();
     _activeOwner = owner;
     unawaited(_snapshotSubscription?.cancel());
     _projectPlaybackSnapshot(_session.currentSnapshot, owner);
@@ -1324,8 +1327,6 @@ class PlPlayerController
     }
     if (showSeekPreview) {
       _clearPreview();
-    } else {
-      _previewGeneration++;
     }
     cancelLongPressTimer();
     _heartDuration = 0;
@@ -1383,6 +1384,7 @@ class PlPlayerController
     switch (result.outcome) {
       case LoadOutcome.ready:
         _initVideoFit();
+        _prewarmSeekPreview();
         if (autoFullScreenFlag && autoEnterFullScreen) {
           triggerFullScreen(status: true);
         }
@@ -1402,6 +1404,7 @@ class PlPlayerController
 
   void onPlaybackQueryReady({bool autoFullScreenFlag = false}) {
     _initVideoFit();
+    _prewarmSeekPreview();
     if (autoFullScreenFlag && autoEnterFullScreen) {
       triggerFullScreen(status: true);
     }
@@ -2321,9 +2324,7 @@ class PlPlayerController
   }
 
   void onSeekEnd() {
-    if (showSeekPreview) {
-      showPreview.value = false;
-    }
+    if (showSeekPreview) hideSeekPreview();
     hasToasted = false;
     isSeeking.value = false;
     _audioRecovery?.onPlaybackChanged();
@@ -2794,62 +2795,62 @@ class PlPlayerController
   }
 
   late final previewCache = PreviewImageCache();
-  LoadingState<VideoShotData>? videoShot;
-  late final RxBool showPreview = false.obs;
   late final showSeekPreview = Pref.showSeekPreview;
   late final previewIndex = RxnInt();
-  int _previewGeneration = 0;
+  late final _previewTimeline = SeekPreviewTimeline(
+    (index) => previewIndex.value = index,
+  );
+  VideoShotData? get videoShot => _previewTimeline.data;
 
   void updatePreviewIndex(int seconds) {
-    if (videoShot == null) {
-      videoShot = LoadingState.loading();
-      getVideoShot();
-      return;
-    }
-    if (videoShot case Success(:final response)) {
-      if (!showPreview.value) {
-        showPreview.value = true;
-      }
-      final index = response.index;
-      var low = 0;
-      var high = index.length;
-      while (low < high) {
-        final middle = (low + high) ~/ 2;
-        if (index[middle] <= seconds) {
-          low = middle + 1;
-        } else {
-          high = middle;
-        }
-      }
-      final nextIndex = max(0, low - 2);
-      if (previewIndex.value != nextIndex) {
-        previewIndex.value = nextIndex;
-      }
-    }
+    final isCurrent = _seekPreviewGuard();
+    if (isCurrent == null) return;
+    _previewTimeline.select(
+      seconds,
+      load: _loadPreviewTimeline,
+      isCurrent: isCurrent,
+    );
   }
 
+  void _prewarmSeekPreview() {
+    if (currentPlaybackSnapshot.phase != PlaybackPhase.ready) return;
+    final isCurrent = _seekPreviewGuard();
+    if (isCurrent == null) return;
+    _previewTimeline.prewarm(
+      load: _loadPreviewTimeline,
+      isCurrent: () =>
+          isCurrent() && currentPlaybackSnapshot.phase == PlaybackPhase.ready,
+    );
+  }
+
+  bool Function()? _seekPreviewGuard() {
+    final owner = activePlaybackOwner;
+    if (!showSeekPreview ||
+        isLive ||
+        isFileSource ||
+        _bvid == null ||
+        cid == null ||
+        owner == null) {
+      return null;
+    }
+    final ownsPlayback = owner.guard();
+    final plan = _currentPlan;
+    return () => ownsPlayback() && identical(_currentPlan, plan);
+  }
+
+  void hideSeekPreview() => _previewTimeline.hide();
+
   void _clearPreview() {
-    _previewGeneration++;
-    showPreview.value = false;
-    previewIndex.value = null;
-    videoShot = null;
+    _previewTimeline.clear();
     previewCache.clear();
   }
 
-  Future<void> getVideoShot() async {
-    final generation = _previewGeneration;
-    final requestBvid = bvid;
-    final requestCid = cid!;
-    final result = await VideoHttp.videoshot(
-      bvid: requestBvid,
-      cid: requestCid,
-    );
-    if (generation == _previewGeneration &&
-        requestBvid == _bvid &&
-        requestCid == cid) {
-      videoShot = result;
-    }
-  }
+  Future<VideoShotData?> _loadPreviewTimeline(CancelToken cancelToken) async =>
+      (await VideoHttp.videoshot(
+        bvid: bvid,
+        cid: cid!,
+        cancelToken: cancelToken,
+      )).dataOrNull;
 
   bool _takingScreenshot = false;
   Future<void> takeScreenshot() async {

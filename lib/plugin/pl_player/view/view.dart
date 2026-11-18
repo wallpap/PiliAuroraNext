@@ -348,7 +348,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         if (!isLive && plPlayerController.showSeekPreview)
           buildSeekPreviewWidget(
             plPlayerController,
-            maxWidth,
             maxHeight,
           ),
 

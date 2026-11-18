@@ -285,7 +285,7 @@ class PlayerGestures {
             ..seekToPos = null
             ..hasToasted = true;
           if (plPlayerController.showSeekPreview) {
-            plPlayerController.showPreview.value = false;
+            plPlayerController.hideSeekPreview();
           }
           SmartDialog.showAttach(
             targetContext: context(),
