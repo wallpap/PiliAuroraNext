@@ -60,7 +60,6 @@ class _DynamicsTabPageState extends ConsumerState<DynamicsTabPage>
       DiscoveryPageHandle(
         () => _scroll,
         () => controller.onRefresh(),
-        readSnapshot: () => ref.read(dynamicsFeedProvider(_query)),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
     as refresh;
+import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/hot_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/curated_repository.dart';
@@ -23,8 +24,10 @@ import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
 import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
+import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';
 import 'package:pili_aurora_next/pages/popular_series/view.dart';
+import 'package:pili_aurora_next/pages/rank/view.dart';
 import 'package:pili_aurora_next/pages/rank/zone/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -32,6 +35,11 @@ import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../../support/memory_box.dart';
+
+class _Main extends MainController {
+  @override
+  void onReady() {}
+}
 
 class _Hot extends HotRepository {
   int requests = 0;
@@ -176,6 +184,27 @@ void main() {
     expect(home.registeredPage(HomeTabType.hot), isNull);
     expect(scroll.hasClients, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('独立热门页的排行榜入口打开榜单', (tester) async {
+    await GStorage.setting.put(SettingBoxKey.showHotRcmd, true);
+    Get.put<MainController>(_Main());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          hotRepositoryProvider.overrideWithValue(_Hot()),
+          rankRepositoryProvider.overrideWithValue(_Rank()),
+        ],
+        child: const ImageLoadingScope(
+          enabled: false,
+          child: GetMaterialApp(home: Scaffold(body: HotPage())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('排行榜'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RankPage), findsOneWidget);
   });
 
   for (final page in ['排行榜', '每周必看', '追番时间表']) {

@@ -59,7 +59,6 @@ class _LiveAreaChildPageState extends ConsumerState<LiveAreaChildPage>
       DiscoveryPageHandle(
         () => _scroll,
         () => _controller.onRefresh(),
-        readSnapshot: () => ref.read(liveAreaFeedProvider(_query)),
       ),
     );
   }

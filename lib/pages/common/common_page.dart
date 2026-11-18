@@ -18,9 +18,9 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     super.initState();
     _barOffset = _mainController.barOffset;
     _showBottomBar = _mainController.showBottomBar;
-    try {
+    if (Get.isRegistered<HomeController>()) {
       _showTopBar = Get.find<HomeController>().showTopBar;
-    } catch (_) {}
+    }
   }
 
   Widget onBuild(Widget child) {

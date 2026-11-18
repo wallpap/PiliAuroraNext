@@ -81,7 +81,7 @@ List<SettingsModel> get contentSettings => [
         setKey: SettingBoxKey.enableSearchWord,
         defaultVal: false,
         onChanged: (val) {
-          try {
+          if (Get.isRegistered<HomeController>()) {
             final controller = Get.find<HomeController>()
               ..enableSearchWord = val;
             if (val) {
@@ -89,7 +89,7 @@ List<SettingsModel> get contentSettings => [
             } else {
               controller.defaultSearch.value = '';
             }
-          } catch (_) {}
+          }
         },
       ),
     ],

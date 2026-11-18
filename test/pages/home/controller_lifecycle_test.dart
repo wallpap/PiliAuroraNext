@@ -38,12 +38,19 @@ void main() {
     final removeOld = controller.registerPage(HomeTabType.rcmd, old);
     final removeNext = controller.registerPage(HomeTabType.rcmd, next);
     removeOld();
-    expect(controller.controller, same(next));
+    expect(controller.registeredPage(HomeTabType.rcmd), same(next));
     await controller.onRefresh();
     expect(old.refreshes, 0);
     expect(next.refreshes, 1);
     removeNext();
     expect(controller.registeredPage(HomeTabType.rcmd), isNull);
+    await controller.onRefresh();
+    controller.toTopOrRefresh();
+    controller.animateToTop();
+    expect(
+      Diagnostics.instance.readSources(prefix: 'homePage')['homePage'],
+      containsPair('controllerReady', false),
+    );
   });
 
   testWidgets('Get 删除首页控制器时注销诊断源', (tester) async {

@@ -57,7 +57,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       DiscoveryPageHandle(
         () => _active?.scrollController ?? _scroll,
         _refresh,
-        readSnapshot: () => _active?.snapshot,
       ),
     );
   }

@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -20,7 +20,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class HomeController extends GetxController
-    with GetSingleTickerProviderStateMixin, ScrollOrRefreshMixin {
+    with GetSingleTickerProviderStateMixin {
   late List<HomeTabType> tabs;
   late TabController tabController;
   late final VoidCallback _unregisterPageDiagnostics;
@@ -42,21 +42,10 @@ class HomeController extends GetxController
     };
   }
 
-  ScrollOrRefreshMixin get controller {
-    final type = tabs[tabController.index];
-    return _pages[type] ??
-        switch (type) {
-          HomeTabType.rcmd => throw StateError('推荐页尚未挂载'),
-          HomeTabType.live => throw StateError('直播页尚未挂载'),
-          HomeTabType.hot => throw StateError('热门页尚未挂载'),
-          HomeTabType.rank => throw StateError('排行榜尚未挂载'),
-          HomeTabType.bangumi ||
-          HomeTabType.cinema => throw StateError('PGC 页尚未挂载'),
-        };
-  }
+  ScrollOrRefreshMixin? get _activePage => _pages[tabs[tabController.index]];
 
-  @override
-  ScrollController get scrollController => controller.scrollController;
+  void animateToTop() => _activePage?.animateToTop();
+  void toTopOrRefresh() => _activePage?.toTopOrRefresh();
 
   @override
   void onInit() {
@@ -91,41 +80,29 @@ class HomeController extends GetxController
       'tab': tabs[tabController.index].name,
       'transitioning': tabController.indexIsChanging,
     };
-    // 标签切换早于目标页面创建时，控制器尚未注册。
-    try {
-      final active = controller;
-      if (active is RecommendationPageHandle) {
-        final snapshot = active.snapshot;
-        result['requestPending'] = snapshot.loadingMore;
-        result['state'] = switch (snapshot.loading) {
-          Loading() => 'loading',
-          Success() => 'success',
-          Error() => 'error',
-        };
-        result['items'] = snapshot.loading.dataOrNull?.length ?? 0;
-      } else if (active is DiscoveryPageHandle) {
-        final snapshot = active.snapshot;
-        if (snapshot != null) {
-          result['requestPending'] = snapshot.loadingMore;
-          result['state'] = switch (snapshot.loading) {
-            Loading() => 'loading',
-            Success() => 'success',
-            Error() => 'error',
-          };
-          result['items'] = snapshot.loading.dataOrNull?.length ?? 0;
-        }
-      } else if (active is CommonController) {
-        result['requestPending'] = active.isLoading;
-        result['state'] = switch (active.loadingState.value) {
-          Loading() => 'loading',
-          Success() => 'success',
-          Error() => 'error',
-        };
-        final data = active.loadingState.value.dataOrNull;
-        if (data is List) result['items'] = data.length;
-      }
-    } catch (_) {
+    final active = _activePage;
+    if (active == null) {
       result['controllerReady'] = false;
+    }
+    final status = switch (active) {
+      RecommendationPageHandle(:final snapshot) => (
+        snapshot.loading,
+        snapshot.loadingMore,
+      ),
+      DiscoveryPageHandle(snapshot: final snapshot?) => (
+        snapshot.loading,
+        snapshot.loadingMore,
+      ),
+      _ => null,
+    };
+    if (status case (final loading, final pending)) {
+      result['requestPending'] = pending;
+      result['state'] = switch (loading) {
+        Loading() => 'loading',
+        Success() => 'success',
+        Error() => 'error',
+      };
+      result['items'] = loading.dataOrNull?.length ?? 0;
     }
     return result;
   }
@@ -142,11 +119,12 @@ class HomeController extends GetxController
     );
   }
 
-  @override
-  Future<void> onRefresh() {
-    return controller.onRefresh().catchError((Object e, StackTrace stackTrace) {
-      logger.w('刷新首页失败', error: e, stackTrace: stackTrace);
-    });
+  Future<void> onRefresh() async {
+    try {
+      await _activePage?.onRefresh();
+    } catch (error, stackTrace) {
+      logger.w('刷新首页失败', error: error, stackTrace: stackTrace);
+    }
   }
 
   void setTabConfig() {

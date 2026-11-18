@@ -1988,7 +1988,11 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
             _defaults.splashBorderRadius,
         child: Padding(
           padding: EdgeInsets.only(left: widget.indicatorWeight),
-          child: wrappedTabs[index],
+          child: Semantics(
+            role: SemanticsRole.tab,
+            selected: index == _currentIndex,
+            child: wrappedTabs[index],
+          ),
         ),
       );
       wrappedTabs[index] = MergeSemantics(child: wrappedTabs[index]);

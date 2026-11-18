@@ -60,6 +60,23 @@ class _HotPageState extends ConsumerState<HotPage>
   @override
   bool get wantKeepAlive => true;
 
+  void _openRank() {
+    if (Get.isRegistered<HomeController>()) {
+      final home = Get.find<HomeController>();
+      final index = home.tabs.indexOf(HomeTabType.rank);
+      if (index != -1) {
+        home.tabController.animateTo(index);
+        return;
+      }
+    }
+    Get.to(
+      SimpleScaffold(
+        appBar: AppBar(title: const Text('排行榜')),
+        body: const ViewSafeArea(child: RankPage()),
+      ),
+    );
+  }
+
   Widget _buildEntranceItem({
     required String iconUrl,
     required String title,
@@ -117,24 +134,7 @@ class _HotPageState extends ConsumerState<HotPage>
                       _buildEntranceItem(
                         iconUrl: 'https://i0.hdslb.com/bfs/archive/a3f11218aaf4521b4967db2ae164ecd3052586b9.png',
                         title: '排行榜',
-                        onTap: () {
-                          try {
-                            final homeController = Get.find<HomeController>();
-                            final index = homeController.tabs.indexOf(
-                              HomeTabType.rank,
-                            );
-                            if (index != -1) {
-                              homeController.tabController.animateTo(index);
-                            } else {
-                              Get.to(
-                                SimpleScaffold(
-                                  appBar: AppBar(title: const Text('排行榜')),
-                                  body: const ViewSafeArea(child: RankPage()),
-                                ),
-                              );
-                            }
-                          } catch (_) {}
-                        },
+                        onTap: _openRank,
                       ),
                       _buildEntranceItem(
                         iconUrl: 'https://i0.hdslb.com/bfs/archive/552ebe8c4794aeef30ebd1568b59ad35f15e21ad.png',
