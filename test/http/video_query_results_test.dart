@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/related_video_repository.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -24,7 +25,10 @@ void main() {
     () => VideoHttp.rcmdVideoListApp(freshIdx: 0),
     () => VideoHttp.hotVideoList(pn: 1, ps: 20),
     () => VideoHttp.videoIntro(bvid: 'BV-test'),
-    () => VideoHttp.relatedVideoList(bvid: 'BV-test'),
+    () => RelatedVideoRepository.load(
+      Accounts.get(AccountType.recommend),
+      'BV-test',
+    ),
     () => VideoHttp.onlineTotal(bvid: 'BV-test', cid: 1),
     () => VideoHttp.playInfo(bvid: 'BV-test', cid: 1),
     () => VideoHttp.getRankVideoList(0),
@@ -155,7 +159,14 @@ void main() {
       expect((await query()).data, isEmpty);
     }
     body = {'code': 0, 'data': null, 'result': null};
-    for (final query in [queries[4], queries[8], queries[9], queries[11]]) {
+    expect(
+      (await RelatedVideoRepository.load(
+        Accounts.get(AccountType.recommend),
+        'BV-test',
+      )).data.items,
+      isEmpty,
+    );
+    for (final query in [queries[8], queries[9], queries[11]]) {
       expect(await query(), isA<Success<Object?>>());
       expect((await query()).data, isNull);
     }

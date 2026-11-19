@@ -46,6 +46,7 @@ import 'package:pili_aurora_next/pages/video/related/view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/related_videos.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/pages/video/reply/view.dart';
 import 'package:pili_aurora_next/pages/video/view_point/view.dart';
@@ -88,14 +89,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
-class VideoDetailPageV extends StatefulWidget {
+class VideoDetailPageV extends ConsumerStatefulWidget {
   const VideoDetailPageV({super.key});
 
   @override
-  State<VideoDetailPageV> createState() => _VideoDetailPageVState();
+  ConsumerState<VideoDetailPageV> createState() => _VideoDetailPageVState();
 }
 
-class _VideoDetailPageVState extends State<VideoDetailPageV>
+class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final heroTag = Get.arguments['heroTag'];
 
@@ -171,6 +172,72 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   final videoReplyPanelKey = GlobalKey();
   final videoRelatedKey = GlobalKey();
   final videoIntroKey = GlobalKey();
+  late final _relatedQuery = ValueNotifier(
+    RelatedVideoQuery(videoDetailController.bvid),
+  );
+  ProviderSubscription<RelatedVideosState>? _relatedSubscription;
+  ({Object source, bool Function() isCurrent})? _pendingRelatedPlay;
+
+  void _bindRelatedVideos() {
+    _relatedSubscription = ref.listenManual(
+      relatedVideosProvider(_relatedQuery.value),
+      (_, next) {
+        final pending = _pendingRelatedPlay;
+        if (pending == null) return;
+        if (!identical(pending.source, next.source) ||
+            !pending.isCurrent() ||
+            !isShowing ||
+            plPlayerController?.playRepeat != PlayRepeat.autoPlayRelated) {
+          _pendingRelatedPlay = null;
+          return;
+        }
+        if (next.loadingMore) return;
+        _pendingRelatedPlay = null;
+        _playFromRelated(next);
+      },
+    );
+  }
+
+  void _relatedTargetChanged(String bvid) {
+    _pendingRelatedPlay = null;
+    if (_relatedQuery.value.bvid == bvid) return;
+    _relatedSubscription?.close();
+    _relatedQuery.value = RelatedVideoQuery(bvid);
+    _bindRelatedVideos();
+  }
+
+  bool _playRelated(bool Function() isCurrent) {
+    if (!isCurrent()) return false;
+    final snapshot = _relatedSubscription!.read();
+    if (snapshot.loading.isSuccess && !snapshot.loadingMore) {
+      return _playFromRelated(snapshot);
+    }
+    if (snapshot.loadingMore || snapshot.error == null) {
+      _pendingRelatedPlay = (source: snapshot.source, isCurrent: isCurrent);
+    }
+    return false;
+  }
+
+  bool _playFromRelated(RelatedVideosState snapshot) {
+    final items = snapshot.loading.dataOrNull;
+    if (items == null) return false;
+    final target = items.firstOrNull;
+    if (target == null) {
+      SmartDialog.showToast('暂无相关视频，停止连播');
+      return false;
+    }
+    unawaited(
+      ugcIntroController.onChangeEpisode(
+        ugc.BaseEpisodeItem(
+          aid: target.aid,
+          bvid: target.bvid,
+          cid: target.cid,
+          cover: target.cover,
+        ),
+      ),
+    );
+    return true;
+  }
 
   @override
   void initState() {
@@ -219,6 +286,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       localIntroController = Get.put(LocalIntroController(), tag: heroTag);
     } else if (videoDetailController.isUgc) {
       ugcIntroController = Get.put(UgcIntroController(), tag: heroTag);
+      if (videoDetailController.showRelatedVideo) {
+        _bindRelatedVideos();
+        ugcIntroController
+          ..onRelatedTargetChanged = _relatedTargetChanged
+          ..onPlayRelated = _playRelated;
+      }
     } else {
       pgcIntroController = Get.put(PgcIntroController(), tag: heroTag);
     }
@@ -378,6 +451,14 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    if (_relatedSubscription != null) {
+      ugcIntroController
+        ..onRelatedTargetChanged = null
+        ..onPlayRelated = null;
+      _pendingRelatedPlay = null;
+      _relatedSubscription!.close();
+      _relatedQuery.dispose();
+    }
     Accounts.mainChanges.removeListener(_onReplyAccountChanged);
     videoDetailController.onReplyTargetChanged = null;
     videoDetailController.onReplyCount = null;
@@ -422,6 +503,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   void didPushNext() {
     super.didPushNext();
     isShowing = false;
+    _pendingRelatedPlay = null;
 
     removeObserverMobile(this);
 
@@ -977,7 +1059,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                               slivers: [
                                 RelatedVideoPanel(
                                   key: videoRelatedKey,
-                                  heroTag: heroTag,
+                                  query: _relatedQuery,
                                 ),
                               ],
                             ),
@@ -1661,7 +1743,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                 ),
               ),
             ),
-            RelatedVideoPanel(key: videoRelatedKey, heroTag: heroTag),
+            RelatedVideoPanel(key: videoRelatedKey, query: _relatedQuery),
           ],
         ] else
           PgcIntroPage(

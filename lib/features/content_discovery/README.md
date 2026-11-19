@@ -1,6 +1,8 @@
 # 内容发现模块
 
-首页推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的业务状态由本模块持有。首页直接装配 `RecommendationPage`；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。动态话题与相关推荐等列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
+首页推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的业务状态由本模块持有。首页直接装配 `RecommendationPage`；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。
+
+`relatedVideosProvider` 按视频路由和当前 BVID 持有一次性列表，视频面板和自动连播读取同一份已过滤快照。换片或换账号替换查询；面板移除按条目身份而非位置提交。视频路由在离页或播放目标变更后放弃等待中的连播意图。
 
 ## 状态与依赖
 

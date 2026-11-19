@@ -346,30 +346,6 @@ abstract final class VideoHttp {
     );
   }
 
-  // 相关视频
-  static Future<LoadingState<List<HotVideoItemModel>?>> relatedVideoList({
-    required String bvid,
-  }) async {
-    final account = Accounts.get(AccountType.recommend);
-
-    return await Request().requestApi(
-      Api.relatedList,
-      queryParameters: {'bvid': bvid},
-      options: Options(extra: {'account': account}),
-      kind: ApiCallKind.query,
-      decode: (body) {
-        final filter = VideoFilterPreferences.read();
-        final items = (body['data'] as List?)?.map(
-          (i) => HotVideoItemModel.fromJson(i),
-        );
-        final list = filter.includeRelated
-            ? items?.where((i) => !filter.blocksVideo(i)).toList()
-            : items?.toList();
-        return list;
-      },
-    );
-  }
-
   // 获取点赞/投币/收藏状态 pgc
   static Future<LoadingState<PgcLCF>> pgcLikeCoinFav({
     required Object epId,

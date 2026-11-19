@@ -18,7 +18,6 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/pages/video/related/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -341,6 +340,8 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   // 修改分P或番剧分集
   int _episodeChange = 0;
+  void Function(String bvid)? onRelatedTargetChanged;
+  bool Function(bool Function() isCurrent)? onPlayRelated;
 
   Future<bool> onChangeEpisode(
     BaseEpisodeItem episode, {
@@ -424,15 +425,6 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           videoDetailCtr.cover.value = cover;
         }
 
-        // 重新请求相关视频
-        if (videoDetailCtr.plPlayerController.showRelatedVideo) {
-          try {
-            Get.find<RelatedController>(tag: heroTag)
-              ..bvid = bvid
-              ..queryData();
-          } catch (_) {}
-        }
-
         videoDetailCtr.onReplyTargetChanged?.call();
 
         hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
@@ -453,6 +445,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
 
       this.cid.value = cid;
+      onRelatedTargetChanged?.call(bvid);
       queryOnlineTotal();
       return true;
     } catch (e, stackTrace) {
@@ -541,33 +534,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   bool playRelated() {
-    RelatedController relatedCtr;
-    if (Get.isRegistered<RelatedController>(tag: heroTag)) {
-      relatedCtr = Get.find<RelatedController>(tag: heroTag);
-    } else {
-      relatedCtr = Get.put(RelatedController(autoQuery: false), tag: heroTag)
-        ..queryData().whenComplete(playRelated);
-      return false;
-    }
-
-    if (relatedCtr.loadingState.value case Success(:final response)) {
-      final firstItem = response?.firstOrNull;
-      if (firstItem == null) {
-        SmartDialog.showToast('暂无相关视频，停止连播');
-        return false;
-      }
-      onChangeEpisode(
-        BaseEpisodeItem(
-          aid: firstItem.aid,
-          bvid: firstItem.bvid,
-          cid: firstItem.cid,
-          cover: firstItem.cover,
-        ),
-      );
-      return true;
-    }
-
-    return false;
+    final version = _episodeChange;
+    final ownsPlayback = videoDetailCtr.playbackOwner.guard();
+    return onPlayRelated?.call(
+          () => !isClosed && version == _episodeChange && ownsPlayback(),
+        ) ??
+        false;
   }
 
   // ai总结
