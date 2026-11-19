@@ -120,7 +120,6 @@ pages/match_info/controller.dart#MatchInfoController -> CommonDynController
 pages/member/widget/user_info_card.dart -> utils/accounts.dart
 pages/member_dynamics/view.dart -> utils/global_data.dart
 pages/member_search/child/view.dart -> utils/global_data.dart
-pages/member_upower_rank/controller.dart -> http/member.dart
 pages/mine/view.dart -> utils/storage.dart
 pages/music/controller.dart -> http/music.dart
 pages/music/controller.dart -> utils/accounts.dart

@@ -31,7 +31,6 @@ import 'package:pili_aurora_next/models/remote/space/space_cheese/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_opus/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_season_series/item.dart';
 import 'package:pili_aurora_next/models/remote/space/space_shop/data.dart';
-import 'package:pili_aurora_next/models/remote/upower_rank/data.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_sign.dart';
@@ -757,29 +756,6 @@ abstract final class MemberHttp {
     } catch (error, stackTrace) {
       return Error.fromException(error, stackTrace);
     }
-  }
-
-  static Future<LoadingState<UpowerRankData>> upowerRank({
-    required Account account,
-    required Object upMid,
-    required int page,
-    int? privilegeType,
-  }) async {
-    return await Request().requestApi(
-      Api.upowerRank,
-      kind: ApiCallKind.query,
-      decode: (body) => UpowerRankData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'up_mid': upMid,
-        'pn': page,
-        'ps': 100,
-        'privilege_type': ?privilegeType,
-        'mobi_app': 'web',
-        'web_location': 333.1196,
-        if (account.isLogin) 'csrf': account.csrf,
-      },
-    );
   }
 
   static Future<LoadingState<CoinLikeArcData>> coinArc({

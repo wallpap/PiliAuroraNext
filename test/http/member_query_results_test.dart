@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/member_space/data/upower_rank_repository.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
@@ -123,7 +124,7 @@ void main() {
       name: '关键词',
     ),
     'opus': () => MemberHttp.spaceOpus(hostMid: 3, page: 1),
-    'upower': () => MemberHttp.upowerRank(account: original, upMid: 3, page: 1),
+    'upower': () => UpowerRankRepository.load(original, 3),
     'coin': () => MemberHttp.coinArc(account: original, mid: 3, page: 1),
     'like': () => MemberHttp.likeArc(account: original, mid: 3, page: 1),
     'shop': () => MemberHttp.spaceShop(account: original, mid: 3),

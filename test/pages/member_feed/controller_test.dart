@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/pages/member_upower_rank/controller.dart';
+import 'package:pili_aurora_next/features/member_space/application/upower_ranking.dart';
 import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
