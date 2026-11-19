@@ -4,14 +4,13 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/http/danmaku.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_text_pub_page.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
@@ -21,9 +20,9 @@ import 'package:material_ui/material_ui.dart';
 
 class SendDanmakuPanel extends CommonTextPubPage {
   // video
-  final dynamic cid;
-  final dynamic bvid;
-  final dynamic progress;
+  final int cid;
+  final String bvid;
+  final int progress;
 
   final ValueChanged<DanmakuContentItem<DanmakuExtra>> onSuccess;
 
@@ -35,9 +34,9 @@ class SendDanmakuPanel extends CommonTextPubPage {
     super.key,
     super.initialValue,
     super.onSave,
-    this.cid,
-    this.bvid,
-    this.progress,
+    required this.cid,
+    required this.bvid,
+    required this.progress,
     required this.onSuccess,
     this.dmConfig,
     this.onSaveDmConfig,
@@ -433,7 +432,6 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (_sending.value) return;
-    final account = Accounts.main;
     final cid = widget.cid;
     final bvid = widget.bvid;
     final text = editController.text;
@@ -443,29 +441,31 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
     final isColorful = color == Colors.transparent;
     final player = PlPlayerController.instance;
     final midHash = player?.midHash;
+    final ownsPlayback = player?.activePlaybackOwner?.guard();
+    final interaction = VideoDanmakuInteractions(
+      cid,
+      mediaIsCurrent: () =>
+          mounted &&
+          cid == widget.cid &&
+          bvid == widget.bvid &&
+          (player == null ||
+              (identical(player, PlPlayerController.instance) &&
+                  player.cid == cid &&
+                  (ownsPlayback?.call() ?? true))),
+    );
     final route = ModalRoute.of(context);
     _sending.value = true;
     try {
-      final res = await DanmakuHttp.shootDanmaku(
-        account: account,
-        oid: cid,
+      final res = await interaction.send(
         bvid: bvid,
         progress: widget.progress,
-        msg: text,
+        message: text,
         mode: mode,
         fontSize: fontSize,
         color: isColorful ? null : color.toARGB32() & 0xFFFFFF,
         colorful: isColorful,
       );
-      if (!mounted ||
-          !identical(account, Accounts.main) ||
-          cid != widget.cid ||
-          bvid != widget.bvid ||
-          (player != null &&
-              (!identical(player, PlPlayerController.instance) ||
-                  player.cid != cid))) {
-        return;
-      }
+      if (res == null || !interaction.isCurrent) return;
       if (res case Success(:final response)) {
         hasPub =
             text == editController.text &&
@@ -483,8 +483,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
             },
             selfSend: true,
             isColorful: isColorful,
-            extra: response.dmid != null && midHash != null
-                ? VideoDanmaku(id: response.dmid!, mid: midHash)
+            extra: response != null && midHash != null
+                ? VideoDanmaku(id: response, mid: midHash)
                 : null,
           ),
         );

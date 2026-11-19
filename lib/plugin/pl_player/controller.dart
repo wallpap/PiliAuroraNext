@@ -587,6 +587,22 @@ class PlPlayerController
   }
 
   DanmakuDisplayBinding? danmakuDisplay;
+
+  bool Function() captureDanmakuMedia() {
+    final part = cid;
+    final display = danmakuDisplay;
+    final owner = activePlaybackOwner;
+    final ownsPlayback = owner?.guard();
+    final request = _session.revision;
+    return () =>
+        !_facadeDisposed &&
+        cid == part &&
+        identical(display, danmakuDisplay) &&
+        identical(owner, activePlaybackOwner) &&
+        request == _session.revision &&
+        (ownsPlayback?.call() ?? true);
+  }
+
   DanmakuInteractionHandle<DanmakuExtra>? get danmakuInteraction =>
       danmakuDisplay?.interaction();
   void clearDanmakuDisplay() => danmakuDisplay?.clear();

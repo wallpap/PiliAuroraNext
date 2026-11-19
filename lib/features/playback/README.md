@@ -2,6 +2,7 @@
 
 - `application/subtitle_sources.dart` 按视频页面持有字幕缓存，导出使用打开对话框时的快照；切集后不提交旧缓存。`data/subtitle_repository.dart` 读取远端字幕并保留原始 JSON 导出。
 - `application/video_metadata.dart` 查询互动节点和弹幕趋势；互动分支只接受当前媒体的最新请求。
+- `application/video_danmaku_interactions.dart` 接受当前账号和视频的点赞查询、点赞、撤回、举报与发送。过期点赞查询不覆盖确认写入；确认撤回才移除显示项；举报成功和附加屏蔽结果分别结算。点播菜单、弹幕列表和直播聊天复用 `presentation/` 的弹幕操作。
 - `application/audio_media.dart` 解析音频媒体源，传输协议、音轨与音量字段映射留在 `data/`。
 - `application/live_chat_connection.dart` 持有直播消息流、连接代次和凭据缓存；房间切换释放旧连接，页面仍管理聊天列表及滚动。
 

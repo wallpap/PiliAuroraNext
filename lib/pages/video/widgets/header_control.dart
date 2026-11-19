@@ -3,12 +3,11 @@ import 'dart:io' show Platform;
 
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
-import 'package:pili_aurora_next/http/danmaku.dart';
-import 'package:pili_aurora_next/http/danmaku_block.dart';
-import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_like_control.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
@@ -21,13 +20,11 @@ import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_mixin.dart';
-import 'package:pili_aurora_next/pages/video/widgets/danmaku_like_control.dart';
 import 'package:pili_aurora_next/pages/video/widgets/more_settings_sheet.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_controls.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -172,155 +169,6 @@ class HeaderControl extends StatefulWidget {
 
   @override
   State<HeaderControl> createState() => HeaderControlState();
-
-  static Future<bool> likeDanmaku(VideoDanmaku extra, int cid) async {
-    final account = Accounts.main;
-    if (!account.isLogin) {
-      SmartDialog.showToast('请先登录');
-      return false;
-    }
-    final isLike = !extra.isLike;
-    final res = await DanmakuHttp.danmakuLike(
-      account: account,
-      isLike: isLike,
-      cid: cid,
-      id: extra.id,
-    );
-    if (!identical(account, Accounts.main)) return false;
-    if (res.isSuccess) {
-      extra.isLike = isLike;
-      if (isLike) {
-        extra.like++;
-      } else {
-        extra.like--;
-      }
-      SmartDialog.showToast('${isLike ? '' : '取消'}点赞成功');
-      return true;
-    } else {
-      if (res case Error(:final code)) {
-        if (code == 65006) {
-          extra.isLike = true;
-          return true;
-        }
-        if (code == 65004) {
-          extra.isLike = false;
-          return true;
-        }
-      }
-      res.toast();
-      return false;
-    }
-  }
-
-  static Future<bool> deleteDanmaku(int id, int cid) async {
-    final account = Accounts.main;
-    final res = await DanmakuHttp.danmakuRecall(
-      account: account,
-      cid: cid,
-      id: id,
-    );
-    if (!identical(account, Accounts.main)) return false;
-    if (res.isSuccess) {
-      SmartDialog.showToast('删除成功');
-      return true;
-    } else {
-      res.toast();
-      return false;
-    }
-  }
-
-  static Future<void> reportDanmaku(
-    BuildContext context, {
-    required VideoDanmaku extra,
-    required PlPlayerController ctr,
-  }) {
-    final account = Accounts.main;
-    final cid = ctr.cid;
-    if (cid == null) return SmartDialog.showToast('视频信息缺失，请重试');
-    if (account.isLogin) {
-      return autoWrapReportDialog(
-        context,
-        ReportOptions.danmakuReport,
-        withContent: ReportOptions.danmakuReportCheck,
-        contentRequired: ReportOptions.danmakuReportCheck,
-        (reasonType, reasonDesc, banUid) async {
-          if (!identical(account, Accounts.main) || cid != ctr.cid) {
-            return const Error('账号或视频已切换，请重新打开举报页面');
-          }
-          final result = await DanmakuHttp.danmakuReport(
-            account: account,
-            reason: reasonType,
-            cid: cid,
-            id: extra.id,
-            content: reasonDesc,
-          );
-          if (!result.isSuccess ||
-              !identical(account, Accounts.main) ||
-              cid != ctr.cid) {
-            return result;
-          }
-          if (banUid) {
-            try {
-              final filter = ctr.filters;
-              if (filter.dmUid.add(extra.mid)) {
-                filter.count++;
-                ctr.filters = filter;
-                await GStorage.localCache.put(
-                  LocalCacheKey.danmakuFilterRules,
-                  filter,
-                );
-              }
-              final blockResult = await DanmakuFilterHttp.danmakuFilterAdd(
-                account: account,
-                filter: extra.mid,
-                type: 2,
-              );
-              if (blockResult is Error) {
-                return Success('举报成功；屏蔽规则同步：$blockResult');
-              }
-            } catch (error, stackTrace) {
-              final failure = Error.fromException(error, stackTrace);
-              return Success('举报成功；本地屏蔽保存失败：$failure');
-            }
-          }
-          return result;
-        },
-      );
-    } else {
-      return SmartDialog.showToast('请先登录');
-    }
-  }
-
-  static Future<void> reportLiveDanmaku(
-    BuildContext context, {
-    required int roomId,
-    required String msg,
-    required LiveDanmaku extra,
-    bool Function()? roomIsCurrent,
-  }) {
-    final interaction = LiveRoomInteractions(
-      roomId,
-      roomIsCurrent: () => context.mounted && (roomIsCurrent?.call() ?? true),
-    );
-    if (interaction.isLogin) {
-      return autoWrapReportDialog(
-        context,
-        ban: false,
-        isCurrent: () => interaction.isCurrent,
-        ReportOptions.liveDanmakuReport,
-        withContent: ReportOptions.liveDanmakuReportCheck,
-        contentRequired: ReportOptions.liveDanmakuReportCheck,
-        (reasonType, reasonDesc, banUid) => interaction.reportMessage(
-          msg,
-          extra,
-          reason: ReportOptions.liveDanmakuReport['']![reasonType]!,
-          reasonId: reasonType,
-        ),
-      );
-    } else {
-      return SmartDialog.showToast('请先登录');
-    }
-  }
 }
 
 class HeaderControlState extends State<HeaderControl>
@@ -748,9 +596,16 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   void showDanmakuPool() {
-    if (plPlayerController.danmakuInteraction == null) return;
+    final player = plPlayerController;
+    final cid = player.cid;
+    final display = player.danmakuDisplay;
+    final mediaIsCurrent = player.captureDanmakuMedia();
+    if (cid == null || display == null || player.danmakuInteraction == null) {
+      return;
+    }
+    bool isCurrent() => mounted && mediaIsCurrent();
     showBottomSheet((context, setState) {
-      final ctr = plPlayerController.danmakuInteraction;
+      final ctr = isCurrent() ? player.danmakuInteraction : null;
       final theme = Theme.of(context);
       final isPortrait =
           MediaQuery.orientationOf(context) == Orientation.portrait;
@@ -796,7 +651,12 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                   child: CustomScrollView(
                     slivers: [
-                      ?_buildDanmakuList(ctr?.snapshot ?? const []),
+                      ?_buildDanmakuList(
+                        ctr?.snapshot ?? const [],
+                        cid: cid,
+                        isCurrent: isCurrent,
+                        remove: (id) => display.remove?.call(id),
+                      ),
                       const SliverToBoxAdapter(child: SizedBox(height: 12)),
                     ],
                   ),
@@ -809,7 +669,12 @@ class HeaderControlState extends State<HeaderControl>
     });
   }
 
-  Widget? _buildDanmakuList(List<DanmakuDisplaySnapshot<DanmakuExtra>> list) {
+  Widget? _buildDanmakuList(
+    List<DanmakuDisplaySnapshot<DanmakuExtra>> list, {
+    required int cid,
+    required bool Function() isCurrent,
+    required void Function(int) remove,
+  }) {
     if (list.isEmpty) return null;
 
     return SliverList.builder(
@@ -830,13 +695,8 @@ class HeaderControlState extends State<HeaderControl>
             children: [
               DanmakuLikeControl(
                 extra: extra,
-                cid: plPlayerController.cid!,
-                onLike: () async {
-                  await HeaderControl.likeDanmaku(
-                    extra,
-                    plPlayerController.cid!,
-                  );
-                },
+                cid: cid,
+                isCurrent: isCurrent,
                 builder: (context, onLike) => Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -864,23 +724,23 @@ class HeaderControlState extends State<HeaderControl>
               ),
               if (item.selfSend)
                 iconButton(
-                  onPressed: () =>
-                      HeaderControl.deleteDanmaku(
-                        extra.id,
-                        plPlayerController.cid!,
-                      ).then(
-                        (_) => plPlayerController.danmakuDisplay?.remove?.call(
-                          extra.id,
-                        ),
-                      ),
+                  onPressed: () => recallVideoDanmaku(
+                    VideoDanmakuInteractions(cid, mediaIsCurrent: isCurrent),
+                    extra.id,
+                    onRecalled: () => remove(extra.id),
+                  ),
                   icon: const Icon(CustomIcons.player_dm_tip_recall),
                 )
               else
                 iconButton(
-                  onPressed: () => HeaderControl.reportDanmaku(
+                  onPressed: () => reportVideoDanmaku(
                     context,
-                    extra: extra,
-                    ctr: plPlayerController,
+                    VideoDanmakuInteractions(cid, mediaIsCurrent: isCurrent),
+                    extra,
+                    blockRules: (
+                      read: () => plPlayerController.filters,
+                      publish: (rules) => plPlayerController.filters = rules,
+                    ),
                   ),
                   icon: const Icon(CustomIcons.player_dm_tip_back),
                 ),

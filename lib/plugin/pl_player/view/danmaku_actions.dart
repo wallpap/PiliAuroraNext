@@ -3,10 +3,11 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_like_control.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
-import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
-import 'package:pili_aurora_next/pages/video/widgets/danmaku_like_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -177,6 +178,16 @@ class PlayerDanmakuActions extends ChangeNotifier {
       _clear(notify: false);
       return const SizedBox.shrink();
     }
+    final cid = extra is VideoDanmaku ? plPlayerController.cid : null;
+    if (extra is VideoDanmaku && cid == null) {
+      _clear(notify: false);
+      return const SizedBox.shrink();
+    }
+    final mediaIsCurrent = cid == null
+        ? null
+        : plPlayerController.captureDanmakuMedia();
+    final display = cid == null ? null : plPlayerController.danmakuDisplay;
+    bool isCurrent() => context.mounted && mediaIsCurrent?.call() == true;
 
     return Positioned(
       right: right,
@@ -190,18 +201,13 @@ class PlayerDanmakuActions extends ChangeNotifier {
             VideoDanmaku() => [
               DanmakuLikeControl(
                 extra: extra,
-                cid: plPlayerController.cid!,
+                cid: cid!,
                 placeholderSize: const Size(
                   _actionItemWidth,
                   _actionItemHeight,
                 ),
                 placeholderColor: Colors.white,
-                onLike: () async {
-                  await HeaderControl.likeDanmaku(
-                    extra,
-                    plPlayerController.cid!,
-                  );
-                },
+                isCurrent: isCurrent,
                 builder: (context, onLike) => Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -250,9 +256,10 @@ class PlayerDanmakuActions extends ChangeNotifier {
                     CustomIcons.player_dm_tip_recall,
                     color: Colors.white,
                   ),
-                  onTap: () => HeaderControl.deleteDanmaku(
+                  onTap: () => recallVideoDanmaku(
+                    VideoDanmakuInteractions(cid, mediaIsCurrent: isCurrent),
                     extra.id,
-                    plPlayerController.cid!,
+                    onRecalled: () => display?.remove?.call(extra.id),
                   ),
                 )
               else
@@ -262,10 +269,14 @@ class PlayerDanmakuActions extends ChangeNotifier {
                     CustomIcons.player_dm_tip_back,
                     color: Colors.white,
                   ),
-                  onTap: () => HeaderControl.reportDanmaku(
+                  onTap: () => reportVideoDanmaku(
                     context,
-                    extra: extra,
-                    ctr: plPlayerController,
+                    VideoDanmakuInteractions(cid, mediaIsCurrent: isCurrent),
+                    extra,
+                    blockRules: (
+                      read: () => plPlayerController.filters,
+                      publish: (rules) => plPlayerController.filters = rules,
+                    ),
                   ),
                 ),
               if (seekOffset != null)
@@ -306,7 +317,7 @@ class PlayerDanmakuActions extends ChangeNotifier {
                 ),
                 onTap: () {
                   final room = liveRoomId();
-                  return HeaderControl.reportLiveDanmaku(
+                  return reportLiveDanmaku(
                     context,
                     roomId: room,
                     msg: item.text,

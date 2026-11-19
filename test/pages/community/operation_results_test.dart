@@ -30,7 +30,8 @@ import '../../support/comment_fixture.dart';
 
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:pili_aurora_next/pages/video/send_danmaku/view.dart';
-import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -277,21 +278,104 @@ void main() {
   testWidgets('弹幕操作拒绝切号迟到结果，保留服务端已点赞纠正语义', (tester) async {
     await mount(tester, const SizedBox());
     final extra = VideoDanmaku(id: 2, mid: 'sender', like: 3);
-    final like = HeaderControl.likeDanmaku(extra, 1);
+    final like = VideoDanmakuInteractions(
+      1,
+      mediaIsCurrent: () => true,
+    ).toggleLike(extra);
     await until(tester, () => requests.length == 1);
     Accounts.accountMode[AccountType.main.index] = replacement;
     requests[0].reply.complete({'code': 0});
     await settle(tester);
-    expect(await like, isFalse);
+    expect(await like, isNull);
     expect(extra.isLike, isFalse);
     expect(extra.like, 3);
-    final reconcile = HeaderControl.likeDanmaku(extra, 1);
+    final reconcile = VideoDanmakuInteractions(
+      1,
+      mediaIsCurrent: () => true,
+    ).toggleLike(extra);
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': 65006});
     await settle(tester);
-    expect(await reconcile, isTrue);
+    expect((await reconcile)!.isSuccess, isTrue);
     expect(extra.isLike, isTrue);
     expect(extra.like, 3);
+    await finish(tester);
+  });
+
+  testWidgets('旧点赞查询不会覆盖另一个弹幕菜单的确认写入', (tester) async {
+    await mount(tester, const SizedBox());
+    final readEntry = VideoDanmaku(id: 2, mid: 'sender');
+    final writeEntry = VideoDanmaku(id: 2, mid: 'sender', like: 3);
+    final first = VideoDanmakuInteractions(1, mediaIsCurrent: () => true);
+    final second = VideoDanmakuInteractions(1, mediaIsCurrent: () => true);
+    final stats = first.refreshLike(readEntry);
+    await until(tester, () => requests.length == 1);
+    final write = second.toggleLike(writeEntry);
+    await until(tester, () => requests.length == 2);
+    requests[1].reply.complete({'code': 0});
+    await settle(tester);
+    expect((await write)!.isSuccess, isTrue);
+    expect(writeEntry.isLike, isTrue);
+    expect(writeEntry.like, 4);
+
+    requests[0].reply.complete({
+      'code': 0,
+      'data': {
+        '2': {'likes': 3, 'user_like': 0},
+      },
+    });
+    await until(tester, () => requests.length == 3);
+    expect(readEntry.like, 0);
+    expect(requests[2].options.path, Api.danmakuLikeStats);
+    requests[2].reply.complete({
+      'code': 0,
+      'data': {
+        '2': {'likes': 4, 'user_like': 1},
+      },
+    });
+    await settle(tester);
+    expect((await stats)!.isSuccess, isTrue);
+    expect(readEntry.isLike, isTrue);
+    expect(readEntry.like, 4);
+    await finish(tester);
+  });
+
+  testWidgets('撤回失败或切换视频后的回执不移除显示项', (tester) async {
+    await mount(tester, const SizedBox());
+    var removed = 0;
+    var mediaCurrent = true;
+    final interaction = VideoDanmakuInteractions(
+      1,
+      mediaIsCurrent: () => mediaCurrent,
+    );
+    Future<void> recall() => recallVideoDanmaku(
+      interaction,
+      2,
+      onRecalled: () => removed++,
+    );
+
+    final failed = recall();
+    await until(tester, () => requests.length == 1);
+    requests[0].reply.complete({'code': -403, 'message': '无法撤回'});
+    await settle(tester);
+    await failed;
+    expect(removed, 0);
+
+    final stale = recall();
+    await until(tester, () => requests.length == 2);
+    mediaCurrent = false;
+    requests[1].reply.complete({'code': 0});
+    await settle(tester);
+    await stale;
+    expect(removed, 0);
+
+    mediaCurrent = true;
+    final confirmed = recall();
+    await until(tester, () => requests.length == 3);
+    requests[2].reply.complete({'code': 0});
+    await settle(tester);
+    await confirmed;
+    expect(removed, 1);
     await finish(tester);
   });
 
@@ -730,10 +814,14 @@ void main() {
       tester,
       Builder(
         builder: (context) => TextButton(
-          onPressed: () => HeaderControl.reportDanmaku(
+          onPressed: () => reportVideoDanmaku(
             context,
-            extra: VideoDanmaku(id: 7, mid: 'sender'),
-            ctr: player,
+            VideoDanmakuInteractions(player.cid!, mediaIsCurrent: () => true),
+            VideoDanmaku(id: 7, mid: 'sender'),
+            blockRules: (
+              read: () => player.filters,
+              publish: (rules) => player.filters = rules,
+            ),
           ),
           child: const Text('举报入口'),
         ),

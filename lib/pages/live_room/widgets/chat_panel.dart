@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_list.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
-import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -398,7 +398,7 @@ class LiveRoomChatPanel extends StatelessWidget {
             height: 38,
             onTap: () {
               if (!interaction.isCurrent) return;
-              HeaderControl.reportLiveDanmaku(
+              reportLiveDanmaku(
                 context,
                 roomId: roomId,
                 msg: item.text,
