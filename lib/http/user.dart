@@ -4,11 +4,9 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/features/account/domain/stat.dart';
-import 'package:pili_aurora_next/models/remote/coin_log/data.dart';
 import 'package:pili_aurora_next/models/remote/follow/data.dart';
 import 'package:pili_aurora_next/features/history/domain/data.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/data.dart';
-import 'package:pili_aurora_next/models/remote/login_log/data.dart';
 import 'package:pili_aurora_next/models/remote/media_list/data.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
 import 'package:pili_aurora_next/models/remote/space_setting/data.dart';
@@ -424,51 +422,6 @@ abstract final class UserHttp {
       queryParameters: {
         'mid': account.mid,
         'csrf': account.csrf,
-      },
-    );
-  }
-
-  static Future<LoadingState<CoinLogData>> coinLog({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.coinLog,
-      kind: ApiCallKind.query,
-      decode: (body) => CoinLogData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'jsonp': 'jsonp',
-        'web_location': '333.33',
-      },
-    );
-  }
-
-  static Future<LoadingState<LoginLogData>> loginLog({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.loginLog,
-      kind: ApiCallKind.query,
-      decode: (body) => LoginLogData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'jsonp': 'jsonp',
-        'web_location': '333.33',
-      },
-    );
-  }
-
-  static Future<LoadingState<CoinLogData>> expLog({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.expLog,
-      kind: ApiCallKind.query,
-      decode: (body) => CoinLogData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'jsonp': 'jsonp',
-        'web_location': '333.33',
       },
     );
   }

@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/account/data/account_log_repository.dart';
+import 'package:pili_aurora_next/features/account/domain/account_log.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -39,9 +41,8 @@ void main() {
     '播放列表': () => UserHttp.getMediaList(type: 1, bizId: 1, ps: 20),
     '余额': UserHttp.getCoin,
     '空间设置': () => UserHttp.spaceSetting(account: main),
-    '硬币记录': () => UserHttp.coinLog(account: main),
-    '登录记录': () => UserHttp.loginLog(account: main),
-    '经验记录': () => UserHttp.expLog(account: main),
+    for (final type in LogType.values)
+      type.title: () => AccountLogRepository.load(main, type),
     '实名': () => UserHttp.getUserRealName(1),
     '关注的人': () => UserHttp.followedUp(mid: 1, account: main, pn: 1),
     '共同关注': () => UserHttp.sameFollowing(mid: 1, account: main, pn: 1),

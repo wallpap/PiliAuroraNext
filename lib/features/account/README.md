@@ -12,6 +12,7 @@
 - `application/account_roles.dart` 与 `presentation/account_switch_dialog.dart`：账号切换草稿只保存 UID，确认时解析最新凭据。角色已改动时拒绝旧草稿。
 - `application/login_session.dart`：登录请求编排、App 与 Cookie 凭据保存。登录表单持有输入和验证码显示，编辑或关闭时忽略过期确认。
 - `application/account_logout.dart` 与 `application/login_devices.dart`：退出登录、仅清理本地以及登录设备查询。退出回执按凭据身份归属，避免清理同 UID 的新登录。
+- `application/account_logs.dart`：登录、硬币和经验记录按主账号和类型读取；页面只展示记录及重试入口。
 - `presentation/`：个人中心、收藏摘要与无痕交互；个人中心复用收藏领域的查询和成功失效通知。原 `pages/mine/view.dart` 仅适配旧壳的滚动、消息按钮和切号对话框，通过参数交给展示层。
 
 ## 所有权与结果
