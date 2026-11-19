@@ -6,6 +6,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/emote_management.dart';
 import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -83,6 +84,59 @@ void main() {
     Accounts.replaceCredentials(account('after-close'));
     expect(requests, hasLength(3));
   });
+
+  test('表情管理切换凭据后丢弃旧写入并停止旧分类翻页', () async {
+    requests.clear();
+    Accounts.accountMode[AccountType.main.index] = account('old');
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = emoteManagementProvider(Object());
+    container.listen(provider, (_, _) {});
+    final manager = container.read(provider.notifier);
+    Map<String, dynamic> panel(int id) => {
+      'code': 0,
+      'data': {
+        'user_panel_packages': [
+          {'id': id, 'text': '包 $id'},
+        ],
+      },
+    };
+    Map<String, dynamic> category(int total, int id) => {
+      'code': 0,
+      'data': {
+        'total': total,
+        'packages': [
+          {'id': id, 'text': '包 $id'},
+        ],
+      },
+    };
+    await interceptor.waitForRequests(1);
+    requests[0].reply.complete(panel(1));
+    await interceptor.waitForRequests(2);
+    final removed = manager.changePackage(
+      container.read(provider).added.single,
+      add: false,
+    );
+    await interceptor.waitForRequests(3);
+    expect(requests[2].options.path, Api.removeEmotePackage);
+    expect(container.read(provider).added.single.id, 1);
+
+    final replacement = account('new');
+    Accounts.replaceCredentials(replacement);
+    await interceptor.waitForRequests(4);
+    expect(requests[3].options.extra['account'], same(replacement));
+    requests[3].reply.complete(panel(2));
+    await interceptor.waitForRequests(5);
+    requests[4].reply.complete(category(1, 3));
+    requests[1].reply.complete(category(2, 4));
+    requests[2].reply.complete({'code': 0});
+    expect(await removed, isNull);
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(provider).added.single.id, 2);
+    expect(container.read(provider).available.single.id, 3);
+    expect(requests, hasLength(5));
+  });
+
   for (final history in [
     'invalid',
     [

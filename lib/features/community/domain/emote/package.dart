@@ -1,21 +1,21 @@
 import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 
 class Package {
-  int? id;
-  String? text;
-  String? url;
-  int? type;
-  List<Emote>? emote;
-  EmotePackageFlags? flags;
+  final int? id;
+  final String? text;
+  final String? url;
+  final int? type;
+  final List<Emote>? emote;
+  final EmotePackageFlags? flags;
 
   Package({
     this.id,
     this.text,
     this.url,
     this.type,
-    this.emote,
+    List<Emote>? emote,
     this.flags,
-  });
+  }) : emote = emote == null ? null : List.unmodifiable(emote);
 
   factory Package.fromJson(Map<String, dynamic> json) => Package(
     id: json['id'] as int?,

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/danmaku.dart';
 import 'package:pili_aurora_next/http/init.dart';
@@ -22,6 +23,7 @@ void main() {
   final main = account(1);
   final replacement = account(2);
   final heartbeat = account(3);
+  const emotes = EmoteRepository();
   Object? body;
   var failTransport = false;
   var switchAccount = false;
@@ -45,10 +47,10 @@ void main() {
         type: 1,
       ),
     ],
-    ReplyHttp.getEmoteList,
-    ReplyHttp.getEmoteSettingPanel,
-    () => ReplyHttp.getMyEmotePackages(type: 0),
-    () => ReplyHttp.getEmotePackageDetail(packageId: 1),
+    () => emotes.packages(main),
+    () => emotes.settingPanel(main),
+    () => emotes.categoryPackages(main, 0),
+    () => emotes.packageDetail(main, 1),
     () => ReplyHttp.replyInteraction(oid: 1, type: 1),
   ];
   final writes = <Future<LoadingState<dynamic>> Function()>[
@@ -59,8 +61,8 @@ void main() {
     () => DanmakuHttp.danmakuEditState(oid: 1, ids: [2], state: 1),
     () => ReplyHttp.hateReply(type: 1, action: 1, oid: 1, rpid: 2),
     () => ReplyHttp.likeReply(type: 1, action: 1, oid: 1, rpid: 2),
-    () => ReplyHttp.addEmotePackage(packageId: 1),
-    () => ReplyHttp.removeEmotePackage(packageId: 1),
+    () => emotes.changePackage(main, 1, add: true),
+    () => emotes.changePackage(main, 1, add: false),
     () => ReplyHttp.replyTop(oid: 1, type: 1, rpid: 2, isUpTop: false),
     () => ReplyHttp.report(rpid: 2, oid: 1, reasonType: 1),
     () => ReplyHttp.replySubjectModify(oid: 1, type: 1, action: 1),
@@ -248,7 +250,7 @@ void main() {
       page(3, [2, 3]),
     ]);
     switchAccount = true;
-    final result = await ReplyHttp.getMyEmotePackages(type: 0);
+    final result = await emotes.categoryPackages(main, 0);
     expect(result.data.map((item) => item.id), [1, 2, 3]);
     expect(requests, hasLength(2));
     expect(
@@ -270,11 +272,11 @@ void main() {
           last,
         ]);
       final start = requests.length;
-      final result = await ReplyHttp.getMyEmotePackages(type: 0);
+      final result = await emotes.categoryPackages(main, 0);
       expect(result, isA<Error>());
       expect(requests.length - start, 2);
     }
-    expect((await ReplyHttp.getMyEmotePackages(type: 0) as Error).code, -403);
+    expect((await emotes.categoryPackages(main, 0) as Error).code, -403);
   });
 
   test('表情包总数和详情归属必须有效，可选空列表和操作文案可保留', () async {
@@ -284,22 +286,22 @@ void main() {
         'data': {'total': total, 'packages': []},
       };
       expect(
-        (await ReplyHttp.getMyEmotePackages(type: 0) as Error).cause,
+        (await emotes.categoryPackages(main, 0) as Error).cause,
         isNotNull,
       );
     }
     body = page(0, []);
-    expect((await ReplyHttp.getMyEmotePackages(type: 0)).data, isEmpty);
+    expect((await emotes.categoryPackages(main, 0)).data, isEmpty);
     body = {
       'code': 0,
       'data': {
         'package': {'id': 2},
       },
     };
-    expect(await ReplyHttp.getEmotePackageDetail(packageId: 1), isA<Error>());
+    expect(await emotes.packageDetail(main, 1), isA<Error>());
     body = {'code': 0, 'data': <String, dynamic>{}};
-    expect((await ReplyHttp.getEmoteList()).data, isNull);
-    expect((await ReplyHttp.getEmoteSettingPanel()).data.allPackages, isEmpty);
+    expect((await emotes.packages(main)).data, isNull);
+    expect((await emotes.settingPanel(main)).data.allPackages, isEmpty);
     expect(
       (await ReplyHttp.replySubjectModify(oid: 1, type: 1, action: 1)).data,
       isNull,
@@ -316,6 +318,6 @@ void main() {
       'code': 0,
       'data': {'all_packages': 'invalid'},
     };
-    expect(await ReplyHttp.getEmoteSettingPanel(), isA<Error>());
+    expect(await emotes.settingPanel(main), isA<Error>());
   });
 }
