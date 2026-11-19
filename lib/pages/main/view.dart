@@ -25,6 +25,7 @@ import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/app_exit.dart';
+import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -102,6 +103,7 @@ class MainAppState extends PopScopeState<MainApp>
   tray.MenuItem? _trayExitItem;
   late final _exit = AppExit(
     cleanup: [
+      ('shutdown timer', closeApplicationShutdownTimer),
       ('tray', _disposeTray),
       // 小窗会回传播放进度和窗口位置，先关闭小窗再关闭主进程存储。
       if (Platform.isWindows) ...[

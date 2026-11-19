@@ -175,4 +175,21 @@ void main() {
     expect(service.isWaiting, isFalse);
     expect(exits, 1);
   });
+
+  check('应用释放定时器后旧弹层与播放租约无法触发退出', (tester) async {
+    service.action = .exit;
+    final binding = service.bindPlayer(
+      pause: () async {},
+      isPlaying: () => true,
+    );
+    service.startShutdownTimer(1);
+    service.dispose();
+    messages.clear();
+
+    service.startShutdownTimer(1);
+    await tester.pump(const Duration(minutes: 1));
+    expect(binding.complete(), isFalse);
+    expect(exits, 0);
+    expect(messages, isEmpty);
+  });
 }

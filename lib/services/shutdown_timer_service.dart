@@ -26,10 +26,18 @@ final _scheduledExit = AppExit(
   terminate: DeviceUtils.exitApp,
 );
 
-final shutdownTimerService = ShutdownTimerService(
-  exit: _scheduledExit.close,
-  notify: SmartDialog.showToast,
-);
+ShutdownTimerService? _applicationTimer;
+
+ShutdownTimerService get shutdownTimerService =>
+    _applicationTimer ??= ShutdownTimerService(
+      exit: _scheduledExit.close,
+      notify: SmartDialog.showToast,
+    );
+
+void closeApplicationShutdownTimer() {
+  _applicationTimer?.dispose();
+  _applicationTimer = null;
+}
 
 class ShutdownTimerService {
   ShutdownTimerService({required this._exit, required this._notify});
@@ -43,6 +51,7 @@ class ShutdownTimerService {
   Timer? _timer;
   DateTime? _deadline;
   int _durationInMinutes = 0;
+  bool _disposed = false;
 
   ShutdownAction action = .pause;
   bool waitUntilCompleted = false;
@@ -65,6 +74,7 @@ class ShutdownTimerService {
       isPlaying,
       supportsCompletion,
     );
+    if (_disposed) return binding;
     if (independentAudio) {
       _independentAudio = binding;
     } else {
@@ -95,6 +105,7 @@ class ShutdownTimerService {
   }
 
   void startShutdownTimer(int minutes) {
+    if (_disposed) return;
     reset();
     if (minutes == 0) {
       _notify('取消定时关闭');
@@ -105,6 +116,13 @@ class ShutdownTimerService {
     final delay = Duration(minutes: minutes);
     _deadline = DateTime.now().add(delay);
     _timer = Timer(delay, () => unawaited(_expire()));
+  }
+
+  void dispose() {
+    _disposed = true;
+    reset();
+    _player = null;
+    _independentAudio = null;
   }
 
   Future<void> _expire() async {
@@ -162,7 +180,7 @@ class ShutdownTimerService {
   void _syncProgressAndExit() {
     unawaited(
       Future<void>.sync(_exit).catchError((Object error, StackTrace stack) {
-        _notify('退出应用失败，请重试');
+        if (!_disposed) _notify('退出应用失败，请重试');
       }),
     );
   }

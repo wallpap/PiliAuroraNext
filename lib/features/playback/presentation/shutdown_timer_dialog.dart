@@ -7,14 +7,13 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPicker;
-import 'package:get/get_rx/src/rx_types/rx_types.dart';
-import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 const _kSqueeze = 1.25;
 const _kItemExtent = 38.0;
 
-final _service = shutdownTimerService;
+ShutdownTimerService get _service => shutdownTimerService;
 
 Widget _pickerBuilder(
   int count, {
@@ -44,7 +43,8 @@ void _showTimePickerDialog(
   VoidCallback onCountdown,
   StateSetter setState,
 ) {
-  final values = _service.durationInMinutes;
+  final service = _service;
+  final values = service.durationInMinutes;
   var hour = values ~/ 60;
   var minute = values % 60;
 
@@ -53,7 +53,7 @@ void _showTimePickerDialog(
 
   showDialog(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (dialogContext) => AlertDialog(
       contentPadding: const .fromLTRB(20, 6, 20, 0),
       actionsPadding: const .fromLTRB(20, 0, 20, 16),
       constraints: const .tightFor(width: 320, height: 320),
@@ -80,16 +80,17 @@ void _showTimePickerDialog(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(dialogContext),
           child: Text(
             '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
+            style: TextStyle(color: ColorScheme.of(dialogContext).outline),
           ),
         ),
         TextButton(
           onPressed: () {
-            Navigator.pop(context);
-            _service.startShutdownTimer(hour * 60 + minute);
+            Navigator.pop(dialogContext);
+            if (!context.mounted) return;
+            service.startShutdownTimer(hour * 60 + minute);
             onCountdown();
             setState(() {});
           },
@@ -271,14 +272,17 @@ class ShutdownPanel extends StatefulWidget {
 class _ShutdownPanelState extends State<ShutdownPanel> with ShutdownMixin {
   @override
   Widget build(BuildContext context) {
-    final countdown = Obx(() => widget.buildCountdownText(countdownText.value));
+    final countdown = ValueListenableBuilder<String?>(
+      valueListenable: _countdownText,
+      builder: (_, text, _) => widget.buildCountdownText(text),
+    );
     return widget.builder(context, countdown, _startTimer, setState);
   }
 }
 
 mixin ShutdownMixin<T extends StatefulWidget> on State<T> {
   Timer? _countdownTimer;
-  final RxnString countdownText = RxnString(null);
+  final _countdownText = ValueNotifier<String?>(null);
 
   @override
   void initState() {
@@ -288,7 +292,7 @@ mixin ShutdownMixin<T extends StatefulWidget> on State<T> {
 
   void _updateCountdownTextEnd([String? value]) {
     _stopTimer();
-    countdownText.value = value;
+    _countdownText.value = value;
   }
 
   bool _updateCountdownText([_]) {
@@ -306,7 +310,7 @@ mixin ShutdownMixin<T extends StatefulWidget> on State<T> {
       _updateCountdownTextEnd();
       return false;
     }
-    countdownText.value = DurationUtils.formatDuration(remaining.inSeconds);
+    _countdownText.value = DurationUtils.formatDuration(remaining.inSeconds);
     return true;
   }
 
@@ -330,6 +334,7 @@ mixin ShutdownMixin<T extends StatefulWidget> on State<T> {
   @override
   void dispose() {
     _stopTimer();
+    _countdownText.dispose();
     super.dispose();
   }
 }

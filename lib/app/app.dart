@@ -21,6 +21,7 @@ import 'package:pili_aurora_next/router/app_pages.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
+import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -44,6 +45,7 @@ class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
 
   @override
   void dispose() {
+    closeApplicationShutdownTimer();
     unawaited(
       closePlatformAudioSession().catchError((Object error, StackTrace stack) {
         logger.w('关闭系统音频会话失败', error: error.runtimeType, stackTrace: stack);
