@@ -3,7 +3,6 @@ import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/settings_models.dart';
-import 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 typedef WhisperSettingsPageData = ({
   String title,

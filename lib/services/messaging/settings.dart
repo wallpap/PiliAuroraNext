@@ -117,13 +117,15 @@ class WhisperSettingsHandle {
         _records[key] = writes.confirmed;
         _publish(state.value.title);
       }
-      return switch (result) {
-        Success() => Success(
-          WhisperSettingConfirmation._(session, key, desired),
-        ),
-        Error() => result,
-        Loading() => LoadingState.loading(),
-      };
+      final LoadingState<WhisperSettingConfirmation> confirmation =
+          switch (result) {
+            Success() => Success(
+              WhisperSettingConfirmation._(session, key, desired),
+            ),
+            Error() => result,
+            Loading() => result,
+          };
+      return confirmation;
     } finally {
       completion.complete();
     }
