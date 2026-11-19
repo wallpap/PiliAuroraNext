@@ -587,9 +587,10 @@ abstract final class LiveHttp {
     Object roomId,
     Object id,
     String type, {
+    Account? account,
     int page = 1,
   }) async {
-    final account = recommend;
+    account ??= recommend;
     final params = {
       'access_key': ?account.accessKey,
       'actionKey': 'appkey',

@@ -52,18 +52,19 @@ import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart'
     show kDebugMode, kReleaseMode, listEquals, protected;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class LiveRoomController extends GetxController {
-  LiveRoomController(this.heroTag);
+class LiveRoomController {
+  LiveRoomController(this.heroTag, this.roomId);
   final String heroTag;
 
-  int roomId = Get.arguments;
+  int roomId;
+  bool _closed = false;
+  bool get isClosed => _closed;
   int? ruid;
   final _liveDanmakuMessages =
       StreamController<LiveDanmakuMessage<DanmakuExtra>>.broadcast(sync: true);
@@ -249,9 +250,7 @@ class LiveRoomController extends GetxController {
     _sizeSub = null;
   }
 
-  @override
-  void onInit() {
-    super.onInit();
+  void open() {
     playbackOwner = plPlayerController.attachPlaybackOwner();
     _bindShutdownTimer();
     scrollController = ScrollController()..addListener(listener);
@@ -288,7 +287,6 @@ class LiveRoomController extends GetxController {
     final generation = ++_sourceGeneration;
     final ownsPlayback = playbackOwner.guard();
     final account = Accounts.heartbeat;
-    final cancelToken = CancelToken();
     final requestedRoomId = roomId;
     bool current() =>
         !isClosed &&
@@ -319,7 +317,6 @@ class LiveRoomController extends GetxController {
               requestedRoomId,
               account,
               configuration,
-              cancelToken,
               query,
               requestedQn ?? currentQn,
               current,
@@ -374,21 +371,19 @@ class LiveRoomController extends GetxController {
     int requestedRoomId,
     Account account,
     PlaybackConfiguration configuration,
-    CancelToken cancelToken,
     PlaybackQuery query,
     int? qn,
     bool Function() ownsSource,
     void Function(LiveRoomSource, PlaybackPlan, RoomPlayInfoData) prepared, {
     required bool showFailureDialog,
   }) async {
-    query.registerCancel(cancelToken.cancel);
     bool isCurrent() => ownsSource() && query.isCurrent;
     final res = await LiveRoomQueries.playback(
       room: requestedRoomId,
       account: account,
       quality: qn,
       audioOnly: configuration.audioOnly,
-      cancelToken: cancelToken,
+      registerCancel: query.registerCancel,
       current: isCurrent,
     );
     if (res == null || !isCurrent()) return null;
@@ -837,8 +832,9 @@ class LiveRoomController extends GetxController {
     if (_followingLatest) scrollToBottom();
   }
 
-  @override
-  void onClose() {
+  void close() {
+    if (_closed) return;
+    _closed = true;
     _shutdownBinding?.dispose();
     plPlayerController.closePlaybackOwner(playbackOwner);
     _stopSizeSub();
@@ -862,7 +858,6 @@ class LiveRoomController extends GetxController {
       ..dispose();
     pageController?.dispose();
     unawaited(_liveDanmakuMessages.close());
-    super.onClose();
   }
 
   // 修改画质

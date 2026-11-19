@@ -6,6 +6,7 @@ import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
+import 'package:pili_aurora_next/features/playback/data/cdn_speed_probe.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -57,7 +58,10 @@ void main() {
   Future<void> host(WidgetTester tester, {BaseItem? value}) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: CdnSelectDialog(sample: value, client: dio),
+        home: CdnSelectDialog(
+          sample: value,
+          createProbe: () => CdnSpeedProbe(client: dio),
+        ),
       ),
     );
   }

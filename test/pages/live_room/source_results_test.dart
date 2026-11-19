@@ -175,7 +175,7 @@ class _Player implements PlPlayerController {
 }
 
 class _Room extends LiveRoomController {
-  _Room(this.player) : super('source-results');
+  _Room(this.player) : super('source-results', 12);
   final _Player player;
   @override
   _Player get plPlayerController => player;
@@ -183,8 +183,7 @@ class _Room extends LiveRoomController {
 
   // 本组只装配播放所有者，避免消息及页面初始化查询干扰契约回归。
   @override
-  // ignore: must_call_super
-  void onInit() {
+  void open() {
     playbackOwner = plPlayerController.session.attach();
     scrollController = ScrollController();
   }
@@ -280,7 +279,6 @@ void main() {
     Request.dio.interceptors
       ..clear()
       ..add(interceptor);
-    Get.routing.args = 12;
   });
   setUp(() {
     settings
@@ -292,7 +290,7 @@ void main() {
     runtime = _Runtime();
     session = PlaybackSession(runtime: runtime);
     room = _Room(_Player(session))
-      ..onInit()
+      ..open()
       ..stream = _streams()
       ..currentQn = 80
       ..videoUrl = 'confirmed-source';
@@ -302,7 +300,7 @@ void main() {
     for (final request in interceptor.requests) {
       if (!request.reply.isCompleted) request.reply.complete({'code': -1});
     }
-    room.onDelete();
+    room.close();
     await session.shutdown();
   });
   tearDownAll(() async {

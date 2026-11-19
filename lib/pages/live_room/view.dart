@@ -93,10 +93,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   void initState() {
     super.initState();
     addObserverMobile(this);
-    _liveRoomController = Get.put(
-      LiveRoomController(heroTag),
-      tag: heroTag,
-    );
+    _liveRoomController = LiveRoomController(heroTag, Get.arguments)..open();
     plPlayerController = _liveRoomController.plPlayerController
       ..desktopPlaybackRequest = (() =>
           DesktopPlaybackRequest.live(_liveRoomController.roomId))
@@ -182,6 +179,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     PlPlayerController.setPlayCallBack(null, owner: this);
     plPlayerController.removeStatusLister(playerListener);
+    _liveRoomController.close();
     super.dispose();
   }
 

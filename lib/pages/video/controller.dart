@@ -8,11 +8,10 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
-import 'package:pili_aurora_next/grpc/dm.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
+import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
@@ -74,7 +73,6 @@ import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:collection/collection.dart';
-import 'package:dio/dio.dart' show CancelToken;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -161,7 +159,7 @@ class VideoDetailController extends GetxController
       playbackOwner.isActive && (_shutdownBinding?.complete() ?? false);
   PlaybackPlan? _playbackPlan;
   int _sourceSelectionGeneration = 0;
-  CancelToken? _videoQueryCancel;
+  VideoMediaQuery? _videoQueryCancel;
   ({
     VideoPlaybackSource source,
     bool videoChanged,
@@ -444,12 +442,11 @@ class VideoDetailController extends GetxController
     if (!isReverse && count != null && mediaList.length >= count) {
       return;
     }
-    final res = await UserHttp.getMediaList(
+    final res = await VideoMediaRepository.playlist(
       type: args['mediaType'] ?? sourceType.mediaType,
-      bizId: args['mediaId'] ?? -1,
-      ps: 20,
-      direction: isLoadPrevious ? true : false,
-      oid: isReverse
+      id: args['mediaId'] ?? -1,
+      previous: isLoadPrevious,
+      anchor: isReverse
           ? null
           : mediaList.isEmpty
           ? args['isContinuePlaying'] == true
@@ -458,18 +455,16 @@ class VideoDetailController extends GetxController
           : isLoadPrevious
           ? mediaList.first.aid
           : mediaList.last.aid,
-      otype: isReverse
+      anchorType: isReverse
           ? null
           : mediaList.isEmpty
           ? null
           : isLoadPrevious
           ? mediaList.first.type
           : mediaList.last.type,
-      desc: _mediaDesc,
+      descending: _mediaDesc,
       sortField: args['sortField'] ?? 1,
-      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true
-          ? true
-          : false,
+      includeAnchor: mediaList.isEmpty && args['isContinuePlaying'] == true,
     );
     if (res case Success(:final response)) {
       if (response.mediaList.isNotEmpty) {
@@ -1117,34 +1112,17 @@ class VideoDetailController extends GetxController
     queryVideoUrl(fromReset: true);
   }
 
-  Future<LoadingState<PlayUrlModel>> Function(int) _captureVideoQuery(
-    CancelToken cancelToken,
-    Account account,
-  ) {
-    final request = (
-      cid: cid.value,
-      bvid: bvid,
-      epid: epId,
-      seasonId: seasonId,
-      videoType: _actualVideoType ?? videoType,
-      language: currLang.value,
-      tryLook: plPlayerController.tryLook,
-      voiceBalance: plPlayerController.enableAudioNormalization,
-    );
-    return (quality) => VideoHttp.videoUrl(
-      cid: request.cid,
-      bvid: request.bvid,
-      qn: quality,
-      epid: request.epid,
-      seasonId: request.seasonId,
-      tryLook: request.tryLook,
-      videoType: request.videoType,
-      language: request.language,
-      voiceBalance: request.voiceBalance,
-      cancelToken: cancelToken,
-      account: account,
-    );
-  }
+  VideoMediaQuery _captureVideoQuery(Account account) => VideoMediaQuery(
+    account: account,
+    cid: cid.value,
+    bvid: bvid,
+    episode: epId,
+    season: seasonId,
+    type: _actualVideoType ?? videoType,
+    language: currLang.value,
+    tryLook: plPlayerController.tryLook,
+    voiceBalance: plPlayerController.enableAudioNormalization,
+  );
 
   Future<bool> _supplementVideoQualities(
     PlayUrlModel response,
@@ -1180,7 +1158,6 @@ class VideoDetailController extends GetxController
   }
 
   // 视频链接
-  /// merge [DownloadHttp.getVideoUrl].
   Future<void> queryVideoUrl({
     bool fromReset = false,
     bool autoFullScreenFlag = false,
@@ -1204,17 +1181,17 @@ class VideoDetailController extends GetxController
       source: _networkSource,
       mediaVolume: volume,
     );
-    final cancelToken = CancelToken();
-    _videoQueryCancel?.cancel();
-    _videoQueryCancel = cancelToken;
     final account = Accounts.get(AccountType.video);
-    final fetch = _captureVideoQuery(cancelToken, account);
+    final mediaQuery = _captureVideoQuery(account);
+    _videoQueryCancel?.cancel();
+    _videoQueryCancel = mediaQuery;
+    final fetch = mediaQuery.fetch;
     final ownsPlayback = playbackOwner.guard();
     bool ownsSource() =>
         !isClosed &&
         ownsPlayback() &&
-        !cancelToken.isCancelled &&
-        identical(_videoQueryCancel, cancelToken) &&
+        !mediaQuery.isCancelled &&
+        identical(_videoQueryCancel, mediaQuery) &&
         identical(account, Accounts.get(AccountType.video)) &&
         identity == (bvid, cid.value, epId, seasonId);
     final start =
@@ -1229,7 +1206,7 @@ class VideoDetailController extends GetxController
     final result = await submitPlaybackQuery(
       (query) {
         acceptedQuery = query;
-        query.registerCancel(cancelToken.cancel);
+        query.registerCancel(mediaQuery.cancel);
         return _queryVideoUrl(
           fromReset,
           fetch,
@@ -1554,7 +1531,7 @@ class VideoDetailController extends GetxController
     if (plPlayerController.showViewPoints) {
       viewPointList.clear();
     }
-    final res = await VideoHttp.playInfo(
+    final res = await VideoMediaRepository.metadata(
       bvid: bvid,
       cid: cid.value,
       seasonId: seasonId,
@@ -1611,29 +1588,10 @@ class VideoDetailController extends GetxController
       if (response.subtitle?.subtitles case final sub? when (sub.isNotEmpty)) {
         _setSubtitle(sub, isCurrent: isCurrent);
       } else if (!Accounts.main.isLogin) {
-        final res = await DmGrpc.dmView(aid, cid.value);
+        final res = await SubtitleRepository.publicTracks(aid, cid.value);
         if (!isCurrent()) return;
         if (res case Success(:final response)) {
-          if (response.hasSubtitle() &&
-              response.subtitle.subtitles.isNotEmpty) {
-            _setSubtitle(
-              response.subtitle.subtitles
-                  .map(
-                    (i) => Subtitle(
-                      lan: i.lan,
-                      lanDoc: i.lanDoc,
-                      subtitleUrl: i.subtitleUrl.replaceFirst(
-                        RegExp('^https?:'),
-                        '',
-                      ),
-                      isAi: i.type == .AI,
-                    ),
-                  )
-                  .toList()
-                ..sort(),
-              isCurrent: isCurrent,
-            );
-          }
+          if (response.isNotEmpty) _setSubtitle(response, isCurrent: isCurrent);
         } else {
           res.toast();
         }
@@ -1676,11 +1634,11 @@ class VideoDetailController extends GetxController
         account.isLogin &&
         !Pref.historyPause &&
         args['sortField'] != null) {
-      VideoHttp.medialistHistory(
-        account: account,
-        desc: _mediaDesc ? 1 : 0,
-        oid: aid,
-        upperMid: args['mediaId'],
+      VideoMediaRepository.recordPlaylistProgress(
+        account,
+        descending: _mediaDesc,
+        aid: aid,
+        listId: args['mediaId'],
       );
     }
   }

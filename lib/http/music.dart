@@ -4,6 +4,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_detail.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_recommend_list.dart';
+import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/wbi_sign.dart';
@@ -56,12 +57,16 @@ abstract final class MusicHttp {
   }
 
   static Future<LoadingState<List<BgmRecommend>?>> bgmRecommend(
-    String musicId,
-  ) async {
+    String musicId, {
+    Account? account,
+  }) async {
     if (musicId.trim().isEmpty) return const Error('音乐标识无效，请重新打开页面');
     return await Request().requestApi(
       Api.bgmRecommend,
       kind: ApiCallKind.query,
+      options: Options(
+        extra: {'account': account ?? Accounts.get(AccountType.recommend)},
+      ),
       decode: (body) => (body['data']?['list'] as List?)
           ?.map((item) => BgmRecommend.fromJson(item))
           .toList(),

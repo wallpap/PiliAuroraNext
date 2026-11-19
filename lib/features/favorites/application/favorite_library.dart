@@ -178,6 +178,25 @@ class FavoriteLibrary extends LibraryModule {
 
   Future<LoadingState<void>> cheese(Account account, int id, bool favorite) =>
       write(account, () => _repository.cheese(account, id, favorite));
+
+  Future<LoadingState<void>> article(
+    Account account, {
+    required int articleId,
+    String? opusId,
+    required bool remove,
+  }) => write(
+    account,
+    () => _repository.article(
+      account,
+      articleId: articleId,
+      opusId: opusId,
+      remove: remove,
+    ),
+  );
+
+  Future<LoadingState<void>> season(Account account, int id, bool remove) =>
+      write(account, () => _repository.season(account, id, remove));
+
   Future<String> uploadCover(Account account, String path) {
     if (!owns(account)) return Future.error(const Error('账号已切换'));
     return _repository.uploadCover(account, path);

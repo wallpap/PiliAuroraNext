@@ -5,13 +5,42 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
+import 'package:pili_aurora_next/grpc/dm.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 
 abstract final class SubtitleRepository {
+  static Future<LoadingState<List<Subtitle>>> publicTracks(
+    int aid,
+    int cid,
+  ) async {
+    final result = await DmGrpc.dmView(aid, cid);
+    return switch (result) {
+      Success(:final response) => Success(
+        response.hasSubtitle()
+            ? ([
+                for (final item in response.subtitle.subtitles)
+                  Subtitle(
+                    lan: item.lan,
+                    lanDoc: item.lanDoc,
+                    subtitleUrl: item.subtitleUrl.replaceFirst(
+                      RegExp('^https?:'),
+                      '',
+                    ),
+                    isAi: item.type == .AI,
+                  ),
+              ]..sort())
+            : const [],
+      ),
+      Error error => error,
+      Loading() => LoadingState.loading(),
+    };
+  }
+
   static Future<LoadingState<String>> fetch(
     String subtitleUrl, {
     SubtitleFormat format = .vtt,

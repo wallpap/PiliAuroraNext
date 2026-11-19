@@ -11,9 +11,9 @@ import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+import 'package:pili_aurora_next/features/playback/data/video_metadata_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/episode_panel_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
@@ -200,7 +200,10 @@ class _EpisodePanelState extends State<EpisodePanel>
     _favState ??= LoadingState<bool>.loading().obs;
     _favState!.value = LoadingState.loading();
     setState(() {});
-    final result = await VideoHttp.videoRelation(bvid: bvid, account: account);
+    final result = await VideoMetadataRepository.seasonSubscription(
+      account,
+      bvid,
+    );
     if (!mounted ||
         version != _favVersion ||
         !identical(account, Accounts.main) ||
@@ -208,13 +211,7 @@ class _EpisodePanelState extends State<EpisodePanel>
         bvid != widget.bvid) {
       return;
     }
-    _favState!.value = switch (result) {
-      Success(:final response) when response.seasonFav != null => Success(
-        response.seasonFav!,
-      ),
-      Error error => error,
-      _ => const Error('订阅状态未加载，请重试'),
-    };
+    _favState!.value = result;
     if (_favState!.value case Success(:final response)) {
       widget.ugcIntroController?.seasonFavState[seasonId] = response;
     }
@@ -230,10 +227,10 @@ class _EpisodePanelState extends State<EpisodePanel>
     final version = ++_favVersion;
     _favBusy.value = true;
     try {
-      final result = await FavHttp.seasonFav(
-        account: account,
-        isFav: wasFav,
-        seasonId: target,
+      final result = await FavoriteLibrary.legacy.season(
+        account,
+        target,
+        wasFav,
       );
       if (!mounted ||
           version != _favVersion ||

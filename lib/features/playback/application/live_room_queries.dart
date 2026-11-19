@@ -40,9 +40,11 @@ class LiveRoomQueries {
     required Account account,
     required int? quality,
     required bool audioOnly,
-    required CancelToken cancelToken,
+    required void Function(void Function()) registerCancel,
     required bool Function() current,
   }) async {
+    final cancelToken = CancelToken();
+    registerCancel(cancelToken.cancel);
     quality ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;

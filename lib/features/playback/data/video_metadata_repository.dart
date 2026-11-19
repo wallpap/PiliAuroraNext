@@ -4,11 +4,24 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/browser_ua.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/remote/video/video_pbp/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 abstract final class VideoMetadataRepository {
+  static Future<LoadingState<bool>> seasonSubscription(
+    Account account,
+    String bvid,
+  ) async =>
+      switch (await VideoHttp.videoRelation(bvid: bvid, account: account)) {
+        Success(:final response) when response.seasonFav != null => Success(
+          response.seasonFav!,
+        ),
+        Error error => error,
+        _ => const Error('订阅状态未加载，请重试'),
+      };
+
   static Future<LoadingState<Map<String, dynamic>>> staffRelations(
     Account account,
     Iterable<Object?> mids,

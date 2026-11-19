@@ -13,6 +13,24 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 class FavoriteRepository {
+  Future<LoadingState<void>> article(
+    Account account, {
+    required int articleId,
+    required String? opusId,
+    required bool remove,
+  }) => opusId != null
+      ? FavHttp.communityAction(
+          account: account,
+          opusId: opusId,
+          action: remove ? 4 : 3,
+        )
+      : remove
+      ? FavHttp.delFavArticle(account: account, id: articleId)
+      : FavHttp.addFavArticle(account: account, id: articleId);
+
+  Future<LoadingState<void>> season(Account account, int id, bool remove) =>
+      FavHttp.seasonFav(account: account, isFav: remove, seasonId: id);
+
   Future<FeedPage<Object, FavoriteMetadata>> page(
     Account account,
     FavoriteQuery query,

@@ -79,7 +79,6 @@ void main() {
     await tester.pump();
     expect(find.text('加载失败，点击重试'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
-    controller.onDelete();
     Get.reset();
     await tester.pump(const Duration(milliseconds: 1));
   });
