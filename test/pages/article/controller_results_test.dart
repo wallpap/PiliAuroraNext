@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -20,6 +22,8 @@ import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
 class _Article extends ArticleController {
+  _Article(super.actions);
+
   @override
   bool get showDynActionBar => false;
 }
@@ -35,6 +39,7 @@ void main() {
   final controllers = <GetxController>[];
   late LoginAccount original;
   late LoginAccount heartbeat;
+  late ProviderContainer container;
   LoginAccount account(int id, [String csrf = 'fixture']) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': csrf}),
     null,
@@ -46,7 +51,7 @@ void main() {
   }
 
   _Article article() => own(
-    _Article()
+    _Article(container.read(dynamicsActionsProvider))
       ..id = '1'
       ..type = 'read'
       ..commentId = 1,
@@ -76,6 +81,8 @@ void main() {
       ..add(interceptor);
   });
   setUp(() async {
+    container = ProviderContainer();
+    addTearDown(container.dispose);
     original = account(1, 'main');
     heartbeat = account(3, 'history');
     Accounts.accountMode[AccountType.main.index] = original;
@@ -142,7 +149,7 @@ void main() {
   }
 
   test('正文换凭据后拒绝旧结果，仅当前正文发起评论与所属账号的历史上报', () async {
-    final controller = own(_Article())..onInit();
+    final controller = article()..onInit();
     await interceptor.waitForRequests(1);
     expect(requests.single.options.extra['account'], same(original));
     final replacement = account(1, 'replacement');
@@ -266,7 +273,7 @@ void main() {
 
   test('关闭文章后重定向不重新注册控制器或启动正文查询', () async {
     Get.parameters = {'id': '1', 'type': 'read'};
-    final controller = own(_Article())..onInit();
+    final controller = article()..onInit();
     await interceptor.waitForRequests(1);
     expect(requests.single.options.method, 'HEAD');
     expect(controller.url, 'https://www.bilibili.com/read/cv1');
@@ -358,13 +365,25 @@ void main() {
     expect(find.text('暂未获取到文章动态编号，请刷新后重试'), findsOneWidget);
     controller.articleData = ArticleViewData(dynIdStr: '33');
     var save = controller.onLike();
-    await controller.onLike();
     await until(tester, () => requests.length == 1);
+    final sameDynamic = DynamicItemModel.fromJson({
+      'id_str': '33',
+      'modules': {
+        'module_stat': {
+          'like': {'status': true, 'count': 0},
+        },
+      },
+    });
+    final actions = container.read(dynamicsActionsProvider);
+    final duplicate = actions.toggleLike(original, sameDynamic, true);
+    await tester.pump();
+    expect(requests, hasLength(1));
     expect(requests.single.options.extra['account'], same(original));
     expect((requests.single.options.data as Map)['dyn_id_str'], '33');
     requests.single.reply.complete({'code': -667777, 'message': '拒绝点赞'});
     await settle(tester);
     await save;
+    await duplicate;
     expect(like.count, 0);
     expect(like.status, isTrue);
     expect(find.text('拒绝点赞'), findsOneWidget);

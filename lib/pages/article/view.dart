@@ -15,6 +15,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
     show Pic;
@@ -65,8 +66,8 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       );
 
   @override
-  final ArticleController controller = Get.putOrFind(
-    ArticleController.new,
+  late final ArticleController controller = Get.putOrFind(
+    () => ArticleController(ref.read(dynamicsActionsProvider)),
     tag: Get.parameters['type']! + Get.parameters['id']!,
   );
 

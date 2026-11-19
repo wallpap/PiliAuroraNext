@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/user.dart';
@@ -251,16 +251,13 @@ abstract final class RequestUtils {
             await Future.pause(const Duration(seconds: 5));
           }
           if (!isCurrent()) return;
-          final res = await DynamicsHttp.dynamicDetail(
-            id: id,
-            clearCookie: true,
-          );
+          final res = await DynamicDetails.legacy.checkPublicVisibility(id);
           if (!isCurrent()) return;
           if (res is Error) {
             SmartDialog.showToast('暂时无法确认动态可见性：$res');
             return;
           }
-          final isSuccess = res.data.visible != false;
+          final isSuccess = res.data;
           showDialog(
             context: Get.context!,
             barrierDismissible: isManual,

@@ -44,41 +44,61 @@ class DynamicsActions {
     if (id == null || id.isEmpty) {
       return Future.value(const Error('动态缺少 ID，请刷新后重试'));
     }
-    final pending = _liking.putIfAbsent(account, () => {});
-    if (!pending.add(id)) return null;
-    return _like(account, item, id, displayedStatus, pending);
-  }
-
-  Future<LoadingState<bool>> _like(
-    Account account,
-    DynamicItemModel item,
-    String id,
-    bool displayedStatus,
-    Set<String> pending,
-  ) async {
     final like = item.modules.moduleStat?.like;
     final status = like?.status ?? false;
+    if (status != displayedStatus) {
+      if (_liking[account]?.contains(id) == true) return null;
+      return Future.value(Success(status));
+    }
+    final pending = setLike(account, id, !status);
+    if (pending == null) return null;
+    return _updateLike(pending, account, item, id, like, !status);
+  }
+
+  Future<LoadingState<void>>? setLike(Account account, String id, bool liked) {
+    if (!identical(account, Accounts.main)) return null;
+    final pending = _liking.putIfAbsent(account, () => {});
+    if (!pending.add(id)) return null;
+    return _writeLike(account, id, liked, pending);
+  }
+
+  Future<LoadingState<void>> _writeLike(
+    Account account,
+    String id,
+    bool liked,
+    Set<String> pending,
+  ) async {
     try {
-      if (status != displayedStatus) return Success(status);
-      final result = await _repository.like(account, id, !status);
-      if (result is Error) return result;
-      if (!result.isSuccess) return const UnknownResult();
-      if (identical(account, Accounts.main) &&
-          id == item.idStr?.toString() &&
-          like != null &&
-          identical(like, item.modules.moduleStat?.like)) {
-        if (like.count case final count?) {
-          like.count = max(0, count + (status ? -1 : 1));
-        }
-        like.status = !status;
-      }
-      return Success(!status);
+      return await _repository.like(account, id, liked);
     } catch (cause, stack) {
       return UnknownResult(cause: cause, stackTrace: stack);
     } finally {
       pending.remove(id);
       if (pending.isEmpty) _liking.remove(account);
     }
+  }
+
+  Future<LoadingState<bool>> _updateLike(
+    Future<LoadingState<void>> pending,
+    Account account,
+    DynamicItemModel item,
+    String id,
+    DynamicStat? like,
+    bool liked,
+  ) async {
+    final result = await pending;
+    if (result is Error) return result;
+    if (!result.isSuccess) return const UnknownResult();
+    if (identical(account, Accounts.main) &&
+        id == item.idStr?.toString() &&
+        like != null &&
+        identical(like, item.modules.moduleStat?.like)) {
+      if (like.count case final count?) {
+        like.count = max(0, count + (liked ? 1 : -1));
+      }
+      like.status = liked;
+    }
+    return Success(liked);
   }
 
   Future<LoadingState<void>> _write(

@@ -1,5 +1,6 @@
 import 'dart:math' show max;
 
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
@@ -29,6 +30,9 @@ typedef _ArticleContext = ({
 });
 
 class ArticleController extends CommonDynController {
+  ArticleController(this._dynamicsActions);
+
+  final DynamicsActions _dynamicsActions;
   late String id;
   late String type;
 
@@ -367,13 +371,15 @@ class ArticleController extends CommonDynController {
       return;
     }
     final isLike = like.status ?? false;
+    final pending = _dynamicsActions.setLike(
+      context.account,
+      dynamicId!,
+      !isLike,
+    );
+    if (pending == null) return;
     final operation = _likeOperation = Object();
     try {
-      final res = await DynamicsHttp.thumbDynamic(
-        account: context.account,
-        dynamicId: dynamicId,
-        up: isLike ? 2 : 1,
-      );
+      final res = await pending;
       if (!_owns(context) || !identical(like, stats.value?.like)) return;
       if (res.isSuccess) {
         _infoVersion++;

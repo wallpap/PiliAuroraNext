@@ -1,9 +1,11 @@
 import 'dart:typed_data';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/article/controller.dart';
@@ -55,11 +57,17 @@ void main() {
     ),
   );
 
-  testWidgets('article content failure can be retried', (tester) async {
-    await mount(tester);
-    final controller = ArticleController()
+  ArticleController article() {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    return ArticleController(container.read(dynamicsActionsProvider))
       ..type = 'opus'
       ..id = '1';
+  }
+
+  testWidgets('article content failure can be retried', (tester) async {
+    await mount(tester);
+    final controller = article();
     addTearDown(controller.onClose);
     controller.init();
     await flush(tester);
@@ -76,9 +84,7 @@ void main() {
   });
   testWidgets('opus 回退文章后仍请求正文并允许重试', (tester) async {
     await mount(tester);
-    final controller = ArticleController()
-      ..type = 'opus'
-      ..id = '1';
+    final controller = article();
     addTearDown(controller.onClose);
     controller.init();
     await flush(tester);

@@ -14,11 +14,27 @@ final dynamicDetailsProvider = Provider(
 class DynamicDetails {
   DynamicDetails(this._repository);
 
+  static final legacy = DynamicDetails(const DynamicsRepository());
+
   final DynamicsRepository _repository;
   final _pending = HashMap<Account, Set<Object>>.identity();
 
   Future<LoadingState<DynamicItemModel>> load(Account account, Object? id) =>
-      _repository.detail(account, id);
+      _repository.detail(account: account, id: id);
+
+  Future<LoadingState<DynamicItemModel>> resolve({
+    String? id,
+    Object? replyId,
+  }) => _repository.detail(id: id, replyId: replyId);
+
+  Future<LoadingState<bool>> checkPublicVisibility(Object id) async {
+    final result = await _repository.detail(id: id, anonymous: true);
+    return switch (result) {
+      Success(:final response) => Success(response.visible != false),
+      Error error => error,
+      Loading loading => loading,
+    };
+  }
 
   Future<LoadingState<void>?> setVisibility(
     Account account,

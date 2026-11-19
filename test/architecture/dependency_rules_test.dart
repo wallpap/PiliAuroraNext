@@ -246,7 +246,7 @@ void main() {
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
   test(
-    'dynamic transports stay in community data or declared legacy callers',
+    'dynamic transports stay in community data',
     () {
       final violations = <String>[];
       const owners = {
@@ -275,13 +275,6 @@ void main() {
         'DynGrpc.repostList':
             'features/community/data/dynamic_activity_repository.dart',
       };
-      const legacyCallers = {
-        'DynamicsHttp.thumbDynamic': {'pages/article/controller.dart'},
-        'DynamicsHttp.dynamicDetail': {
-          'utils/page_utils.dart',
-          'utils/request_utils.dart',
-        },
-      };
       final candidates = owners.keys.toSet();
       final transportNames = candidates
           .map((key) => key.split('.').first)
@@ -294,8 +287,7 @@ void main() {
         final body = file.readAsStringSync();
         if (!transportNames.any(body.contains)) continue;
         for (final call in matchingStaticCalls(body, candidates)) {
-          if (source != owners[call] &&
-              legacyCallers[call]?.contains(source) != true) {
+          if (source != owners[call]) {
             violations.add('$source calls $call');
           }
         }

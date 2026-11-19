@@ -87,8 +87,18 @@ class DynamicsRepository {
         up: liked ? 1 : 2,
       );
 
-  Future<LoadingState<DynamicItemModel>> detail(Account account, Object? id) =>
-      DynamicsHttp.dynamicDetail(account: account, id: id);
+  Future<LoadingState<DynamicItemModel>> detail({
+    Account? account,
+    Object? id,
+    Object? replyId,
+    bool anonymous = false,
+  }) => DynamicsHttp.dynamicDetail(
+    account: account,
+    id: id,
+    rid: replyId,
+    type: replyId == null ? null : 2,
+    clearCookie: anonymous,
+  );
 
   Future<LoadingState<void>> setVisibility(
     Account account,

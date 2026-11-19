@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/fractionally_sized_box.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/image_viewer/gallery_viewer.dart';
 import 'package:pili_aurora_next/common/widgets/image_viewer/hero_dialog_route.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -132,10 +132,9 @@ abstract final class PageUtils {
     final request = NavigationRequest();
     try {
       request.showLoading();
-      final res = await DynamicsHttp.dynamicDetail(
+      final res = await DynamicDetails.legacy.resolve(
         id: id,
-        rid: rid,
-        type: rid != null ? 2 : null,
+        replyId: rid,
       );
       if (!request.isCurrent) return;
       if (res case Success(:final response)) {
