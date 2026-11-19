@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_protobuf.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_store.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_store.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
@@ -37,8 +39,8 @@ void main() {
     }(), throwsA(isA<DanmakuWorkCancelled>()));
     final again = await store.read(file).expand((batch) => batch).toList();
     expect(
-      again.map((e) => e.writeToBuffer()),
-      first.map((e) => e.writeToBuffer()),
+      again.map((e) => (e.progress, e.content)),
+      first.map((e) => (e.progress, e.content)),
     );
     expect(runDirectory.existsSync(), isTrue);
     expect((sorted.statSync()).modified, sortedStat.modified);
@@ -112,10 +114,10 @@ void main() {
         temporaryParent: directory,
       ).expand((b) => b).toList();
       expect(
-        actual.map((e) => e.writeToBuffer()),
-        expected.map((e) => e.$2.writeToBuffer()),
+        actual.map((e) => (e.progress, e.content, e.mode)),
+        expected.map((e) => (e.$2.progress, e.$2.content, e.$2.mode)),
       );
-      final additions = <DanmakuElem>[];
+      final additions = <DanmakuElement>[];
       await DanmakuWorkQuota.instance.runWithLease(
         64 * 1024 * 1024,
         (lease) => processOrderedDanmakuBatches(
@@ -130,7 +132,9 @@ void main() {
           },
         ),
       );
-      final merged = DanmakuMerger().merge(elements);
+      final merged = DanmakuMerger().merge(
+        elements.map(projectDanmakuElement).toList(),
+      );
       expect(
         additions.map((e) => (e.progress, e.content, e.count)),
         merged.map((e) => (e.progress, e.content, e.count)),
@@ -138,6 +142,36 @@ void main() {
       expect(directory.listSync(), hasLength(1));
     },
   );
+
+  test('sorted protobuf run preserves the exact element payload', () async {
+    final directory = await Directory.systemTemp.createTemp('pili-sort-wire-');
+    final source = File('${directory.path}/source.pb');
+    final store = OrderedDanmakuFileStore(temporaryParent: directory);
+    addTearDown(() async {
+      await store.dispose();
+      await source.delete();
+      await directory.delete();
+    });
+    const late = [0x10, 2, 0xc2, 0x0c, 3, 1, 2, 3, 0x3a, 1, 0x61];
+    const early = [0x10, 0x81, 0, 0x3a, 1, 0x62];
+    final original = [10, late.length, ...late, 10, early.length, ...early];
+    await source.writeAsBytes(original);
+
+    final elements = await store.read(source).expand((batch) => batch).toList();
+    expect(elements.map((element) => element.content), ['b', 'a']);
+    final run = directory
+        .listSync()
+        .whereType<Directory>()
+        .single
+        .listSync()
+        .whereType<File>()
+        .single;
+    expect(
+      await run.readAsBytes(),
+      [10, early.length, ...early, 10, late.length, ...late],
+    );
+    expect(await source.readAsBytes(), original);
+  });
 
   test('cancellation releases sorted runs and keeps original file', () async {
     final directory = Directory.systemTemp.createTempSync('pili-sort-cancel-');

@@ -4,28 +4,28 @@ import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
 
-int estimateDanmakuInputBytes(List<DanmakuElem> elements) =>
+int estimateDanmakuInputBytes(List<DanmakuElement> elements) =>
     64 +
     8 * elements.length +
     elements.fold<int>(
       0,
-      (bytes, element) => bytes + estimateDanmakuElementBytes(element),
+      (bytes, element) => bytes + element.storageBytes,
     );
 
 /// 输入与结果、排序双索引及有界 worker；解码租约已保留的输入不重复预约。
 int estimateDanmakuWorkBytes(
-  List<DanmakuElem> elements, {
+  List<DanmakuElement> elements, {
   bool inputAlreadyReserved = false,
 }) =>
     (inputAlreadyReserved ? 1 : 2) *
         elements.fold<int>(
           0,
-          (bytes, element) => bytes + estimateDanmakuElementBytes(element),
+          (bytes, element) => bytes + element.storageBytes,
         ) +
     32 * elements.length +
     orderedDanmakuWorkerBytes;
@@ -40,8 +40,8 @@ const orderedDanmakuWorkerBytes =
     256 * 64;
 
 /// 分段与文件合并共用后台路径，已获配批次沿用其处理预留。
-Future<List<DanmakuElem>> mergeDanmakuInBackground(
-  List<DanmakuElem> elements, {
+Future<List<DanmakuElement>> mergeDanmakuInBackground(
+  List<DanmakuElement> elements, {
   DanmakuWorkToken? token,
   DanmakuWorkLease? lease,
 }) {
@@ -53,14 +53,14 @@ Future<List<DanmakuElem>> mergeDanmakuInBackground(
   );
 }
 
-Future<List<DanmakuElem>> processDanmakuInBackground(
-  List<DanmakuElem> elements, {
+Future<List<DanmakuElement>> processDanmakuInBackground(
+  List<DanmakuElement> elements, {
   required DanmakuProcessingRules rules,
   DanmakuWorkToken? token,
   DanmakuWorkLease? lease,
   bool inputAlreadyReserved = false,
 }) {
-  Future<List<DanmakuElem>> merge() {
+  Future<List<DanmakuElement>> merge() {
     lease?.requireBytes(
       estimateDanmakuWorkBytes(
         elements,
@@ -86,7 +86,7 @@ const _mergeBatchBytes = DanmakuProcessingBudget.batchBytes;
 
 /// 已按来源稳定次序排序的文件批次，共用一个游标；接收方按范围转移结果。
 Future<void> processOrderedDanmakuBatches(
-  Stream<List<DanmakuElem>> batches, {
+  Stream<List<DanmakuElement>> batches, {
   required DanmakuProcessingRules rules,
   required void Function(DanmakuMergeDelta) consume,
   required DanmakuWorkLease lease,
@@ -138,13 +138,13 @@ Future<void> processOrderedDanmakuBatches(
   }
 });
 
-void _requireBatch(List<DanmakuElem> batch) {
+void _requireBatch(List<DanmakuElement> batch) {
   if (batch.length > _mergeBatchElements) {
     throw DanmakuWorkTooLarge(batch.length, _mergeBatchElements);
   }
   final bytes = batch.fold<int>(
     0,
-    (sum, element) => sum + estimateDanmakuElementBytes(element),
+    (sum, element) => sum + element.storageBytes,
   );
   if (bytes > _mergeBatchBytes) {
     throw DanmakuWorkTooLarge(bytes, _mergeBatchBytes);
@@ -161,7 +161,7 @@ void _mergeWorker((SendPort, DanmakuProcessingRules) request) {
       input.close();
     } else {
       try {
-        final filtered = (message as List<DanmakuElem>)
+        final filtered = (message as List<DanmakuElement>)
             .where(rules.retain)
             .toList();
         output.send(
@@ -178,7 +178,7 @@ void _mergeWorker((SendPort, DanmakuProcessingRules) request) {
 }
 
 Future<List<int>> _orderedIndices(
-  List<DanmakuElem> elements,
+  List<DanmakuElement> elements,
   DanmakuWorkToken? token,
 ) async {
   var order = List.generate(elements.length, (index) => index);
@@ -221,14 +221,14 @@ Future<List<int>> _orderedIndices(
   return order;
 }
 
-Future<List<DanmakuElem>> _mergeInWorker(
-  List<DanmakuElem> elements,
+Future<List<DanmakuElement>> _mergeInWorker(
+  List<DanmakuElement> elements,
   DanmakuWorkToken? token,
   DanmakuProcessingRules rules,
 ) async {
   if (elements.isEmpty) return [];
   rules.requireBudget();
-  // 仅排序来源索引；protobuf 对象按有界批次复制到 worker。
+  // 仅排序来源索引；弹幕元素按有界批次复制到 worker。
   final order = rules.merge
       ? await _orderedIndices(elements, token)
       : List.generate(elements.length, (index) => index);
@@ -257,15 +257,15 @@ Future<List<DanmakuElem>> _mergeInWorker(
       onExit: output.sendPort,
     );
     input = await next() as SendPort;
-    final result = <DanmakuElem>[];
+    final result = <DanmakuElement>[];
     var start = 0;
     while (start < order.length) {
       if (token?.isCancelled ?? false) throw const DanmakuWorkCancelled();
-      final batch = <DanmakuElem>[];
+      final batch = <DanmakuElement>[];
       var bytes = 0;
       while (start < order.length && batch.length < _mergeBatchElements) {
         final element = elements[order[start]];
-        final size = estimateDanmakuElementBytes(element);
+        final size = element.storageBytes;
         if (size > _mergeBatchBytes) {
           throw DanmakuWorkTooLarge(size, _mergeBatchBytes);
         }
@@ -305,9 +305,9 @@ class DanmakuMergeDelta {
     this.counts, [
     this.promotions = const {},
   ]);
-  final List<DanmakuElem> additions;
+  final List<DanmakuElement> additions;
   final Map<int, int> counts;
-  final Map<int, DanmakuElem> promotions;
+  final Map<int, DanmakuElement> promotions;
 }
 
 /// 合并窗口以首条弹幕为锚点，避免连续刷屏把后续整段内容吞掉。
@@ -320,14 +320,14 @@ class DanmakuMerger {
   static final _repeated = RegExp(r'([^0-9])\1{2,}', unicode: true);
   static final _meaning = RegExp(r'[不没无别非未]|[0-9]+');
 
-  List<DanmakuElem> merge(List<DanmakuElem> elements) {
+  List<DanmakuElement> merge(List<DanmakuElement> elements) {
     final ordered = elements.indexed.toList()
       ..sort((a, b) {
         final time = a.$2.progress.compareTo(b.$2.progress);
         return time == 0 ? a.$1.compareTo(b.$1) : time;
       });
     final cursor = DanmakuMergeCursor();
-    final result = <DanmakuElem>[];
+    final result = <DanmakuElement>[];
     for (var start = 0; start < ordered.length; start += 256) {
       final end = math.min(start + 256, ordered.length);
       result.addAll(
@@ -375,24 +375,24 @@ class DanmakuMergeCursor {
   int? _lastProgress;
   int _nextIndex = 0;
 
-  DanmakuMergeDelta appendDelta(List<DanmakuElem> elements) {
+  DanmakuMergeDelta appendDelta(List<DanmakuElement> elements) {
     final counts = <int, int>{};
-    final promotions = <int, DanmakuElem>{};
+    final promotions = <int, DanmakuElement>{};
     final additions = _appendOrdered(elements, counts, promotions);
     return DanmakuMergeDelta(additions, counts, promotions);
   }
 
-  List<DanmakuElem> appendOrdered(List<DanmakuElem> elements) =>
+  List<DanmakuElement> appendOrdered(List<DanmakuElement> elements) =>
       _appendOrdered(elements, null, null);
 
-  List<DanmakuElem> _appendOrdered(
-    List<DanmakuElem> elements,
+  List<DanmakuElement> _appendOrdered(
+    List<DanmakuElement> elements,
     Map<int, int>? counts,
-    Map<int, DanmakuElem>? promotions,
+    Map<int, DanmakuElement>? promotions,
   ) {
     var previous = _lastProgress;
     for (final element in elements) {
-      final bytes = estimateDanmakuElementBytes(element);
+      final bytes = element.storageBytes;
       if (bytes > _mergeBatchBytes) {
         throw DanmakuWorkTooLarge(bytes, _mergeBatchBytes);
       }
@@ -409,7 +409,7 @@ class DanmakuMergeCursor {
       previous = element.progress;
     }
     _lastProgress = previous;
-    final result = <DanmakuElem>[];
+    final result = <DanmakuElement>[];
     String normalizedText(String content) {
       final cached = _normalizedTexts[content];
       if (cached != null) return cached;
@@ -587,13 +587,13 @@ class _DistanceMatcher {
 class _MergeGroup {
   _MergeGroup(this.element, this.text, this.runes, this.meaning, this.index);
   final int index;
-  final DanmakuElem element;
+  final DanmakuElement element;
   final String text;
   final List<int> runes;
   final String meaning;
   int get bytes =>
       384 +
-      estimateDanmakuElementBytes(element) +
+      element.storageBytes +
       2 * (text.length + meaning.length) +
       8 * runes.length;
 }

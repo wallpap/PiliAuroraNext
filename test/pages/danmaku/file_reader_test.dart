@@ -1,8 +1,9 @@
 import 'dart:io';
 
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 
 Future<File> _fixture(List<int> bytes) async {
@@ -34,7 +35,22 @@ void main() {
     () async {
       final reply = DmSegMobileReply(
         elems: [
-          DanmakuElem(content: '长' * 15000, progress: 360100, mode: 7),
+          DanmakuElem(
+            content: '长' * 15000,
+            progress: 360100,
+            mode: 7,
+            id: Int64.parseInt('9223372036854775807'),
+            idStr: '9223372036854775807',
+            fontsize: 25,
+            color: 0xAABBCC,
+            midHash: 'sender',
+            weight: 8,
+            pool: 3,
+            likeCount: Int64(42),
+            colorful: DmColorfulType.VipGradualColor,
+            count: 2,
+            isSelf: true,
+          ),
           DanmakuElem(content: '另' * 15000, progress: 360101, mode: 7),
           for (var i = 0; i < 8; i++) DanmakuElem(content: '条目$i', progress: i),
         ],
@@ -50,9 +66,44 @@ void main() {
       ).toList();
       expect(batches.every((batch) => batch.length <= 2), isTrue);
       expect(
-        batches.expand((b) => b).map((e) => e.writeToBuffer()),
-        DmSegMobileReply.fromBuffer(encoded).elems
-            .map((e) => e.writeToBuffer()),
+        batches
+            .expand((batch) => batch)
+            .map(
+              (element) => (
+                element.id,
+                element.idStr,
+                element.progress,
+                element.mode,
+                element.fontSize,
+                element.color,
+                element.midHash,
+                element.content,
+                element.weight,
+                element.pool,
+                element.likeCount,
+                element.vipGradient,
+                element.count,
+                element.isSelf,
+              ),
+            ),
+        reply.elems.map(
+          (element) => (
+            element.id.toInt(),
+            element.idStr,
+            element.progress,
+            element.mode,
+            element.fontsize,
+            element.color,
+            element.midHash,
+            element.content,
+            element.weight,
+            element.pool,
+            element.likeCount.toInt(),
+            element.colorful == DmColorfulType.VipGradualColor,
+            element.count,
+            element.isSelf,
+          ),
+        ),
       );
     },
   );

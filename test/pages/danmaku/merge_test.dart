@@ -1,17 +1,17 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 
-DanmakuElem _dm(
+DanmakuElement _dm(
   String text,
   int time, {
   int mode = 1,
   bool self = false,
   int pool = 0,
-}) => DanmakuElem(
+}) => DanmakuElement(
   content: text,
   progress: time,
   mode: mode,
@@ -60,31 +60,38 @@ void main() {
   });
 
   test('batch partition does not alter dense matching or result order', () {
-    final input = List.generate(
-      5000,
-      (i) => _dm(
-        i % 3 == 0 ? '重复的长弹幕内容' : '独立条目编号$i',
-        i * 11,
-        mode: i % 31 == 0 ? 7 : 1,
-        self: i % 43 == 0,
-        pool: i % 7 == 0 ? 3 : 0,
-      ),
-    );
-    List<List<int>> run(int batchSize) {
+    const length = 5000;
+    List<Object> run(int batchSize) {
       final cursor = DanmakuMergeCursor();
-      final result = <DanmakuElem>[];
-      for (var start = 0; start < input.length; start += batchSize) {
+      final result = <DanmakuElement>[];
+      for (var start = 0; start < length; start += batchSize) {
         result.addAll(
           cursor.appendOrdered([
-            for (var i = start; i < min(start + batchSize, input.length); i++)
-              DanmakuElem.fromBuffer(input[i].writeToBuffer()),
+            for (var i = start; i < min(start + batchSize, length); i++)
+              _dm(
+                i % 3 == 0 ? '重复的长弹幕内容' : '独立条目编号$i',
+                i * 11,
+                mode: i % 31 == 0 ? 7 : 1,
+                self: i % 43 == 0,
+                pool: i % 7 == 0 ? 3 : 0,
+              ),
           ]),
         );
       }
-      return result.map((e) => e.writeToBuffer()).toList();
+      return [
+        for (final element in result)
+          (
+            element.progress,
+            element.content,
+            element.mode,
+            element.pool,
+            element.isSelf,
+            element.count,
+          ),
+      ];
     }
 
-    final expected = run(input.length);
+    final expected = run(length);
     for (final size in [1, 7, 256, 1024]) {
       expect(run(size), expected, reason: 'batchSize=$size');
     }

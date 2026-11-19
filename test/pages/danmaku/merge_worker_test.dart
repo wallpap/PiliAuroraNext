@@ -2,20 +2,20 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 
-DanmakuElem _dm(
+DanmakuElement _dm(
   String text,
   int time, {
   int mode = 1,
   bool self = false,
   int pool = 0,
-}) => DanmakuElem(
+}) => DanmakuElement(
   content: text,
   progress: time,
   mode: mode,
@@ -115,8 +115,18 @@ void main() {
       _dm('early', 100),
       _dm('blocked', 101),
       _dm('PATTERN', 102),
-      _dm('uid blocked', 103)..midHash = 'uid',
-      _dm('blocked own', 104)..midHash = 'own',
+      DanmakuElement(
+        content: 'uid only',
+        progress: 103,
+        mode: 1,
+        midHash: 'uid',
+      ),
+      DanmakuElement(
+        content: 'blocked own',
+        progress: 104,
+        mode: 1,
+        midHash: 'own',
+      ),
       _dm('blocked stale own', 105, self: true),
       _dm('other segment', 360000),
     ];
@@ -144,7 +154,7 @@ void main() {
   test(
     'worker output matches in-process merge for a dense mixed batch',
     () async {
-      final input = List.generate(
+      List<DanmakuElement> inputItems() => List.generate(
         1100,
         (i) => _dm(
           i % 4 == 0 ? '相同长弹幕内容' : '原始条目$i',
@@ -153,14 +163,19 @@ void main() {
           self: i % 37 == 0,
         ),
       )..shuffle(Random(19));
-      final expected = DanmakuMerger().merge([
-        for (final element in input)
-          DanmakuElem.fromBuffer(element.writeToBuffer()),
-      ]);
+      final input = inputItems();
+      final expected = DanmakuMerger().merge(inputItems());
       final actual = await mergeDanmakuInBackground(input);
+      Object snapshot(DanmakuElement element) => (
+        element.progress,
+        element.content,
+        element.mode,
+        element.isSelf,
+        element.count,
+      );
       expect(
-        actual.map((e) => e.writeToBuffer()),
-        expected.map((e) => e.writeToBuffer()),
+        actual.map(snapshot),
+        expected.map(snapshot),
       );
       expect(input.every((e) => e.count == 0), isTrue);
     },
@@ -185,7 +200,12 @@ void main() {
     'background merge preserves metadata and leaves input untouched',
     () async {
       final elements = [
-        _dm('同样的内容', 20)..idStr = 'original',
+        DanmakuElement(
+          content: '同样的内容',
+          progress: 20,
+          mode: 1,
+          idStr: 'original',
+        ),
         _dm('同样的内容', 30),
         _dm('同样的内容', 40, self: true),
         _dm('同样的内容', 10, mode: 5),

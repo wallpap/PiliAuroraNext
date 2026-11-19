@@ -10,9 +10,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
@@ -53,7 +53,7 @@ Future<void> _runProbe(List<String> args) async {
     maxPerBucket: cap,
     maxBytes: 20 * 1024 * 1024,
   );
-  final elements = <DanmakuElem>[];
+  final elements = <DanmakuElement>[];
   await for (final batch in readDanmakuFile(File(args[2]))) {
     for (final e in batch) {
       if (e.progress >= startMs &&
@@ -115,7 +115,7 @@ Future<void> _runProbe(List<String> args) async {
 class _Source implements DanmakuTimelineSource {
   _Source(this.cache, this.input);
   final DanmakuCache cache;
-  final List<DanmakuElem> input;
+  final List<DanmakuElement> input;
   @override
   Stream<DanmakuSourceChange> get changes => const Stream.empty();
   @override

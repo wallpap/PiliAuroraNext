@@ -10,6 +10,7 @@ import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/http/init.dart';
@@ -34,10 +35,16 @@ class _Player implements PlPlayerController {
   RuleFilter filters = RuleFilter(['屏蔽'], [], {});
 
   @override
+  Set<int> dmState = {};
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-DanmakuElem _dm(String text, int time) =>
+DanmakuElement _dm(String text, int time, {int pool = 0}) =>
+    DanmakuElement(content: text, progress: time, mode: 1, pool: pool);
+
+DanmakuElem _wireDm(String text, int time) =>
     DanmakuElem(content: text, progress: time, mode: 1);
 
 void main() {
@@ -86,10 +93,10 @@ void main() {
     await file.writeAsBytes(
       DmSegMobileReply(
         elems: [
-          _dm('等待提升', 0)..weight = 1,
-          for (var i = 0; i < 120; i++) _dm('独立内容$i', i % 90)..weight = 9,
-          for (var i = 0; i < 300; i++) _dm('其他时间$i', 1000 + i * 100),
-          _dm('等待提升', 10000)..weight = 11,
+          _wireDm('等待提升', 0)..weight = 1,
+          for (var i = 0; i < 120; i++) _wireDm('独立内容$i', i % 90)..weight = 9,
+          for (var i = 0; i < 300; i++) _wireDm('其他时间$i', 1000 + i * 100),
+          _wireDm('等待提升', 10000)..weight = 11,
         ],
       ).writeToBuffer(),
     );
@@ -114,6 +121,7 @@ void main() {
     'dense valid gRPC segment remains available after decode and processing',
     () async {
       final reply = DmSegMobileReply(
+        state: 1,
         elems: [
           for (var i = 0; i < 17502; i++)
             DanmakuElem(
@@ -134,8 +142,10 @@ void main() {
             ),
         ],
       );
-      Request.dio.httpClientAdapter = _DmAdapter()..reply = reply;
-      final source = PlDanmakuController(1, _Player(), false);
+      final adapter = _DmAdapter()..reply = reply;
+      Request.dio.httpClientAdapter = adapter;
+      final player = _Player();
+      final source = PlDanmakuController(1, player, false);
       addTearDown(source.dispose);
       await source.ensureRange(0, 360000000);
       final range = source.readRange(0, 360000000);
@@ -143,6 +153,12 @@ void main() {
       expect(range.entries, hasLength(reply.elems.length));
       expect(range.entries.first.content, '正常弹幕0');
       expect(range.entries.last.content, '正常弹幕17501');
+      expect(player.dmState, {1});
+      final request = adapter.requests.single;
+      expect(
+        (request.oid.toInt(), request.segmentIndex.toInt(), request.type),
+        (1, 1, 1),
+      );
     },
   );
 
@@ -228,10 +244,10 @@ void main() {
     await file.writeAsBytes(
       DmSegMobileReply(
         elems: [
-          _dm('跨段重复', 360100),
-          _dm('屏蔽内容', 360200),
-          for (var i = 0; i < 600; i++) _dm('条目$i', 1000 + i * 100),
-          _dm('跨段重复', 359900),
+          _wireDm('跨段重复', 360100),
+          _wireDm('屏蔽内容', 360200),
+          for (var i = 0; i < 600; i++) _wireDm('条目$i', 1000 + i * 100),
+          _wireDm('跨段重复', 359900),
         ],
       ).writeToBuffer(),
     );
@@ -255,7 +271,7 @@ void main() {
     await source.ensureRange(0, 2000000);
     expect(source.readRange(0, 2000000).isLoaded, isTrue);
     await file.writeAsBytes(
-      DmSegMobileReply(elems: [_dm('文件已替换', 100)]).writeToBuffer(),
+      DmSegMobileReply(elems: [_wireDm('文件已替换', 100)]).writeToBuffer(),
     );
     await source.ensureRange(0, 2000000);
     expect(
@@ -526,11 +542,11 @@ void main() {
       final controller = PlDanmakuController(1, _Player(), false);
       addTearDown(controller.dispose);
       await controller.handleDanmaku([
-        _dm('5', 26600)..pool = 3,
-        _dm('5', 27082)..pool = 3,
-        _dm('1', 42600)..pool = 3,
-        _dm('5', 42600)..pool = 3,
-        _dm('1', 42796)..pool = 3,
+        _dm('5', 26600, pool: 3),
+        _dm('5', 27082, pool: 3),
+        _dm('1', 42600, pool: 3),
+        _dm('5', 42600, pool: 3),
+        _dm('1', 42796, pool: 3),
       ], segmentIndex: 0);
       final cached = controller.peekBufferedDanmaku(26000, 43000).toList();
       expect(cached.map((e) => e.content), ['5', '1']);
@@ -608,7 +624,7 @@ class _HoldingController extends PlDanmakuController {
 
   @override
   Future<void> handleDanmaku(
-    List<DanmakuElem> elems, {
+    List<DanmakuElement> elems, {
     int? segmentIndex,
     DanmakuWorkLease? lease,
   }) async {
@@ -623,6 +639,7 @@ class _DmAdapter implements HttpClientAdapter {
   bool fail = false;
   int progress = 100;
   DmSegMobileReply? reply;
+  final requests = <DmSegMobileReq>[];
 
   @override
   Future<ResponseBody> fetch(
@@ -631,6 +648,11 @@ class _DmAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     calls++;
+    requests.add(
+      DmSegMobileReq.fromBuffer(
+        GrpcReq.decompressProtobuf(options.data as Uint8List),
+      ),
+    );
     if (fail) {
       return ResponseBody.fromBytes(
         [],
@@ -643,7 +665,7 @@ class _DmAdapter implements HttpClientAdapter {
     final reply =
         this.reply ??
         DmSegMobileReply(
-          elems: [_dm('重复', progress), _dm('重复', progress + 1)],
+          elems: [_wireDm('重复', progress), _wireDm('重复', progress + 1)],
         );
     return ResponseBody.fromBytes(
       GrpcReq.compressProtobuf(reply.writeToBuffer()),

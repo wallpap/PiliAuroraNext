@@ -1,16 +1,15 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 
-DanmakuElem _dm(
+DanmakuElement _dm(
   int id, {
   int weight = 3,
   int progress = 0,
   bool self = false,
-}) => DanmakuElem(
+}) => DanmakuElement(
   content: '$id',
   progress: progress,
   weight: weight,
@@ -75,7 +74,7 @@ void main() {
     final bytes =
         items.fold<int>(
           0,
-          (sum, e) => sum + estimateDanmakuElementBytes(e) + 64,
+          (sum, e) => sum + e.storageBytes + 64,
         ) +
         retained.buckets.length * 128;
     expect(retained.estimatedBytes, bytes);
@@ -93,7 +92,7 @@ void main() {
       ..add(0, _dm(0))
       ..add(1, _dm(1));
     final after = retained.estimatedBytes;
-    retained.add(2, DanmakuElem(content: 'x' * 2000, weight: 11));
+    retained.add(2, DanmakuElement(content: 'x' * 2000, weight: 11));
     expect(before, 128);
     expect(retained.estimatedBytes, after);
     expect(retained.buckets[0]!.length, 1);

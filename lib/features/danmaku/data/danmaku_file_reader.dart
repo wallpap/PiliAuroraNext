@@ -3,16 +3,58 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute;
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_protobuf.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 
-List<DanmakuElem> _decodeElements(List<Uint8List> messages) =>
-    messages.map(DanmakuElem.fromBuffer).toList();
+List<DanmakuElement> _decodeElements(List<Uint8List> messages) =>
+    messages.map(decodeDanmakuElement).toList();
+
+typedef DanmakuFileRecord = ({int progress, Uint8List wire});
+
+List<DanmakuFileRecord> _decodeRecords(List<Uint8List> messages) => [
+  for (final wire in messages)
+    (progress: decodeDanmakuProgress(wire), wire: wire),
+];
 
 /// 按顶层 elems 字段读取下载的 protobuf 文件，不构造整份编码副本。
-Stream<List<DanmakuElem>> readDanmakuFile(
+Stream<List<DanmakuElement>> readDanmakuFile(
   File file, {
+  DanmakuWorkToken? token,
+  int batchElements = DanmakuProcessingBudget.batchElements,
+  int batchBytes = DanmakuProcessingBudget.batchBytes,
+}) => _readDanmakuFile(
+  file,
+  _decodeElements,
+  token: token,
+  batchElements: batchElements,
+  batchBytes: batchBytes,
+);
+
+Stream<List<DanmakuFileRecord>> readDanmakuFileRecords(
+  File file, {
+  DanmakuWorkToken? token,
+}) => _readDanmakuFile(file, _decodeRecords, token: token);
+
+Future<void> writeDanmakuFileRecord(
+  RandomAccessFile writer,
+  DanmakuFileRecord record,
+) async {
+  var length = record.wire.length;
+  final header = <int>[10];
+  while (length >= 128) {
+    header.add((length & 0x7f) | 0x80);
+    length >>= 7;
+  }
+  header.add(length);
+  await writer.writeFrom(Uint8List.fromList(header));
+  await writer.writeFrom(record.wire);
+}
+
+Stream<List<T>> _readDanmakuFile<T>(
+  File file,
+  List<T> Function(List<Uint8List>) decode, {
   DanmakuWorkToken? token,
   int batchElements = DanmakuProcessingBudget.batchElements,
   int batchBytes = DanmakuProcessingBudget.batchBytes,
@@ -36,7 +78,7 @@ Stream<List<DanmakuElem>> readDanmakuFile(
         );
         if (length > limit) throw DanmakuWorkTooLarge(length, limit);
         if (messages.isNotEmpty && bytes + length > batchBytes) {
-          yield await compute(_decodeElements, messages);
+          yield await compute(decode, messages);
           messages = [];
           bytes = 0;
           decodedBytes = 0;
@@ -45,7 +87,7 @@ Stream<List<DanmakuElem>> readDanmakuFile(
         final size = inspectDanmakuProtobuf(message, element: true);
         if (size > batchBytes) throw DanmakuWorkTooLarge(size, batchBytes);
         if (messages.isNotEmpty && decodedBytes + size > batchBytes) {
-          yield await compute(_decodeElements, messages);
+          yield await compute(decode, messages);
           messages = [];
           bytes = 0;
           decodedBytes = 0;
@@ -54,7 +96,7 @@ Stream<List<DanmakuElem>> readDanmakuFile(
         bytes += length;
         decodedBytes += size;
         if (messages.length >= batchElements || bytes >= batchBytes) {
-          yield await compute(_decodeElements, messages);
+          yield await compute(decode, messages);
           messages = [];
           bytes = 0;
           decodedBytes = 0;
@@ -65,7 +107,7 @@ Stream<List<DanmakuElem>> readDanmakuFile(
     }
     if (messages.isNotEmpty) {
       if (token?.isCancelled ?? false) throw const DanmakuWorkCancelled();
-      yield await compute(_decodeElements, messages);
+      yield await compute(decode, messages);
     }
   } finally {
     await handle.close();

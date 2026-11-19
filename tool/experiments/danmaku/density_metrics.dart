@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 
 typedef DensityTag = ({int weight, int sourceMs});
 
-Map<String, int> weightCounts(Iterable<DanmakuElem> elements) =>
+Map<String, int> weightCounts(Iterable<DanmakuElement> elements) =>
     tallyWeights(elements.map((element) => element.weight));
 
 Map<String, int> tallyWeights(Iterable<int> weights) {
@@ -21,7 +21,7 @@ Map<String, int> tallyWeights(Iterable<int> weights) {
 /// 拥挤统计在采集完成后计算，不把 O(n²) 比较放进实际播放帧。
 class DanmakuDensityMetrics {
   DanmakuDensityMetrics({
-    required Iterable<DanmakuElem> input,
+    required Iterable<DanmakuElement> input,
     required this.size,
   }) {
     for (final e in input) {

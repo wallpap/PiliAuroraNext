@@ -1,5 +1,4 @@
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 
 /// 原始网络分段按完整段淘汰；读取不改变保留顺序。
 class DanmakuRawCache {
@@ -9,20 +8,21 @@ class DanmakuRawCache {
 
   final int maxSegments;
   final int maxBytes;
-  final _segments = <int, ({List<DanmakuElem> elements, int bytes})>{};
+  final _segments = <int, ({List<DanmakuElement> elements, int bytes})>{};
   int _bytes = 0;
 
   int get estimatedBytes => _bytes;
   int get length => _segments.length;
   Iterable<int> get keys => _segments.keys;
-  List<DanmakuElem>? operator [](int segment) => _segments[segment]?.elements;
+  List<DanmakuElement>? operator [](int segment) =>
+      _segments[segment]?.elements;
 
-  bool retain(int segment, List<DanmakuElem> elements) {
+  bool retain(int segment, List<DanmakuElement> elements) {
     final previous = _segments.remove(segment);
     if (previous != null) _bytes -= previous.bytes;
     var bytes = 64 + elements.length * 8;
     for (final element in elements) {
-      bytes += estimateDanmakuElementBytes(element);
+      bytes += element.storageBytes;
       // 超大段仍可显示，本缓存不持有；规则更新后按缺失段重新请求。
       if (bytes > maxBytes) return false;
     }

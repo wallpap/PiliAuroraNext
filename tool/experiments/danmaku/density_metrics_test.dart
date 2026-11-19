@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 
 import 'density_metrics.dart';
@@ -21,7 +21,7 @@ void main() {
     'clips offscreen items, integrates visible area and counts unique exposure',
     () {
       final metrics = DanmakuDensityMetrics(
-        input: [DanmakuElem(weight: 3)],
+        input: [DanmakuElement(weight: 3)],
         size: const Size(100, 100),
       )..sample([_item(0, 3, const Rect.fromLTWH(100, 0, 100, 20))], 0);
       expect(metrics.summarize()['displayed'], 0);
@@ -40,7 +40,7 @@ void main() {
   test('relative top N loss uses all weights and keeps equal weight ties equivalent', () {
     final input = [
       for (final group in [(0, 10), (3, 12), (5, 7), (7, 2), (10, 2)])
-        for (var i = 0; i < group.$2; i++) DanmakuElem(weight: group.$1),
+        for (var i = 0; i < group.$2; i++) DanmakuElement(weight: group.$1),
     ];
     final chosen = [10, 10, 7, 7, for (var i = 0; i < 7; i++) 5, 3];
     final good =

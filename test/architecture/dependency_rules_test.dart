@@ -102,6 +102,7 @@ void main() {
     'search',
     'following',
     'community',
+    'danmaku',
     'member_space',
     'playback',
     'history',

@@ -1,33 +1,37 @@
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 import 'package:protobuf/protobuf.dart' show UnknownFieldSet;
 
-/// 这些是逻辑存储计费单位；VM 对象头、GC 与 isolate 堆容量不属于 RSS 承诺。
-abstract final class DanmakuProcessingBudget {
-  static const maxElementEncodedBytes = 64 * 1024;
-  static const maxElementFields = 128;
-  static const batchElements = 256;
-  static const batchBytes = 512 * 1024;
-  static const groupBytes = 8 * 1024 * 1024;
-  static const normalizedBytes = 4 * 1024 * 1024;
-  static const cursorBytes = groupBytes + normalizedBytes + 4096;
-  // 单条最多 64Ki code units；归一化串、rune 槽位与语义特征串共用临时区。
-  static const normalizationScratchBytes = 2 * 1024 * 1024;
-  static const maxDecodedBytes = 8 * 1024 * 1024;
-  static const rulesBytes = 1024 * 1024;
-}
+DanmakuElement decodeDanmakuElement(List<int> bytes) =>
+    projectDanmakuElement(DanmakuElem.fromBuffer(bytes));
 
-/// 对象和列表开销加 UTF-16 字段的保守估算，供缓存与处理预算共用。
-int estimateDanmakuElementBytes(DanmakuElem element) =>
-    512 +
-    _unknownBytes(element.unknownFields, 0) +
-    2 *
-        (element.content.length +
-            element.midHash.length +
-            element.action.length +
-            element.idStr.length +
-            element.animation.length +
-            element.extra.length);
+int decodeDanmakuProgress(List<int> bytes) =>
+    DanmakuElem.fromBuffer(bytes).progress;
+
+DanmakuElement projectDanmakuElement(DanmakuElem element) => DanmakuElement(
+  id: element.id.toInt(),
+  idStr: element.idStr,
+  progress: element.progress,
+  mode: element.mode,
+  fontSize: element.fontsize,
+  color: element.color,
+  midHash: element.midHash,
+  content: element.content,
+  weight: element.weight,
+  pool: element.pool,
+  likeCount: element.likeCount.toInt(),
+  vipGradient: element.colorful == DmColorfulType.VipGradualColor,
+  count: element.count,
+  isSelf: element.isSelf,
+  additionalStorageBytes:
+      _unknownBytes(element.unknownFields, 0) +
+      2 *
+          (element.action.length +
+              element.animation.length +
+              element.extra.length),
+);
 
 int _unknownBytes(UnknownFieldSet fields, int depth) {
   if (depth > 16) throw const FormatException('弹幕未知字段嵌套过深');

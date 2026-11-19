@@ -4,7 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_store.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_store.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 
 // 按需运行：fvm flutter test --no-pub
 // tool/experiments/danmaku/file_order_reuse_test.dart
@@ -30,7 +31,7 @@ DanmakuElem _element(int index) => DanmakuElem(
   content: '弹幕$index：文件范围重读成本🙂',
 );
 
-_Entry _entry(DanmakuElem element) => (
+_Entry _entry(DanmakuElement element) => (
   progress: element.progress,
   id: element.idStr,
   content: element.content,
@@ -61,7 +62,14 @@ List<_Entry> _expected(_Range range) {
   for (var index = 0; index < _elementCount; index++) {
     final element = _element(index);
     if (element.progress >= range.start && element.progress < range.end) {
-      selected.add((sourceIndex: index, entry: _entry(element)));
+      selected.add((
+        sourceIndex: index,
+        entry: (
+          progress: element.progress,
+          id: element.idStr,
+          content: element.content,
+        ),
+      ));
     }
   }
   selected.sort((a, b) {
@@ -89,7 +97,7 @@ Future<_RangeScan> _measure({
   required _Range range,
   required int rangeIndex,
   required int inputBytes,
-  required Stream<List<DanmakuElem>> batches,
+  required Stream<List<DanmakuElement>> batches,
   required List<_Entry> expected,
   required bool reusesSortedArtifact,
 }) async {

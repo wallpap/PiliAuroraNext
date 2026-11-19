@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
@@ -121,7 +121,7 @@ abstract final class GrpcReq {
     }
   }
 
-  static Future<LoadingState<T>> request<T extends GeneratedMessage>(
+  static Future<LoadingState<T>> request<T>(
     String url,
     GeneratedMessage request,
     T Function(Uint8List) grpcParser, {

@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 
 /// 两路读取的编码/解码批次、排序索引、写出编码及文件缓冲。
@@ -15,7 +14,7 @@ const orderedDanmakuFileWorkBytes =
     128 * 1024;
 
 /// 一次性有序读取；来源长期复用时持有 [OrderedDanmakuFileStore]。
-Stream<List<DanmakuElem>> readOrderedDanmakuFile(
+Stream<List<DanmakuElement>> readOrderedDanmakuFile(
   File source, {
   DanmakuWorkToken? token,
   Directory? temporaryParent,
@@ -69,7 +68,7 @@ class OrderedDanmakuFileStore {
     return true;
   }
 
-  Stream<List<DanmakuElem>> read(
+  Stream<List<DanmakuElement>> read(
     File source, {
     DanmakuWorkToken? token,
   }) async* {
@@ -172,10 +171,10 @@ Future<_OrderedRun> _buildOrderedRun(
         if (token?.isCancelled ?? false) throw const DanmakuWorkCancelled();
         // 左 run 来自较早的原始批次，相同时间戳始终优先选左侧。
         if (!hasB || (hasA && a.current.progress <= b.current.progress)) {
-          await _writeElement(writer, a.current);
+          await writeDanmakuFileRecord(writer, a.current);
           hasA = await a.moveNext();
         } else {
-          await _writeElement(writer, b.current);
+          await writeDanmakuFileRecord(writer, b.current);
           hasB = await b.moveNext();
         }
       }
@@ -192,7 +191,7 @@ Future<_OrderedRun> _buildOrderedRun(
   var completed = false;
   try {
     final levels = <File?>[];
-    await for (final batch in readDanmakuFile(source, token: token)) {
+    await for (final batch in readDanmakuFileRecords(source, token: token)) {
       final ordered = batch.indexed.toList()
         ..sort((a, b) {
           final time = a.$2.progress.compareTo(b.$2.progress);
@@ -203,7 +202,7 @@ Future<_OrderedRun> _buildOrderedRun(
       try {
         for (final (_, element) in ordered) {
           if (token?.isCancelled ?? false) throw const DanmakuWorkCancelled();
-          await _writeElement(writer, element);
+          await writeDanmakuFileRecord(writer, element);
         }
       } finally {
         await writer.close();
@@ -236,21 +235,8 @@ Future<_OrderedRun> _buildOrderedRun(
   }
 }
 
-Stream<DanmakuElem> _elements(File file, DanmakuWorkToken? token) async* {
-  await for (final batch in readDanmakuFile(file, token: token)) {
+Stream<DanmakuFileRecord> _elements(File file, DanmakuWorkToken? token) async* {
+  await for (final batch in readDanmakuFileRecords(file, token: token)) {
     yield* Stream.fromIterable(batch);
   }
-}
-
-Future<void> _writeElement(RandomAccessFile writer, DanmakuElem element) async {
-  final bytes = element.writeToBuffer();
-  var length = bytes.length;
-  final header = <int>[10];
-  while (length >= 128) {
-    header.add((length & 0x7f) | 0x80);
-    length >>= 7;
-  }
-  header.add(length);
-  await writer.writeFrom(Uint8List.fromList(header));
-  await writer.writeFrom(bytes);
 }

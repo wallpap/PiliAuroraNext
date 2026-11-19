@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 
 import 'density_metrics.dart';
@@ -11,10 +11,10 @@ import 'density_metrics.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('compare processed source budgets on full segments', () async {
-    final sources = <String, Map<int, List<DanmakuElem>>>{};
+    final sources = <String, Map<int, List<DanmakuElement>>>{};
     final files = Platform.environment['DANMAKU_REAL_FILES']?.split('|') ?? [];
     for (var i = 0; i < files.length; i++) {
-      final segments = <int, List<DanmakuElem>>{};
+      final segments = <int, List<DanmakuElement>>{};
       await for (final batch in readDanmakuFile(File(files[i]))) {
         for (final e in batch) {
           if (e.mode >= 1 && e.mode <= 6) {
@@ -27,7 +27,7 @@ void main() {
     sources['synthetic6min'] = {
       0: [
         for (var i = 0; i < 144000; i++)
-          DanmakuElem(
+          DanmakuElement(
             progress: i ~/ 40 * 100,
             content: '六分钟预算压力$i',
             weight: i % 40 >= 36 ? 10 : i % 4 + 1,

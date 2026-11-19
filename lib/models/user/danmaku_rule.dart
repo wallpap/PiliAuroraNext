@@ -1,4 +1,3 @@
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/models/user/danmaku_block.dart';
 
 class RuleFilter {
@@ -34,9 +33,9 @@ class RuleFilter {
 
   RuleFilter.empty();
 
-  bool remove(DanmakuElem elem) {
-    return dmUid.contains(elem.midHash) ||
-        dmFilterString.any((i) => elem.content.contains(i)) ||
-        dmRegExp.any((i) => i.hasMatch(elem.content));
+  bool matches({required String midHash, required String content}) {
+    return dmUid.contains(midHash) ||
+        dmFilterString.any(content.contains) ||
+        dmRegExp.any((pattern) => pattern.hasMatch(content));
   }
 }
