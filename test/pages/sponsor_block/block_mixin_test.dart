@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -23,7 +22,7 @@ void main() {
     controller = _BlockController();
   });
   tearDown(() async {
-    controller.onClose();
+    controller.disposeBlock();
     await controller.player.positions.close();
     await controller.player.playing.close();
   });
@@ -227,7 +226,7 @@ void main() {
   });
 }
 
-class _BlockController extends GetxController with BlockMixin {
+class _BlockController with BlockMixin {
   @override
   final blockConfig = _BlockConfig();
   @override

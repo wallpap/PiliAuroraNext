@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/generated/bilibili/pagination.pb.dart';
@@ -13,6 +18,9 @@ import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
+import 'package:pili_aurora_next/pages/audio/view.dart';
+import 'package:pili_aurora_next/services/audio_handler.dart';
+import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -91,14 +99,10 @@ void main() {
       ..subId = [Int64(11)]
       ..itemType = 2
       ..from = AudioPlaylistSource.fallback;
-    controller.animController = AnimationController(
-      vsync: controller,
-      duration: const Duration(milliseconds: 200),
-    );
     closed = false;
   });
   tearDown(() {
-    if (!closed) controller.onClose();
+    if (!closed) controller.dispose();
     adapter.close();
     Accounts.accountMode.setAll(0, previousAccounts);
   });
@@ -113,6 +117,64 @@ void main() {
     adapter.playlist(0, [11, 22], prev: prev, next: next);
     expect(await operation, isTrue);
   }
+
+  testWidgets(
+    'popping the audio route detaches controls before replies arrive',
+    (
+      tester,
+    ) async {
+      final handler = videoPlayerServiceHandler = VideoPlayerServiceHandler();
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await tester.pumpWidget(
+          ProviderScope(
+            child: GetMaterialApp(
+              home: const SizedBox(),
+              getPages: [
+                GetPage(name: '/audio', page: () => const AudioPage()),
+              ],
+            ),
+          ),
+        );
+        AudioPage.toAudioPage(
+          oid: 11,
+          itemType: 2,
+          from: AudioPlaylistSource.fallback,
+        );
+        await tester.pump();
+        var playlistRequest = -1;
+        for (var attempt = 0; attempt < 20 && playlistRequest < 0; attempt++) {
+          await tester.pump(const Duration(milliseconds: 30));
+          playlistRequest = adapter.requests.indexWhere(
+            (request) => request.path.endsWith('/Playlist'),
+          );
+        }
+        expect(playlistRequest, isNot(-1));
+        expect(find.byTooltip('排序'), findsOneWidget);
+        expect(handler.onPlay, isNotNull);
+        expect(handler.onPause, isNotNull);
+        expect(handler.onSeek, isNotNull);
+
+        Get.back();
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('排序'), findsNothing);
+        expect(handler.onPlay, isNull);
+        expect(handler.onPause, isNull);
+        expect(handler.onSeek, isNull);
+        adapter.playlist(playlistRequest, [11]);
+        for (var index = 0; index < adapter.requests.length; index++) {
+          if (index != playlistRequest) adapter.malformed(index);
+        }
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(handler.mediaItem.value, isNull);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        handler.clear();
+        videoPlayerServiceHandler = null;
+      }
+    },
+  );
 
   test('playlist order keeps the most recent selection', () async {
     final first = controller.onChangeOrder(AudioPlaylistOrder.reverse);
@@ -215,10 +277,15 @@ void main() {
     await adapter.waitForRequests(3);
     adapter.playlist(1, [33]);
     expect(await oldPage, isFalse);
-    adapter.playlist(2, [11, 44]);
-    for (var i = 0; i < 20 && controller.playlist == null; i++) {
-      await Future<void>.delayed(Duration.zero);
+    final updated = Completer<void>();
+    void onUpdated() {
+      if (controller.playlistState.value.status.isSuccess) updated.complete();
     }
+
+    controller.playlistState.addListener(onUpdated);
+    adapter.playlist(2, [11, 44]);
+    await updated.future;
+    controller.playlistState.removeListener(onUpdated);
     expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
       11,
       44,
@@ -280,7 +347,7 @@ void main() {
   test('closed controller rejects in-flight initialization', () async {
     final operation = controller.reloadPlaylist();
     await adapter.waitForRequests(1);
-    controller.onClose();
+    controller.dispose();
     closed = true;
     adapter.playlist(0, [11, 22]);
     expect(await operation, isFalse);

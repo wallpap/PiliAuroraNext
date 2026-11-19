@@ -212,13 +212,9 @@ void main() {
           ),
       ],
     )..cacheAudioQa = 30280;
-    controller.animController = AnimationController(
-      vsync: controller,
-      duration: const Duration(milliseconds: 200),
-    );
   });
   tearDown(() {
-    if (!closed) controller.onClose();
+    if (!closed) controller.dispose();
     adapter.close();
   });
   tearDownAll(() => Request.dio.close(force: true));
@@ -444,17 +440,13 @@ void main() {
     await _until(tester, () => adapter.requests.length == 1);
     adapter.reply(0, _source());
     await _until(tester, () => player.opened.isNotEmpty);
-    controller.onClose();
+    controller.dispose();
     closed = true;
     final secondPlayer = _Player();
     final second = AudioController(
       createPlayer: (_) async => secondPlayer,
       initialPlaylist: controller.playlist,
     )..cacheAudioQa = 30280;
-    second.animController = AnimationController(
-      vsync: second,
-      duration: const Duration(milliseconds: 200),
-    );
     try {
       expect(_actions(controller), [
         'audio.initialize.begin',
@@ -495,7 +487,7 @@ void main() {
     } finally {
       if (!player.opening!.isCompleted) player.opening!.complete();
       if (!player.disposing!.isCompleted) player.disposing!.complete();
-      second.onClose();
+      second.dispose();
     }
   });
 
@@ -512,7 +504,7 @@ void main() {
     await _until(tester, () => adapter.requests.length == 1);
     adapter.reply(0, _source());
     await _until(tester, () => creations == 1);
-    controller.onClose();
+    controller.dispose();
     closed = true;
     final cause = StateError('synthetic late disposal failure');
     player.disposeError = cause;
@@ -564,7 +556,7 @@ void main() {
       await handler.skipToNext();
       expect(adapter.requests, hasLength(3));
       Accounts.accountMode[AccountType.main.index] = originalAccount;
-      controller.onClose();
+      controller.dispose();
       closed = true;
       await handler.skipToNext();
       expect(adapter.requests, hasLength(3));
@@ -655,16 +647,12 @@ void main() {
       },
       initialPlaylist: controller.playlist,
     )..cacheAudioQa = 30280;
-    second.animController = AnimationController(
-      vsync: second,
-      duration: const Duration(milliseconds: 200),
-    );
     try {
       final first = controller.playIndex(0);
       await _until(tester, () => adapter.requests.length == 1);
       adapter.reply(0, _source());
       await _complete(tester, first);
-      controller.onClose();
+      controller.dispose();
       closed = true;
       await tester.pump();
       expect(_actions(controller), isNot(contains('audio.shutdown.released')));
@@ -681,7 +669,7 @@ void main() {
       expect(_actions(controller), contains('audio.shutdown.released'));
     } finally {
       if (!cleanup.isCompleted) cleanup.complete();
-      second.onClose();
+      second.dispose();
     }
   });
 }

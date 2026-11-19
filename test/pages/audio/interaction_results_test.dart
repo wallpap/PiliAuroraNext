@@ -177,13 +177,9 @@ void main() {
           ..id = Int64.ONE
           ..from = AudioPlaylistSource.fallback;
     controller.audioItem.value = track(1);
-    controller.animController = AnimationController(
-      vsync: controller,
-      duration: const Duration(milliseconds: 200),
-    );
   });
   tearDown(() {
-    controller.onClose();
+    controller.dispose();
     adapter.close();
     Accounts.accountMode[AccountType.main.index] = previousAccount;
     GlobalData().coins = null;
@@ -211,7 +207,7 @@ void main() {
     expect(adapter.requests.single.extra['noRetry'], isTrue);
     adapter.reply(0, ThumbUpResp(message: '已点赞'));
     await _complete(tester, operation);
-    expect(controller.hasLike.value, isTrue);
+    expect(controller.audioItem.value!.stats.liked, isTrue);
   });
   _check('late like cannot update a replacement item', (tester) async {
     await host(tester);
@@ -222,7 +218,7 @@ void main() {
       ..oid = Int64(2);
     adapter.reply(0, ThumbUpResp(message: '已点赞'));
     await _complete(tester, operation);
-    expect(controller.hasLike.value, isFalse);
+    expect(controller.audioItem.value!.stats.liked, isFalse);
   });
   _check('late coin cannot update replacement account or its balance', (
     tester,
@@ -233,8 +229,8 @@ void main() {
     Accounts.accountMode[AccountType.main.index] = account(1);
     adapter.reply(0, CoinAddResp());
     await _complete(tester, operation);
-    expect(controller.coinNum.value, 0);
-    expect(controller.hasLike.value, isFalse);
+    expect(controller.audioItem.value!.stats.viewerCoins, 0);
+    expect(controller.audioItem.value!.stats.liked, isFalse);
     expect(GlobalData().coins, 10);
   });
   _check(
@@ -251,9 +247,9 @@ void main() {
         TripleLikeResp(thumbOk: false, coinOk: true, favOk: true),
       );
       await _complete(tester, operation);
-      expect(controller.hasLike.value, isFalse);
-      expect(controller.hasFav.value, isTrue);
-      expect(controller.coinNum.value, 1);
+      expect(controller.audioItem.value!.stats.liked, isFalse);
+      expect(controller.audioItem.value!.stats.favored, isTrue);
+      expect(controller.audioItem.value!.stats.viewerCoins, 1);
       expect(GlobalData().coins, 10);
       expect(controller.audioItem.value!.stats.favorites, 1);
     },
@@ -281,13 +277,13 @@ void main() {
         ),
       );
       await _complete(tester, first);
-      expect(controller.hasLike.value, isFalse);
+      expect(controller.audioItem.value!.stats.liked, isFalse);
       expect(adapter.requests, hasLength(1));
       final second = controller.actionLikeVideo();
       await _until(tester, () => adapter.requests.length == 2);
       adapter.reply(1, ThumbUpResp(message: '已点赞'));
       await _complete(tester, second);
-      expect(controller.hasLike.value, isTrue);
+      expect(controller.audioItem.value!.stats.liked, isTrue);
     },
   );
   _check('loading a new target blocks writes using the earlier item state', (
@@ -386,7 +382,7 @@ void main() {
     await _complete(tester, like);
     adapter.reply(1, initialResponse());
     await _complete(tester, reload);
-    expect(controller.hasLike.value, isTrue);
+    expect(controller.audioItem.value!.stats.liked, isTrue);
     expect(controller.audioItem.value!.stats.likes, 1);
   });
   _check('empty subparts preserve the protocol empty target', (tester) async {

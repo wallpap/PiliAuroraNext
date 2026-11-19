@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:math' show min;
 
 import 'package:pili_aurora_next/common/assets.dart';
@@ -13,6 +14,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -21,6 +23,7 @@ import 'package:pili_aurora_next/pages/audio/controller.dart';
 import 'package:pili_aurora_next/pages/audio/volume_button.dart';
 import 'package:pili_aurora_next/pages/setting/models/play_settings.dart'
     show showVolumeDialog;
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart'
     show HeaderControlState;
@@ -36,21 +39,22 @@ import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
+import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
-class AudioPage extends StatefulWidget {
+class AudioPage extends ConsumerStatefulWidget {
   const AudioPage({super.key});
 
   @override
-  State<AudioPage> createState() => _AudioPageState();
+  ConsumerState<AudioPage> createState() => _AudioPageState();
 
   static void toAudioPage({
     int? id,
@@ -62,20 +66,31 @@ class AudioPage extends StatefulWidget {
     Duration? start,
     String? audioUrl,
     int? extraId,
-  }) => Get.toNamed(
-    '/audio',
-    arguments: {
-      'id': ?id,
-      'oid': oid,
-      'subId': ?subId,
-      'from': from,
-      'itemType': itemType,
-      'heroTag': ?heroTag,
-      'start': ?start,
-      'audioUrl': ?audioUrl,
-      'extraId': ?extraId,
-    },
-  );
+  }) {
+    final video =
+        heroTag != null && Get.isRegistered<VideoDetailController>(tag: heroTag)
+        ? Get.find<VideoDetailController>(tag: heroTag)
+        : null;
+    Get.toNamed(
+      '/audio',
+      arguments: AudioPageArguments(
+        id: id,
+        oid: oid,
+        subIds: subId == null ? null : List.unmodifiable(subId),
+        from: from,
+        itemType: itemType,
+        start: start,
+        audioUrl: audioUrl,
+        extraId: extraId,
+        initialVolume: video?.volume,
+        onPosition: video == null
+            ? null
+            : (position) {
+                if (!video.isClosed) video.playedTime = position;
+              },
+      ),
+    );
+  }
 }
 
 extension _AudioPlaylistOrderLabel on AudioPlaylistOrder {
@@ -87,16 +102,97 @@ extension _AudioPlaylistOrderLabel on AudioPlaylistOrder {
   };
 }
 
-class _AudioPageState extends State<AudioPage> {
-  final _controller = Get.put(
-    AudioController(),
-    tag: Utils.generateRandomString(8),
+class _AudioPageState extends ConsumerState<AudioPage>
+    with TickerProviderStateMixin {
+  AudioController? _routeController;
+  AudioController get _controller => _routeController!;
+
+  late final AnimationController _playPause;
+  AnimationController? _tripleController;
+  AnimationController get _triple => _tripleController ??= AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+    reverseDuration: const Duration(milliseconds: 400),
   );
+  late final _tripleAnimation = _triple.drive(
+    CurveTween(curve: Curves.easeInOut),
+  );
+  Timer? _tripleTimer;
+  bool Function()? _tripleTarget;
+
+  @override
+  void initState() {
+    super.initState();
+    _playPause = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller.didChangeDependencies(context);
+    if (_routeController != null) return;
+    final arguments =
+        ModalRoute.of(context)!.settings.arguments as AudioPageArguments;
+    final controller = _routeController = AudioController(
+      favorites: ref.read(favoriteLibraryProvider),
+    );
+    controller.playing.addListener(_animatePlayback);
+    controller.start(arguments);
+  }
+
+  void _animatePlayback() {
+    if (_controller.playing.value) {
+      _playPause.forward();
+    } else {
+      _playPause.reverse();
+    }
+  }
+
+  void _startTriple() {
+    if (_tripleTimer != null) return;
+    final current = _tripleTarget = _controller.captureSelection();
+    _tripleTimer = Timer(
+      Duration(milliseconds: PlatformUtils.isMobile ? 200 : 255),
+      () {
+        _tripleTimer = null;
+        if (!current()) return;
+        HapticFeedback.lightImpact();
+        final stats = _controller.audioItem.value!.stats;
+        if (stats.liked && stats.viewerCoins != 0 && stats.favored) {
+          SmartDialog.showToast('已完成三连');
+        } else {
+          _triple.forward().whenComplete(() {
+            _triple.reset();
+            if (current()) _controller.actionTriple();
+          });
+        }
+      },
+    );
+  }
+
+  void _cancelTriple([bool didTap = false]) {
+    if (_triple.status == .forward) {
+      _triple.reverse();
+    } else if (_tripleTimer != null) {
+      _tripleTimer!.cancel();
+      _tripleTimer = null;
+      if (didTap && (_tripleTarget?.call() ?? false)) {
+        _controller.actionLikeVideo();
+      }
+    }
+    _tripleTarget = null;
+  }
+
+  @override
+  void dispose() {
+    _tripleTimer?.cancel();
+    _tripleTarget = null;
+    _routeController?.dispose();
+    _playPause.dispose();
+    _tripleController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -108,16 +204,19 @@ class _AudioPageState extends State<AudioPage> {
       appBar: AppBar(
         actions: [
           if (_controller.isUgc && _controller.enableSponsorBlock)
-            Obx(() {
-              if (_controller.segmentProgressList.isNotEmpty) {
-                return IconButton(
-                  tooltip: '片段信息',
-                  onPressed: _controller.showSBDetail,
-                  icon: const Icon(MdiIcons.advertisements, size: 22),
-                );
-              }
-              return const SizedBox.shrink();
-            }),
+            StreamBuilder(
+              stream: _controller.segmentChanges,
+              builder: (context, _) {
+                if (_controller.segmentProgressList.isNotEmpty) {
+                  return IconButton(
+                    tooltip: '片段信息',
+                    onPressed: _controller.showSBDetail,
+                    icon: const Icon(MdiIcons.advertisements, size: 22),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ValueListenableBuilder(
             valueListenable: _controller.playlistState,
             builder: (context, playlist, _) {
@@ -182,13 +281,15 @@ class _AudioPageState extends State<AudioPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Obx(() {
-                          final audioItem = _controller.audioItem.value;
-                          if (audioItem != null) {
-                            return _buildActions(audioItem);
-                          }
-                          return const SizedBox.shrink();
-                        }),
+                        ValueListenableBuilder(
+                          valueListenable: _controller.audioItem,
+                          builder: (context, audioItem, _) {
+                            if (audioItem != null) {
+                              return _buildActions(audioItem);
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
                         const SizedBox(height: 25),
                         _buildProgressBar(colorScheme),
                         _buildDuration(colorScheme),
@@ -606,10 +707,7 @@ class _AudioPageState extends State<AudioPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         Get.back();
-        if (!isCurr) {
-          _controller.playMode.value = playMode;
-          GStorage.setting.put(SettingBoxKey.audioPlayMode, playMode.index);
-        }
+        if (!isCurr) _controller.changePlayMode(playMode);
       },
       child: Column(
         spacing: 6,
@@ -727,50 +825,44 @@ class _AudioPageState extends State<AudioPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Obx(
-            () => ActionItem(
-              animation: _controller.tripleAnimation,
-              icon: Icon(FontAwesomeIcons.thumbsUp.data),
-              selectIcon: Icon(
-                FontAwesomeIcons.solidThumbsUp.data,
-              ),
-              selectStatus: _controller.hasLike.value,
-              semanticsLabel: '点赞',
-              text: NumUtils.numFormat(audioItem.stats.likes),
-              onStartTriple: _controller.onStartTriple,
-              onCancelTriple: _controller.onCancelTriple,
+          ActionItem(
+            animation: _tripleAnimation,
+            icon: Icon(FontAwesomeIcons.thumbsUp.data),
+            selectIcon: Icon(
+              FontAwesomeIcons.solidThumbsUp.data,
+            ),
+            selectStatus: audioItem.stats.liked,
+            semanticsLabel: '点赞',
+            text: NumUtils.numFormat(audioItem.stats.likes),
+            onStartTriple: _startTriple,
+            onCancelTriple: _cancelTriple,
+          ),
+          ActionItem(
+            animation: _tripleAnimation,
+            icon: Icon(FontAwesomeIcons.b.data),
+            selectIcon: Icon(FontAwesomeIcons.b.data),
+            onTap: _controller.actionCoinVideo,
+            selectStatus: audioItem.stats.viewerCoins != 0,
+            semanticsLabel: '投币',
+            text: NumUtils.numFormat(
+              audioItem.stats.coins,
             ),
           ),
-          Obx(
-            () => ActionItem(
-              animation: _controller.tripleAnimation,
-              icon: Icon(FontAwesomeIcons.b.data),
-              selectIcon: Icon(FontAwesomeIcons.b.data),
-              onTap: _controller.actionCoinVideo,
-              selectStatus: _controller.hasCoin,
-              semanticsLabel: '投币',
-              text: NumUtils.numFormat(
-                audioItem.stats.coins,
-              ),
+          ActionItem(
+            animation: _tripleAnimation,
+            icon: Icon(FontAwesomeIcons.star.data),
+            selectIcon: Icon(
+              FontAwesomeIcons.solidStar.data,
             ),
-          ),
-          Obx(
-            () => ActionItem(
-              animation: _controller.tripleAnimation,
-              icon: Icon(FontAwesomeIcons.star.data),
-              selectIcon: Icon(
-                FontAwesomeIcons.solidStar.data,
-              ),
-              onTap: () => _controller.showFavBottomSheet(context),
-              onLongPress: () => _controller.showFavBottomSheet(
-                context,
-                isLongPress: true,
-              ),
-              selectStatus: _controller.hasFav.value,
-              semanticsLabel: '收藏',
-              text: NumUtils.numFormat(
-                audioItem.stats.favorites,
-              ),
+            onTap: () => _controller.showFavBottomSheet(context),
+            onLongPress: () => _controller.showFavBottomSheet(
+              context,
+              isLongPress: true,
+            ),
+            selectStatus: audioItem.stats.favored,
+            semanticsLabel: '收藏',
+            text: NumUtils.numFormat(
+              audioItem.stats.favorites,
             ),
           ),
           ActionItem(
@@ -796,7 +888,7 @@ class _AudioPageState extends State<AudioPage> {
             ActionItem(
               icon: Icon(FontAwesomeIcons.circlePlay.data),
               onTap: () {
-                _controller.player?.pause();
+                _controller.pauseFromUi();
                 PageUtils.toVideoPage(
                   cid: musicVideo.cid,
                   aid: musicVideo.aid,
@@ -833,8 +925,12 @@ class _AudioPageState extends State<AudioPage> {
     final baseBarColor = colorScheme.isDark
         ? const Color(0x33FFFFFF)
         : const Color(0x33999999);
-    Widget child = Obx(
-      () => ProgressBar(
+    Widget child = ListenableBuilder(
+      listenable: Listenable.merge([
+        _controller.position,
+        _controller.duration,
+      ]),
+      builder: (context, _) => ProgressBar(
         progress: _controller.position.value,
         total: _controller.duration.value,
         baseBarColor: baseBarColor,
@@ -857,8 +953,9 @@ class _AudioPageState extends State<AudioPage> {
             left: 0,
             right: 0,
             bottom: 3.5,
-            child: Obx(
-              () {
+            child: StreamBuilder(
+              stream: _controller.segmentChanges,
+              builder: (context, _) {
                 if (_controller.segmentProgressList.isNotEmpty) {
                   return SegmentProgressBar(
                     height: 5,
@@ -892,40 +989,32 @@ class _AudioPageState extends State<AudioPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Obx(() {
-              final position = _controller.position.value;
-              if (_controller.player != null) {
-                return Text(
-                  DurationUtils.formatDuration(position),
-                );
-              }
-              return const SizedBox.shrink();
-            }),
-            Obx(() {
-              final duration = _controller.duration.value;
-              if (_controller.player != null) {
-                return Text(
-                  DurationUtils.formatDuration(duration),
-                );
-              }
-              return const SizedBox.shrink();
-            }),
+            _buildTime(_controller.position),
+            _buildTime(_controller.duration),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildTime(ValueListenable<int> value) => ListenableBuilder(
+    listenable: Listenable.merge([value, _controller.hasPlayer]),
+    builder: (context, _) => _controller.hasPlayer.value
+        ? Text(DurationUtils.formatDuration(value.value))
+        : const SizedBox.shrink(),
+  );
+
   Widget _buildControls() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        Obx(
-          () => IconButton(
+        ValueListenableBuilder(
+          valueListenable: _controller.playMode,
+          builder: (context, playMode, _) => IconButton(
             onPressed: _showPlaySettings,
             icon: Icon(
               size: 26,
-              _controller.playMode.value.icon,
+              playMode.icon,
             ),
           ),
         ),
@@ -941,7 +1030,7 @@ class _AudioPageState extends State<AudioPage> {
           icon: AnimatedIcon(
             size: 40,
             icon: AnimatedIcons.play_pause,
-            progress: _controller.animController,
+            progress: _playPause,
           ),
         ),
         IconButton(
@@ -963,130 +1052,134 @@ class _AudioPageState extends State<AudioPage> {
   }
 
   Widget _buildInfo(ColorScheme colorScheme, bool isPortrait) {
-    return Obx(() {
-      final audioItem = _controller.audioItem.value;
-      if (audioItem != null) {
-        final info = audioItem.info;
-        final cover = info.cover.http2https;
-        return Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: ListView(
-                  padding: .zero,
-                  shrinkWrap: true,
-                  physics: platformClampingPhysics,
-                  key: const PageStorageKey(_AudioPageState),
-                  children: [
-                    Center(
-                      child: GestureDetector(
-                        onTap: () => PageUtils.imageView(
-                          imgList: [SourceModel(url: cover)],
-                        ),
-                        child: fromHero(
-                          tag: cover,
-                          child: NetworkImgLayer(
-                            src: cover,
-                            width: 170,
-                            height: 170,
-                            cacheWidth: false,
+    return ValueListenableBuilder(
+      valueListenable: _controller.audioItem,
+      builder: (context, audioItem, _) {
+        if (audioItem != null) {
+          final info = audioItem.info;
+          final cover = info.cover.http2https;
+          return Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: ListView(
+                    padding: .zero,
+                    shrinkWrap: true,
+                    physics: platformClampingPhysics,
+                    key: const PageStorageKey(_AudioPageState),
+                    children: [
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => PageUtils.imageView(
+                            imgList: [SourceModel(url: cover)],
+                          ),
+                          child: fromHero(
+                            tag: cover,
+                            child: NetworkImgLayer(
+                              src: cover,
+                              width: 170,
+                              height: 170,
+                              cacheWidth: false,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    SelectionText(
-                      info.title,
-                      style: const TextStyle(height: 1.7, fontSize: 16),
-                    ),
-                    const SizedBox(height: 12),
-                    if (info.artistName case final artistName?) ...[
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          _controller.pauseFromUi();
-                          Get.toNamed('/member?mid=${info.artistId}');
-                        },
-                        child: Row(
-                          spacing: 6,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (info.artistAvatar case final avatar?)
-                              NetworkImgLayer(
-                                src: avatar,
-                                width: 22,
-                                height: 22,
-                                type: ImageType.avatar,
-                              ),
-                            Text(
-                              artistName,
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 12),
+                      SelectionText(
+                        info.title,
+                        style: const TextStyle(height: 1.7, fontSize: 16),
                       ),
-                      const SizedBox(height: 10),
-                    ],
-                    Row(
-                      children: [
-                        Icon(
-                          size: 14,
-                          Icons.headphones_outlined,
-                          color: colorScheme.outline,
-                        ),
-                        Text.rich(
-                          TextSpan(
+                      const SizedBox(height: 12),
+                      if (info.artistName case final artistName?) ...[
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            _controller.pauseFromUi();
+                            Get.toNamed('/member?mid=${info.artistId}');
+                          },
+                          child: Row(
+                            spacing: 6,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              TextSpan(
-                                text:
-                                    ' ${NumUtils.numFormat(audioItem.stats.views)}   '
-                                    '${DateFormatUtils.dateFormat(info.publishedAt, long: DateFormatUtils.longFormatD)}   ',
-                              ),
-                              TextSpan(
-                                text: info.displayedId,
-                                style: TextStyle(color: colorScheme.secondary),
-                                recognizer: NoDeadlineTapGestureRecognizer()
-                                  ..onTap = () => Utils.copyText(
-                                    info.displayedId,
-                                  ),
+                              if (info.artistAvatar case final avatar?)
+                                NetworkImgLayer(
+                                  src: avatar,
+                                  width: 22,
+                                  height: 22,
+                                  type: ImageType.avatar,
+                                ),
+                              Text(
+                                artistName,
                               ),
                             ],
                           ),
-                          style: TextStyle(
-                            fontSize: 13,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      Row(
+                        children: [
+                          Icon(
+                            size: 14,
+                            Icons.headphones_outlined,
                             color: colorScheme.outline,
                           ),
-                        ),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text:
+                                      ' ${NumUtils.numFormat(audioItem.stats.views)}   '
+                                      '${DateFormatUtils.dateFormat(info.publishedAt, long: DateFormatUtils.longFormatD)}   ',
+                                ),
+                                TextSpan(
+                                  text: info.displayedId,
+                                  style: TextStyle(
+                                    color: colorScheme.secondary,
+                                  ),
+                                  recognizer: NoDeadlineTapGestureRecognizer()
+                                    ..onTap = () => Utils.copyText(
+                                      info.displayedId,
+                                    ),
+                                ),
+                              ],
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (info.description case final description?) ...[
+                        const SizedBox(height: 10),
+                        SelectionText(description),
                       ],
-                    ),
-                    if (info.description case final description?) ...[
-                      const SizedBox(height: 10),
-                      SelectionText(description),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            if (isPortrait) ...[
-              const SizedBox(height: 10),
-              _buildActions(audioItem),
+              if (isPortrait) ...[
+                const SizedBox(height: 10),
+                _buildActions(audioItem),
+              ],
             ],
-          ],
+          );
+        }
+        return ValueListenableBuilder(
+          valueListenable: _controller.playlistState,
+          builder: (context, playlist, _) => Center(
+            child: switch (playlist.status) {
+              Loading() => const CircularProgressIndicator(),
+              Error error => TextButton(
+                onPressed: _controller.reloadPlaylist,
+                child: Text('$error，点击重试'),
+              ),
+              _ => const Text('暂无音频信息'),
+            },
+          ),
         );
-      }
-      return ValueListenableBuilder(
-        valueListenable: _controller.playlistState,
-        builder: (context, playlist, _) => Center(
-          child: switch (playlist.status) {
-            Loading() => const CircularProgressIndicator(),
-            Error error => TextButton(
-              onPressed: _controller.reloadPlaylist,
-              child: Text('$error，点击重试'),
-            ),
-            _ => const Text('暂无音频信息'),
-          },
-        ),
-      );
-    });
+      },
+    );
   }
 }
 

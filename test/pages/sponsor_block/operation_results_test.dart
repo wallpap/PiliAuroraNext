@@ -60,7 +60,7 @@ class _Player extends GetxController implements PlPlayerController {
 
 class _Config with BlockConfigMixin {}
 
-class _Block extends GetxController with BlockMixin {
+class _Block with BlockMixin {
   @override
   final blockConfig = _Config();
   @override
@@ -129,7 +129,7 @@ void main() {
   });
   tearDown(() {
     video.onDelete();
-    block.onDelete();
+    block.disposeBlock();
     Get.reset();
   });
   tearDownAll(() => Request.dio.close(force: true));

@@ -37,9 +37,10 @@ mixin BlockConfigMixin {
   Color _getColor(SegmentType segment) => blockColor[segment.index];
 }
 
-mixin BlockMixin on GetxController {
+mixin BlockMixin {
   int? _lastBlockPos;
   int _blockGeneration = 0;
+  bool _blockClosed = false;
   bool _blockMuted = false;
   final _activeMuteSegments = <SegmentModel>{};
   final _manualVisits = <SegmentModel>{};
@@ -111,12 +112,12 @@ mixin BlockMixin on GetxController {
     required int cid,
     bool Function()? isCurrent,
   }) async {
-    if (isClosed || !(isCurrent?.call() ?? true)) return;
+    if (_blockClosed || !(isCurrent?.call() ?? true)) return;
     resetBlock();
     final generation = _blockGeneration;
 
     final result = await SponsorBlock.getSkipSegments(bvid: bvid, cid: cid);
-    if (isClosed ||
+    if (_blockClosed ||
         generation != _blockGeneration ||
         !(isCurrent?.call() ?? true)) {
       return;
@@ -133,7 +134,7 @@ mixin BlockMixin on GetxController {
   }
 
   void initSkip() {
-    if (isClosed) return;
+    if (_blockClosed) return;
     if (_segmentList.isNotEmpty) {
       _blockListener?.cancel();
       final currentPlayer = player;
@@ -144,7 +145,7 @@ mixin BlockMixin on GetxController {
             currentPlayer.state.buffering) {
           return;
         }
-        if (isClosed || !identical(player, currentPlayer)) return;
+        if (_blockClosed || !identical(player, currentPlayer)) return;
         final msPos = position.inMilliseconds;
         _updateMute(msPos);
         _manualVisits.removeWhere((item) => !item.segment.contains(msPos));
@@ -187,7 +188,7 @@ mixin BlockMixin on GetxController {
   }
 
   Future<void> handleSBData(List<SegmentItemModel> list) async {
-    if (list.isNotEmpty) {
+    if (!_blockClosed && list.isNotEmpty) {
       try {
         final currentDuration = timeLength;
         final duration = currentDuration != null && currentDuration > 0
@@ -307,11 +308,14 @@ mixin BlockMixin on GetxController {
     bool isSkip = true,
     bool isSeek = true,
   }) async {
+    if (_blockClosed) return;
+    final generation = _blockGeneration;
     try {
       await seekTo(
         Duration(milliseconds: isSkip ? item.segment.$2 : item.segment.$1),
         isSeek: isSeek,
       );
+      if (_blockClosed || generation != _blockGeneration) return;
       if (isSkip) {
         _skipToast(item);
       } else {
@@ -319,6 +323,7 @@ mixin BlockMixin on GetxController {
       }
     } catch (e, stackTrace) {
       logger.w('failed to skip: $e', error: e, stackTrace: stackTrace);
+      if (_blockClosed || generation != _blockGeneration) return;
       if (isSkip) {
         _showBlockToast('${item.segmentType.shortTitle}片段跳过失败');
       } else {
@@ -372,7 +377,7 @@ mixin BlockMixin on GetxController {
     int? type,
     SegmentType? category,
   }) async {
-    if (isClosed || !_pendingBlockVotes.add(uuid)) return;
+    if (_blockClosed || !_pendingBlockVotes.add(uuid)) return;
     final generation = _blockGeneration;
     final server = Pref.blockServer;
     final userId = Pref.blockUserID;
@@ -382,7 +387,7 @@ mixin BlockMixin on GetxController {
         type: type,
         category: category,
       );
-      if (isClosed ||
+      if (_blockClosed ||
           generation != _blockGeneration ||
           server != Pref.blockServer ||
           userId != Pref.blockUserID) {
@@ -591,12 +596,14 @@ mixin BlockMixin on GetxController {
     return null;
   }
 
-  @override
-  void onClose() {
+  void disposeBlock() {
+    if (_blockClosed) return;
+    _blockClosed = true;
     _stopSkipTimer();
     if (blockConfig.enableBlock) {
       resetBlock();
+    } else {
+      cancelBlockListener();
     }
-    super.onClose();
   }
 }

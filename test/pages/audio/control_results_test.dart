@@ -107,14 +107,7 @@ void main() {
   late AudioController controller;
   var closed = false;
 
-  AudioController createController() {
-    final result = AudioController();
-    result.animController = AnimationController(
-      vsync: result,
-      duration: const Duration(milliseconds: 200),
-    );
-    return result;
-  }
+  AudioController createController() => AudioController();
 
   setUpAll(() {
     settings = _Settings();
@@ -130,7 +123,7 @@ void main() {
     controller = createController()..player = player;
   });
   tearDown(() {
-    if (!closed) controller.onClose();
+    if (!closed) controller.dispose();
     videoPlayerServiceHandler = null;
     shutdownTimerService
       ..onPause = null
@@ -159,7 +152,7 @@ void main() {
   _check('volume confirms and persists only successful native changes', (
     tester,
   ) async {
-    controller.desktopVolume.value = 0.8;
+    expect(await controller.setVolume(0.8), isTrue);
     player.commandError = StateError('synthetic volume failure');
     controller.previewVolume(0.3);
     await tester.pump();
@@ -282,7 +275,7 @@ void main() {
       ..reset(5);
     player.disposeError = StateError('https://private?token=secret');
     try {
-      controller.onClose();
+      controller.dispose();
       closed = true;
       await tester.pump();
       expect(player.disposeCount, 1);
@@ -295,7 +288,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.textContaining('secret'), findsNothing);
     } finally {
-      newer.onClose();
+      newer.dispose();
       handler.clear();
     }
   });

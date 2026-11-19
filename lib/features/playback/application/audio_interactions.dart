@@ -10,12 +10,14 @@ import 'package:pili_aurora_next/utils/global_data.dart';
 
 class AudioInteractions {
   AudioInteractions({
+    required this._favorites,
     required this._target,
     required this._selectionRevision,
     required this._read,
     required this._publish,
   });
 
+  final FavoriteLibrary _favorites;
   final AudioTarget? Function() _target;
   final int Function() _selectionRevision;
   final AudioTrack? Function() _read;
@@ -63,6 +65,23 @@ class AudioInteractions {
         _owns(account, target);
   }
 
+  LoadingState<({bool hasCoin, bool hasCopyright, bool insufficient})>
+  coinPanel() {
+    if (!Accounts.main.isLogin) return const Error('账号未登录');
+    if (unavailable() case final error?) return error;
+    final track = _read()!;
+    final hasCopyright = track.info.copyright != 2;
+    final coins = track.stats.viewerCoins;
+    if (coins >= (hasCopyright ? 2 : 1)) {
+      return const Error('达到投币上限啦~');
+    }
+    return Success((
+      hasCoin: coins == 1,
+      hasCopyright: hasCopyright,
+      insufficient: (GlobalData().coins ?? 1) < 1,
+    ));
+  }
+
   AudioTarget? _captureTarget() {
     final current = _target();
     if (current == null) return null;
@@ -97,7 +116,7 @@ class AudioInteractions {
   Future<LoadingState<String>?> triple() =>
       _write((account, target, current) async {
         final previousCoins = _read()!.stats.viewerCoins;
-        final result = await FavoriteLibrary.legacy.write(
+        final result = await _favorites.write(
           account,
           () => AudioInteractionRepository.triple(account, target),
         );
@@ -149,7 +168,7 @@ class AudioInteractions {
 
   Future<LoadingState<String>?> quickFavorite() =>
       _write((account, target, current) async {
-        final result = await FavoriteLibrary.legacy.quick(
+        final result = await _favorites.quick(
           account,
           (target.oid, target.type == 1 ? 2 : 12),
           isCurrent: current,

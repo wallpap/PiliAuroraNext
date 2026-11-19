@@ -1711,6 +1711,7 @@ class VideoDetailController extends GetxController
       ..dispose();
     subtitles.clear();
     subtitleSources.clear();
+    disposeBlock();
     super.onClose();
   }
 
