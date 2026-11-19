@@ -36,17 +36,17 @@ class _Room implements LiveRoomController {
   @override
   bool autoScroll = false;
   @override
-  final onlineCount = RxnString('12');
+  final onlineCount = ValueNotifier<String?>('12');
   @override
-  final messages = Rx<List<LiveChatMessage<dynamic>>>([]);
+  final chatHistory = ValueNotifier<
+    ({List<LiveChatMessage<dynamic>> messages, bool truncated})
+  >((messages: const [], truncated: false));
   @override
   final chatBuffer = LiveChatBuffer<dynamic>();
   @override
-  final historyTruncated = false.obs;
+  final disableAutoScroll = ValueNotifier(false);
   @override
-  final disableAutoScroll = false.obs;
-  @override
-  final unreadMessages = (0, 0).obs;
+  final unreadMessages = ValueNotifier((0, 0));
   @override
   final scrollController = ScrollController();
   @override
