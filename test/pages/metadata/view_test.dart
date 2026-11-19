@@ -4,9 +4,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/music/controller.dart';
 import 'package:pili_aurora_next/pages/music/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -84,18 +82,18 @@ void main() {
     await until(tester, () => requests.length == 1);
     expect(find.byWidget(m3eLoading), findsOneWidget);
     requests[0].reply.complete({'code': -403, 'message': '音乐暂不可用'});
-    final controller = Get.find<MusicDetailController>(tag: 'track');
-    await until(tester, () => controller.infoState.value is Error);
+    await until(tester, () => find.text('音乐暂不可用').evaluate().isNotEmpty);
     expect(find.text('音乐暂不可用'), findsOneWidget);
-    final retry = controller.getMusicDetail();
+    final retry = find.text('点击重试');
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
     await until(tester, () => requests.length == 2);
     expect(find.byWidget(m3eLoading), findsOneWidget);
     requests[1].reply.complete({
       'code': 0,
       'data': {'music_title': 'sample'},
     });
-    await until(tester, () => controller.infoState.value is Success);
-    await retry;
+    await until(tester, () => find.text('sample').evaluate().isNotEmpty);
     await finish(tester);
   });
 
@@ -109,12 +107,10 @@ void main() {
         'artists_list': [<String, dynamic>{}],
       },
     });
-    final controller = Get.find<MusicDetailController>(tag: 'track');
-    await until(tester, () => controller.infoState.value is Success);
+    await until(tester, () => find.text('sample').evaluate().isNotEmpty);
     await tester.pumpAndSettle();
     expect(find.text('sample'), findsWidgets);
     expect(find.text('未知创作者'), findsOneWidget);
-    expect(controller.canComment, isFalse);
     expect(find.byTooltip('评论'), findsNothing);
     expect(tester.takeException(), isNull);
     await finish(tester);
@@ -130,8 +126,7 @@ void main() {
         'wish_listen': false,
       },
     });
-    final controller = Get.find<MusicDetailController>(tag: 'track');
-    await until(tester, () => controller.infoState.value is Success);
+    await until(tester, () => find.text('点赞').evaluate().isNotEmpty);
     await tester.pumpAndSettle();
     await tester.tap(find.text('点赞'));
     await until(tester, () => requests.length == 2);
@@ -143,16 +138,18 @@ void main() {
       isNull,
     );
     requests[1].reply.complete({'message': 'missing status'});
-    await until(tester, () => !controller.updatingWish);
-    expect(controller.infoState.value.data.wishListen, isFalse);
+    await until(tester, () => find.text('点赞').evaluate().isNotEmpty);
+    expect(find.text('处理中'), findsNothing);
     expect(find.textContaining('操作结果待确认'), findsOneWidget);
     await finish(tester);
   });
 
   testWidgets('缺少路由音乐标识显示可读失败，避免空断言和网络请求', (tester) async {
     await mount(tester, '/music');
-    final controller = Get.find<MusicDetailController>(tag: '');
-    await until(tester, () => controller.infoState.value is Error);
+    await until(
+      tester,
+      () => find.textContaining('音乐标识无效').evaluate().isNotEmpty,
+    );
     expect(find.textContaining('音乐标识无效'), findsOneWidget);
     expect(requests, isEmpty);
     expect(tester.takeException(), isNull);

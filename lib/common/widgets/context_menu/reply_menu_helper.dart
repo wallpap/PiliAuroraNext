@@ -39,12 +39,7 @@ Future<void> showDeleteReplyDialog(
                     final route = ModalRoute.of(context);
                     setState(() => submitting = true);
                     try {
-                      final result = await VideoHttp.replyDel(
-                        account: account,
-                        type: item.type.toInt(),
-                        oid: item.oid.toInt(),
-                        rpid: item.id.toInt(),
-                      );
+                      final result = await CommentActions.delete(account, item);
                       if (!context.mounted ||
                           !isCurrent() ||
                           route?.isCurrent != true) {

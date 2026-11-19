@@ -9,10 +9,9 @@ import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/remote/match/match_info/contest.dart';
 import 'package:pili_aurora_next/models/remote/match/match_info/team.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
-import 'package:pili_aurora_next/pages/match_info/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/match_detail.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
@@ -29,10 +28,21 @@ class MatchInfoPage extends ConsumerStatefulWidget {
 
 class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
   @override
-  final MatchInfoController controller = Get.putOrFind(
-    MatchInfoController.new,
-    tag: Get.parameters['cid'] ?? '',
-  );
+  late final MatchInfoController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = MatchInfoController(
+      oid: int.tryParse(Get.parameters['cid'] ?? '') ?? 0,
+    )..open();
+  }
+
+  @override
+  void dispose() {
+    controller.close();
+    super.dispose();
+  }
 
   @override
   dynamic get arguments => null;
@@ -53,7 +63,10 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
               CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  Obx(() => _buildInfo(controller.infoState.value)),
+                  ValueListenableBuilder(
+                    valueListenable: controller.infoState,
+                    builder: (context, value, _) => _buildInfo(value),
+                  ),
                   buildReplyHeader(),
                   replyList(),
                 ],

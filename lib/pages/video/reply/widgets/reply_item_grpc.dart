@@ -20,9 +20,10 @@ import 'package:pili_aurora_next/features/community/application/comment_filter_s
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
@@ -76,6 +77,7 @@ class ReplyItemGrpc extends StatelessWidget {
     this.onToggleTop,
     this.jumpToDialogue,
     this.onUpdate,
+    this.musicShare,
   });
   final CommentReply replyItem;
   final int replyLevel;
@@ -91,6 +93,7 @@ class ReplyItemGrpc extends StatelessWidget {
   final ValueChanged<CommentReply>? onToggleTop;
   final VoidCallback? jumpToDialogue;
   final VoidCallback? onUpdate;
+  final CommentShareOrigin? musicShare;
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
@@ -1131,13 +1134,12 @@ class ReplyItemGrpc extends StatelessWidget {
                     if (!isCurrent()) {
                       return const Error('评论已变化，请重新打开举报页面');
                     }
-                    final res = await ReplyHttp.report(
-                      account: account,
-                      rpid: rpid,
-                      oid: oid,
-                      reasonType: reasonType,
-                      reasonDesc: reasonDesc,
-                      banUid: banUid,
+                    final res = await CommentActions.report(
+                      account,
+                      item,
+                      reason: reasonType,
+                      description: reasonDesc,
+                      block: banUid,
                     );
                     if (res.isSuccess && isCurrent()) {
                       try {
@@ -1173,12 +1175,8 @@ class ReplyItemGrpc extends StatelessWidget {
                   ),
                 );
                 if (!confirmed || !isCurrent()) return;
-                final res = await VideoHttp.relationMod(
-                  account: account,
-                  mid: item.member.mid.toInt(),
-                  act: 5,
-                  reSrc: 11,
-                );
+                final res = await MemberModeration.capture(account)
+                    .block(item.member.mid.toInt());
                 if (!isCurrent()) return;
                 if (res.isSuccess) {
                   SmartDialog.showToast('拉黑成功');
@@ -1228,7 +1226,11 @@ class ReplyItemGrpc extends StatelessWidget {
           ListTile(
             onTap: () {
               Get.back();
-              SavePanel.toSavePanel(upMid: upMid, item: item);
+              SavePanel.toSavePanel(
+                upMid: upMid,
+                item: item,
+                musicShare: musicShare,
+              );
             },
             minLeadingWidth: 0,
             leading: const Icon(Icons.save_alt, size: 19),

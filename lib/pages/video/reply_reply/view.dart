@@ -1,4 +1,5 @@
 import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/colored_box_transition.dart';
@@ -35,6 +36,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
   const VideoReplyReplyPanel({
     super.key,
     super.enableSlide,
+    this.musicShare,
     this.id,
     required this.oid,
     required this.rpid,
@@ -46,6 +48,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
     this.upMid,
     this.onUpdate,
   });
+  final CommentShareOrigin? musicShare;
   final int? id;
   final int oid;
   final int rpid;
@@ -304,6 +307,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         SliverToBoxAdapter(
           child: ReplyItemGrpc(
             replyItem: firstFloor,
+            musicShare: widget.musicShare,
             replyLevel: 2,
             needDivider: false,
             onReply: (replyItem) => _interactions.compose(
@@ -452,6 +456,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   ) {
     return ReplyItemGrpc(
       replyItem: replyItem,
+      musicShare: widget.musicShare,
       replyLevel: isDialogue ? 3 : 2,
       onReply: (item) =>
           _interactions.compose(context, comments, snapshot, _source, item),

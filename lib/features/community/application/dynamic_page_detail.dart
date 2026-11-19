@@ -1,26 +1,31 @@
 import 'dart:async';
 
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
-    show ReloadMixin;
+import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/pages/common/dyn/common_dyn_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
-class DynamicDetailController extends CommonDynController with ReloadMixin {
-  DynamicDetailController(this._details, {super.count});
+class DynamicDetailController extends ContentPageDetail {
+  DynamicDetailController(
+    this._details, {
+    super.count,
+    super.onFeedback,
+    this.onScrollReset,
+  });
 
   final DynamicDetails _details;
+  final void Function()? onScrollReset;
 
   @override
   int oid = 0;
   @override
   int replyType = 0;
   late DynamicItemModel dynItem;
-  bool _loadingSource = false;
+  Account? _sourceAccount;
+  int _sourceVersion = 0;
   bool _sourceReady = false;
   Timer? _replySubjectRefresh;
   Future<void> Function()? refreshComments;
@@ -29,8 +34,8 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   Object get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
 
   @override
-  void onInit() {
-    super.onInit();
+  void open() {
+    Accounts.heartbeatChanges.addListener(_onAccountChanged);
     final commentType = dynItem.basic?.commentType;
     final commentIdStr = dynItem.basic?.commentIdStr;
     if (commentType != null &&
@@ -43,14 +48,22 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
     }
   }
 
+  void _onAccountChanged() {
+    if (_sourceReady || isClosed) return;
+    commentSource.value = LoadingState.loading();
+    unawaited(_loadCommentSource());
+  }
+
   Future<void> _loadCommentSource() async {
-    if (isClosed || _loadingSource) return;
-    _loadingSource = true;
-    final item = dynItem;
     final account = Accounts.heartbeat;
+    if (isClosed || identical(_sourceAccount, account)) return;
+    _sourceAccount = account;
+    final version = ++_sourceVersion;
+    final item = dynItem;
     try {
       final result = await _details.load(account, item.idStr);
       if (isClosed ||
+          version != _sourceVersion ||
           !identical(item, dynItem) ||
           !identical(account, Accounts.heartbeat)) {
         return;
@@ -61,7 +74,7 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
         commentSource.value = result;
       }
     } finally {
-      _loadingSource = false;
+      if (version == _sourceVersion) _sourceAccount = null;
     }
   }
 
@@ -96,9 +109,9 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
     if (result == null) return const Error('正在设置可见范围，请稍候');
     if (result.isSuccess) {
       item.modules.moduleAuthor?.badgeText = isPrivate ? null : '仅自己可见';
-      SmartDialog.showToast('设置成功');
+      onFeedback?.call('设置成功');
     } else {
-      result.toast();
+      onFeedback?.call(result.toString());
     }
     return result;
   }
@@ -118,7 +131,7 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
     final result = await _details.setReplySubject(account, oid, type, action);
     if (!ownsTarget()) return;
     if (result case Success(:final response)) {
-      SmartDialog.showToast(
+      onFeedback?.call(
         response?.trim().isNotEmpty == true ? response! : '设置成功',
       );
       _replySubjectRefresh?.cancel();
@@ -126,19 +139,21 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
         if (ownsTarget()) onReload();
       });
     } else if (result is Error) {
-      result.toast();
+      onFeedback?.call(result.toString());
     }
   }
 
   @override
-  void onClose() {
+  void close() {
+    Accounts.heartbeatChanges.removeListener(_onAccountChanged);
     _replySubjectRefresh?.cancel();
-    super.onClose();
+    super.close();
   }
 
   @override
   Future<void> onReload() {
-    reload = true;
+    if (isClosed) return Future.value();
+    onScrollReset?.call();
     return _sourceReady
         ? refreshComments?.call() ?? Future.value()
         : _loadCommentSource();

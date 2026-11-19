@@ -9,9 +9,8 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/translucent_row.dart';
 import 'package:pili_aurora_next/http/constants.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -440,10 +439,10 @@ class AuthorPanel extends StatelessWidget {
                         SmartDialog.showToast('动态缺少有效的评论来源，请刷新后重试');
                         return;
                       }
-                      final res = await ReplyHttp.replyInteraction(
-                        account: account,
-                        oid: oid,
-                        type: type,
+                      final res = await CommentActions.interactionSettings(
+                        account,
+                        oid,
+                        type,
                       );
                       if (!context.mounted ||
                           !ownsTarget() ||
@@ -642,31 +641,16 @@ class AuthorPanel extends StatelessWidget {
                       context,
                       ReportOptions.dynamicReport,
                       isCurrent: ownsTarget,
-                      (reasonType, reasonDesc, banUid) async {
-                        if (!ownsTarget()) {
-                          return const Error('账号或动态已变更，请重新打开举报页面');
-                        }
-                        final result = await UserHttp.dynamicReport(
-                          account: account,
-                          mid: moduleAuthor.mid!,
-                          dynId: dynamicId,
-                          reasonType: reasonType,
-                          reasonDesc: reasonDesc,
-                        );
-                        if (!result.isSuccess || !banUid || !ownsTarget()) {
-                          return result;
-                        }
-                        final blockResult = await VideoHttp.relationMod(
-                          account: account,
-                          mid: moduleAuthor.mid!,
-                          act: 5,
-                          reSrc: 11,
-                        );
-                        if (blockResult is Error) {
-                          return Success('举报成功；拉黑用户：$blockResult');
-                        }
-                        return result;
-                      },
+                      (reasonType, reasonDesc, banUid) =>
+                          DynamicDetails.legacy.report(
+                            account,
+                            author: moduleAuthor.mid!,
+                            id: dynamicId,
+                            reason: reasonType,
+                            description: reasonDesc,
+                            block: banUid,
+                            isCurrent: ownsTarget,
+                          ),
                     );
                   },
                   minLeadingWidth: 0,

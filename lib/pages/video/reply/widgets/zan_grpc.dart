@@ -1,5 +1,6 @@
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
-import 'package:pili_aurora_next/http/reply.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
@@ -33,34 +34,25 @@ class _ZanButtonGrpcState extends State<ZanButtonGrpc> {
       return;
     }
     final item = widget.replyItem;
-    final previous = item.replyControl.action;
-    final action = (like ? $fixnum.Int64.ONE : $fixnum.Int64.TWO) == previous
-        ? $fixnum.Int64.ZERO
-        : like
-        ? $fixnum.Int64.ONE
-        : $fixnum.Int64.TWO;
     setState(() => _processing = true);
     feedBack();
     try {
-      final invoke = like ? ReplyHttp.likeReply : ReplyHttp.hateReply;
-      final result = await invoke(
-        account: account,
-        type: item.type.toInt(),
-        oid: item.oid.toInt(),
-        rpid: item.id.toInt(),
-        action: action == $fixnum.Int64.ZERO ? 0 : 1,
+      final result = await CommentActions.react(
+        account,
+        item,
+        like: like,
+        isCurrent: () =>
+            mounted &&
+            identical(account, Accounts.main) &&
+            identical(item, widget.replyItem),
       );
-      if (!mounted ||
+      if (result == null ||
+          !mounted ||
           !identical(account, Accounts.main) ||
           !identical(item, widget.replyItem)) {
         return;
       }
-      if (result.isSuccess) {
-        setState(() {
-          if (previous == $fixnum.Int64.ONE) item.like -= $fixnum.Int64.ONE;
-          if (action == $fixnum.Int64.ONE) item.like += $fixnum.Int64.ONE;
-          item.replyControl.action = action;
-        });
+      if (result case Success(response: final action)) {
         SmartDialog.showToast(
           action == $fixnum.Int64.ZERO
               ? (like ? '取消赞' : '取消踩')

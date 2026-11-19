@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/pages/common/publish/common_publish_page.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
 import 'package:pili_aurora_next/pages/emote/preview.dart';
-import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_page_detail.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
@@ -53,7 +53,7 @@ class _PinFixture extends CommentFixture {
 }
 
 class _Detail extends DynamicDetailController {
-  _Detail(super.details);
+  _Detail(super.details) : super(onFeedback: SmartDialog.showToast);
 
   int reloads = 0;
   @override
@@ -75,7 +75,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  Account account(int id) => LoginAccount(
+  LoginAccount account(int id) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': 'fixture-$id'}),
     null,
     null,
@@ -104,9 +104,11 @@ void main() {
 
   Future<void> mount(WidgetTester tester, Widget child) async {
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: Scaffold(body: child),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: Scaffold(body: child),
+        ),
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
@@ -384,10 +386,24 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('表情包设置切号后显示可重试提示，旧数据不会进入页面', (tester) async {
+  testWidgets('表情包重新登录后加载新数据，旧数据不会进入页面', (tester) async {
     await mount(tester, const EmoteManagePage());
     await until(tester, () => requests.length == 1);
-    Accounts.accountMode[AccountType.main.index] = replacement;
+    Accounts.replaceCredentials(account(1));
+    await until(tester, () => requests.length == 2);
+    requests[1].reply.complete({
+      'code': 0,
+      'data': {
+        'user_panel_packages': [
+          {'id': 2, 'text': '新表情'},
+        ],
+      },
+    });
+    await until(tester, () => requests.length == 3);
+    requests[2].reply.complete({
+      'code': 0,
+      'data': {'total': 0, 'packages': []},
+    });
     requests[0].reply.complete({
       'code': 0,
       'data': {
@@ -398,7 +414,7 @@ void main() {
     });
     await settle(tester);
     expect(find.text('旧表情'), findsNothing);
-    expect(find.text('账号已切换，请刷新重试'), findsOneWidget);
+    expect(find.text('新表情'), findsOneWidget);
     await finish(tester);
   });
 
@@ -623,7 +639,7 @@ void main() {
     expect(find.text('评论已关闭'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(controller.reloads, 0);
-    controller.onClose();
+    controller.close();
     await finish(tester);
   });
 

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
@@ -16,7 +17,7 @@ import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/enum_with_label.dart';
 import 'package:pili_aurora_next/pages/article/widgets/sliver_list.dart';
-import 'package:pili_aurora_next/pages/common/dyn/common_dyn_controller.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:pili_aurora_next/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
@@ -77,7 +78,8 @@ abstract class CommonDynPageMultiState<T extends ConsumerStatefulWidget>
 
 mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
     on ConsumerState<T>, TickerProvider, BaseFabMixin<T>, FabMixin<T> {
-  CommonDynController get controller;
+  ContentPageDetail get controller;
+  CommentShareOrigin? get musicCommentShare => null;
   bool get isArticle => false;
 
   bool get horizontalPreview => !isPortrait && controller.horizontalPreview;
@@ -119,18 +121,21 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
   }
 
   Widget commentBuilder(Widget Function(Comments?, CommentsState?) builder) =>
-      Obx(() {
-        final query = _commentQuery;
-        return Consumer(
-          builder: (context, ref, _) {
-            final provider = query == null ? null : commentsProvider(query);
-            return builder(
-              provider == null ? null : ref.read(provider.notifier),
-              provider == null ? null : ref.watch(provider),
-            );
-          },
-        );
-      });
+      ListenableBuilder(
+        listenable: controller.commentSource,
+        builder: (context, _) {
+          final query = _commentQuery;
+          return Consumer(
+            builder: (context, ref, _) {
+              final provider = query == null ? null : commentsProvider(query);
+              return builder(
+                provider == null ? null : ref.read(provider.notifier),
+                provider == null ? null : ref.watch(provider),
+              );
+            },
+          );
+        },
+      );
 
   CommentsState? get commentSnapshot {
     final query = _commentQuery;
@@ -204,12 +209,10 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
   void toggleCommentSort(Comments comments, CommentsState state) =>
       _interactions.toggleSort(comments, state);
 
-  Widget replyList() => Obx(() {
-    final source = controller.commentSource.value;
-    return commentBuilder(
-      (comments, snapshot) => _replyList(source, comments, snapshot),
-    );
-  });
+  Widget replyList() => commentBuilder(
+    (comments, snapshot) =>
+        _replyList(controller.commentSource.value, comments, snapshot),
+  );
 
   Widget _replyList(
     LoadingState<CommentTarget?> source,
@@ -273,6 +276,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
               } else {
                 return ReplyItemGrpc(
                   replyItem: response[index],
+                  musicShare: musicCommentShare,
                   replyLevel: 1,
                   replyReply: (item, id) => replyReply(context, item, id),
                   onReply: (item, {oid, replyType, index}) => _compose(
@@ -359,6 +363,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
             rpid: rpid,
             isVideoDetail: !showBackBtn,
             replyType: controller.replyType,
+            musicShare: musicCommentShare,
             firstFloor: replyItem,
             upMid: commentSnapshot?.upMid,
             onUpdate: commentUpdate(),

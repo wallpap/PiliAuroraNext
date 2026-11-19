@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
-import 'package:pili_aurora_next/pages/music/controller.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
@@ -37,20 +37,26 @@ class SavePanel extends StatefulWidget {
     required this.item,
     // reply
     this.upMid,
+    this.musicShare,
     super.key,
   });
 
   final dynamic upMid;
   final dynamic item;
+  final CommentShareOrigin? musicShare;
 
   @override
   State<SavePanel> createState() => _SavePanelState();
 
-  static void toSavePanel({dynamic upMid, dynamic item}) {
+  static void toSavePanel({
+    dynamic upMid,
+    dynamic item,
+    CommentShareOrigin? musicShare,
+  }) {
     Get.key.currentState!.push(
       PublishRoute(
         pageBuilder: (context, animation, secondaryAnimation) {
-          return SavePanel(upMid: upMid, item: item);
+          return SavePanel(upMid: upMid, item: item, musicShare: musicShare);
         },
         transitionDuration: const Duration(milliseconds: 255),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -200,19 +206,15 @@ class _SavePanelState extends State<SavePanel> {
       final rootId = hasRoot ? reply.root : reply.id;
       final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
       String enterUri = '';
-      try {
-        final ctr = Get.find<MusicDetailController>(
-          tag: Get.parameters['musicId'],
-        );
-        enterUri = 'enterUri=${Uri.encodeComponent(ctr.shareUrl)}'; // official client cannot parse it
-        final data = ctr.infoState.value.dataOrNull;
-        if (data != null) {
+      if (widget.musicShare case final music?) {
+        enterUri = 'enterUri=${Uri.encodeComponent(music.url)}';
+        if (music.cover != null || music.title != null) {
           coverType = _CoverType.square;
-          cover = data.mvCover;
-          title = data.musicTitle;
-          if (data.musicPublish != null) {
+          cover = music.cover;
+          title = music.title;
+          if (music.published case final published?) {
             final time = DateTime.tryParse(
-              data.musicPublish!,
+              published,
             )?.millisecondsSinceEpoch;
             if (time != null) {
               pubdate = time ~/ 1000;
@@ -220,7 +222,7 @@ class _SavePanelState extends State<SavePanel> {
             }
           }
         }
-      } catch (_) {}
+      }
       uri = 'bilibili://comment/detail/$type/$oid/$rootId/?$anchor$enterUri';
     }
 

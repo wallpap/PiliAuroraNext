@@ -1,13 +1,11 @@
+import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/match.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/match_queries.dart';
 import 'package:pili_aurora_next/models/remote/match/match_info/contest.dart';
-import 'package:pili_aurora_next/pages/common/dyn/common_dyn_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:get/get.dart';
 
-class MatchInfoController extends CommonDynController {
-  MatchInfoController({int? oid})
-    : oid = oid ?? int.tryParse(Get.parameters['cid'] ?? '') ?? 0;
+class MatchInfoController extends ContentPageDetail {
+  MatchInfoController({required this.oid});
 
   @override
   final int oid;
@@ -17,13 +15,18 @@ class MatchInfoController extends CommonDynController {
   @override
   Object get sourceId => oid.toString();
 
-  final Rx<LoadingState<MatchContest?>> infoState =
-      LoadingState<MatchContest?>.loading().obs;
+  final infoState = DetailValue(LoadingState<MatchContest?>.loading());
   int _infoVersion = 0;
 
   @override
-  void onInit() {
-    super.onInit();
+  void open() {
+    Accounts.mainChanges.addListener(_accountChanged);
+    getMatchInfo();
+  }
+
+  void _accountChanged() {
+    if (isClosed) return;
+    infoState.value = LoadingState.loading();
     getMatchInfo();
   }
 
@@ -43,7 +46,7 @@ class MatchInfoController extends CommonDynController {
         version == _infoVersion &&
         identical(account, Accounts.main);
     try {
-      final res = await MatchHttp.matchInfo(oid, account: account);
+      final res = await MatchQueries.detail(account, oid);
       if (current()) infoState.value = res;
     } catch (error, stackTrace) {
       if (current()) infoState.value = Error.fromException(error, stackTrace);
@@ -59,8 +62,11 @@ class MatchInfoController extends CommonDynController {
   Future<void> onReload() => getMatchInfo();
 
   @override
-  void onClose() {
+  void close() {
+    if (isClosed) return;
     _infoVersion++;
-    super.onClose();
+    Accounts.mainChanges.removeListener(_accountChanged);
+    infoState.dispose();
+    super.close();
   }
 }

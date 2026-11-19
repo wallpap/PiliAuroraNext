@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
-    show ReloadScrollPhysics, platformAlwaysClampingPhysics;
+    show ReloadMixin, ReloadScrollPhysics, platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/common/widgets/tap_region_surface.dart';
@@ -33,7 +33,7 @@ import 'package:pili_aurora_next/pages/common/dyn/repost_list/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_page_detail.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
@@ -41,6 +41,7 @@ import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -57,8 +58,8 @@ class DynamicDetailPage extends ConsumerStatefulWidget {
   ConsumerState<DynamicDetailPage> createState() => _DynamicDetailPageState();
 }
 
-class _DynamicDetailPageState
-    extends CommonDynPageMultiState<DynamicDetailPage> {
+class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
+    with ReloadMixin {
   @override
   late final DynamicDetailController controller;
   final _activityOwner = Object();
@@ -66,7 +67,7 @@ class _DynamicDetailPageState
   DynamicActivityQuery get _activityQuery =>
       (owner: _activityOwner, id: controller.dynItem.idStr.toString());
 
-  late final RxBool _isRefreshing = false.obs;
+  final _isRefreshing = ValueNotifier(false);
 
   void _stopRefresh() {
     if (!mounted) return;
@@ -93,8 +94,10 @@ class _DynamicDetailPageState
     controller = DynamicDetailController(
       ref.read(dynamicDetailsProvider),
       count: stat?.comment?.count ?? -1,
+      onFeedback: SmartDialog.showToast,
+      onScrollReset: () => reload = true,
     )..dynItem = item;
-    controller.onStart();
+    controller.open();
   }
 
   ScrollableState? _scrollable;
@@ -103,7 +106,8 @@ class _DynamicDetailPageState
   @override
   void dispose() {
     controller.refreshComments = null;
-    controller.onDelete();
+    controller.close();
+    _isRefreshing.dispose();
     _editRefresh?.cancel();
     _scrollable = null;
     super.dispose();
@@ -277,8 +281,9 @@ class _DynamicDetailPageState
   PreferredSizeWidget _buildAppBar() => AppBar(
     title: Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: Obx(
-        () {
+      child: ListenableBuilder(
+        listenable: controller.showTitle,
+        builder: (context, _) {
           final showTitle = controller.showTitle.value;
           return AnimatedOpacity(
             opacity: showTitle ? 1 : 0,
@@ -394,7 +399,7 @@ class _DynamicDetailPageState
       CustomScrollView(
         key: const PageStorageKey(DynType.reply),
         physics: ReloadScrollPhysics(
-          controller: controller,
+          controller: this,
           parent: isPortrait ? platformAlwaysClampingPhysics : null,
         ),
         slivers: [
@@ -438,8 +443,10 @@ class _DynamicDetailPageState
             left: 0,
             right: 0,
             top: displacement,
-            child: Obx(
-              () => RefreshIndicator_(isRefreshing: _isRefreshing.value),
+            child: ValueListenableBuilder(
+              valueListenable: _isRefreshing,
+              builder: (_, refreshing, _) =>
+                  RefreshIndicator_(isRefreshing: refreshing),
             ),
           ),
         ],
@@ -451,7 +458,7 @@ class _DynamicDetailPageState
   Widget _buildDynPanel() {
     return SliverToBoxWithOffsetAdapter(
       offset: 55,
-      onVisibilityChanged: controller.showTitle.call,
+      onVisibilityChanged: controller.setShowTitle,
       child: Builder(
         builder: (context) {
           _scrollable = Scrollable.maybeOf(context);

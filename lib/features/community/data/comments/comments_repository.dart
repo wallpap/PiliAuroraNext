@@ -8,6 +8,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
+import 'package:pili_aurora_next/models/remote/reply_interaction/data.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 final commentsRepositoryProvider = Provider(
@@ -16,6 +17,48 @@ final commentsRepositoryProvider = Provider(
 
 class CommentsRepository {
   const CommentsRepository();
+
+  Future<LoadingState<ReplyInteractData>> interactionSettings(
+    Account account,
+    int oid,
+    int type,
+  ) => ReplyHttp.replyInteraction(account: account, oid: oid, type: type);
+
+  Future<LoadingState<void>> report(
+    Account account,
+    CommentReply reply, {
+    required int reason,
+    String? description,
+    required bool block,
+  }) => ReplyHttp.report(
+    account: account,
+    rpid: reply.id,
+    oid: reply.oid,
+    reasonType: reason,
+    reasonDesc: description,
+    banUid: block,
+  );
+
+  Future<LoadingState<void>> delete(Account account, CommentReply reply) =>
+      VideoHttp.replyDel(
+        account: account,
+        type: reply.type.toInt(),
+        oid: reply.oid.toInt(),
+        rpid: reply.id.toInt(),
+      );
+
+  Future<LoadingState<void>> react(
+    Account account,
+    CommentReply reply, {
+    required bool like,
+    required bool remove,
+  }) => (like ? ReplyHttp.likeReply : ReplyHttp.hateReply)(
+    account: account,
+    type: reply.type.toInt(),
+    oid: reply.oid.toInt(),
+    rpid: reply.id.toInt(),
+    action: remove ? 0 : 1,
+  );
 
   Future<LoadingState<CommentPage>> main(
     Account account,

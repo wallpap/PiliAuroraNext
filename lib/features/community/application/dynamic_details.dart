@@ -2,8 +2,10 @@ import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/dynamics_repository.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve/data.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
@@ -21,6 +23,41 @@ class DynamicDetails {
 
   Future<LoadingState<DynamicItemModel>> load(Account account, Object? id) =>
       _repository.detail(account: account, id: id);
+
+  Future<LoadingState<List<OpusPicModel>?>> pictures(Object? id) =>
+      _repository.pictures(id);
+
+  Future<LoadingState<DynReserveData>?> reserve(
+    Account account,
+    Object id,
+    Reserve reservation,
+  ) => _write(
+    account,
+    ('reserve', reservation.rid),
+    () => _repository.reserve(account, id, reservation),
+  );
+
+  Future<LoadingState<Object?>> report(
+    Account account, {
+    required int author,
+    required Object id,
+    required int reason,
+    required String? description,
+    required bool block,
+    required bool Function() isCurrent,
+  }) async {
+    if (!isCurrent()) return const Error('账号或动态已变更，请重新打开举报页面');
+    final moderation = MemberModeration.capture(account);
+    final result = await _write(
+      account,
+      ('report', id.toString()),
+      () => _repository.report(account, author, id, reason, description),
+    );
+    if (result == null) return const Error('账号已切换或正在举报');
+    if (!result.isSuccess || !block || !isCurrent()) return result;
+    final blocked = await moderation.block(author);
+    return blocked is Error ? Success('举报成功；拉黑用户：$blocked') : result;
+  }
 
   Future<LoadingState<DynamicItemModel>> resolve({
     String? id,

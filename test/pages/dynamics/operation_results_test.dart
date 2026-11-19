@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/features/community/domain/vote.dart'
 import 'package:pili_aurora_next/pages/dynamics/widgets/additional_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/action_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
-import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_page_detail.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -28,7 +28,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  Account account(int id) => LoginAccount(
+  LoginAccount account(int id) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': 'fixture-$id'}),
     null,
     null,
@@ -145,6 +145,35 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('动态评论来源在凭据更新后重新查询，迟到结果不覆盖新来源', (tester) async {
+    final heartbeatIndex = AccountType.heartbeat.index;
+    final previous = Accounts.accountMode[heartbeatIndex];
+    Accounts.accountMode[heartbeatIndex] = original;
+    addTearDown(() => Accounts.accountMode[heartbeatIndex] = previous);
+    final controller = DynamicDetailController(DynamicDetails.legacy)
+      ..dynItem = item()
+      ..open();
+    addTearDown(controller.close);
+    await until(tester, () => requests.length == 1);
+
+    Accounts.replaceCredentials(account(1));
+    await until(tester, () => requests.length == 2);
+    Map<String, Object> response(int oid) => {
+      'code': 0,
+      'data': {
+        'item': {
+          'id_str': '1',
+          'basic': {'comment_type': 11, 'comment_id_str': '$oid'},
+        },
+      },
+    };
+    requests[1].reply.complete(response(20));
+    await until(tester, () => controller.oid == 20);
+    requests[0].reply.complete(response(10));
+    await tester.pump();
+    expect(controller.commentSource.value.dataOrNull, (oid: 20, type: 11));
+  });
+
   testWidgets('同一动态的独立卡片共用点赞锁，待确认和凭据替换保留原计数', (tester) async {
     final dynamic = item();
     await mount(
@@ -206,7 +235,7 @@ void main() {
       tester.element(find.byType(Scaffold)),
     ).read(dynamicDetailsProvider);
     final controller = DynamicDetailController(details)..dynItem = dynamic;
-    addTearDown(controller.onDelete.call);
+    addTearDown(controller.close);
     final pending = controller.onSetPubSetting(true, '1');
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete({'code': '0'});
@@ -215,9 +244,9 @@ void main() {
     expect(dynamic.modules.moduleAuthor!.badgeText, '仅自己可见');
     final stale = controller.onSetPubSetting(true, '1');
     await until(tester, () => requests.length == 2);
-    controller.onDelete();
+    controller.close();
     final reopened = DynamicDetailController(details)..dynItem = item();
-    addTearDown(reopened.onDelete.call);
+    addTearDown(reopened.close);
     expect(await reopened.onSetPubSetting(true, '1'), isA<Error>());
     expect(requests, hasLength(2));
     requests[1].reply.complete({'code': 0});

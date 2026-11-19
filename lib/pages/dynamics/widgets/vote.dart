@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/avatars.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/data/vote_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
@@ -71,9 +71,9 @@ class _VotePanelState extends State<VotePanel> {
     if (!isLogin) return;
     final info = _voteInfo;
     final generation = _generation;
-    final result = await DynamicsHttp.followeeVotes(
-      voteId: info.voteId,
-      account: _account,
+    final result = await const VoteRepository().followees(
+      _account,
+      info.voteId,
     );
     if (!mounted ||
         !_isCurrent ||
@@ -612,7 +612,8 @@ Future<void> showVoteDialog(
   int? dynamicId,
 ]) async {
   final account = Accounts.main;
-  final voteInfo = await DynamicsHttp.voteInfo(voteId, account: account);
+  const repository = VoteRepository();
+  final voteInfo = await repository.detail(account, voteId);
   if (context.mounted && identical(account, Accounts.main)) {
     if (voteInfo case Success(:final response)) {
       showDialog(
@@ -623,13 +624,8 @@ Future<void> showVoteDialog(
             padding: const .all(24),
             child: VotePanel(
               voteInfo: response,
-              onVote: (votes, anonymous) => DynamicsHttp.doVote(
-                account: account,
-                voteId: voteId,
-                votes: votes.toList(),
-                anonymous: anonymous,
-                dynamicId: dynamicId,
-              ),
+              onVote: (votes, anonymous) =>
+                  repository.vote(account, voteId, votes, anonymous, dynamicId),
             ),
           ),
         ),

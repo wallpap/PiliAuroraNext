@@ -9,6 +9,8 @@ import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/http/member.dart';
+import 'package:pili_aurora_next/http/user.dart';
+import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve/data.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_cursor.dart';
@@ -22,6 +24,35 @@ class DynamicsRepository {
   const DynamicsRepository();
 
   Future<int?> unread(Account account) => DynGrpc.dynRed(account);
+
+  Future<LoadingState<List<OpusPicModel>?>> pictures(Object? id) =>
+      DynamicsHttp.dynPic(id);
+
+  Future<LoadingState<DynReserveData>> reserve(
+    Account account,
+    Object dynamicId,
+    Reserve reservation,
+  ) => DynamicsHttp.dynReserve(
+    account: account,
+    reserveId: reservation.rid,
+    curBtnStatus: reservation.button?.status,
+    dynamicIdStr: dynamicId,
+    reserveTotal: reservation.reserveTotal,
+  );
+
+  Future<LoadingState<void>> report(
+    Account account,
+    int mid,
+    Object id,
+    int reason,
+    String? description,
+  ) => UserHttp.dynamicReport(
+    account: account,
+    mid: mid,
+    dynId: id,
+    reasonType: reason,
+    reasonDesc: description,
+  );
 
   Future<LoadingState<String?>> publish(
     Account account,

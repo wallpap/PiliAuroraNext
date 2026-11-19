@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart'
     show SourceModel;
@@ -315,7 +315,8 @@ TextSpan? richNode(
                         return;
                       }
 
-                      DynamicsHttp.dynPic(i.rid).then((res) {
+                      DynamicDetails.legacy.pictures(i.rid).then((res) {
+                        if (!context.mounted) return;
                         if (res case Success(:final response)) {
                           if (Platform.isAndroid) {
                             i.pics = response;

@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/data/dynamic_picture_upload.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart' show FilePicModel;
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -20,14 +20,14 @@ class _Composer extends CommonRichTextPubPage {
 
 class _ComposerState extends CommonRichTextPubPageState<_Composer> {
   final upload = Completer<Map<String, dynamic>>();
-  CancelToken? token;
+  DynamicPictureUpload? token;
   Account? uploadAccount;
   int submissions = 0;
   @override
   Future<Map<String, dynamic>> uploadPicture(
     FilePicModel image,
-    CancelToken cancelToken, {
-    Account? account,
+    DynamicPictureUpload cancelToken, {
+    required Account account,
   }) {
     token = cancelToken;
     uploadAccount = account;

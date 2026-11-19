@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/button/toolbar_icon_button.dart'
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
-import 'package:pili_aurora_next/http/msg.dart';
+import 'package:pili_aurora_next/features/community/data/dynamic_picture_upload.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart'
@@ -30,7 +30,6 @@ import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -56,7 +55,7 @@ abstract class CommonRichTextPubPage
 
 abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     extends CommonPublishPageState<T> {
-  CancelToken? _uploadToken;
+  DynamicPictureUpload? _uploadToken;
   bool _showingUploadProgress = false;
   final key = GlobalKey<RichTextFieldState>();
   late final imagePicker = ImagePicker();
@@ -521,24 +520,9 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
 
   Future<Map<String, dynamic>> uploadPicture(
     FilePicModel image,
-    CancelToken cancelToken, {
-    Account? account,
-  }) async {
-    final result = await MsgHttp.uploadBfs(
-      account: account,
-      path: image.path,
-      category: 'daily',
-      biz: 'new_dyn',
-      cancelToken: cancelToken,
-    );
-    final data = result.data;
-    return {
-      'img_width': data.imageWidth,
-      'img_height': data.imageHeight,
-      'img_size': data.imgSize,
-      'img_src': data.imageUrl,
-    };
-  }
+    DynamicPictureUpload upload, {
+    required Account account,
+  }) => upload.upload(image.path, account);
 
   /// 上传使用提交时的图片与账号，表单可以继续编辑。
   Future<List<Map<String, dynamic>>?> uploadPictures({
@@ -546,7 +530,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   }) async {
     final images = imageList.toList();
     if (images.isEmpty) return null;
-    final cancelToken = _uploadToken = CancelToken();
+    final cancelToken = _uploadToken = DynamicPictureUpload();
     try {
       return await Future.wait<Map<String, dynamic>>(
         images.map(

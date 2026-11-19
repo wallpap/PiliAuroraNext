@@ -4,7 +4,8 @@ import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 final class MemberModeration {
-  MemberModeration.capture() : _account = Accounts.main;
+  MemberModeration.capture([Account? account])
+    : _account = account ?? Accounts.main;
 
   final Account _account;
   bool get isCurrent => identical(_account, Accounts.main);

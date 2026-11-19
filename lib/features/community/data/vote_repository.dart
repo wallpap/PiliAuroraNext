@@ -4,14 +4,37 @@ import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
+import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 final voteRepositoryProvider = Provider((ref) => const VoteRepository());
 
 class VoteRepository {
   const VoteRepository();
+  Future<LoadingState<VoteInfo>> detail(Account account, int id) =>
+      DynamicsHttp.voteInfo(id, account: account);
+
+  Future<LoadingState<List<FolloweeVote>?>> followees(
+    Account account,
+    int? id,
+  ) => DynamicsHttp.followeeVotes(voteId: id, account: account);
+
+  Future<LoadingState<VoteInfo>> vote(
+    Account account,
+    int id,
+    Set<int> selected,
+    bool anonymous,
+    int? dynamicId,
+  ) => DynamicsHttp.doVote(
+    account: account,
+    voteId: id,
+    votes: selected.toList(),
+    anonymous: anonymous,
+    dynamicId: dynamicId,
+  );
+
   Future<LoadingState<VoteDraft>> load(Account account, int id) async {
-    final result = await DynamicsHttp.voteInfo(id, account: account);
+    final result = await detail(account, id);
     return switch (result) {
       Success(:final response) => Success(
         VoteDraft(

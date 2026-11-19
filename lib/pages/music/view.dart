@@ -19,11 +19,11 @@ import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_detail.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
-import 'package:pili_aurora_next/pages/music/controller.dart';
+import 'package:pili_aurora_next/features/playback/application/music_detail.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/pages/music/video/view.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
@@ -32,6 +32,7 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -45,10 +46,25 @@ class MusicDetailPage extends ConsumerStatefulWidget {
 
 class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
   @override
-  final MusicDetailController controller = Get.putOrFind(
-    MusicDetailController.new,
-    tag: Get.parameters['musicId'] ?? '',
-  );
+  late final MusicDetailController controller;
+
+  @override
+  CommentShareOrigin get musicCommentShare => controller.commentShare;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = MusicDetailController(
+      musicId: Get.parameters['musicId'] ?? '',
+      onFeedback: SmartDialog.showToast,
+    )..open();
+  }
+
+  @override
+  void dispose() {
+    controller.close();
+    super.dispose();
+  }
 
   @override
   dynamic get arguments => null;
@@ -78,8 +94,12 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
   PreferredSizeWidget _buildAppBar() => AppBar(
     title: Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: Obx(
-        () {
+      child: ListenableBuilder(
+        listenable: Listenable.merge([
+          controller.infoState,
+          controller.showTitle,
+        ]),
+        builder: (context, _) {
           if (controller.infoState.value case Success(:final response)) {
             final showTitle = controller.showTitle.value;
             return AnimatedOpacity(
@@ -114,103 +134,106 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
           ],
   );
 
-  Widget _buildBody() => Obx(() {
-    switch (controller.infoState.value) {
-      case Success(:final response):
-        double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
-        final Widget child;
-        if (isPortrait) {
-          child = Padding(
-            padding: EdgeInsets.symmetric(horizontal: padding),
-            child: commentPagination(
-              CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxWithOffsetAdapter(
-                    offset: 45,
-                    onVisibilityChanged: controller.showTitle.call,
-                    child: _buildCard(response, maxWidth),
-                  ),
-                  SliverToBoxAdapter(
-                    child: _buildChart(response, maxWidth),
-                  ),
-                  buildReplyHeader(),
-                  replyList(),
-                ],
-              ),
-            ),
-          );
-        } else {
-          padding = padding / 4;
-          final flex = controller.ratio[0].toInt();
-          final flex1 = controller.ratio[1].toInt();
-          final leftWidth =
-              (maxWidth - this.padding.horizontal) * (flex / (flex + flex1)) -
-              padding;
-          child = Row(
-            children: [
-              Expanded(
-                flex: flex,
-                child: CustomScrollView(
+  Widget _buildBody() => ListenableBuilder(
+    listenable: controller.infoState,
+    builder: (context, _) {
+      switch (controller.infoState.value) {
+        case Success(:final response):
+          double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+          final Widget child;
+          if (isPortrait) {
+            child = Padding(
+              padding: EdgeInsets.symmetric(horizontal: padding),
+              child: commentPagination(
+                CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.only(
-                        left: padding,
-                      ),
-                      sliver: SliverToBoxAdapter(
-                        child: _buildCard(response, leftWidth),
-                      ),
+                    SliverToBoxWithOffsetAdapter(
+                      offset: 45,
+                      onVisibilityChanged: controller.setShowTitle,
+                      child: _buildCard(response, maxWidth),
                     ),
-                    SliverPadding(
-                      padding: EdgeInsets.only(
-                        left: padding,
-                        bottom: this.padding.bottom + 100,
-                      ),
-                      sliver: SliverToBoxAdapter(
-                        child: _buildChart(response, leftWidth),
-                      ),
+                    SliverToBoxAdapter(
+                      child: _buildChart(response, maxWidth),
                     ),
+                    buildReplyHeader(),
+                    replyList(),
                   ],
                 ),
               ),
-              Expanded(
-                flex: flex1,
-                child: Padding(
-                  padding: EdgeInsets.only(right: padding),
-                  child: MiniScaffold(
-                    body: refreshIndicator(
-                      onRefresh: () =>
-                          refreshDetailsAndComments(parallel: false),
-                      child: commentPagination(
-                        CustomScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          slivers: [
-                            buildReplyHeader(),
-                            replyList(),
-                          ],
+            );
+          } else {
+            padding = padding / 4;
+            final flex = controller.ratio[0].toInt();
+            final flex1 = controller.ratio[1].toInt();
+            final leftWidth =
+                (maxWidth - this.padding.horizontal) * (flex / (flex + flex1)) -
+                padding;
+            child = Row(
+              children: [
+                Expanded(
+                  flex: flex,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.only(
+                          left: padding,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _buildCard(response, leftWidth),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: EdgeInsets.only(
+                          left: padding,
+                          bottom: this.padding.bottom + 100,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _buildChart(response, leftWidth),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: flex1,
+                  child: Padding(
+                    padding: EdgeInsets.only(right: padding),
+                    child: MiniScaffold(
+                      body: refreshIndicator(
+                        onRefresh: () =>
+                            refreshDetailsAndComments(parallel: false),
+                        child: commentPagination(
+                          CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              buildReplyHeader(),
+                              replyList(),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            );
+          }
+          return ScaffoldLayout(
+            body: child,
+            fab: _buildBottom(response),
           );
-        }
-        return ScaffoldLayout(
-          body: child,
-          fab: _buildBottom(response),
-        );
-      case Error error:
-        return scrollErrorWidget(
-          errMsg: error.toString(),
-          onReload: controller.getMusicDetail,
-        );
-      case Loading():
-        return m3eLoading;
-    }
-  });
+        case Error error:
+          return scrollErrorWidget(
+            errMsg: error.toString(),
+            onReload: controller.getMusicDetail,
+          );
+        case Loading():
+          return m3eLoading;
+      }
+    },
+  );
 
   Widget _buildBottom(MusicDetail item) {
     if (!controller.showDynActionBar) {
@@ -291,8 +314,9 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                   ),
                 ),
                 Expanded(
-                  child: Obx(
-                    () => textIconButton(
+                  child: ListenableBuilder(
+                    listenable: controller.wishPending,
+                    builder: (context, _) => textIconButton(
                       icon: controller.updatingWish
                           ? Icons.hourglass_top
                           : FontAwesomeIcons.thumbsUp.data,

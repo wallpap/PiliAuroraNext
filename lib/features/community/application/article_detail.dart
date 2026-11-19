@@ -1,26 +1,21 @@
 import 'dart:math' show max;
 
 import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/community/data/article_repository.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
     show ArticleContentModel;
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/model_avatar.dart';
 import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
-import 'package:pili_aurora_next/pages/common/dyn/common_dyn_controller.dart';
+import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/url_utils.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 
 typedef _ArticleContext = ({
   Account account,
@@ -29,12 +24,17 @@ typedef _ArticleContext = ({
   String type,
 });
 
-class ArticleController extends CommonDynController {
-  ArticleController(this._dynamicsActions);
+class ArticleController extends ContentPageDetail {
+  ArticleController(
+    this._dynamicsActions, {
+    this.id = '',
+    this.type = '',
+    super.onFeedback,
+  });
 
   final DynamicsActions _dynamicsActions;
-  late String id;
-  late String type;
+  String id;
+  String type;
 
   String get url => type == 'read'
       ? 'https://www.bilibili.com/read/cv$id'
@@ -47,7 +47,10 @@ class ArticleController extends CommonDynController {
   int get replyType => commentType;
   final summary = Summary();
 
-  late final RxInt topIndex = 0.obs;
+  final topIndex = DetailValue(0);
+  void setTopIndex(int value) {
+    if (!isClosed) topIndex.value = value;
+  }
 
   @override
   Object get sourceId => commentType == 12 ? 'cv$commentId' : id;
@@ -58,10 +61,10 @@ class ArticleController extends CommonDynController {
   int _infoVersion = 0;
   Object? _favoriteOperation;
   Object? _likeOperation;
-  final RxBool isLoaded = false.obs;
+  final isLoaded = DetailValue(false);
   DynamicItemModel? opusData; // 标题信息从summary获取, 动态没有favorite
   ArticleViewData? articleData;
-  final stats = Rxn<ModuleStatModel>();
+  final stats = DetailValue<ModuleStatModel?>(null);
 
   List<ArticleContentModel>? get opus =>
       opusData?.modules.moduleContent ?? articleData?.opus?.content;
@@ -90,12 +93,8 @@ class ArticleController extends CommonDynController {
       context.type == type;
 
   @override
-  void onInit() {
-    super.onInit();
+  void open() {
     Accounts.mainChanges.addListener(onAccountChanged);
-    final params = Get.parameters;
-    id = params['id']!;
-    type = params['type']!;
 
     // to opus
     if (type == 'read') {
@@ -110,7 +109,6 @@ class ArticleController extends CommonDynController {
             id = opusId;
             type = 'opus';
           }
-          Get.putOrFind(() => this, tag: type + id);
         }
         init();
       });
@@ -152,10 +150,7 @@ class ArticleController extends CommonDynController {
 
   Future<bool> queryOpus(String opusId) async {
     final context = _context;
-    final res = await DynamicsHttp.opusDetail(
-      account: context.account,
-      opusId: opusId,
-    );
+    final res = await ArticleRepository.opus(context.account, opusId);
     if (!_owns(context)) return false;
     if (res case Success(:final response)) {
       //fallback
@@ -199,10 +194,7 @@ class ArticleController extends CommonDynController {
 
   Future<bool> queryRead(int cvid) async {
     final context = _context;
-    final res = await DynamicsHttp.articleView(
-      account: context.account,
-      cvId: cvid,
-    );
+    final res = await ArticleRepository.read(context.account, cvid);
     if (!_owns(context)) return false;
     if (res case Success(:final response)) {
       if (response.id != null && response.id != cvid) {
@@ -232,10 +224,7 @@ class ArticleController extends CommonDynController {
     final context = _context;
     final articleId = commentId;
     final version = ++_infoVersion;
-    final res = await DynamicsHttp.articleInfo(
-      account: context.account,
-      cvId: articleId,
-    );
+    final res = await ArticleRepository.stats(context.account, articleId);
     if (!_owns(context) || version != _infoVersion || articleId != commentId) {
       return false;
     }
@@ -259,7 +248,7 @@ class ArticleController extends CommonDynController {
       return true;
     }
     if (isGetCover) {
-      res.toast();
+      onFeedback?.call(res.toString());
     }
     return false;
   }
@@ -296,7 +285,7 @@ class ArticleController extends CommonDynController {
         if (heartbeat.isLogin &&
             identical(heartbeat, Accounts.heartbeat) &&
             !Pref.historyPause) {
-          VideoHttp.historyReport(account: heartbeat, aid: commentId, type: 5);
+          ArticleRepository.recordView(heartbeat, commentId);
         }
       }
     } finally {
@@ -308,7 +297,7 @@ class ArticleController extends CommonDynController {
     if (isClosed || _favoriteOperation != null) return;
     final context = _context;
     if (!context.account.isLogin) {
-      SmartDialog.showToast('账号未登录');
+      onFeedback?.call('账号未登录');
       return;
     }
     final favorite = stats.value?.favorite;
@@ -317,23 +306,11 @@ class ArticleController extends CommonDynController {
     final isFav = favorite.status ?? false;
     final operation = _favoriteOperation = Object();
     try {
-      final res = await FavoriteLibrary.legacy.write(
+      final res = await FavoriteLibrary.legacy.article(
         context.account,
-        () async => type == 'read'
-            ? isFav
-                  ? await FavHttp.delFavArticle(
-                      account: context.account,
-                      id: articleId,
-                    )
-                  : await FavHttp.addFavArticle(
-                      account: context.account,
-                      id: articleId,
-                    )
-            : await FavHttp.communityAction(
-                account: context.account,
-                opusId: id,
-                action: isFav ? 4 : 3,
-              ),
+        articleId: articleId,
+        opusId: context.type == 'read' ? null : context.id,
+        remove: isFav,
       );
       if (!_owns(context) ||
           articleId != commentId ||
@@ -347,9 +324,9 @@ class ArticleController extends CommonDynController {
           favorite.count = max(0, count + (isFav ? -1 : 1));
         }
         stats.refresh();
-        SmartDialog.showToast('${isFav ? '取消' : ''}收藏成功');
+        onFeedback?.call('${isFav ? '取消' : ''}收藏成功');
       } else {
-        res.toast();
+        onFeedback?.call(res.toString());
       }
     } finally {
       if (identical(_favoriteOperation, operation)) _favoriteOperation = null;
@@ -360,14 +337,14 @@ class ArticleController extends CommonDynController {
     if (isClosed || _likeOperation != null) return;
     final context = _context;
     if (!context.account.isLogin) {
-      SmartDialog.showToast('账号未登录');
+      onFeedback?.call('账号未登录');
       return;
     }
     final like = stats.value?.like;
     if (like == null) return;
     final dynamicId = (opusData?.idStr ?? articleData?.dynIdStr)?.toString();
     if ((int.tryParse(dynamicId ?? '') ?? 0) <= 0) {
-      SmartDialog.showToast('暂未获取到文章动态编号，请刷新后重试');
+      onFeedback?.call('暂未获取到文章动态编号，请刷新后重试');
       return;
     }
     final isLike = like.status ?? false;
@@ -388,9 +365,9 @@ class ArticleController extends CommonDynController {
           like.count = max(0, count + (isLike ? -1 : 1));
         }
         stats.refresh();
-        SmartDialog.showToast(!isLike ? '点赞成功' : '取消赞');
+        onFeedback?.call(!isLike ? '点赞成功' : '取消赞');
       } else {
-        res.toast();
+        onFeedback?.call(res.toString());
       }
     } finally {
       if (identical(_likeOperation, operation)) _likeOperation = null;
@@ -407,11 +384,15 @@ class ArticleController extends CommonDynController {
   }
 
   @override
-  void onClose() {
+  void close() {
+    if (isClosed) return;
     Accounts.mainChanges.removeListener(onAccountChanged);
     _contentVersion++;
     _infoVersion++;
-    super.onClose();
+    topIndex.dispose();
+    isLoaded.dispose();
+    stats.dispose();
+    super.close();
   }
 }
 

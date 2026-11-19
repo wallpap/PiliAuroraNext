@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
@@ -682,14 +682,13 @@ class _ReserveButtonState extends State<_ReserveButton> {
     final dynamicId = widget.dynamicId;
     setState(() => _saving = true);
     try {
-      final result = await DynamicsHttp.dynReserve(
-        account: account,
-        reserveId: reserve.rid,
-        curBtnStatus: button.status,
-        dynamicIdStr: dynamicId,
-        reserveTotal: reserve.reserveTotal,
+      final result = await DynamicDetails.legacy.reserve(
+        account,
+        dynamicId,
+        reserve,
       );
-      if (!mounted ||
+      if (result == null ||
+          !mounted ||
           !identical(account, Accounts.main) ||
           !identical(reserve, widget.reserve) ||
           !identical(button, reserve.button) ||

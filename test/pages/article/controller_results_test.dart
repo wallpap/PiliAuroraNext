@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/remote/article/article_info/data.dart';
 import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
-import 'package:pili_aurora_next/pages/article/controller.dart';
+import 'package:pili_aurora_next/features/community/application/article_detail.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -22,7 +22,7 @@ import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
 class _Article extends ArticleController {
-  _Article(super.actions);
+  _Article(super.actions) : super(onFeedback: SmartDialog.showToast);
 
   @override
   bool get showDynActionBar => false;
@@ -36,7 +36,7 @@ void main() {
     }),
   );
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
+  final controllers = <ArticleController>[];
   late LoginAccount original;
   late LoginAccount heartbeat;
   late ProviderContainer container;
@@ -45,15 +45,15 @@ void main() {
     null,
     null,
   )..activated = true;
-  T own<T extends GetxController>(T controller) {
+  T own<T extends ArticleController>(T controller) {
     controllers.add(controller);
     return controller;
   }
 
-  _Article article() => own(
+  _Article article({String type = 'read'}) => own(
     _Article(container.read(dynamicsActionsProvider))
       ..id = '1'
-      ..type = 'read'
+      ..type = type
       ..commentId = 1,
   );
   Map<String, dynamic> opus(String title) => {
@@ -91,12 +91,11 @@ void main() {
       LocalCacheKey.mixinKey: 'synthetic',
       LocalCacheKey.timeStamp: DateTime.now().millisecondsSinceEpoch,
     });
-    Get.parameters = {'id': '1', 'type': 'opus'};
     requests.clear();
   });
   tearDown(() {
     for (final controller in controllers.reversed) {
-      if (!controller.isClosed) controller.onDelete();
+      if (!controller.isClosed) controller.close();
     }
     controllers.clear();
     for (final request in requests) {
@@ -149,7 +148,7 @@ void main() {
   }
 
   test('正文换凭据后拒绝旧结果，仅当前正文发起评论与所属账号的历史上报', () async {
-    final controller = article()..onInit();
+    final controller = article(type: 'opus')..open();
     await interceptor.waitForRequests(1);
     expect(requests.single.options.extra['account'], same(original));
     final replacement = account(1, 'replacement');
@@ -172,7 +171,7 @@ void main() {
     expect((requests.last.options.data as Map)['csrf'], heartbeat.csrf);
     requests.last.reply.complete({'code': 0});
     await flush();
-    controller.onDelete();
+    controller.close();
     Accounts.replaceCredentials(account(1, 'closed'));
     expect(requests, hasLength(3));
 
@@ -206,7 +205,7 @@ void main() {
     expect(controller.images(), isEmpty);
     query = controller.queryRead(1);
     await interceptor.waitForRequests(3);
-    controller.onDelete();
+    controller.close();
     requests.last.reply.complete({
       'code': 0,
       'data': {'id': 1, 'title': '已关闭'},
@@ -262,7 +261,7 @@ void main() {
     expect(controller.stats.value, same(stats));
     query = controller.getArticleInfo();
     await interceptor.waitForRequests(4);
-    controller.onDelete();
+    controller.close();
     requests.last.reply.complete({
       'code': 0,
       'data': {'title': '已关闭'},
@@ -271,18 +270,16 @@ void main() {
     expect(controller.summary.title, isNull);
   });
 
-  test('关闭文章后重定向不重新注册控制器或启动正文查询', () async {
-    Get.parameters = {'id': '1', 'type': 'read'};
-    final controller = article()..onInit();
+  test('关闭文章后迟到的重定向不改变目标或启动正文查询', () async {
+    final controller = article()..open();
     await interceptor.waitForRequests(1);
     expect(requests.single.options.method, 'HEAD');
     expect(controller.url, 'https://www.bilibili.com/read/cv1');
-    controller.onDelete();
+    controller.close();
     requests.single.reply.complete('');
     await flush();
     expect(controller.id, '1');
     expect(controller.type, 'read');
-    expect(Get.isRegistered<ArticleController>(tag: 'opus2'), isFalse);
     expect(requests, hasLength(1));
   });
 

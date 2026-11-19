@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/article/controller.dart';
+import 'package:pili_aurora_next/features/community/application/article_detail.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -68,7 +68,7 @@ void main() {
   testWidgets('article content failure can be retried', (tester) async {
     await mount(tester);
     final controller = article();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     controller.init();
     await flush(tester);
     expect(adapter.pending, hasLength(1));
@@ -85,7 +85,7 @@ void main() {
   testWidgets('opus 回退文章后仍请求正文并允许重试', (tester) async {
     await mount(tester);
     final controller = article();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     controller.init();
     await flush(tester);
     adapter.json(0, {
