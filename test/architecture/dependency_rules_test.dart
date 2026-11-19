@@ -396,12 +396,14 @@ void main() {
   test('migrated models and utilities have a single feature owner', () {
     const legacy = [
       'models/common/dm_block_type.dart',
+      'models/common/pgc_review_type.dart',
       'models/user/danmaku_block.dart',
       'models/user/danmaku_rule.dart',
       'models/user/danmaku_rule_adapter.dart',
       'models/remote/emote/',
       'models/remote/live/live_emote/',
       'models/remote/live/live_area_list/',
+      'models/remote/pgc/pgc_review/',
       'models/remote/video/video_note_list/',
       'models/dynamics/vote_model.dart',
       'models/remote/dynamic/dyn_reserve_info/',

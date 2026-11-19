@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/community/data/pgc_review_repository.dart';
+import 'package:pili_aurora_next/features/community/domain/pgc_review.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/pgc.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/pgc_review_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -62,26 +63,30 @@ void main() {
     () => PgcHttp.pgcIndexCondition(account: account, type: 0),
     () => PgcHttp.pgcIndex(page: 1),
     () => PgcHttp.pgcTimeline(before: 6, after: 6),
-    () => PgcHttp.pgcReview(type: PgcReviewType.short, mediaId: 1),
+    () => PgcReviewRepository.list(type: .short, mediaId: 1, account: account),
     () => PgcHttp.seasonStatus(1),
   ];
   final writes = <Future<LoadingState<void>> Function()>[
-    () => PgcHttp.pgcReviewLike(mediaId: 1, reviewId: 2, account: account),
-    () => PgcHttp.pgcReviewDislike(mediaId: 1, reviewId: 2, account: account),
-    () => PgcHttp.pgcReviewPost(
+    for (final action in PgcReviewAction.values)
+      () => PgcReviewRepository.act(
+        mediaId: 1,
+        reviewId: 2,
+        account: account,
+        action: action,
+      ),
+    () => PgcReviewRepository.submit(
       mediaId: 1,
-      score: 8,
+      score: 4,
       content: '草稿',
       account: account,
     ),
-    () => PgcHttp.pgcReviewMod(
+    () => PgcReviewRepository.submit(
       mediaId: 1,
-      score: 8,
+      score: 4,
       content: '草稿',
       reviewId: 2,
       account: account,
     ),
-    () => PgcHttp.pgcReviewDel(mediaId: 1, reviewId: 2, account: account),
   ];
 
   test('番剧接口保留明确业务拒绝与错误码', () async {
@@ -139,11 +144,12 @@ void main() {
     body = {'code': 0, 'data': <String, dynamic>{}, 'result': null};
     expect((await PgcHttp.pgcIndex()).data, isNull);
     expect((await PgcHttp.pgcTimeline(before: 0, after: 0)).data, isNull);
-    final review = (await PgcHttp.pgcReview(
-      type: PgcReviewType.short,
+    final review = (await PgcReviewRepository.list(
+      type: .short,
       mediaId: 1,
+      account: account,
     )).data;
-    expect(review.list, isNull);
+    expect(review.items, isEmpty);
     expect(review.count, isNull);
     expect(
       (await PgcHttp.pgcIndexCondition(account: account, type: 0)).data.filter,
@@ -173,17 +179,36 @@ void main() {
 
   test('非法评分或目标在请求分发前明确失败', () async {
     for (final result in [
-      await PgcHttp.pgcReviewPost(mediaId: 1, score: 0, content: ''),
-      await PgcHttp.pgcReviewMod(
+      await PgcReviewRepository.submit(
+        mediaId: 1,
+        score: 0,
+        content: '',
+        account: account,
+      ),
+      await PgcReviewRepository.submit(
         mediaId: 1,
         score: 7,
         content: '',
         reviewId: 2,
+        account: account,
       ),
-      await PgcHttp.pgcReviewLike(mediaId: 1, reviewId: 0),
-      await PgcHttp.pgcReview(type: PgcReviewType.short, mediaId: ''),
+      await PgcReviewRepository.act(
+        mediaId: 1,
+        reviewId: 0,
+        account: account,
+        action: .like,
+      ),
+      await PgcReviewRepository.list(
+        type: .short,
+        mediaId: '',
+        account: account,
+      ),
       await PgcHttp.seasonStatus(0),
-      await PgcHttp.pgcReview(type: PgcReviewType.short, mediaId: null),
+      await PgcReviewRepository.list(
+        type: .short,
+        mediaId: null,
+        account: account,
+      ),
     ]) {
       expect(result, isA<Error>());
       expect(result, isNot(isA<UnknownResult>()));

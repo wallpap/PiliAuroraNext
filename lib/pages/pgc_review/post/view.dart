@@ -1,12 +1,14 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
-import 'package:pili_aurora_next/http/pgc.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/community/application/pgc_reviews.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class PgcReviewPostPanel extends StatefulWidget {
+class PgcReviewPostPanel extends ConsumerStatefulWidget {
   const PgcReviewPostPanel({
     super.key,
     required this.name,
@@ -14,31 +16,32 @@ class PgcReviewPostPanel extends StatefulWidget {
     this.reviewId,
     this.score,
     this.content,
+    this.onSubmitted,
   });
 
   final String name;
   final Object? mediaId;
-  // modify
   final Object? reviewId;
   final int? score;
   final String? content;
+  final VoidCallback? onSubmitted;
 
   @override
-  State<PgcReviewPostPanel> createState() => _PgcReviewPostPanelState();
+  ConsumerState<PgcReviewPostPanel> createState() => _PgcReviewPostPanelState();
 }
 
-class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
+class _PgcReviewPostPanelState extends ConsumerState<PgcReviewPostPanel> {
   late final TextEditingController _controller;
-  late final RxInt _score = (widget.score ?? 0).obs;
-  late final RxBool _shareFeed = false.obs;
-  late final RxBool _enablePost = _isMod.obs;
-  late final _isMod = widget.reviewId != null;
-  final _posting = false.obs;
-  final _account = Accounts.main;
+  late int _score = widget.score ?? 0;
+  bool _shareFeed = false;
+  bool _posting = false;
+  bool get _isMod => widget.reviewId != null;
+  late final Account _account;
 
   @override
   void initState() {
     super.initState();
+    _account = ref.read(mainAccountProvider);
     _controller = TextEditingController(text: widget.content);
   }
 
@@ -49,14 +52,16 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
   }
 
   void _onScore(double dx) {
-    int index = (dx ~/ 50).clamp(0, 4);
-    _enablePost.value = true;
-    _score.value = index + 1;
+    final score = (dx ~/ 50).clamp(0, 4) + 1;
+    if (score != _score) setState(() => _score = score);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shareColor = _shareFeed
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outline;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,47 +100,38 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   5,
-                  (index) {
-                    return Obx(
-                      () => index <= _score.value - 1
-                          ? const Icon(
-                              CustomIcons.star_favorite_solid,
-                              size: 50,
-                              color: Color(0xFFFFAD35),
-                            )
-                          : const Icon(
-                              CustomIcons.star_favorite_line,
-                              size: 50,
-                              color: Colors.grey,
-                            ),
-                    );
-                  },
+                  (index) => index < _score
+                      ? const Icon(
+                          CustomIcons.star_favorite_solid,
+                          size: 50,
+                          color: Color(0xFFFFAD35),
+                        )
+                      : const Icon(
+                          CustomIcons.star_favorite_line,
+                          size: 50,
+                          color: Colors.grey,
+                        ),
                 ),
               ),
             ),
           ),
         ),
         Center(
-          child: Obx(
-            () {
-              final score = _score.value;
-              return Text(
-                switch (score) {
-                  1 => '很差',
-                  2 => '较差',
-                  3 => '还行',
-                  4 => '很好',
-                  5 => '佳作',
-                  _ => '轻触评分',
-                },
-                style: TextStyle(
-                  fontSize: 16,
-                  color: score == 0
-                      ? theme.colorScheme.outline
-                      : const Color(0xFFFFAD35),
-                ),
-              );
+          child: Text(
+            switch (_score) {
+              1 => '很差',
+              2 => '较差',
+              3 => '还行',
+              4 => '很好',
+              5 => '佳作',
+              _ => '轻触评分',
             },
+            style: TextStyle(
+              fontSize: 16,
+              color: _score == 0
+                  ? theme.colorScheme.outline
+                  : const Color(0xFFFFAD35),
+            ),
           ),
         ),
         Flexible(
@@ -158,27 +154,19 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
             padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
             child: GestureDetector(
               behavior: .opaque,
-              onTap: _shareFeed.toggle,
-              child: Obx(
-                () {
-                  final shareFeed = _shareFeed.value;
-                  Color color = shareFeed
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outline;
-                  return Row(
-                    mainAxisSize: .min,
-                    children: [
-                      Icon(
-                        size: 22,
-                        shareFeed
-                            ? Icons.check_box_outlined
-                            : Icons.check_box_outline_blank_outlined,
-                        color: color,
-                      ),
-                      Text(' 分享到动态', style: TextStyle(color: color)),
-                    ],
-                  );
-                },
+              onTap: () => setState(() => _shareFeed = !_shareFeed),
+              child: Row(
+                mainAxisSize: .min,
+                children: [
+                  Icon(
+                    size: 22,
+                    _shareFeed
+                        ? Icons.check_box_outlined
+                        : Icons.check_box_outline_blank_outlined,
+                    color: shareColor,
+                  ),
+                  Text(' 分享到动态', style: TextStyle(color: shareColor)),
+                ],
               ),
             ),
           ),
@@ -200,25 +188,21 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
                 ),
               ),
             ),
-            child: Obx(
-              () => FilledButton.tonal(
-                style: FilledButton.styleFrom(
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: EdgeInsets.zero,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(6)),
-                  ),
+            child: FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(6)),
                 ),
-                onPressed: _enablePost.value && !_posting.value
-                    ? _onPost
-                    : null,
-                child: Text(
-                  _posting.value
-                      ? '提交中…'
-                      : _isMod
-                      ? '编辑'
-                      : '发布',
-                ),
+              ),
+              onPressed: (_isMod || _score > 0) && !_posting ? _onPost : null,
+              child: Text(
+                _posting
+                    ? '提交中…'
+                    : _isMod
+                    ? '编辑'
+                    : '发布',
               ),
             ),
           ),
@@ -228,9 +212,9 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
   }
 
   Future<void> _onPost() async {
-    if (_posting.value) return;
+    if (_posting) return;
     final account = _account;
-    if (!identical(account, Accounts.main)) {
+    if (!identical(account, ref.read(mainAccountProvider))) {
       SmartDialog.showToast('账号已切换，请重新打开点评面板');
       return;
     }
@@ -240,34 +224,30 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
     }
     final mediaId = widget.mediaId;
     final reviewId = widget.reviewId;
-    final score = _score.value;
+    final score = _score;
     final content = _controller.text;
-    final shareFeed = _shareFeed.value;
+    final shareFeed = _shareFeed;
     if (score < 1 || score > 5) {
       SmartDialog.showToast('请先选择评分');
       return;
     }
     final route = ModalRoute.of(context);
-    _posting.value = true;
+    setState(() => _posting = true);
     try {
-      final res = _isMod
-          ? await PgcHttp.pgcReviewMod(
-              mediaId: mediaId,
-              score: score * 2,
-              content: content,
-              reviewId: reviewId,
-              account: account,
-            )
-          : await PgcHttp.pgcReviewPost(
-              mediaId: mediaId,
-              score: score * 2,
-              content: content,
-              shareFeed: shareFeed,
-              account: account,
-            );
-      if (!mounted ||
+      final res = await ref
+          .read(pgcReviewWritesProvider.notifier)
+          .submit(
+            account,
+            mediaId: mediaId,
+            score: score,
+            content: content,
+            reviewId: reviewId,
+            shareFeed: shareFeed,
+          );
+      if (res == null ||
+          !mounted ||
           route?.isCurrent == false ||
-          !identical(account, Accounts.main) ||
+          !identical(account, ref.read(mainAccountProvider)) ||
           mediaId != widget.mediaId ||
           reviewId != widget.reviewId) {
         return;
@@ -275,8 +255,9 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
       if (res.isSuccess) {
         final unchanged =
             content == _controller.text &&
-            score == _score.value &&
-            shareFeed == _shareFeed.value;
+            score == _score &&
+            shareFeed == _shareFeed;
+        widget.onSubmitted?.call();
         if (unchanged) Navigator.of(context).pop();
         SmartDialog.showToast(
           unchanged
@@ -289,7 +270,7 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
         res.toast();
       }
     } finally {
-      _posting.value = false;
+      if (mounted) setState(() => _posting = false);
     }
   }
 }

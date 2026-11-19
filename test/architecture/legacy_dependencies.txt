@@ -133,12 +133,6 @@ pages/music/widget/music_video_card_h.dart -> http/search.dart
 pages/music/widget/music_video_card_h.dart -> utils/accounts.dart
 pages/my_reply/view.dart -> utils/reply_utils.dart
 pages/my_reply/view.dart -> utils/storage_pref.dart
-pages/pgc_review/child/controller.dart -> http/pgc.dart
-pages/pgc_review/child/controller.dart -> utils/accounts.dart
-pages/pgc_review/child/controller.dart#PgcReviewController -> CommonListController
-pages/pgc_review/child/view.dart -> utils/accounts.dart
-pages/pgc_review/post/view.dart -> http/pgc.dart
-pages/pgc_review/post/view.dart -> utils/accounts.dart
 pages/setting/decoder_test.dart -> http/browser_ua.dart
 pages/setting/decoder_test.dart -> http/constants.dart
 pages/setting/decoder_test.dart -> utils/storage_pref.dart
