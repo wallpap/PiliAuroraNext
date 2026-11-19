@@ -132,6 +132,9 @@ void main() {
                       uri.startsWith('package:material_ui/') ||
                       target?.startsWith('pages/') == true ||
                       target?.startsWith('http/') == true ||
+                      target?.startsWith('grpc/') == true ||
+                      target?.startsWith('generated/') == true ||
+                      uri.startsWith('package:protobuf/') ||
                       target?.contains('/application/') == true ||
                       target?.contains('/data/') == true ||
                       target?.contains('/presentation/') == true ||
@@ -141,6 +144,7 @@ void main() {
                       target?.contains('/presentation/') == true)) ||
               (application &&
                   (target?.startsWith('pages/') == true ||
+                      target?.startsWith('generated/') == true ||
                       target?.contains('/presentation/') == true ||
                       uri.startsWith('package:flutter_smart_dialog/'))) ||
               (presentation &&
@@ -383,8 +387,12 @@ void main() {
     }
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
-  test('migrated community models have a single feature owner', () {
+  test('migrated models and utilities have a single feature owner', () {
     const legacy = [
+      'models/common/dm_block_type.dart',
+      'models/user/danmaku_block.dart',
+      'models/user/danmaku_rule.dart',
+      'models/user/danmaku_rule_adapter.dart',
       'models/remote/emote/',
       'models/remote/live/live_emote/',
       'models/dynamics/vote_model.dart',
@@ -393,6 +401,8 @@ void main() {
       'models/remote/dynamic/dyn_topic_feed/',
       'models/remote/dynamic/dyn_topic_pub_search/',
       'models/remote/dynamic/dyn_mention/',
+      'utils/danmaku_utils.dart',
+      'utils/reply_filter.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'test', 'tool']) {
