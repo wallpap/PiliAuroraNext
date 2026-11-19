@@ -221,15 +221,16 @@ void main() {
   });
 
   testWidgets('转发成功和迟到失败不会关闭之后打开的页面', (tester) async {
-    final notifications = <DynamicsChange>[];
-    final subscription = DynamicsUpdates.shared.changes.listen(
-      notifications.add,
-    );
-    addTearDown(subscription.cancel);
     await mount(tester, const RepostPanel(dynIdStr: '1'));
-    final state = tester.state<CommonRichTextPubPageState>(
-      find.byType(RepostPanel),
-    );
+    final panel = find.byType(RepostPanel);
+    final container = ProviderScope.containerOf(tester.element(panel));
+    final notifications = <DynamicsChange>[];
+    final subscription = container
+        .read(dynamicsUpdatesProvider)
+        .changes
+        .listen(notifications.add);
+    addTearDown(subscription.cancel);
+    final state = tester.state<CommonRichTextPubPageState>(panel);
     state.editController.text = '转发内容';
     final pending = state.onPublish();
     await until(tester, () => requests.length == 1);
@@ -250,6 +251,29 @@ void main() {
     await second;
     expect(find.text('旧转发失败'), findsNothing);
     await finish(tester);
+  });
+
+  test('动态失效事件按应用作用域隔离，释放后忽略迟到通知', () async {
+    final closedScope = ProviderContainer.test();
+    final activeScope = ProviderContainer.test();
+    final closedUpdates = closedScope.read(dynamicsUpdatesProvider);
+    final activeUpdates = activeScope.read(dynamicsUpdatesProvider);
+    final closedEvents = <DynamicsChange>[];
+    final activeEvents = <DynamicsChange>[];
+    final closedSubscription = closedUpdates.changes.listen(closedEvents.add);
+    final activeSubscription = activeUpdates.changes.listen(activeEvents.add);
+    addTearDown(closedSubscription.cancel);
+    addTearDown(activeSubscription.cancel);
+    final completed = closedSubscription.asFuture<void>();
+
+    closedUpdates.removed(original, '1');
+    closedScope.dispose();
+    closedUpdates.removed(original, '2');
+    activeUpdates.removed(original, '3');
+    await completed;
+
+    expect(closedEvents.map((event) => event.removed), ['1']);
+    expect(activeEvents.map((event) => event.removed), ['3']);
   });
 
   testWidgets('投票保存互斥并返回提交时的选项副本，待确认后允许核对再操作', (tester) async {
