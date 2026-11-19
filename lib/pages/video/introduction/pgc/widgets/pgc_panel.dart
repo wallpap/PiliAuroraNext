@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/horizontal_wheel_scroll.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
@@ -61,7 +59,6 @@ class _PgcPanelState extends State<PgcPanel> {
   late int cid;
   bool _cidUpdateScheduled = false;
   VideoDetailController get videoDetailCtr => widget.videoDetail;
-  late final StreamSubscription<int> _listener;
 
   List<Section> get _extraSections => [
     for (final section in widget.sections ?? <Section>[])
@@ -120,30 +117,32 @@ class _PgcPanelState extends State<PgcPanel> {
     vipStatus = AccountProfile.legacy.currentInfo?.vipStatus != 1;
     widget.onChangeEpisodeList?.call(visiblePages);
 
-    _listener = videoDetailCtr.cid.listen((int value) {
-      cid = value;
-      selectedSectionIndex = _sectionIndexForCid(cid) ?? -1;
-      final currentExtraIndex = _extraIndexForSection(selectedSectionIndex);
-      if (currentExtraIndex >= 0) {
-        selectedExtraSectionIndex = currentExtraIndex;
-      }
-      visiblePages = _pagesForSection(selectedSectionIndex) ?? widget.pages;
-      currentIndex = _indexForCid(visiblePages, cid);
-      widget.onChangeEpisodeList?.call(visiblePages);
-      if (!mounted || _cidUpdateScheduled) return;
-      _cidUpdateScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _cidUpdateScheduled = false;
-        if (!mounted) return;
-        setState(() {});
-        scrollToIndex();
-      });
+    videoDetailCtr.episodeSelection.addListener(_onEpisodeChanged);
+  }
+
+  void _onEpisodeChanged() {
+    cid = videoDetailCtr.cid.value;
+    selectedSectionIndex = _sectionIndexForCid(cid) ?? -1;
+    final currentExtraIndex = _extraIndexForSection(selectedSectionIndex);
+    if (currentExtraIndex >= 0) {
+      selectedExtraSectionIndex = currentExtraIndex;
+    }
+    visiblePages = _pagesForSection(selectedSectionIndex) ?? widget.pages;
+    currentIndex = _indexForCid(visiblePages, cid);
+    widget.onChangeEpisodeList?.call(visiblePages);
+    if (!mounted || _cidUpdateScheduled) return;
+    _cidUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _cidUpdateScheduled = false;
+      if (!mounted) return;
+      setState(() {});
+      scrollToIndex();
     });
   }
 
   @override
   void dispose() {
-    _listener.cancel();
+    videoDetailCtr.episodeSelection.removeListener(_onEpisodeChanged);
     listViewScrollCtr.dispose();
     super.dispose();
   }

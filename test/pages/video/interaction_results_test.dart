@@ -252,7 +252,7 @@ void main() {
     await finish(tester);
   });
   test('视频与分P变更后忽略迟到标签、在线人数和合作关系查询', () async {
-    final controller = ugc()..cid = 1.obs;
+    final controller = ugc()..cid.value = 1;
     final tags = controller.queryVideoTags();
     await interceptor.waitForRequests(1);
     final online = controller.queryOnlineTotal();
@@ -280,10 +280,10 @@ void main() {
     await Future.wait([tags, online, relations]);
     expect(controller.videoTags.value, isNull);
     expect(controller.total.value, '1');
-    expect(controller.staffRelations, isEmpty);
+    expect(controller.staffRelations.value, isNull);
   });
   test('标签读取失败保留已有快照，关闭后简介结果不继续派生查询', () async {
-    final controller = ugc()..cid = 1.obs;
+    final controller = ugc()..cid.value = 1;
     var reading = controller.queryVideoTags();
     await interceptor.waitForRequests(1);
     requests[0].reply.complete({

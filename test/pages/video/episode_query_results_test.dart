@@ -35,7 +35,7 @@ class _Video extends GetxController implements VideoDetailController {
   @override
   String bvid = 'BV17x411w7KC';
   @override
-  final cid = 1.obs;
+  final cid = ValueNotifier(1);
   final unexpectedCalls = <Symbol>[];
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -100,7 +100,7 @@ void main() {
       video = _Video();
       controller = (pgc ? _Pgc(video) : _Ugc(video))
         ..bvid = video.bvid
-        ..cid = 1.obs;
+        ..cid.value = 1;
       await tester.pumpWidget(
         GetMaterialApp(
           builder: FlutterSmartDialog.init(),

@@ -734,31 +734,34 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.hasLike,
+              builder: (context, liked, child) => ActionItem(
                 animation: introController.tripleAnimation,
                 icon: Icon(FontAwesomeIcons.thumbsUp.data),
                 selectIcon: Icon(FontAwesomeIcons.solidThumbsUp.data),
-                selectStatus: introController.hasLike.value,
+                selectStatus: liked,
                 semanticsLabel: '点赞',
                 text: NumUtils.numFormat(stat.like),
                 onStartTriple: introController.onStartTriple,
                 onCancelTriple: introController.onCancelTriple,
               ),
             ),
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.coinNum,
+              builder: (context, coins, child) => ActionItem(
                 animation: introController.tripleAnimation,
                 icon: Icon(FontAwesomeIcons.b.data),
                 selectIcon: Icon(FontAwesomeIcons.b.data),
                 onTap: introController.actionCoinVideo,
-                selectStatus: introController.hasCoin,
+                selectStatus: coins != 0,
                 semanticsLabel: '投币',
                 text: NumUtils.numFormat(stat.coin),
               ),
             ),
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.hasFav,
+              builder: (context, favored, child) => ActionItem(
                 animation: introController.tripleAnimation,
                 icon: Icon(FontAwesomeIcons.star.data),
                 selectIcon: Icon(FontAwesomeIcons.solidStar.data),
@@ -767,18 +770,19 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                   context,
                   isLongPress: true,
                 ),
-                selectStatus: introController.hasFav.value,
+                selectStatus: favored,
                 semanticsLabel: '收藏',
                 text: NumUtils.numFormat(stat.favorite),
               ),
             ),
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.hasLater,
+              builder: (context, saved, child) => ActionItem(
                 icon: Icon(FontAwesomeIcons.clock.data),
                 selectIcon: Icon(FontAwesomeIcons.solidClock.data),
                 onTap: () =>
                     introController.handleAction(introController.viewLater),
-                selectStatus: introController.hasLater.value,
+                selectStatus: saved,
                 semanticsLabel: '再看',
                 text: '再看',
               ),

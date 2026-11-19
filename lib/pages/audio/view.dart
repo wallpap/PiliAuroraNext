@@ -197,10 +197,10 @@ class _AudioPageState extends ConsumerState<AudioPage>
       appBar: AppBar(
         actions: [
           if (_controller.isUgc && _controller.enableSponsorBlock)
-            StreamBuilder(
-              stream: _controller.segmentChanges,
-              builder: (context, _) {
-                if (_controller.segmentProgressList.isNotEmpty) {
+            ValueListenableBuilder(
+              valueListenable: _controller.segmentChanges,
+              builder: (context, segments, child) {
+                if (segments.isNotEmpty) {
                   return IconButton(
                     tooltip: '片段信息',
                     onPressed: _controller.showSBDetail,
@@ -940,13 +940,13 @@ class _AudioPageState extends ConsumerState<AudioPage>
             left: 0,
             right: 0,
             bottom: 3.5,
-            child: StreamBuilder(
-              stream: _controller.segmentChanges,
-              builder: (context, _) {
-                if (_controller.segmentProgressList.isNotEmpty) {
+            child: ValueListenableBuilder(
+              valueListenable: _controller.segmentChanges,
+              builder: (context, segments, child) {
+                if (segments.isNotEmpty) {
                   return SegmentProgressBar(
                     height: 5,
-                    segments: _controller.segmentProgressList,
+                    segments: segments,
                   );
                 }
                 return const SizedBox.shrink();

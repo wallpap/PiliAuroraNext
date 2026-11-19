@@ -31,7 +31,7 @@ import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 
 class ReplyPage extends CommonRichTextPubPage {
@@ -67,10 +67,18 @@ class ReplyPage extends CommonRichTextPubPage {
 
 class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   bool _capturingScreenshot = false;
-  final _publishing = false.obs;
-  final RxBool _syncToDynamic = false.obs;
+  final _publishing = ValueNotifier(false);
+  final _syncToDynamic = ValueNotifier(false);
+  final _latexOn = ValueNotifier(false);
+  late final _publishButton = Listenable.merge([enablePublish, _publishing]);
 
-  final RxBool _latexOn = false.obs;
+  @override
+  void dispose() {
+    _publishing.dispose();
+    _syncToDynamic.dispose();
+    _latexOn.dispose();
+    super.dispose();
+  }
 
   @override
   void initTheme() {
@@ -110,15 +118,16 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   Widget? get customPanel => EmotePanel(onChoose: onChooseEmote);
 
   Widget buildImagePreview() {
-    return Obx(
-      () {
-        if (imageList.isNotEmpty) {
+    return ValueListenableBuilder(
+      valueListenable: images,
+      builder: (context, images, _) {
+        if (images.isNotEmpty) {
           return SizedBox(
             height: 85,
             child: ListView.separated(
               scrollDirection: .horizontal,
               padding: const .fromLTRB(15, 0, 15, 10),
-              itemCount: imageList.length,
+              itemCount: images.length,
               itemBuilder: (_, index) => buildImage(index, 75),
               separatorBuilder: (_, _) => const SizedBox(width: 10),
             ),
@@ -139,14 +148,15 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
           left: 15,
           bottom: 10,
         ),
-        child: Obx(
-          () => RichTextField(
+        child: ValueListenableBuilder(
+          valueListenable: readOnly,
+          builder: (context, readOnly, _) => RichTextField(
             key: key,
             controller: editController,
             minLines: 4,
             maxLines: 8,
             autofocus: false,
-            readOnly: readOnly.value,
+            readOnly: readOnly,
             onChanged: onChanged,
             onSubmitted: onSubmitted,
             focusNode: focusNode,
@@ -189,20 +199,22 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             const SizedBox(width: 8),
             moreBtn,
             const SizedBox(width: 8),
-            Obx(
-              () => ToolbarIconButton(
+            ValueListenableBuilder(
+              valueListenable: _syncToDynamic,
+              builder: (context, sync, _) => ToolbarIconButton(
                 tooltip: '转到动态',
-                onPressed: _syncToDynamic.toggle,
+                onPressed: () => _syncToDynamic.value = !_syncToDynamic.value,
                 icon: const Icon(
                   CustomIcons.repeat_rounded_rotate_90,
                   size: 22,
                 ),
-                selected: _syncToDynamic.value,
+                selected: sync,
               ),
             ),
             const Spacer(),
-            Obx(
-              () => FilledButton.tonal(
+            ListenableBuilder(
+              listenable: _publishButton,
+              builder: (context, _) => FilledButton.tonal(
                 onPressed: enablePublish.value && !_publishing.value
                     ? onPublishThrottle
                     : null,
@@ -358,7 +370,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                       await File(temporaryPath)
                           .writeAsBytes(png.buffer.asUint8List());
                       if (current() && imageList.length < limit) {
-                        imageList.add(FilePicModel(path: temporaryPath));
+                        addDraftImage(FilePicModel(path: temporaryPath));
                         temporaryPath = null; // 图片草稿取得临时文件所有权。
                       }
                     } finally {
@@ -498,15 +510,15 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
     }
   }
 
-  Widget get latexBtn => Obx(() {
-    final latexOn = _latexOn.value;
-    return ToolbarIconButton(
+  Widget get latexBtn => ValueListenableBuilder(
+    valueListenable: _latexOn,
+    builder: (context, latexOn, _) => ToolbarIconButton(
       onPressed: latexOn ? _unlatexify : _latexify,
       icon: const Icon(Icons.functions, size: 22),
       tooltip: '公式',
       selected: latexOn,
-    );
-  });
+    ),
+  );
 
   Future<void> _latexify() async {
     // value.text is the display space (\uFFFC per emote), the same space

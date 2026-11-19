@@ -59,26 +59,28 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   bool get horizontalScreen;
 
   Timer? _clock;
-  RxString now = ''.obs;
+  final _currentTime = ValueNotifier('');
 
   static final _format = DateFormat('HH:mm');
 
   @override
   void dispose() {
     stopClock();
+    _currentTime.dispose();
+    _batteryLevel.dispose();
     super.dispose();
   }
 
   void startClock() {
     if (!_showCurrTime) return;
     if (_clock == null) {
-      now.value = _format.format(DateTime.now());
+      _currentTime.value = _format.format(DateTime.now());
       _clock ??= Timer.periodic(const Duration(seconds: 1), (Timer t) {
         if (!mounted) {
           stopClock();
           return;
         }
-        now.value = _format.format(DateTime.now());
+        _currentTime.value = _format.format(DateTime.now());
       });
     }
   }
@@ -97,7 +99,7 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   }
 
   late final _battery = Battery();
-  late final RxnInt _batteryLevel = RxnInt();
+  final _batteryLevel = ValueNotifier<int?>(null);
   late final _showBatteryLevel = DisplayPreferences.showBatteryLevel;
   void getBatteryLevelIfNeeded() {
     if (!_showCurrTime || !_showBatteryLevel) return;
@@ -106,7 +108,8 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
       const Duration(seconds: 30),
       () async {
         try {
-          _batteryLevel.value = await _battery.batteryLevel;
+          final level = await _battery.batteryLevel;
+          if (mounted) _batteryLevel.value = level;
         } catch (_) {}
       },
     );
@@ -116,9 +119,9 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
     if (_showCurrTime) {
       return [
         if (_showBatteryLevel) ...[
-          Obx(
-            () {
-              final batteryLevel = _batteryLevel.value;
+          ValueListenableBuilder(
+            valueListenable: _batteryLevel,
+            builder: (context, batteryLevel, _) {
               if (batteryLevel == null) {
                 return const SizedBox.shrink();
               }
@@ -133,9 +136,10 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
           ),
           const SizedBox(width: 10),
         ],
-        Obx(
-          () => Text(
-            now.value,
+        ValueListenableBuilder(
+          valueListenable: _currentTime,
+          builder: (context, time, _) => Text(
+            time,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -733,64 +737,60 @@ class HeaderControlState extends State<HeaderControl>
     final showFSActionItem =
         !isFileSource && plPlayerController.showFSActionItem && isFSOrPip;
     showCurrTimeIfNeeded(isFullScreen);
-    Widget title;
-    if (introController.videoDetail.value.title != null &&
-        (isFullScreen ||
-            ((!horizontalScreen || plPlayerController.isDesktopPip) &&
-                !isPortrait))) {
-      title = Padding(
-        key: titleKey,
-        padding: isPortrait
-            ? EdgeInsets.zero
-            : const EdgeInsets.only(right: 10),
-        child: Obx(
-          () {
-            final videoDetail = introController.videoDetail.value;
-            final String title;
-            if (isFileSource || videoDetail.videos == 1) {
-              title = videoDetail.title!;
-            } else {
-              title =
-                  videoDetail.pages
-                      ?.firstWhereOrNull(
-                        (e) => e.cid == videoDetailCtr.cid.value,
-                      )
-                      ?.part ??
-                  videoDetail.title!;
-            }
-            return MarqueeText(
-              title,
-              spacing: 30,
-              velocity: 30,
-              strutStyle: const StrutStyle(fontSize: 16, leading: 0),
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              provider: effectiveProvider,
-            );
-          },
-        ),
-      );
-      if (introController.isShowOnlineTotal) {
-        title = Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            title,
-            Obx(
-              () => Text(
-                '${introController.total.value}人正在看',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
+    final showTitle =
+        isFullScreen ||
+        ((!horizontalScreen || plPlayerController.isDesktopPip) && !isPortrait);
+    final title = showTitle
+        ? ValueListenableBuilder(
+            valueListenable: introController.videoDetail,
+            builder: (context, videoDetail, _) {
+              final title = videoDetail.title;
+              if (title == null) return const Spacer();
+              Widget label = Padding(
+                key: titleKey,
+                padding: isPortrait
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.only(right: 10),
+                child: ValueListenableBuilder(
+                  valueListenable: videoDetailCtr.cid,
+                  builder: (context, cid, _) => MarqueeText(
+                    isFileSource || videoDetail.videos == 1
+                        ? title
+                        : videoDetail.pages
+                                  ?.firstWhereOrNull((part) => part.cid == cid)
+                                  ?.part ??
+                              title,
+                    spacing: 30,
+                    velocity: 30,
+                    strutStyle: const StrutStyle(fontSize: 16, leading: 0),
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    provider: effectiveProvider,
+                  ),
                 ),
-              ),
-            ),
-          ],
-        );
-      }
-      title = Expanded(child: title);
-    } else {
-      title = const Spacer();
-    }
+              );
+              if (introController.isShowOnlineTotal) {
+                label = Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    label,
+                    ValueListenableBuilder(
+                      valueListenable: introController.total,
+                      builder: (context, total, _) => Text(
+                        '$total人正在看',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Expanded(child: label);
+            },
+          )
+        : const Spacer();
 
     final compactWindow =
         plPlayerController.isDesktopPip &&
@@ -923,8 +923,9 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                   ),
-                Obx(
-                  () => videoDetailCtr.segmentProgressList.isNotEmpty
+                ValueListenableBuilder(
+                  valueListenable: videoDetailCtr.segmentChanges,
+                  builder: (context, segments, child) => segments.isNotEmpty
                       ? SizedBox(
                           width: btnWidth,
                           height: btnHeight,
@@ -1050,15 +1051,16 @@ class HeaderControlState extends State<HeaderControl>
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
-                  child: Obx(
-                    () => ActionItem(
+                  child: ValueListenableBuilder(
+                    valueListenable: introController.hasLike,
+                    builder: (context, liked, _) => ActionItem(
                       expand: false,
                       icon: Icon(
                         FontAwesomeIcons.thumbsUp.data,
                         color: Colors.white,
                       ),
                       selectIcon: Icon(FontAwesomeIcons.solidThumbsUp.data),
-                      selectStatus: introController.hasLike.value,
+                      selectStatus: liked,
                       semanticsLabel: '点赞',
                       animation: introController.tripleAnimation,
                       onStartTriple: () {
@@ -1078,8 +1080,9 @@ class HeaderControlState extends State<HeaderControl>
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
-                    child: Obx(
-                      () => ActionItem(
+                    child: ValueListenableBuilder(
+                      valueListenable: ugc.hasDislike,
+                      builder: (context, disliked, _) => ActionItem(
                         expand: false,
                         icon: Icon(
                           FontAwesomeIcons.thumbsDown.data,
@@ -1089,7 +1092,7 @@ class HeaderControlState extends State<HeaderControl>
                           FontAwesomeIcons.solidThumbsDown.data,
                         ),
                         onTap: () => ugc.handleAction(ugc.actionDislikeVideo),
-                        selectStatus: ugc.hasDislike.value,
+                        selectStatus: disliked,
                         semanticsLabel: '点踩',
                       ),
                     ),
@@ -1097,8 +1100,9 @@ class HeaderControlState extends State<HeaderControl>
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
-                  child: Obx(
-                    () => ActionItem(
+                  child: ValueListenableBuilder(
+                    valueListenable: introController.coinNum,
+                    builder: (context, coins, _) => ActionItem(
                       expand: false,
                       animation: introController.tripleAnimation,
                       icon: Icon(
@@ -1107,7 +1111,7 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                       selectIcon: Icon(FontAwesomeIcons.b.data),
                       onTap: introController.actionCoinVideo,
-                      selectStatus: introController.hasCoin,
+                      selectStatus: coins != 0,
                       semanticsLabel: '投币',
                     ),
                   ),
@@ -1115,8 +1119,9 @@ class HeaderControlState extends State<HeaderControl>
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
-                  child: Obx(
-                    () => ActionItem(
+                  child: ValueListenableBuilder(
+                    valueListenable: introController.hasFav,
+                    builder: (context, favored, _) => ActionItem(
                       expand: false,
                       animation: introController.tripleAnimation,
                       icon: Icon(
@@ -1129,7 +1134,7 @@ class HeaderControlState extends State<HeaderControl>
                         context,
                         isLongPress: true,
                       ),
-                      selectStatus: introController.hasFav.value,
+                      selectStatus: favored,
                       semanticsLabel: '收藏',
                     ),
                   ),

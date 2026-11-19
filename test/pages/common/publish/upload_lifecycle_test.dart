@@ -57,7 +57,7 @@ void main() {
       ),
     );
     final state = key.currentState!;
-    state.imageList.add(FilePicModel(path: 'synthetic'));
+    state.addDraftImage(FilePicModel(path: 'synthetic'));
     final operation = state.onPublish();
     await tester.pump();
     expect(state.token, isNotNull);

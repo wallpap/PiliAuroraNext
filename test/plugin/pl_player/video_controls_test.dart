@@ -176,7 +176,7 @@ class _ControlPlayer extends PresentationPlayer {
 
 class _Intro implements CommonIntroController {
   @override
-  final videoDetail = VideoDetailData().obs;
+  final videoDetail = ValueNotifier(VideoDetailData());
   int previous = 0;
   int next = 0;
   @override
@@ -198,11 +198,15 @@ class _Intro implements CommonIntroController {
 
 class _Page implements VideoDetailController {
   @override
-  final dmTrend = Rx<LoadingState<List<double>>?>(null);
+  final dmTrend = ValueNotifier<LoadingState<List<double>>?>(null);
   @override
-  final showDmTrendChart = true.obs;
+  final showDmTrendChart = ValueNotifier(true);
   @override
-  final viewPointList = <ViewPointSegment>[].obs;
+  final showVP = ValueNotifier(true);
+  @override
+  final viewPoints = ValueNotifier<List<ViewPointSegment>>(const []);
+  @override
+  List<ViewPointSegment> get viewPointList => viewPoints.value;
   @override
   bool isUgc = true;
   @override
@@ -210,11 +214,19 @@ class _Page implements VideoDetailController {
   @override
   bool isFileSource = true;
   @override
-  final subtitles = <Subtitle>[].obs;
+  final subtitleTracks = ValueNotifier<List<Subtitle>>(const []);
   @override
-  final languages = Rxn<List<LanguageItem>>();
+  List<Subtitle> get subtitles => subtitleTracks.value;
   @override
-  final currentVideoQa = Rxn<VideoQuality>();
+  final vttSubtitlesIndex = ValueNotifier(-1);
+  @override
+  final languages = ValueNotifier<List<LanguageItem>?>(null);
+  @override
+  final currLang = ValueNotifier<String?>(null);
+  @override
+  final currentVideoQa = ValueNotifier<VideoQuality?>(null);
+  @override
+  final availableVideoQualities = ValueNotifier<Set<int>>(const {});
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw StateError('Unexpected page dependency: ${invocation.memberName}');

@@ -92,7 +92,7 @@ void main() {
       final CommonIntroController controller = ugc
           ? (_UgcShareController()
               ..bvid = 'BV17x411w7KC'
-              ..cid = 1.obs)
+              ..cid.value = 1)
           : (_ShareController()
               ..pgcItem = PgcInfoModel.fromJson({
                 'title': '测试',

@@ -111,55 +111,71 @@ class VideoProgressTrack extends StatelessWidget {
         ),
       ),
       if (controller.enableBlock)
-        Obx(() {
-          final segments = videoDetailController.segmentProgressList;
-          if (segments.isEmpty) return const SizedBox.shrink();
-          return Positioned(
-            left: 0,
-            right: 0,
-            bottom: interactive ? 5.25 : 0.75,
-            child: SegmentProgressBar(segments: List.of(segments)),
-          );
-        }),
+        ValueListenableBuilder(
+          valueListenable: videoDetailController.segmentChanges,
+          builder: (context, segments, child) {
+            if (segments.isEmpty) return const SizedBox.shrink();
+            return Positioned(
+              left: 0,
+              right: 0,
+              bottom: interactive ? 5.25 : 0.75,
+              child: SegmentProgressBar(segments: segments),
+            );
+          },
+        ),
       if (controller.showViewPoints)
-        Obx(() {
-          final segments = videoDetailController.viewPointList;
-          if (segments.isEmpty || !videoDetailController.showVP.value) {
-            return const SizedBox.shrink();
-          }
-          return Padding(
-            padding: EdgeInsets.only(bottom: interactive ? 8.75 : 4.25),
-            child: ViewPointSegmentProgressBar(
-              segments: segments,
-              onSeek:
-                  (interactive
-                      ? PlatformUtils.isDesktop
-                      : PlatformUtils.isMobile)
-                  ? (position) {
-                      if (interactive || !controller.controlsLock.value) {
-                        controller.seekTo(position, isSeek: false);
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            videoDetailController.viewPoints,
+            videoDetailController.showVP,
+          ]),
+          builder: (context, child) {
+            final segments = videoDetailController.viewPointList;
+            if (segments.isEmpty || !videoDetailController.showVP.value) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: EdgeInsets.only(bottom: interactive ? 8.75 : 4.25),
+              child: ViewPointSegmentProgressBar(
+                segments: segments,
+                onSeek:
+                    (interactive
+                        ? PlatformUtils.isDesktop
+                        : PlatformUtils.isMobile)
+                    ? (position) {
+                        if (interactive || !controller.controlsLock.value) {
+                          controller.seekTo(position, isSeek: false);
+                        }
                       }
-                    }
-                  : null,
-            ),
-          );
-        }),
+                    : null,
+              ),
+            );
+          },
+        ),
       if (interactive || controller.showDmChart)
-        Obx(() {
-          if (!videoDetailController.showDmTrendChart.value) {
-            return const SizedBox.shrink();
-          }
-          final trend = videoDetailController.dmTrend.value?.dataOrNull;
-          if (trend == null || trend.isEmpty) return const SizedBox.shrink();
-          final showPoints =
-              videoDetailController.viewPointList.isNotEmpty &&
-              videoDetailController.showVP.value;
-          return DanmakuTrendChart(
-            themeColor: color,
-            trend: trend,
-            bottom: (showPoints ? 19.25 : 4.25) + (interactive ? 4.5 : 0),
-          );
-        }),
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            videoDetailController.showDmTrendChart,
+            videoDetailController.dmTrend,
+            videoDetailController.viewPoints,
+            videoDetailController.showVP,
+          ]),
+          builder: (context, child) {
+            if (!videoDetailController.showDmTrendChart.value) {
+              return const SizedBox.shrink();
+            }
+            final trend = videoDetailController.dmTrend.value?.dataOrNull;
+            if (trend == null || trend.isEmpty) return const SizedBox.shrink();
+            final showPoints =
+                videoDetailController.viewPointList.isNotEmpty &&
+                videoDetailController.showVP.value;
+            return DanmakuTrendChart(
+              themeColor: color,
+              trend: trend,
+              bottom: (showPoints ? 19.25 : 4.25) + (interactive ? 4.5 : 0),
+            );
+          },
+        ),
     ],
   );
 }

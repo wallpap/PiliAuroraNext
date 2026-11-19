@@ -38,9 +38,13 @@ class _Room implements LiveRoomController {
   @override
   final onlineCount = ValueNotifier<String?>('12');
   @override
-  final chatHistory = ValueNotifier<
+  final ValueNotifier<
     ({List<LiveChatMessage<dynamic>> messages, bool truncated})
-  >((messages: const [], truncated: false));
+  >
+  chatHistory =
+      ValueNotifier<
+        ({List<LiveChatMessage<dynamic>> messages, bool truncated})
+      >((messages: const [], truncated: false));
   @override
   final chatBuffer = LiveChatBuffer<dynamic>();
   @override
@@ -348,16 +352,19 @@ void main() {
   testWidgets('直播屏蔽菜单绑定打开时账号和房间，旧操作不宣告成功', (tester) async {
     final room = _Room();
     addTearDown(room.scrollController.dispose);
-    room.messages.value = [
-      const LiveChatMessage(
-        id: 1,
-        content: DanmakuMsg(
-          name: '发送者',
-          text: '消息',
-          extra: LiveDanmaku(id: '1', mid: 2, dmType: 0, ts: 0, ct: 0),
+    room.chatHistory.value = (
+      messages: const [
+        LiveChatMessage(
+          id: 1,
+          content: DanmakuMsg(
+            name: '发送者',
+            text: '消息',
+            extra: LiveDanmaku(id: '1', mid: 2, dmType: 0, ts: 0, ct: 0),
+          ),
         ),
-      ),
-    ];
+      ],
+      truncated: false,
+    );
     await mount(
       tester,
       LiveRoomChatPanel(liveRoomController: room, isPP: false),

@@ -52,6 +52,7 @@ class LiveRoomChatPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final panelContext = context;
     late final bg = isPP
         ? Colors.black.withValues(alpha: 0.4)
         : const Color(0x15FFFFFF);
@@ -115,7 +116,7 @@ class LiveRoomChatPanel extends StatelessWidget {
                                     ? null
                                     : (NoDeadlineTapGestureRecognizer()
                                         ..onTapUp = (e) => _showMsgMenu(
-                                          context,
+                                          panelContext,
                                           itemContext,
                                           e,
                                           item,

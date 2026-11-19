@@ -37,7 +37,7 @@ import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide showTimePicker;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
@@ -105,27 +105,38 @@ class CreateDynPanel extends CommonRichTextPubPage {
 
 class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   late final bool _isEdit;
-  late final RxBool _isPrivate;
-  late final Rx<Pair<int, String>?> _topic;
-  late final Rx<ReplyOptionType> _replyOption;
+  late final ValueNotifier<bool> _isPrivate;
+  late final ValueNotifier<Pair<int, String>?> _topic;
+  late final ValueNotifier<ReplyOptionType> _replyOption;
   late final TextEditingController _titleEditCtr;
-  late final _publishTime = Rxn<DateTime>();
-  final _reserveCard = Rxn<ReserveInfoData>();
-  final _publishing = false.obs;
+  final _publishTime = ValueNotifier<DateTime?>(null);
+  final _reserveCard = ValueNotifier<ReserveInfoData?>(null);
+  final _publishing = ValueNotifier(false);
+  late final _publishButton = Listenable.merge([
+    enablePublish,
+    _publishing,
+    _publishTime,
+  ]);
 
   @override
   void initState() {
     super.initState();
     _isEdit = widget.editConfig != null;
-    _isPrivate = widget.isPrivate.obs;
-    _replyOption = widget.replyOption.obs;
-    _topic = Rx<Pair<int, String>?>(widget.topic);
+    _isPrivate = ValueNotifier(widget.isPrivate);
+    _replyOption = ValueNotifier(widget.replyOption);
+    _topic = ValueNotifier(widget.topic);
     _titleEditCtr = TextEditingController(text: widget.title);
   }
 
   @override
   void dispose() {
     _titleEditCtr.dispose();
+    _isPrivate.dispose();
+    _topic.dispose();
+    _replyOption.dispose();
+    _publishTime.dispose();
+    _reserveCard.dispose();
+    _publishing.dispose();
     super.dispose();
   }
 
@@ -143,8 +154,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Obx(
-                  () {
+                child: ListenableBuilder(
+                  listenable: _topic,
+                  builder: (context, _) {
                     final hasTopic = _topic.value != null;
                     return Row(
                       spacing: 10,
@@ -255,14 +267,23 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Obx(() => _buildPubTimeWidget),
+                    ListenableBuilder(
+                      listenable: _publishTime,
+                      builder: (context, _) => _buildPubTimeWidget,
+                    ),
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Obx(_buildReplyOptionWidget),
+                        ListenableBuilder(
+                          listenable: _replyOption,
+                          builder: (context, _) => _buildReplyOptionWidget(),
+                        ),
                         const SizedBox(height: 5),
-                        Obx(_buildPrivateWidget),
+                        ListenableBuilder(
+                          listenable: _isPrivate,
+                          builder: (context, _) => _buildPrivateWidget(),
+                        ),
                       ],
                     ),
                   ],
@@ -281,8 +302,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
 
   Widget _buildImageList() => SizedBox(
     height: 100,
-    child: Obx(
-      () => CustomScrollView(
+    child: ListenableBuilder(
+      listenable: images,
+      builder: (context, _) => CustomScrollView(
         scrollDirection: Axis.horizontal,
         slivers: [
           const SliverToBoxAdapter(child: SizedBox(width: 16)),
@@ -356,8 +378,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
         ),
         Align(
           alignment: Alignment.centerRight,
-          child: Obx(
-            () => FilledButton.tonal(
+          child: ListenableBuilder(
+            listenable: _publishButton,
+            builder: (context, _) => FilledButton.tonal(
               onPressed: enablePublish.value && !_publishing.value
                   ? onPublishThrottle
                   : null,
@@ -390,7 +413,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     return PopupMenuButton<bool>(
       requestFocus: false,
       initialValue: _isPrivate.value,
-      onSelected: _isPrivate.call,
+      onSelected: (isPrivate) => _isPrivate.value = isPrivate,
       itemBuilder: (context) => List.generate(
         2,
         (index) => AppPopupMenuItem<bool>(
@@ -700,14 +723,15 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     selected: false,
   );
 
-  Widget _buildEditWidget() => Obx(
-    () => RichTextField(
+  Widget _buildEditWidget() => ValueListenableBuilder(
+    valueListenable: readOnly,
+    builder: (context, readOnly, _) => RichTextField(
       key: key,
       controller: editController,
       minLines: 4,
       maxLines: null,
       focusNode: focusNode,
-      readOnly: readOnly.value,
+      readOnly: readOnly,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
@@ -845,9 +869,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   void onSave() {}
 
   Widget _buildReserveItem() {
-    return Obx(
-      () {
-        final reserveCard = _reserveCard.value;
+    return ValueListenableBuilder(
+      valueListenable: _reserveCard,
+      builder: (context, reserveCard, _) {
         if (reserveCard == null) {
           return const SizedBox.shrink();
         }

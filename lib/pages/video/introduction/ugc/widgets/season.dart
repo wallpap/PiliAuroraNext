@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
@@ -7,7 +5,6 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/section.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SeasonPanel extends StatefulWidget {
@@ -26,10 +23,9 @@ class SeasonPanel extends StatefulWidget {
 }
 
 class _SeasonPanelState extends State<SeasonPanel> {
-  RxInt currentIndex = 0.obs;
+  int currentIndex = 0;
   VideoDetailController get _videoDetailController =>
       widget.ugcIntroController.videoDetailCtr;
-  StreamSubscription? _listener;
   List<EpisodeItem> episodes = <EpisodeItem>[];
 
   UgcIntroController get ugcIntroController => widget.ugcIntroController;
@@ -52,16 +48,21 @@ class _SeasonPanelState extends State<SeasonPanel> {
 
     /// 根据 cid 找到对应集，找到对应 episodes
     /// 有多个episodes时，只显示其中一个
-    _findEpisode();
+    _findEpisode(deferSectionChange: true);
     if (episodes.isEmpty) {
       return;
     }
 
     /// 取对应 season_id 的 episodes
-    currentIndex.value = episodes.indexWhere(
+    currentIndex = episodes.indexWhere(
       (EpisodeItem e) => e.cid == _videoDetailController.seasonCid,
     );
-    _listener = _videoDetailController.cid.listen((int cid) {
+    _videoDetailController.episodeSelection.addListener(_onEpisodeChanged);
+  }
+
+  void _onEpisodeChanged() {
+    final cid = _videoDetailController.cid.value;
+    setState(() {
       if (_videoDetailController.seasonCid != cid) {
         bool isPart =
             videoDetail.pages?.indexWhere((item) => item.cid == cid) != -1;
@@ -70,7 +71,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
         }
       }
       _findEpisode();
-      currentIndex.value = episodes.indexWhere(
+      currentIndex = episodes.indexWhere(
         (EpisodeItem e) => e.cid == _videoDetailController.seasonCid,
       );
     });
@@ -78,7 +79,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
 
   @override
   void dispose() {
-    _listener?.cancel();
+    _videoDetailController.episodeSelection.removeListener(_onEpisodeChanged);
     super.dispose();
   }
 
@@ -129,13 +130,10 @@ class _SeasonPanelState extends State<SeasonPanel> {
                   semanticLabel: "正在播放：",
                 ),
                 const SizedBox(width: 10),
-                Obx(
-                  () => Text(
-                    '${currentIndex.value + 1}/${episodes.length}',
-                    style: theme.textTheme.labelMedium,
-                    semanticsLabel:
-                        '第${currentIndex.value + 1}集，共${episodes.length}集',
-                  ),
+                Text(
+                  '${currentIndex + 1}/${episodes.length}',
+                  style: theme.textTheme.labelMedium,
+                  semanticsLabel: '第${currentIndex + 1}集，共${episodes.length}集',
                 ),
                 const SizedBox(width: 6),
                 const Icon(
@@ -151,14 +149,26 @@ class _SeasonPanelState extends State<SeasonPanel> {
     );
   }
 
-  void _findEpisode() {
+  void _findEpisode({bool deferSectionChange = false}) {
     final List<SectionItem> sections = videoDetail.ugcSeason!.sections!;
     for (int i = 0; i < sections.length; i++) {
       final List<EpisodeItem> episodesList = sections[i].episodes!;
       for (int j = 0; j < episodesList.length; j++) {
         if (episodesList[j].cid == _videoDetailController.seasonCid) {
           if (_videoDetailController.seasonIndex.value != i) {
-            _videoDetailController.seasonIndex.value = i;
+            if (deferSectionChange) {
+              final sectionIndex = i;
+              final seasonCid = _videoDetailController.seasonCid;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted &&
+                    !_videoDetailController.isClosed &&
+                    _videoDetailController.seasonCid == seasonCid) {
+                  _videoDetailController.seasonIndex.value = sectionIndex;
+                }
+              });
+            } else {
+              _videoDetailController.seasonIndex.value = i;
+            }
           }
           episodes = episodesList;
           break;

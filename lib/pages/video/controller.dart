@@ -78,7 +78,8 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' show Get, GetNavigation;
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart' hide Subtitle;
 
@@ -100,7 +101,11 @@ class VideoDetailController with BlockMixin {
   late final Map args;
   late String bvid;
   late int aid;
-  late final RxInt cid;
+  final cid = ValueNotifier(0);
+  final _episodeOrderRevision = ValueNotifier(0);
+  late final episodeSelection = Listenable.merge([cid, _episodeOrderRevision]);
+
+  void refreshEpisodeOrder() => _episodeOrderRevision.value++;
   int? epId;
   VoidCallback? onReplyTargetChanged;
   ValueChanged<int>? onReplyCount;
@@ -140,7 +145,7 @@ class VideoDetailController with BlockMixin {
   int? seasonId;
   int? pgcType;
   late final String heroTag;
-  late final RxString cover;
+  final cover = ValueNotifier('');
 
   // 视频类型 默认投稿视频
   late final VideoType videoType;
@@ -162,16 +167,17 @@ class VideoDetailController with BlockMixin {
 
   // 请求返回的视频信息
   late PlayUrlModel data;
-  final RxBool videoState = false.obs;
+  final videoState = ValueNotifier(false);
 
   /// 播放器配置 画质 音质 解码格式
-  final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
-  final availableVideoQualities = Rx<Set<int>>(const {});
+  final currentVideoQa = ValueNotifier<VideoQuality?>(null);
+  final availableVideoQualities = ValueNotifier<Set<int>>(const {});
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
-  final RxBool _autoPlay = VideoPreferences.autoplay.obs;
+  final _autoPlay = ValueNotifier(VideoPreferences.autoplay);
+  ValueListenable<bool> get autoplayEnabled => _autoPlay;
 
   final videoPlayerKey = GlobalKey();
   final moreSettingsAnchorKey = GlobalKey();
@@ -245,13 +251,17 @@ class VideoDetailController with BlockMixin {
       introScrollCtr ??= ScrollController();
 
   int? seasonCid;
-  late final RxInt seasonIndex = 0.obs;
+  final seasonIndex = ValueNotifier(0);
 
   PlayerStatus? playerStatus;
 
   late final scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
-  late final RxBool isVertical;
-  late final RxDouble scrollRatio = 0.0.obs;
+  final isVertical = ValueNotifier(false);
+  final scrollRatio = ValueNotifier(0.0);
+
+  void updateScrollRatio(double value) {
+    if (!isClosed) scrollRatio.value = value;
+  }
 
   ScrollController? _scrollCtr;
   ScrollController get scrollCtr => _scrollCtr ??= ScrollController();
@@ -438,13 +448,13 @@ class VideoDetailController with BlockMixin {
 
     bvid = args['bvid'];
     aid = args['aid'];
-    cid = RxInt(args['cid']);
+    cid.value = args['cid'];
     epId = args['epId'];
     seasonId = args['seasonId'];
     pgcType = args['pgcType'];
     heroTag = args['heroTag'];
-    cover = RxString(args['cover'] ?? '');
-    isVertical = RxBool(args['isVertical'] ?? false);
+    cover.value = args['cover'] ?? '';
+    isVertical.value = args['isVertical'] ?? false;
 
     sourceType = args['sourceType'] ?? SourceType.normal;
     isFileSource = sourceType == SourceType.file;
@@ -550,7 +560,7 @@ class VideoDetailController with BlockMixin {
       (!horizontalScreen && !isPortrait) || plPlayerController.isDesktopPip;
 
   @override
-  late final RxString videoLabel = ''.obs;
+  final ValueNotifier<String> videoLabel = ValueNotifier('');
   @override
   int? get timeLength => data.timeLength;
   @override
@@ -1069,8 +1079,8 @@ class VideoDetailController with BlockMixin {
         identical(source, _networkSource);
   }
 
-  final languages = Rxn<List<LanguageItem>>();
-  final currLang = Rxn<String>();
+  final languages = ValueNotifier<List<LanguageItem>?>(null);
+  final currLang = ValueNotifier<String?>(null);
   void setLanguage(String language) {
     if (currLang.value == language) return;
     if (!isLoginVideo) {
@@ -1392,13 +1402,19 @@ class VideoDetailController with BlockMixin {
     }
   }
 
-  RxList<Subtitle> subtitles = RxList<Subtitle>();
+  final _subtitles = ValueNotifier<List<Subtitle>>(const []);
+  ValueListenable<List<Subtitle>> get subtitleTracks => _subtitles;
+  List<Subtitle> get subtitles => _subtitles.value;
   final subtitleSources = SubtitleSources();
   Map<int, SubtitleSource> get vttSubtitles => subtitleSources.snapshot;
-  late final vttSubtitlesIndex = (-1).obs;
+  final vttSubtitlesIndex = ValueNotifier(-1);
   bool? inheritedSubtitleEnabled;
-  late final showVP = true.obs;
-  late final viewPointList = <ViewPointSegment>[].obs;
+  final showVP = ValueNotifier(true);
+  final _viewPoints = ValueNotifier<List<ViewPointSegment>>(const []);
+  ValueListenable<List<ViewPointSegment>> get viewPoints => _viewPoints;
+  List<ViewPointSegment> get viewPointList => _viewPoints.value;
+  void setViewPointsVisible(bool value) => showVP.value = value;
+  void toggleViewPoints() => setViewPointsVisible(!showVP.value);
 
   // 设定字幕轨道
   int _subtitleGeneration = 0;
@@ -1413,7 +1429,10 @@ class VideoDetailController with BlockMixin {
     if (!isCurrent()) return;
     final index = subtitles.length;
     subtitleSources.remember(index, source);
-    subtitles.add(Subtitle(lan: '', lanDoc: name.split('.').first));
+    _subtitles.value = List.unmodifiable([
+      ...subtitles,
+      Subtitle(lan: '', lanDoc: name.split('.').first),
+    ]);
     await setSubtitle(index + 1);
   }
 
@@ -1468,7 +1487,7 @@ class VideoDetailController with BlockMixin {
   // interactive video
   int? graphVersion;
   EdgeInfoData? steinEdgeInfo;
-  late final RxBool showSteinEdgeInfo = false.obs;
+  final showSteinEdgeInfo = ValueNotifier(false);
 
   final _metadata = VideoMetadata();
 
@@ -1495,7 +1514,7 @@ class VideoDetailController with BlockMixin {
     subtitleSources.clear();
     vttSubtitlesIndex.value = 0;
     if (plPlayerController.showViewPoints) {
-      viewPointList.clear();
+      _viewPoints.value = const [];
     }
     final res = await VideoMediaRepository.metadata(
       bvid: bvid,
@@ -1538,16 +1557,21 @@ class VideoDetailController with BlockMixin {
       if (plPlayerController.showViewPoints &&
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
-          viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! / (data.timeLength! / 1000)).clamp(0.0, 1.0);
-            return ViewPointSegment(
-              end: end,
-              title: item.content,
-              url: item.imgUrl,
-              from: item.from,
-              to: item.to,
-            );
-          }).toList();
+          _viewPoints.value = List.unmodifiable(
+            response.viewPoints!.map((item) {
+              final end = (item.to! / (data.timeLength! / 1000)).clamp(
+                0.0,
+                1.0,
+              );
+              return ViewPointSegment(
+                end: end,
+                title: item.content,
+                url: item.imgUrl,
+                from: item.from,
+                to: item.to,
+              );
+            }),
+          );
         } catch (_) {}
       }
 
@@ -1570,7 +1594,7 @@ class VideoDetailController with BlockMixin {
     required bool Function() isCurrent,
   }) async {
     if (!isCurrent()) return;
-    subtitles.value = sub;
+    _subtitles.value = List.unmodifiable(sub);
     final selectionGeneration = _subtitleGeneration;
     final preferredIndex = switch (VideoPreferences.subtitle) {
       .off => 0,
@@ -1638,7 +1662,6 @@ class VideoDetailController with BlockMixin {
     _subtitleGeneration++;
     _shutdownBinding?.dispose();
     plPlayerController.closePlaybackOwner(playbackOwner);
-    cid.close();
     if (isFileSource) {
       cacheLocalProgress();
     }
@@ -1649,9 +1672,32 @@ class VideoDetailController with BlockMixin {
     animController
       ?..removeListener(_animListener)
       ..dispose();
-    subtitles.clear();
     subtitleSources.clear();
     disposeBlock();
+    for (final state in <ChangeNotifier>[
+      cover,
+      cid,
+      _episodeOrderRevision,
+      seasonIndex,
+      videoState,
+      currentVideoQa,
+      availableVideoQualities,
+      _autoPlay,
+      isVertical,
+      scrollRatio,
+      languages,
+      currLang,
+      _subtitles,
+      vttSubtitlesIndex,
+      showVP,
+      _viewPoints,
+      showSteinEdgeInfo,
+      dmTrend,
+      showDmTrendChart,
+      videoLabel,
+    ]) {
+      state.dispose();
+    }
   }
 
   void onReset({bool isStein = false}) {
@@ -1671,7 +1717,7 @@ class VideoDetailController with BlockMixin {
     savedDanmaku = null;
 
     // subtitle
-    subtitles.clear();
+    _subtitles.value = const [];
     vttSubtitlesIndex.value = -1;
     subtitleSources.clear();
 
@@ -1687,7 +1733,7 @@ class VideoDetailController with BlockMixin {
 
       // view point
       if (plPlayerController.showViewPoints) {
-        viewPointList.clear();
+        _viewPoints.value = const [];
       }
 
       // sponsor block
@@ -1704,9 +1750,8 @@ class VideoDetailController with BlockMixin {
     }
   }
 
-  late final Rx<LoadingState<List<double>>?> dmTrend =
-      Rx<LoadingState<List<double>>?>(null);
-  late final RxBool showDmTrendChart = true.obs;
+  final dmTrend = ValueNotifier<LoadingState<List<double>>?>(null);
+  final showDmTrendChart = ValueNotifier(true);
 
   Future<void> _getDmTrend({required bool Function() isCurrent}) async {
     if (!isCurrent()) return;

@@ -29,7 +29,7 @@ class _Video extends GetxController implements VideoDetailController {
   @override
   String bvid = 'video';
   @override
-  final cid = 1.obs;
+  final cid = ValueNotifier(1);
   @override
   final postList = <PostSegmentModel>[];
   int handled = 0;

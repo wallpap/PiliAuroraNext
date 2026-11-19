@@ -3,6 +3,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/audio_video_progress_bar.dart';
+import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/video_progress.dart';
@@ -123,9 +124,13 @@ class _ProgressPlayer extends PresentationPlayer {
 
 class _ProgressPage implements VideoDetailController {
   @override
-  final showDmTrendChart = false.obs;
+  final showDmTrendChart = ValueNotifier(false);
   @override
-  final dmTrend = Rx<LoadingState<List<double>>?>(null);
+  final dmTrend = ValueNotifier<LoadingState<List<double>>?>(null);
+  @override
+  final viewPoints = ValueNotifier<List<ViewPointSegment>>(const []);
+  @override
+  final showVP = ValueNotifier(true);
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw StateError('Unexpected page dependency: ${invocation.memberName}');

@@ -97,9 +97,7 @@ class AudioController with AudioNormalizationMixin {
   );
 
   bool get enableSponsorBlock => _segments.enableSponsorBlock;
-  List<Segment> get segmentProgressList => _segments.segmentProgressList;
-  late final Stream<List<Segment>> segmentChanges =
-      _segments.segmentProgressList.stream;
+  ValueListenable<List<Segment>> get segmentChanges => _segments.segmentChanges;
   void showSBDetail() => _segments.showSBDetail();
 
   late Int64 id;

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:pili_aurora_next/common/assets.dart';
@@ -43,7 +42,6 @@ class _PagesPanelState extends State<PagesPanel> {
   VideoDetailController get _videoDetailController =>
       widget.ugcIntroController.videoDetailCtr;
   late final ScrollController _scrollController;
-  StreamSubscription? _listener;
 
   List<Part> get pages =>
       widget.list ?? widget.ugcIntroController.videoDetail.value.pages!;
@@ -60,15 +58,18 @@ class _PagesPanelState extends State<PagesPanel> {
       cid = widget.ugcIntroController.cid.value;
       _updatePageIndex();
       offset = targetOffset;
-      _listener = _videoDetailController.cid.listen((cid) {
-        this.cid = cid;
-        _updatePageIndex();
-        if (!mounted) return;
-        setState(() {});
-        jumpToCurr();
-      });
+      _videoDetailController.episodeSelection.addListener(_onEpisodeChanged);
     }
     _scrollController = ScrollController(initialScrollOffset: offset);
+  }
+
+  void _onEpisodeChanged() {
+    if (!mounted) return;
+    setState(() {
+      cid = _videoDetailController.cid.value;
+      _updatePageIndex();
+    });
+    jumpToCurr();
   }
 
   double get targetOffset {
@@ -89,7 +90,7 @@ class _PagesPanelState extends State<PagesPanel> {
 
   @override
   void dispose() {
-    _listener?.cancel();
+    _videoDetailController.episodeSelection.removeListener(_onEpisodeChanged);
     _scrollController.dispose();
     super.dispose();
   }

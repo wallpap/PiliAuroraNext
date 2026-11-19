@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
+import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     hide EpisodeItem;
@@ -396,9 +397,7 @@ class PgcIntroController extends CommonIntroController {
   @override
   void queryVideoIntro([EpisodeItem? episode]) {
     episode ??= pgcItem.episodes!.firstWhere((e) => e.cid == cid.value);
-    videoDetail
-      ..value.title = episode.showTitle
-      ..refresh();
+    videoDetail.value = VideoDetailData(title: episode.showTitle);
     videoPlayerServiceHandler?.onVideoDetailChange(
       episode,
       cid.value,

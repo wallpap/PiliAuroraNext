@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:collection/collection.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 
 class RepostPanel extends CommonRichTextPubPage {
@@ -55,7 +55,13 @@ class RepostPanel extends CommonRichTextPubPage {
 class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     with SingleTickerProviderStateMixin {
   bool _expanded = false;
-  final _publishing = false.obs;
+  final _publishing = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _publishing.dispose();
+    super.dispose();
+  }
 
   late final String? _pic;
   late final String _text;
@@ -222,8 +228,9 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ),
   );
 
-  Widget _buildEditWidget() => Obx(
-    () => RichTextField(
+  Widget _buildEditWidget() => ValueListenableBuilder(
+    valueListenable: readOnly,
+    builder: (context, readOnly, _) => RichTextField(
       key: key,
       controller: editController,
       minLines: 4,
@@ -231,7 +238,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
       autofocus: false,
       focusNode: focusNode,
       onSubmitted: onSubmitted,
-      readOnly: readOnly.value,
+      readOnly: readOnly,
       decoration: InputDecoration(
         hintText: '说点什么吧',
         hintStyle: TextStyle(color: theme.colorScheme.outline),
@@ -245,8 +252,9 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ),
   );
 
-  Widget _buildAppBar() => Obx(
-    () => !_expanded
+  Widget _buildAppBar() => ListenableBuilder(
+    listenable: _publishing,
+    builder: (context, _) => !_expanded
         ? Row(
             children: [
               const SizedBox(width: 16),

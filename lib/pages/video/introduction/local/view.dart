@@ -12,7 +12,6 @@ import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
@@ -36,17 +35,21 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
-    return Obx(() {
-      final currIndex = _controller.index.value;
-      return SliverFixedExtentList.builder(
-        itemCount: _controller.list.length,
-        itemBuilder: (context, index) {
-          final item = _controller.list[index];
-          return _buildItem(theme, currIndex == index, index, item);
-        },
-        itemExtent: 112,
-      );
-    });
+    return ListenableBuilder(
+      listenable: Listenable.merge([_controller.index, _controller.list]),
+      builder: (context, child) {
+        final currIndex = _controller.index.value;
+        final entries = _controller.list.value;
+        return SliverFixedExtentList.builder(
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final item = entries[index];
+            return _buildItem(theme, currIndex == index, index, item);
+          },
+          itemExtent: 112,
+        );
+      },
+    );
   }
 
   Widget _buildItem(

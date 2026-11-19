@@ -36,21 +36,21 @@ import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:material_ui/material_ui.dart';
 
 class UgcIntroController extends CommonIntroController with ReloadMixin {
-  late final RxBool expand;
-  final RxBool status = true.obs;
+  final expand = ValueNotifier(false);
+  final status = ValueNotifier(true);
 
   // up主粉丝数
-  final Rx<MemberCardInfoData> userStat = MemberCardInfoData().obs;
+  final userStat = ValueNotifier(MemberCardInfoData());
   // 关注状态 默认未关注
-  late final Rx<RelationData> followStatus = Rx(RelationData());
-  late final RxMap staffRelations = {}.obs;
+  final followStatus = ValueNotifier(RelationData());
+  final staffRelations = ValueNotifier<Map<String, dynamic>?>(null);
 
   // 是否点踩
-  final RxBool hasDislike = false.obs;
+  final hasDislike = ValueNotifier(false);
 
   late final showArgueMsg = DisplayPreferences.showVideoDispute;
   late final enableAi = VideoPreferences.showAiSummary;
@@ -64,16 +64,38 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   void open(VideoDetailController video, TickerProvider vsync) {
     super.open(video, vsync);
     final alwaysExpandIntroPanel = DisplayPreferences.expandVideoIntro;
-    expand = RxBool(alwaysExpandIntroPanel);
+    expand.value = alwaysExpandIntroPanel;
     if (!alwaysExpandIntroPanel &&
         DisplayPreferences.expandLandscapeVideoIntro) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isClosed && !expand.value && !DeviceUtils.size.isPortrait) {
-          expand.toggle();
+          toggleExpanded();
         }
       });
     }
     videoDetail.value.title = video.args['title'] ?? '';
+  }
+
+  void toggleExpanded() => expand.value = !expand.value;
+
+  void markStaffFollowed(String id) {
+    if (isClosed) return;
+    staffRelations.value = Map.unmodifiable({
+      ...?staffRelations.value,
+      id: true,
+    });
+  }
+
+  @override
+  void close() {
+    if (isClosed) return;
+    super.close();
+    expand.dispose();
+    status.dispose();
+    userStat.dispose();
+    followStatus.dispose();
+    staffRelations.dispose();
+    hasDislike.dispose();
   }
 
   @override
@@ -128,7 +150,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     final stats = await details.authorStats(staff);
     if (stats == null || isClosed) return;
     if (stats.staff case final relations?) {
-      staffRelations.assignAll({'status': true, ...relations});
+      staffRelations.value = Map.unmodifiable(relations);
     } else if (stats.profile case final profile?) {
       userStat.value = profile;
     }
@@ -315,9 +337,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     final attr = followStatus.value.attribute ?? 0;
     if (attr == 128) {
       if (await details.unblock(mid) && !isClosed) {
-        followStatus
-          ..value.attribute = 0
-          ..refresh();
+        _updateFollowAttribute(0);
       }
       return;
     } else {
@@ -330,15 +350,23 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         isCurrent: current,
         afterMod: (attribute) {
           details.invalidateRelation();
-          followStatus
-            ..value.attribute = attribute
-            ..refresh();
+          _updateFollowAttribute(attribute);
           Timer(const Duration(milliseconds: 500), () {
             if (current()) queryFollowStatus();
           });
         },
       );
     }
+  }
+
+  void _updateFollowAttribute(int attribute) {
+    final current = followStatus.value;
+    followStatus.value = RelationData(
+      attribute: attribute,
+      mtime: current.mtime,
+      tag: current.tag,
+      special: current.special,
+    );
   }
 
   // 修改分P或番剧分集

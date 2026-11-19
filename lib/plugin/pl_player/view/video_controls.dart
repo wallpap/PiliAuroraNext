@@ -152,8 +152,12 @@ class _VideoControlsState extends State<VideoControls> {
       ),
 
       /// 高能进度条
-      BottomControlType.dmChart => Obx(
-        () {
+      BottomControlType.dmChart => ListenableBuilder(
+        listenable: Listenable.merge([
+          videoDetailController.dmTrend,
+          videoDetailController.showDmTrendChart,
+        ]),
+        builder: (context, child) {
           final list = videoDetailController.dmTrend.value?.dataOrNull;
           if (list != null && list.isNotEmpty) {
             final show = videoDetailController.showDmTrendChart.value;
@@ -228,8 +232,12 @@ class _VideoControlsState extends State<VideoControls> {
       ),
 
       /// 分段信息
-      BottomControlType.viewPoints => Obx(
-        () {
+      BottomControlType.viewPoints => ListenableBuilder(
+        listenable: Listenable.merge([
+          videoDetailController.viewPoints,
+          videoDetailController.showVP,
+        ]),
+        builder: (context, child) {
           if (videoDetailController.viewPointList.isNotEmpty) {
             return ComBtn(
               width: widgetWidth,
@@ -246,11 +254,11 @@ class _VideoControlsState extends State<VideoControls> {
               onTap: widget.showViewPoints,
               onLongPress: () {
                 Feedback.forLongPress(context);
-                videoDetailController.showVP.toggle();
+                videoDetailController.toggleViewPoints();
               },
               onSecondaryTap: PlatformUtils.isMobile
                   ? null
-                  : () => videoDetailController.showVP.toggle(),
+                  : videoDetailController.toggleViewPoints,
             );
           }
           return const SizedBox.shrink();
@@ -346,8 +354,12 @@ class _VideoControlsState extends State<VideoControls> {
         },
       ),
 
-      BottomControlType.aiTranslate => Obx(
-        () {
+      BottomControlType.aiTranslate => ListenableBuilder(
+        listenable: Listenable.merge([
+          videoDetailController.languages,
+          videoDetailController.currLang,
+        ]),
+        builder: (context, child) {
           final list = videoDetailController.languages.value;
           if (list != null && list.isNotEmpty) {
             return PopupMenuButton<String>(
@@ -394,8 +406,12 @@ class _VideoControlsState extends State<VideoControls> {
       ),
 
       /// 字幕
-      BottomControlType.subtitle => Obx(
-        () {
+      BottomControlType.subtitle => ListenableBuilder(
+        listenable: Listenable.merge([
+          videoDetailController.subtitleTracks,
+          videoDetailController.vttSubtitlesIndex,
+        ]),
+        builder: (context, child) {
           if (videoDetailController.subtitles.isNotEmpty) {
             final val = videoDetailController.vttSubtitlesIndex.value;
             return PopupMenuButton<int>(
@@ -485,8 +501,12 @@ class _VideoControlsState extends State<VideoControls> {
         ),
       ),
 
-      BottomControlType.qa => Obx(
-        () {
+      BottomControlType.qa => ListenableBuilder(
+        listenable: Listenable.merge([
+          videoDetailController.currentVideoQa,
+          videoDetailController.availableVideoQualities,
+        ]),
+        builder: (context, child) {
           final VideoQuality? currentVideoQa =
               videoDetailController.currentVideoQa.value;
           if (currentVideoQa == null) {

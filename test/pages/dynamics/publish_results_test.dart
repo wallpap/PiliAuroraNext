@@ -162,14 +162,14 @@ void main() {
       find.byType(CreateDynPanel),
     );
     state.editController.text = '原草稿';
-    state.imageList.add(FilePicModel(path: image.path));
+    state.addDraftImage(FilePicModel(path: image.path));
     final submission = await reachPublishRequest(
       tester,
       interceptor: interceptor,
       publish: state.onPublish,
       replaceDraft: () {
         state.editController.text = '新草稿';
-        state.imageList.clear();
+        state.removeDraftImage(0);
       },
     );
     final body = submission.request.data as Map;
@@ -195,7 +195,7 @@ void main() {
       find.byType(CreateDynPanel),
     );
     state.editController.text = '草稿';
-    state.imageList.add(FilePicModel(path: image.path));
+    state.addDraftImage(FilePicModel(path: image.path));
     late Future<void> uploading;
     await tester.runAsync(() async {
       uploading = state.onPublish();
@@ -208,7 +208,7 @@ void main() {
     });
     await settle(tester);
     expect(requests, hasLength(1));
-    state.imageList.clear();
+    state.removeDraftImage(0);
     final saving = state.onPublish();
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': '0'});

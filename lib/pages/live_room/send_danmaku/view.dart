@@ -8,7 +8,6 @@ import 'package:pili_aurora_next/pages/live_emote/view.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 
 class LiveSendDmPanel extends CommonRichTextPubPage {
@@ -30,8 +29,15 @@ class LiveSendDmPanel extends CommonRichTextPubPage {
 
 class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   LiveRoomController get liveRoomController => widget.liveRoomController;
-  final _sending = false.obs;
+  final _sending = ValueNotifier(false);
+  late final _sendButton = Listenable.merge([enablePublish, _sending]);
   late final int _roomId;
+
+  @override
+  void dispose() {
+    _sending.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -92,9 +98,10 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
       padding: const .only(left: 8, top: 2, right: 8),
       child: Row(
         children: [
-          Obx(
-            () {
-              final isEmoji = panelType.value == .emoji;
+          ValueListenableBuilder(
+            valueListenable: panelType,
+            builder: (context, panel, _) {
+              final isEmoji = panel == .emoji;
               return iconButton(
                 tooltip: '表情',
                 onPressed: () => updatePanelType(isEmoji ? .keyboard : .emoji),
@@ -108,13 +115,14 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Obx(
-              () => RichTextField(
+            child: ValueListenableBuilder(
+              valueListenable: readOnly,
+              builder: (context, readOnly, _) => RichTextField(
                 key: key,
                 textInputAction: .send,
                 controller: editController,
                 autofocus: false,
-                readOnly: readOnly.value,
+                readOnly: readOnly,
                 onChanged: onChanged,
                 onSubmitted: onSubmitted,
                 focusNode: focusNode,
@@ -128,8 +136,9 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
               ),
             ),
           ),
-          Obx(
-            () => enablePublish.value
+          ValueListenableBuilder(
+            valueListenable: enablePublish,
+            builder: (context, enabled, _) => enabled
                 ? iconButton(
                     iconSize: 22,
                     iconColor: theme.colorScheme.onSurfaceVariant,
@@ -142,8 +151,9 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
                 : const SizedBox.shrink(),
           ),
           const SizedBox(width: 12),
-          Obx(
-            () => iconButton(
+          ListenableBuilder(
+            listenable: _sendButton,
+            builder: (context, _) => iconButton(
               tooltip: '发送',
               iconSize: 22,
               iconColor: enablePublish.value

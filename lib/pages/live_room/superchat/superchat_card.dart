@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/screenshot.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -47,7 +47,7 @@ class SuperChatCard extends StatefulWidget {
 class _SuperChatCardState extends State<SuperChatCard> {
   Timer? _timer;
   bool _savingImage = false;
-  RxInt? _remains;
+  ValueNotifier<int>? _remains;
 
   @override
   void initState() {
@@ -60,7 +60,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final offset = widget.item.endTime - now;
       if (offset > 0) {
-        _remains = offset.obs;
+        _remains = ValueNotifier(offset);
         _startTimer();
       } else {
         _remove();
@@ -102,6 +102,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
   @override
   void dispose() {
     _cancelTimer();
+    _remains?.dispose();
     super.dispose();
   }
 
@@ -194,7 +195,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
 Widget _build({
   required SuperChatItem item,
   Function(Offset, SuperChatItem)? showMenu,
-  RxInt? remains,
+  ValueListenable<int>? remains,
 }) {
   final bottomColor = ColourUtils.parseColor(item.backgroundBottomColor);
   final border = BorderSide(color: bottomColor);
@@ -229,9 +230,10 @@ Widget _build({
   Widget price = Text("￥${item.price}", style: TextStyle(color: bottomColor));
   Widget? remains_;
   if (remains != null) {
-    remains_ = Obx(
-      () => Text(
-        remains.toString(),
+    remains_ = ValueListenableBuilder(
+      valueListenable: remains,
+      builder: (context, seconds, _) => Text(
+        '$seconds',
         style: const TextStyle(fontSize: 14, color: Colors.grey),
       ),
     );

@@ -15,7 +15,6 @@ import 'package:pili_aurora_next/features/account/application/account_profile.da
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SendDanmakuPanel extends CommonTextPubPage {
@@ -47,10 +46,11 @@ class SendDanmakuPanel extends CommonTextPubPage {
 }
 
 class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
-  late final RxInt _mode;
-  late final RxInt _fontSize;
-  late final Rx<Color> _color;
-  final _sending = false.obs;
+  late final ValueNotifier<int> _mode;
+  late final ValueNotifier<int> _fontSize;
+  late final ValueNotifier<Color> _color;
+  final _sending = ValueNotifier(false);
+  late final _sendButton = Listenable.merge([enablePublish, _sending]);
 
   final List<Color> _colorList = [
     Colors.white,
@@ -72,9 +72,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   @override
   void initState() {
     super.initState();
-    _mode = (widget.dmConfig?.mode ?? 1).obs;
-    _fontSize = (widget.dmConfig?.fontSize ?? 25).obs;
-    _color = (widget.dmConfig?.color ?? Colors.white).obs;
+    _mode = ValueNotifier(widget.dmConfig?.mode ?? 1);
+    _fontSize = ValueNotifier(widget.dmConfig?.fontSize ?? 25);
+    _color = ValueNotifier(widget.dmConfig?.color ?? Colors.white);
     if (AccountProfile.legacy.currentInfo?.vipStatus == 1) {
       _colorList.add(Colors.transparent);
     }
@@ -87,13 +87,18 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
       fontSize: _fontSize.value,
       color: _color.value,
     ));
+    _mode.dispose();
+    _fontSize.dispose();
+    _color.dispose();
+    _sending.dispose();
     super.dispose();
   }
 
   Widget get _buildColorPanel => Expanded(
-    child: Obx(
-      () {
-        final bool isCustomColor = !_colorList.contains(_color.value);
+    child: ValueListenableBuilder(
+      valueListenable: _color,
+      builder: (context, color, _) {
+        final bool isCustomColor = !_colorList.contains(color);
         final int length = _colorList.length + (isCustomColor ? 1 : 0) + 1;
         return GridView.builder(
           shrinkWrap: true,
@@ -126,7 +131,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
                 ),
               );
             } else if (index == length - 2 && isCustomColor) {
-              return _buildColorItem(_color.value);
+              return _buildColorItem(color);
             }
             return _buildColorItem(_colorList[index]);
           },
@@ -278,8 +283,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   }
 
   Widget _buildPositionItem(int mode, String title) {
-    return Obx(
-      () => Expanded(
+    return ListenableBuilder(
+      listenable: _mode,
+      builder: (context, _) => Expanded(
         child: GestureDetector(
           onTap: () => _mode.value = mode,
           child: Container(
@@ -306,8 +312,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   }
 
   Widget _buildFontSizeItem(int fontSize, String title) {
-    return Obx(
-      () => Expanded(
+    return ListenableBuilder(
+      listenable: _fontSize,
+      builder: (context, _) => Expanded(
         child: GestureDetector(
           onTap: () => _fontSize.value = fontSize,
           child: Container(
@@ -338,9 +345,10 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
       padding: const EdgeInsets.only(left: 8, top: 2, right: 8),
       child: Row(
         children: [
-          Obx(
-            () {
-              final isEmoji = panelType.value == PanelType.emoji;
+          ValueListenableBuilder(
+            valueListenable: panelType,
+            builder: (context, panel, _) {
+              final isEmoji = panel == PanelType.emoji;
               return iconButton(
                 tooltip: '弹幕样式',
                 iconSize: 24,
@@ -354,11 +362,12 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Obx(
-              () => TextField(
+            child: ValueListenableBuilder(
+              valueListenable: readOnly,
+              builder: (context, readOnly, _) => TextField(
                 controller: editController,
                 autofocus: false,
-                readOnly: readOnly.value,
+                readOnly: readOnly,
                 inputFormatters: [
                   LengthLimitingTextInputFormatter(100),
                 ],
@@ -378,8 +387,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               ),
             ),
           ),
-          Obx(
-            () => enablePublish.value
+          ValueListenableBuilder(
+            valueListenable: enablePublish,
+            builder: (context, enabled, _) => enabled
                 ? iconButton(
                     iconSize: 22,
                     iconColor: theme.colorScheme.onSurfaceVariant,
@@ -392,8 +402,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
                 : const SizedBox.shrink(),
           ),
           const SizedBox(width: 12),
-          Obx(
-            () => iconButton(
+          ListenableBuilder(
+            listenable: _sendButton,
+            builder: (context, _) => iconButton(
               tooltip: _sending.value ? '发送中' : '发送',
               iconSize: 22,
               iconColor: enablePublish.value
@@ -420,7 +431,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
         content: SlideColorPicker(
           color: _color.value,
           onChanged: (Color? color) {
-            if (color != null) {
+            if (mounted && color != null) {
               _color.value = color;
             }
           },
@@ -431,7 +442,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
 
   @override
   Future<void> onCustomPublish({List? pictures}) async {
-    if (_sending.value) return;
+    if (!mounted || _sending.value) return;
     final cid = widget.cid;
     final bvid = widget.bvid;
     final text = editController.text;

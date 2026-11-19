@@ -34,7 +34,6 @@ import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -87,7 +86,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     with TickerProviderStateMixin, CommonSlideMixin {
   // tab
   late final TabController _tabController;
-  late final RxInt _currentTabIndex = _tabController.index.obs;
+  late final _currentTabIndex = ValueNotifier(_tabController.index);
 
   late final showTitle = widget.showTitle;
 
@@ -107,8 +106,8 @@ class _EpisodePanelState extends State<EpisodePanel>
   late final List<ScrollController> _itemScrollController;
 
   // fav
-  Rx<LoadingState<bool>>? _favState;
-  final _favBusy = false.obs;
+  final _favState = ValueNotifier<LoadingState<bool>?>(null);
+  final _favBusy = ValueNotifier(false);
   int _favVersion = 0;
 
   void listener() {
@@ -191,12 +190,10 @@ class _EpisodePanelState extends State<EpisodePanel>
     if (widget.type != EpisodeType.season ||
         !account.isLogin ||
         seasonId == null) {
-      _favState?.value = LoadingState.loading();
+      _favState.value = null;
       return;
     }
-    _favState ??= LoadingState<bool>.loading().obs;
-    _favState!.value = LoadingState.loading();
-    setState(() {});
+    _favState.value = LoadingState.loading();
     final result = await VideoMetadataRepository.seasonSubscription(
       account,
       bvid,
@@ -208,11 +205,10 @@ class _EpisodePanelState extends State<EpisodePanel>
         bvid != widget.bvid) {
       return;
     }
-    _favState!.value = result;
-    if (_favState!.value case Success(:final response)) {
+    _favState.value = result;
+    if (result case Success(:final response)) {
       widget.ugcIntroController?.seasonFavState[seasonId] = response;
     }
-    setState(() {});
   }
 
   Future<void> _toggleFav(bool wasFav) async {
@@ -237,11 +233,11 @@ class _EpisodePanelState extends State<EpisodePanel>
         return;
       }
       if (result.isSuccess) {
-        _favState!.value = Success(!wasFav);
+        _favState.value = Success(!wasFav);
         widget.ugcIntroController?.seasonFavState[target] = !wasFav;
         SmartDialog.showToast('${wasFav ? '取消' : ''}订阅成功');
       } else {
-        if (result is UnknownResult) _favState!.value = result;
+        if (result is UnknownResult) _favState.value = result;
         result.toast();
       }
     } finally {
@@ -253,11 +249,12 @@ class _EpisodePanelState extends State<EpisodePanel>
   void dispose() {
     AccountScope.changes.removeListener(_queryFav);
     _favVersion++;
-    _favBusy.close();
+    _favBusy.dispose();
     _tabController
       ..removeListener(listener)
       ..dispose();
-    _favState?.close();
+    _favState.dispose();
+    _currentTabIndex.dispose();
     for (final e in _itemScrollController) {
       e.dispose();
     }
@@ -652,7 +649,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
   }
 
-  Widget _buildFavBtn(LoadingState<bool> loadingState) {
+  Widget _buildFavBtn(LoadingState<bool>? loadingState) {
     return switch (loadingState) {
       Success(:final response) => iconButton(
         iconSize: 22,
@@ -708,7 +705,10 @@ class _EpisodePanelState extends State<EpisodePanel>
             widget.type.title,
             style: theme.textTheme.titleMedium,
           ),
-        if (_favState != null) Obx(() => _buildFavBtn(_favState!.value)),
+        ListenableBuilder(
+          listenable: Listenable.merge([_favState, _favBusy]),
+          builder: (context, child) => _buildFavBtn(_favState.value),
+        ),
         iconButton(
           iconSize: 22,
           tooltip: '跳至顶部',
@@ -729,7 +729,8 @@ class _EpisodePanelState extends State<EpisodePanel>
             final currentTabIndex = _currentTabIndex.value;
             if (currentTabIndex != widget.initialTabIndex) {
               _tabController.animateTo(widget.initialTabIndex);
-              await Future.pause(const Duration(milliseconds: 225));
+              await Future<void>.delayed(const Duration(milliseconds: 225));
+              if (!mounted) return;
             }
             _itemScrollController[widget.initialTabIndex].animTo(
               _calcItemOffset(_currentItemIndex),
@@ -738,17 +739,18 @@ class _EpisodePanelState extends State<EpisodePanel>
           },
         ),
         if (widget.isSupportReverse == true)
-          Obx(
-            () {
-              return _currentTabIndex.value == widget.initialTabIndex
+          ValueListenableBuilder(
+            valueListenable: _currentTabIndex,
+            builder: (context, index, child) {
+              return index == widget.initialTabIndex
                   ? _buildReverseBtn
                   : const SizedBox.shrink();
             },
           ),
         const Spacer(),
-        Obx(
-          () {
-            final currentTabIndex = _currentTabIndex.value;
+        ValueListenableBuilder(
+          valueListenable: _currentTabIndex,
+          builder: (context, currentTabIndex, child) {
             return iconButton(
               iconSize: 22,
               tooltip: _isReversed[currentTabIndex] ? '顺序' : '倒序',

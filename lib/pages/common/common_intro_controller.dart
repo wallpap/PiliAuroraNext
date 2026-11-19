@@ -20,7 +20,6 @@ import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract class CommonIntroController with TripleMixin, FavMixin {
@@ -33,9 +32,9 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
   late String bvid;
 
   // 是否稍后再看
-  late final RxBool hasLater;
+  final hasLater = ValueNotifier(false);
 
-  final Rx<List<VideoTagItem>?> videoTags = Rx<List<VideoTagItem>?>(null);
+  final videoTags = ValueNotifier<List<VideoTagItem>?>(null);
 
   bool isProcessing = false;
   Future<void> handleAction(FutureOr Function() action) async {
@@ -122,7 +121,7 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
     getStat()?.favorite += count;
   }
 
-  final Rx<VideoDetailData> videoDetail = VideoDetailData().obs;
+  final videoDetail = ValueNotifier(VideoDetailData());
 
   void queryVideoIntro();
 
@@ -146,10 +145,10 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
 
   // 同时观看
   final bool isShowOnlineTotal = DisplayPreferences.showOnlineViewers;
-  late final RxString total = '1'.obs;
+  final total = ValueNotifier('1');
   Timer? timer;
 
-  late final RxInt cid;
+  final cid = ValueNotifier(0);
 
   late final VideoDetailController videoDetailCtr;
 
@@ -159,10 +158,9 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
     final args = video.args;
     heroTag = args['heroTag'];
     bvid = args['bvid'];
-    cid = RxInt(args['cid']);
-    hasLater = RxBool(
-      args['viewLater'] ?? args['sourceType'] == SourceType.watchLater,
-    );
+    cid.value = args['cid'];
+    hasLater.value =
+        args['viewLater'] ?? args['sourceType'] == SourceType.watchLater;
 
     queryVideoIntro();
     startTimer();
@@ -200,7 +198,11 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
     _closed = true;
     cancelTimer();
     disposeTriple();
-    videoDetail.close();
+    hasLater.dispose();
+    videoTags.dispose();
+    videoDetail.dispose();
+    total.dispose();
+    cid.dispose();
   }
 
   @override

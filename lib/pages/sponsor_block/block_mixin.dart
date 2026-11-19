@@ -14,9 +14,9 @@ import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, ValueListenable;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
@@ -74,13 +74,15 @@ mixin BlockMixin {
   StreamSubscription<Duration>? _blockListener;
   StreamSubscription<Duration>? get blockListener => _blockListener;
   late final List<SegmentModel> _segmentList = <SegmentModel>[];
-  late final RxList<Segment> segmentProgressList = <Segment>[].obs;
+  final _segments = ValueNotifier<List<Segment>>(const []);
+  ValueListenable<List<Segment>> get segmentChanges => _segments;
+  List<Segment> get segmentProgressList => _segments.value;
 
   Timer? _skipTimer;
   late final listKey = GlobalKey<AnimatedListState>();
   late final List<Object> listData = [];
 
-  RxString? get videoLabel => null;
+  ValueNotifier<String>? get videoLabel => null;
   Player? get player;
   bool get autoPlay;
   int? get timeLength;
@@ -201,23 +203,18 @@ mixin BlockMixin {
                     item.segment[1] >= item.segment[0],
               )
               .map(
-                (item) {
-                  final segmentModel = SegmentModel.fromItemModel(
-                    item,
-                    isBlock ? blockConfig : null,
-                  );
-                  if (segmentModel.segment == const (0, 0)) {
-                    videoLabel?.value +=
-                        '${videoLabel!.value.isNotEmpty ? '/' : ''}${segmentModel.segmentType.title}';
-                  }
-
-                  return segmentModel;
-                },
+                (item) => SegmentModel.fromItemModel(
+                  item,
+                  isBlock ? blockConfig : null,
+                ),
               ),
         );
 
-        // _segmentProgressList
-        segmentProgressList.assignAll(
+        videoLabel?.value = _segmentList
+            .where((segment) => segment.segment == const (0, 0))
+            .map((segment) => segment.segmentType.title)
+            .join('/');
+        _segments.value = List.unmodifiable(
           _segmentList.map((e) {
             double start = (e.segment.$1 / duration).clamp(0.0, 1.0);
             double end = (e.segment.$2 / duration).clamp(0.0, 1.0);
@@ -546,7 +543,7 @@ mixin BlockMixin {
     _manualVisits.clear();
     videoLabel?.value = '';
     _segmentList.clear();
-    segmentProgressList.clear();
+    _segments.value = const [];
     // 切换来源时撤下旧片段操作，保留独立的历史分P提示。
     for (var index = listData.length - 1; index >= 0; index--) {
       if (listData[index] is! SegmentModel) continue;
@@ -594,5 +591,6 @@ mixin BlockMixin {
     } else {
       cancelBlockListener();
     }
+    _segments.dispose();
   }
 }

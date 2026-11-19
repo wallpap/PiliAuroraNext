@@ -5,19 +5,18 @@ import 'package:pili_aurora_next/features/account/application/coin_balance.dart'
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 mixin TripleMixin {
   TickerProvider get tripleVsync;
   // 是否点赞
-  final RxBool hasLike = false.obs;
+  final hasLike = ValueNotifier(false);
   // 投币数量
-  final RxNum coinNum = RxNum(0);
+  final coinNum = ValueNotifier<num>(0);
   // 是否投币
   bool get hasCoin => coinNum.value != 0;
   // 是否收藏
-  final RxBool hasFav = false.obs;
+  final hasFav = ValueNotifier(false);
 
   bool get hasTriple => hasLike.value && hasCoin && hasFav.value;
 
@@ -124,5 +123,8 @@ mixin TripleMixin {
   void disposeTriple() {
     _cancelTimer();
     _tripleAnimCtr?.dispose();
+    hasLike.dispose();
+    coinNum.dispose();
+    hasFav.dispose();
   }
 }

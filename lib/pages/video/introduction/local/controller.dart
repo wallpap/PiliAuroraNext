@@ -1,4 +1,5 @@
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
@@ -7,9 +8,8 @@ import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, ValueNotifier;
 import 'package:flutter/scheduler.dart' show SchedulerBinding, TickerProvider;
-import 'package:get/get.dart';
 
 class LocalIntroController extends CommonIntroController {
   @override
@@ -43,14 +43,17 @@ class LocalIntroController extends CommonIntroController {
 
   @override
   void close() {
+    if (isClosed) return;
     aidSet.clear();
     super.close();
+    index.dispose();
+    list.dispose();
   }
 
   @override
   void open(VideoDetailController video, TickerProvider vsync) {
     super.open(video, vsync);
-    videoDetail.value.title = videoDetailCtr.args['title'];
+    videoDetail.value = VideoDetailData(title: videoDetailCtr.args['title']);
     if (DesktopPlaybackWindows.isPlayerWindow) {
       this.list.value = [videoDetailCtr.entry];
       this.index.value = 0;
@@ -97,20 +100,20 @@ class LocalIntroController extends CommonIntroController {
     }
   }
 
-  final index = (-1).obs;
-  double get _offset => index * 112 + 7 - 35;
-  final list = RxList<BiliDownloadEntryInfo>();
+  final index = ValueNotifier(-1);
+  double get _offset => index.value * 112.0 + 7 - 35;
+  final list = ValueNotifier<List<BiliDownloadEntryInfo>>(const []);
 
   @override
   bool nextPlay() {
     final next = index.value + 1;
-    if (next < list.length) {
+    if (next < list.value.length) {
       playIndex(next);
       return true;
     } else {
       final playCtr = videoDetailCtr.plPlayerController;
       if (playCtr.playRepeat == PlayRepeat.listCycle) {
-        if (list.length == 1) {
+        if (list.value.length == 1) {
           playCtr.seek(Duration.zero).whenComplete(playCtr.play);
         } else {
           playIndex(0);
@@ -135,7 +138,7 @@ class LocalIntroController extends CommonIntroController {
     int index, {
     BiliDownloadEntryInfo? entry,
   }) {
-    entry ??= list[index];
+    entry ??= list.value[index];
     videoDetailCtr
       ..onReset()
       ..cover.value = entry.cover
@@ -145,9 +148,7 @@ class LocalIntroController extends CommonIntroController {
       ..args['dirPath'] = entry.entryDirPath
       ..initFileSource(entry, isInit: false)
       ..playerInit();
-    videoDetail
-      ..value.title = entry.showTitle
-      ..refresh();
+    videoDetail.value = VideoDetailData(title: entry.showTitle);
     this.index.value = index;
     if (PlatformUtils.isMobile) {
       onVideoDetailChange(entry);

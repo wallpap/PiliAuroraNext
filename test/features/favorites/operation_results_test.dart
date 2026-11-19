@@ -171,7 +171,7 @@ void main() {
     await mount(tester);
     final controller = _Intro()
       ..bvid = 'BV1xx411c7mD'
-      ..hasLater = false.obs;
+      ..hasLater.value = false;
     addTearDown(controller.close);
     final add = controller.viewLater();
     await dispatched(tester, 1);

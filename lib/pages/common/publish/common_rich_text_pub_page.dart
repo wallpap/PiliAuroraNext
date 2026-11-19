@@ -30,10 +30,9 @@ import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -59,7 +58,26 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   bool _showingUploadProgress = false;
   final key = GlobalKey<RichTextFieldState>();
   late final imagePicker = ImagePicker();
-  late final RxList<PicModel> imageList;
+  late final ValueNotifier<List<PicModel>> _images;
+  ValueListenable<List<PicModel>> get images => _images;
+  List<PicModel> get imageList => _images.value;
+
+  void addDraftImage(PicModel image) {
+    _images.value = List.unmodifiable([...imageList, image]);
+  }
+
+  void removeDraftImage(int index) {
+    final updated = imageList.toList();
+    final image = updated.removeAt(index);
+    _images.value = List.unmodifiable(updated);
+    if (PlatformUtils.isMobile && image is FilePicModel) {
+      File(image.path).tryDel();
+    }
+    if (updated.isEmpty && editController.rawText.trim().isEmpty) {
+      enablePublish.value = false;
+    }
+  }
+
   int get limit => widget.imageLengthLimit ?? 9;
   List<Object> get pictureDraft => [
     for (final image in imageList)
@@ -81,7 +99,9 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     if (editController.rawText.trim().isNotEmpty) {
       enablePublish.value = true;
     }
-    imageList = RxList<PicModel>(widget.pics ?? <PicModel>[]);
+    _images = ValueNotifier(
+      List.unmodifiable(widget.pics ?? const <PicModel>[]),
+    );
   }
 
   @override
@@ -98,6 +118,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         }
       }
     }
+    _images.dispose();
     super.dispose();
   }
 
@@ -112,17 +133,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       context,
     ).colorScheme.secondaryContainer.withValues(alpha: 0.5);
 
-    void onClear() {
-      final image = imageList.removeAt(index);
-      if (PlatformUtils.isMobile) {
-        if (image is FilePicModel) {
-          File(image.path).tryDel();
-        }
-      }
-      if (imageList.isEmpty && editController.rawText.trim().isEmpty) {
-        enablePublish.value = false;
-      }
-    }
+    void onClear() => removeDraftImage(index);
 
     final image = imageList[index];
     return Stack(
@@ -233,9 +244,9 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       if (image is FilePicModel) {
         File(image.path).tryDel();
       }
-      imageList[imageList.indexOf(image)] = FilePicModel(
-        path: croppedFile.path,
-      );
+      final updated = imageList.toList();
+      updated[updated.indexOf(image)] = FilePicModel(path: croppedFile.path);
+      _images.value = List.unmodifiable(updated);
     }
   }
 
@@ -257,7 +268,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
                 SmartDialog.showToast('最多选择$limit张图片');
                 break;
               } else {
-                imageList.add(FilePicModel(path: pickedFiles[i].path));
+                addDraftImage(FilePicModel(path: pickedFiles[i].path));
               }
             }
             callback?.call();
@@ -483,9 +494,10 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   @override
   void onSave() => widget.onSave?.call(editController.items);
 
-  Widget get emojiBtn => Obx(
-    () {
-      final isEmoji = panelType.value == PanelType.emoji;
+  Widget get emojiBtn => ValueListenableBuilder(
+    valueListenable: panelType,
+    builder: (context, panel, _) {
+      final isEmoji = panel == PanelType.emoji;
       return ToolbarIconButton(
         tooltip: isEmoji ? '输入' : '表情',
         onPressed: () => updatePanelType(isEmoji ? .keyboard : .emoji),
@@ -504,9 +516,10 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     selected: false,
   );
 
-  Widget get moreBtn => Obx(
-    () {
-      final isMore = panelType.value == PanelType.more;
+  Widget get moreBtn => ValueListenableBuilder(
+    valueListenable: panelType,
+    builder: (context, panel, _) {
+      final isMore = panel == PanelType.more;
       return ToolbarIconButton(
         tooltip: isMore ? '输入' : '更多',
         onPressed: () => updatePanelType(isMore ? .keyboard : .more),

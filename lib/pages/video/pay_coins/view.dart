@@ -69,8 +69,8 @@ class _PayCoinsPageState extends State<PayCoinsPage>
   late final _hasCopyright = widget.hasCopyright;
   late bool _isPaying = false;
   PageController? _controller;
-  late final RxBool _coinWithLike = VideoPreferences.likeOnCoin.obs;
-  late final RxInt _pageIndex = 0.obs;
+  late final _coinWithLike = ValueNotifier(VideoPreferences.likeOnCoin);
+  final _pageIndex = ValueNotifier(0);
 
   late final AnimationController _selectionScaleController;
   late final List<Future<ByteData>> _tossAssets;
@@ -128,6 +128,8 @@ class _PayCoinsPageState extends State<PayCoinsPage>
     _paymentTimer?.cancel();
     _selectionScaleController.dispose();
     _controller?.dispose();
+    _coinWithLike.dispose();
+    _pageIndex.dispose();
     super.dispose();
   }
 
@@ -305,10 +307,10 @@ class _PayCoinsPageState extends State<PayCoinsPage>
                                     factor =
                                         1 - (_controller!.page! - index).abs();
                                   }
-                                  return Obx(
-                                    () {
-                                      if (_pageIndex.value != index &&
-                                          _isPaying) {
+                                  return ValueListenableBuilder(
+                                    valueListenable: _pageIndex,
+                                    builder: (context, selected, child) {
+                                      if (selected != index && _isPaying) {
                                         return const SizedBox.shrink();
                                       }
                                       return _buildCoinWidget(index, factor);
@@ -323,9 +325,9 @@ class _PayCoinsPageState extends State<PayCoinsPage>
                     ),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Obx(
-                        () {
-                          final index = _pageIndex.value;
+                      child: ValueListenableBuilder(
+                        valueListenable: _pageIndex,
+                        builder: (context, index, child) {
                           if (_isPaying) {
                             return const SizedBox.shrink();
                           }
@@ -347,25 +349,27 @@ class _PayCoinsPageState extends State<PayCoinsPage>
                     ),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Obx(() {
-                        final index = _pageIndex.value;
-                        if (_isPaying) {
-                          return const SizedBox.shrink();
-                        }
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: index == 1 ? null : () => _onScroll(1),
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Image.asset(
-                              width: 16,
-                              height: 28,
-                              index == 1 ? Assets.rightDisable : Assets.right,
-                              cacheWidth: 16.cacheSize(context),
+                      child: ValueListenableBuilder(
+                        valueListenable: _pageIndex,
+                        builder: (context, index, child) {
+                          if (_isPaying) {
+                            return const SizedBox.shrink();
+                          }
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: index == 1 ? null : () => _onScroll(1),
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: Image.asset(
+                                width: 16,
+                                height: 28,
+                                index == 1 ? Assets.rightDisable : Assets.right,
+                                cacheWidth: 16.cacheSize(context),
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 )
@@ -389,7 +393,12 @@ class _PayCoinsPageState extends State<PayCoinsPage>
                   onHorizontalDragUpdate: _isPaying ? null : _onDragUpdate,
                   onHorizontalDragEnd: _onDragEnd,
                   onHorizontalDragCancel: _onDragEnd,
-                  child: Center(child: Obx(_buildToss)),
+                  child: Center(
+                    child: ValueListenableBuilder(
+                      valueListenable: _pageIndex,
+                      builder: (context, index, child) => _buildToss(),
+                    ),
+                  ),
                 )
               else
                 Center(child: _buildToss()),
@@ -426,9 +435,10 @@ class _PayCoinsPageState extends State<PayCoinsPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(width: 12),
-                        Obx(
-                          () => Icon(
-                            _coinWithLike.value
+                        ValueListenableBuilder(
+                          valueListenable: _coinWithLike,
+                          builder: (context, withLike, child) => Icon(
+                            withLike
                                 ? Icons.check_box_outlined
                                 : Icons.check_box_outline_blank,
                             size: 20,

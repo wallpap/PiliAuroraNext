@@ -31,7 +31,7 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 
@@ -54,7 +54,8 @@ class _WhisperDetailPageState
   late final int? mid;
   late final bool isLive;
   late final ConversationTarget _target;
-  final _imageBusy = false.obs;
+  final _imageBusy = ValueNotifier(false);
+  late final _sendButton = Listenable.merge([enablePublish, _imageBusy]);
 
   @override
   void initState() {
@@ -78,6 +79,7 @@ class _WhisperDetailPageState
   @override
   void dispose() {
     _scrollController.dispose();
+    _imageBusy.dispose();
     super.dispose();
   }
 
@@ -369,10 +371,11 @@ class _WhisperDetailPageState
             tooltip: '表情',
           ),
           Expanded(
-            child: Obx(
-              () => RichTextField(
+            child: ValueListenableBuilder(
+              valueListenable: readOnly,
+              builder: (context, readOnly, _) => RichTextField(
                 key: key,
-                readOnly: readOnly.value,
+                readOnly: readOnly,
                 focusNode: focusNode,
                 controller: editController,
                 minLines: 1,
@@ -394,20 +397,25 @@ class _WhisperDetailPageState
               ),
             ),
           ),
-          Obx(() {
-            final enablePublish = this.enablePublish.value;
-            return IconButton(
-              onPressed: _imageBusy.value
-                  ? null
-                  : enablePublish
-                  ? () => _sendText(conversation)
-                  : () => _pickAndSendImage(conversation),
-              icon: Icon(
-                enablePublish ? Icons.send : Icons.add_photo_alternate_outlined,
-              ),
-              tooltip: enablePublish ? '发送' : '图片',
-            );
-          }),
+          ListenableBuilder(
+            listenable: _sendButton,
+            builder: (context, _) {
+              final enablePublish = this.enablePublish.value;
+              return IconButton(
+                onPressed: _imageBusy.value
+                    ? null
+                    : enablePublish
+                    ? () => _sendText(conversation)
+                    : () => _pickAndSendImage(conversation),
+                icon: Icon(
+                  enablePublish
+                      ? Icons.send
+                      : Icons.add_photo_alternate_outlined,
+                ),
+                tooltip: enablePublish ? '发送' : '图片',
+              );
+            },
+          ),
         ],
       ),
     );
@@ -508,7 +516,7 @@ class _WhisperDetailPageState
       if (PlatformUtils.isMobile && pickedPath != null) {
         await File(pickedPath).tryDel();
       }
-      _imageBusy.value = false;
+      if (mounted) _imageBusy.value = false;
     }
   }
 

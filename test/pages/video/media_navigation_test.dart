@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
@@ -46,7 +46,7 @@ class _Video extends Fake implements VideoDetailController {
   @override
   final _Player plPlayerController = _Player();
   @override
-  final cid = 1.obs;
+  final cid = ValueNotifier(1);
   @override
   bool get isPlayAll => false;
 }
@@ -102,7 +102,7 @@ void main() {
 
   test('合集缺少分区或分集时安全处理首尾与列表循环', () {
     final video = _Video();
-    final ugc = _Ugc(video)..cid = 1.obs;
+    final ugc = _Ugc(video)..cid.value = 1;
     final season = UgcSeason();
     ugc.videoDetail.value.ugcSeason = season;
     expect(ugc.nextPlay(), isFalse);
@@ -121,7 +121,7 @@ void main() {
   });
 
   test('倒序分 P 到末尾后按合集锚点继续播放', () {
-    final ugc = _Ugc(_Video())..cid = 12.obs;
+    final ugc = _Ugc(_Video())..cid.value = 12;
     ugc.videoDetail.value
       ..pages = [Part(cid: 12), Part(cid: 11)]
       ..isPageReversed = true
@@ -142,14 +142,14 @@ void main() {
       final CommonIntroController controller;
       if (mode == '本地列表') {
         controller = _Local(video)..index.value = 0;
-        (controller as _Local).list.addAll([_Entry(), _Entry(), _Entry()]);
+        (controller as _Local).list.value = [_Entry(), _Entry(), _Entry()];
       } else if (mode == 'PGC') {
         controller = _Pgc(video)
           ..setPlaybackEpisodes([
             for (var id = 1; id <= 3; id++) pgc.EpisodeItem(cid: id),
           ]);
       } else {
-        final ugc = _Ugc(video)..cid = 1.obs;
+        final ugc = _Ugc(video)..cid.value = 1;
         if (mode == 'UGC 分P') {
           ugc.videoDetail.value.pages = [
             for (var id = 1; id <= 3; id++) Part(cid: id),

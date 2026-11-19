@@ -69,7 +69,7 @@ class _CaptureFacade extends GetxController implements PlPlayerController {
 class _CaptureVideo extends VideoDetailController {
   _CaptureVideo(this._facade) {
     bvid = 'BV17x411w7KC';
-    cid = 1.obs;
+    cid.value = 1;
   }
   final _CaptureFacade _facade;
   @override
@@ -304,14 +304,14 @@ void main() {
     );
     final editor = state(tester);
     draft(editor, '原草稿');
-    editor.imageList.add(FilePicModel(path: image.path));
+    editor.addDraftImage(FilePicModel(path: image.path));
     final submission = await reachPublishRequest(
       tester,
       interceptor: interceptor,
       publish: editor.onPublish,
       replaceDraft: () {
         draft(editor, '新草稿');
-        editor.imageList.clear();
+        editor.removeDraftImage(0);
       },
     );
     final body = submission.request.data as Map;
@@ -338,7 +338,7 @@ void main() {
     await mount(tester, page(onSuccess: (_) => delivered++));
     final editor = state(tester);
     draft(editor, '草稿');
-    editor.imageList.add(FilePicModel(path: image.path));
+    editor.addDraftImage(FilePicModel(path: image.path));
     late Future<void> uploading;
     await tester.runAsync(() async {
       uploading = editor.onPublish();
@@ -351,7 +351,7 @@ void main() {
     });
     await settle(tester);
     expect(requests, hasLength(1));
-    editor.imageList.clear();
+    editor.removeDraftImage(0);
     final saving = editor.onPublish();
     await until(tester, () => requests.length == 2);
     requests.last.reply.complete({'code': '0'});

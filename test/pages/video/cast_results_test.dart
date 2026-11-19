@@ -38,7 +38,7 @@ void main() {
     requests.clear();
     casts.clear();
     controller = _Video()
-      ..cid = 1.obs
+      ..cid.value = 1
       ..aid = 1
       ..bvid = 'BV1xx411c7mD'
       ..heroTag = 'cast-test'

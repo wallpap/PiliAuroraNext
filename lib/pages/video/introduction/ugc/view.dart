@@ -87,16 +87,16 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
         right: Style.safeSpace,
         top: 10,
       ),
-      sliver: Obx(
-        () {
-          final videoDetail = introController.videoDetail.value;
+      sliver: ValueListenableBuilder(
+        valueListenable: introController.videoDetail,
+        builder: (context, videoDetail, child) {
           final isLoading = videoDetail.bvid == null;
           return SliverToBoxAdapter(
             child: GestureDetector(
               onTap: () {
                 if (isLoading) return;
                 feedBack();
-                introController.expand.toggle();
+                introController.toggleExpanded();
               },
               child: TranslucentColumn(
                 crossAxisAlignment: .start,
@@ -128,19 +128,22 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   if (isHorizontal && PlatformUtils.isDesktop)
                     ..._infos(videoDetail)
                   else
-                    Obx(
-                      () => AnimatedHeightWidgetExt(
-                        expand: introController.expand.value,
-                        duration: const Duration(milliseconds: 300),
-                        child: TranslucentColumn(
-                          mainAxisSize: .min,
-                          crossAxisAlignment: .start,
-                          children: _infos(videoDetail),
-                        ),
-                      ),
+                    ValueListenableBuilder(
+                      valueListenable: introController.expand,
+                      builder: (context, expand, child) =>
+                          AnimatedHeightWidgetExt(
+                            expand: expand,
+                            duration: const Duration(milliseconds: 300),
+                            child: TranslucentColumn(
+                              mainAxisSize: .min,
+                              crossAxisAlignment: .start,
+                              children: _infos(videoDetail),
+                            ),
+                          ),
                     ),
-                  Obx(
-                    () => introController.status.value
+                  ValueListenableBuilder(
+                    valueListenable: introController.status,
+                    builder: (context, loaded, child) => loaded
                         ? const SizedBox.shrink()
                         : Center(
                             child: TextButton.icon(
@@ -175,12 +178,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                           !videoDetailCtr
                               .plPlayerController
                               .horizontalSeasonPanel))
-                    Obx(
-                      () => SeasonPanel(
-                        key: ValueKey(introController.videoDetail.value),
-                        showEpisodes: widget.showEpisodes,
-                        ugcIntroController: introController,
-                      ),
+                    SeasonPanel(
+                      key: ValueKey(videoDetail),
+                      showEpisodes: widget.showEpisodes,
+                      ugcIntroController: introController,
                     ),
                   if (!isLoading &&
                       videoDetail.pages != null &&
@@ -189,13 +190,11 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                           !videoDetailCtr
                               .plPlayerController
                               .horizontalSeasonPanel))
-                    Obx(
-                      () => PagesPanel(
-                        key: ValueKey(introController.videoDetail.value),
-                        ugcIntroController: introController,
-                        bvid: introController.bvid,
-                        showEpisodes: widget.showEpisodes,
-                      ),
+                    PagesPanel(
+                      key: ValueKey(videoDetail),
+                      ugcIntroController: introController,
+                      bvid: introController.bvid,
+                      showEpisodes: widget.showEpisodes,
                     ),
                 ],
               ),
@@ -238,11 +237,12 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     } else if (isHorizontal && PlatformUtils.isDesktop) {
       return _buildVideoTitle(videoDetail, isSelectable: true);
     }
-    return Obx(
-      () => ExpandablePanel(
+    return ValueListenableBuilder(
+      valueListenable: introController.expand,
+      builder: (context, expand, child) => ExpandablePanel(
         collapsed: _gestureVideoTitle(videoDetail),
         expanded: _gestureVideoTitle(videoDetail, isExpand: true),
-        expand: introController.expand.value,
+        expand: expand,
       ),
     );
   }
@@ -277,13 +277,15 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
       ),
     ],
     NoTranslucentArea(
-      child: Obx(() {
-        final videoTags = introController.videoTags.value;
-        if (videoTags == null || videoTags.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return _buildTags(videoTags);
-      }),
+      child: ValueListenableBuilder(
+        valueListenable: introController.videoTags,
+        builder: (context, videoTags, child) {
+          if (videoTags == null || videoTags.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return _buildTags(videoTags);
+        },
+      ),
     ),
   ];
 
@@ -320,8 +322,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     bool isExpand = false,
     bool isSelectable = false,
   }) {
-    Widget child() {
-      final videoLabel = videoDetailCtr.videoLabel.value;
+    Widget child(String videoLabel) {
       final textSpan = TextSpan(
         children: [
           if (videoLabel.isNotEmpty) ...[
@@ -409,15 +410,19 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     }
 
     if (videoDetailCtr.plPlayerController.enableSponsorBlock) {
-      return Obx(child);
+      return ValueListenableBuilder(
+        valueListenable: videoDetailCtr.videoLabel,
+        builder: (context, label, _) => child(label),
+      );
     }
-    return child();
+    return child(videoDetailCtr.videoLabel.value);
   }
 
   Widget followButton(BuildContext context) {
-    return Obx(
-      () {
-        int attr = introController.followStatus.value.attribute ?? 0;
+    return ValueListenableBuilder(
+      valueListenable: introController.followStatus,
+      builder: (context, status, child) {
+        final attr = status.attribute ?? 0;
         return TextButton(
           onPressed: () => introController.actionRelationMod(context),
           style: TextButton.styleFrom(
@@ -457,43 +462,47 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
       child: Row(
         crossAxisAlignment: .start,
         children: [
-          Obx(
-            () => ActionItem(
+          ValueListenableBuilder(
+            valueListenable: introController.hasLike,
+            builder: (context, liked, child) => ActionItem(
               animation: introController.tripleAnimation,
               icon: Icon(FontAwesomeIcons.thumbsUp.data),
               selectIcon: Icon(FontAwesomeIcons.solidThumbsUp.data),
-              selectStatus: introController.hasLike.value,
+              selectStatus: liked,
               semanticsLabel: '点赞',
               text: !isLoading ? NumUtils.numFormat(stat!.like) : null,
               onStartTriple: introController.onStartTriple,
               onCancelTriple: introController.onCancelTriple,
             ),
           ),
-          Obx(
-            () => ActionItem(
+          ValueListenableBuilder(
+            valueListenable: introController.hasDislike,
+            builder: (context, disliked, child) => ActionItem(
               icon: Icon(FontAwesomeIcons.thumbsDown.data),
               selectIcon: Icon(FontAwesomeIcons.solidThumbsDown.data),
               onTap: () => introController.handleAction(
                 introController.actionDislikeVideo,
               ),
-              selectStatus: introController.hasDislike.value,
+              selectStatus: disliked,
               semanticsLabel: '点踩',
               text: "点踩",
             ),
           ),
-          Obx(
-            () => ActionItem(
+          ValueListenableBuilder(
+            valueListenable: introController.coinNum,
+            builder: (context, coins, child) => ActionItem(
               animation: introController.tripleAnimation,
               icon: Icon(FontAwesomeIcons.b.data),
               selectIcon: Icon(FontAwesomeIcons.b.data),
               onTap: introController.actionCoinVideo,
-              selectStatus: introController.hasCoin,
+              selectStatus: coins != 0,
               semanticsLabel: '投币',
               text: !isLoading ? NumUtils.numFormat(stat!.coin) : null,
             ),
           ),
-          Obx(
-            () => ActionItem(
+          ValueListenableBuilder(
+            valueListenable: introController.hasFav,
+            builder: (context, favored, child) => ActionItem(
               animation: introController.tripleAnimation,
               icon: Icon(FontAwesomeIcons.star.data),
               selectIcon: Icon(FontAwesomeIcons.solidStar.data),
@@ -502,18 +511,19 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 context,
                 isLongPress: true,
               ),
-              selectStatus: introController.hasFav.value,
+              selectStatus: favored,
               semanticsLabel: '收藏',
               text: !isLoading ? NumUtils.numFormat(stat!.favorite) : null,
             ),
           ),
-          Obx(
-            () => ActionItem(
+          ValueListenableBuilder(
+            valueListenable: introController.hasLater,
+            builder: (context, saved, child) => ActionItem(
               icon: Icon(FontAwesomeIcons.clock.data),
               selectIcon: Icon(FontAwesomeIcons.solidClock.data),
               onTap: () =>
                   introController.handleAction(introController.viewLater),
-              selectStatus: introController.hasLater.value,
+              selectStatus: saved,
               semanticsLabel: '再看',
               text: '再看',
             ),
@@ -772,10 +782,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               Positioned(
                 top: 0,
                 right: -6,
-                child: Obx(
-                  () {
-                    if (introController.staffRelations['status'] == true &&
-                        introController.staffRelations['${item.mid}'] == null) {
+                child: ValueListenableBuilder(
+                  valueListenable: introController.staffRelations,
+                  builder: (context, relations, child) {
+                    if (relations != null && relations['${item.mid}'] == null) {
                       return Material(
                         type: .circle,
                         color: colorScheme.secondaryContainer,
@@ -785,9 +795,9 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                             context: context,
                             mid: item.mid,
                             isFollow: false,
-                            afterMod: (val) =>
-                                introController.staffRelations['${item.mid}'] =
-                                    true,
+                            afterMod: (_) => introController.markStaffFollowed(
+                              '${item.mid}',
+                            ),
                           ),
                           child: Padding(
                             padding: const .all(2),
@@ -844,9 +854,9 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             '/member?mid=${introController.userStat.value.card?.mid}&from_view_aid=${videoDetailCtr.aid}',
           )
         : null,
-    child: Obx(
-      () {
-        final userStat = introController.userStat.value;
+    child: ValueListenableBuilder(
+      valueListenable: introController.userStat,
+      builder: (context, userStat, child) {
         final isVip = (userStat.card?.vip?.status ?? 0) > 0;
         return Row(
           spacing: 10,
@@ -917,9 +927,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               : const SizedBox.shrink(),
         ),
         if (introController.isShowOnlineTotal)
-          Obx(
-            () => Text(
-              '${introController.total.value}人在看',
+          ValueListenableBuilder(
+            valueListenable: introController.total,
+            builder: (context, total, child) => Text(
+              '$total人在看',
               style: TextStyle(fontSize: 12, color: colorScheme.outline),
             ),
           ),

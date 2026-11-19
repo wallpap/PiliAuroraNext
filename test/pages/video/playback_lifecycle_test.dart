@@ -64,10 +64,10 @@ void main() {
     ..args = <String, Object>{}
     ..bvid = 'BV-test'
     ..aid = 1
-    ..cid = 1.obs
+    ..cid.value = 1
     ..videoType = VideoType.ugc
     ..isFileSource = false
-    ..isVertical = false.obs;
+    ..isVertical.value = false;
 
   testWidgets('同一转场标识的点播路由独立持有播放与窗口交接', (tester) async {
     await GStorage.setting.put(SettingBoxKey.autoPlayEnable, false);
@@ -329,11 +329,17 @@ void main() {
     expect(controller.loads.map((entry) => entry.cid), [1]);
     await query;
     final sourceData = controller.data;
-    final updated = controller.availableVideoQualities.stream.firstWhere(
-      (qualities) => qualities.contains(64),
-    );
+    final updated = Completer<Set<int>>();
+    final qualities = controller.availableVideoQualities;
+    void onQualityChanged() {
+      if (!qualities.value.contains(64)) return;
+      qualities.removeListener(onQualityChanged);
+      updated.complete(qualities.value);
+    }
+
+    qualities.addListener(onQualityChanged);
     supplement.complete(media(1, quality: 64));
-    expect(await updated.timeout(const Duration(seconds: 2)), {80, 64});
+    expect(await updated.future.timeout(const Duration(seconds: 2)), {80, 64});
     expect(controller.data, same(sourceData));
     expect(sourceData.dash!.video!.availableVideoQualities, {80, 64});
     expect(controller.currentVideoQa.value?.code, 80);
@@ -406,13 +412,13 @@ void main() {
 
   test('字幕响应迟到且列表已切集清空时，不缓存或应用旧字幕', () async {
     final controller = page();
-    controller.subtitles.add(
+    controller.currentSubtitleTracks = [
       Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
-    );
+    ];
     final loading = controller.setSubtitle(1);
     final request = await adapter.next();
     controller.cid.value = 2;
-    controller.subtitles.clear();
+    controller.currentSubtitleTracks = const [];
     request.complete({'body': []}, raw: true);
     await loading;
     expect(controller.vttSubtitles, isEmpty);
@@ -516,9 +522,9 @@ void main() {
 
   test('字幕加载期间选择关闭，以最新选择为准', () async {
     final controller = page();
-    controller.subtitles.add(
+    controller.currentSubtitleTracks = [
       Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
-    );
+    ];
     final loading = controller.setSubtitle(1);
     final request = await adapter.next();
     await controller.setSubtitle(0);
@@ -774,6 +780,9 @@ class _VideoController extends VideoDetailController {
     plPlayerController.cacheVideoQa = 80;
   }
   bool closed = false;
+  List<Subtitle>? currentSubtitleTracks;
+  @override
+  List<Subtitle> get subtitles => currentSubtitleTracks ?? super.subtitles;
   int _queryGeneration = 0;
   int _routeLoadGeneration = 0;
   void Function()? _cancelQuery;

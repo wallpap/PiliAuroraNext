@@ -49,13 +49,14 @@ class _ViewPointsPageState extends State<ViewPointsPage>
           children: [
             const SizedBox(width: 16),
             const Expanded(child: Text('分段信息', style: TextStyle(fontSize: 16))),
-            Obx(
-              () => Transform.scale(
+            ValueListenableBuilder(
+              valueListenable: videoDetailController.showVP,
+              builder: (context, visible, child) => Transform.scale(
                 alignment: Alignment.centerLeft,
                 scale: 0.8,
                 child: Switch(
-                  value: videoDetailController.showVP.value,
-                  onChanged: videoDetailController.showVP.call,
+                  value: visible,
+                  onChanged: videoDetailController.setViewPointsVisible,
                 ),
               ),
             ),
