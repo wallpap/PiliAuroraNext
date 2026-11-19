@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
+import 'package:pili_aurora_next/features/member_space/domain/privacy.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/models/remote/space_setting/privacy.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 
@@ -42,8 +42,8 @@ class SpacePrivacyNotifier extends AsyncNotifier<SpacePrivacyState> {
   Future<SpacePrivacyState> build() async {
     final account = ref.watch(mainAccountProvider);
     if (!account.isLogin) throw const Error('账号未登录');
-    final result = await UserHttp.spaceSetting(account: account);
-    final privacy = result.data.privacy;
+    final result = await ref.read(spaceRepositoryProvider).privacy(account);
+    final privacy = result.data;
     if (privacy == null) throw const Error('空间设置响应不完整');
     return SpacePrivacyState(
       privacy: privacy,
@@ -96,10 +96,12 @@ class SpacePrivacyNotifier extends AsyncNotifier<SpacePrivacyState> {
     if (!before.dirty) return const Success(null);
     state = AsyncData(before.operation(saving: true));
     try {
-      final result = await UserHttp.spaceSettingMod(
-        Map<String, dynamic>.from(before.values),
-        account: account,
-      );
+      final result = await owner
+          .read(spaceRepositoryProvider)
+          .savePrivacy(
+            account,
+            before.values,
+          );
       if (!owner.mounted || !identical(account, Accounts.main)) {
         return const Error('账号已切换或页面已关闭');
       }

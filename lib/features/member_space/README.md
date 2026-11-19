@@ -14,4 +14,6 @@
 
 充电榜按页面、作者、档位和主账号隔离；排行与档位在同一快照交付，Tab 和滚动仍由页面管理。
 
+`SpacePrivacyNotifier` 区分远端确认值与页面草稿，保存绑定发起时的凭据和快照；页面保留开关、失败提示和返回时保存的交互。
+
 相关测试在 `test/pages/member/`、`test/pages/member_favorite/` 和 `test/pages/member_pgc/`。嵌套滚动、观看定位和原生播放器跳转还需在目标设备上检查。

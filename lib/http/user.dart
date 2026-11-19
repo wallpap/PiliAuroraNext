@@ -9,7 +9,6 @@ import 'package:pili_aurora_next/features/history/domain/data.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/data.dart';
 import 'package:pili_aurora_next/models/remote/media_list/data.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/models/remote/space_setting/data.dart';
 import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
 import 'package:pili_aurora_next/models/remote/user_real_name/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
@@ -374,39 +373,6 @@ abstract final class UserHttp {
       },
       options: Options(
         extra: {'account': account},
-        contentType: Headers.formUrlEncodedContentType,
-      ),
-    );
-  }
-
-  static Future<LoadingState<SpaceSettingData>> spaceSetting({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.spaceSetting,
-      kind: ApiCallKind.query,
-      decode: (body) => SpaceSettingData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'mid': account.mid,
-      },
-    );
-  }
-
-  static Future<LoadingState<void>> spaceSettingMod(
-    Map<String, dynamic> data, {
-    required Account account,
-  }) async {
-    return await Request().requestApi<void>(
-      Api.spaceSettingMod,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      queryParameters: {
-        'csrf': account.csrf,
-      },
-      data: data,
-      options: Options(
-        extra: {'account': account, 'noRetry': true},
         contentType: Headers.formUrlEncodedContentType,
       ),
     );

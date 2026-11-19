@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/models/remote/space_setting/privacy.dart';
-import 'package:pili_aurora_next/pages/space_setting/controller.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_privacy.dart';
+import 'package:pili_aurora_next/features/member_space/domain/privacy.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 

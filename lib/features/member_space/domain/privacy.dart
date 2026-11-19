@@ -1,5 +1,5 @@
 class SpaceSettingModel {
-  SpaceSettingModel({
+  const SpaceSettingModel({
     required this.name,
     required this.key,
     required this.value,

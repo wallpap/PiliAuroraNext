@@ -1,3 +1,8 @@
+import 'package:dio/dio.dart';
+import 'package:pili_aurora_next/features/member_space/domain/privacy.dart';
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/api_response.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/models/common/member/archive_order_type_app.dart';
 import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
@@ -27,6 +32,34 @@ final spaceRepositoryProvider = Provider((ref) => const SpaceRepository());
 
 class SpaceRepository {
   const SpaceRepository();
+
+  Future<LoadingState<Privacy?>> privacy(Account account) =>
+      Request().requestApi(
+        Api.spaceSetting,
+        kind: ApiCallKind.query,
+        decode: (body) {
+          final data = body['data'] as Map<String, dynamic>;
+          final privacy = data['privacy'] as Map<String, dynamic>?;
+          return privacy == null ? null : Privacy.fromJson(privacy);
+        },
+        options: Options(extra: {'account': account}),
+        queryParameters: {'mid': account.mid},
+      );
+
+  Future<LoadingState<void>> savePrivacy(
+    Account account,
+    Map<String, int?> values,
+  ) => Request().requestApi<void>(
+    Api.spaceSettingMod,
+    kind: ApiCallKind.mutation,
+    decode: (_) {},
+    queryParameters: {'csrf': account.csrf},
+    data: Map<String, dynamic>.of(values),
+    options: Options(
+      extra: {'account': account, 'noRetry': true},
+      contentType: Headers.formUrlEncodedContentType,
+    ),
+  );
 
   Future<LoadingState<VideoAuthorInfo>> videoAuthor(
     Account account,

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/account/data/account_log_repository.dart';
 import 'package:pili_aurora_next/features/account/domain/account_log.dart';
+import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -40,7 +41,7 @@ void main() {
     '标签': () => UserHttp.videoTags(bvid: 'BV1xx411c7mD'),
     '播放列表': () => UserHttp.getMediaList(type: 1, bizId: 1, ps: 20),
     '余额': UserHttp.getCoin,
-    '空间设置': () => UserHttp.spaceSetting(account: main),
+    '空间设置': () => const SpaceRepository().privacy(main),
     for (final type in LogType.values)
       type.title: () => AccountLogRepository.load(main, type),
     '实名': () => UserHttp.getUserRealName(1),
@@ -55,7 +56,7 @@ void main() {
     UserHttp.toViewClear,
     () => UserHttp.delHistory('archive_42'),
     () => UserHttp.dynamicReport(mid: 1, dynId: 1, reasonType: 1),
-    () => UserHttp.spaceSettingMod({}, account: main),
+    () => const SpaceRepository().savePrivacy(main, {}),
     UserHttp.vipExpAdd,
     () => UserHttp.spaceReserve(sid: 1, isFollow: false),
   ];
