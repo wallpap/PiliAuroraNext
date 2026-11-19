@@ -9,15 +9,14 @@ import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/popup_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
+import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
+import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart';
-import 'package:pili_aurora_next/services/logger.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -29,48 +28,51 @@ class ColorSelectPage extends StatefulWidget {
   State<ColorSelectPage> createState() => _ColorSelectPageState();
 }
 
-class Item {
-  Item({
-    required this.expandedValue,
-    required this.headerValue,
-    this.isExpanded = false,
-  });
-
-  String expandedValue;
-  String headerValue;
-  bool isExpanded;
-}
-
 class _ColorSelectPageState extends State<ColorSelectPage> {
-  final ctr = Get.put(_ColorSelectController());
-  FlexSchemeVariant _dynamicSchemeVariant = Pref.schemeVariant;
-
+  late var _variant = ThemePreferences.variant;
+  late var _themeType = ThemePreferences.type;
+  late var _currentColor = ThemePreferences.color;
+  late var _dynamicColor = ThemePreferences.dynamicColor;
   bool _changingDynamicColor = false;
+
+  bool _canPresent() => mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  Future<bool> _save(
+    String key,
+    Future<void> Function() write,
+    VoidCallback update, {
+    VoidCallback? applyTheme,
+  }) => saveSetting(
+    key: key,
+    write: write,
+    apply: () {
+      if (mounted) setState(update);
+      (applyTheme ?? Get.updateMyAppTheme)();
+    },
+    canPresent: _canPresent,
+  );
+
+  Future<bool> _selectColor(int value) => _save(
+    SettingBoxKey.customColor,
+    () => ThemePreferences.saveColor(value),
+    () => _currentColor = value,
+  );
 
   Future<void> _onChanged([bool? val]) async {
     if (_changingDynamicColor) return;
-    val ??= !ctr.dynamicColor.value;
+    final enabled = val ?? !_dynamicColor;
     _changingDynamicColor = true;
     try {
-      if (val && !await ThemeUtils.initPlatformState()) {
-        if (mounted) SmartDialog.showToast('暂时无法获取系统颜色，请稍后重试');
+      if (enabled && !await ThemeUtils.initPlatformState()) {
+        if (_canPresent()) SmartDialog.showToast('暂时无法获取系统颜色，请稍后重试');
         return;
       }
       if (!mounted) return;
-      try {
-        await GStorage.setting.put(SettingBoxKey.dynamicColor, val);
-      } catch (error, stackTrace) {
-        logger.w(
-          '动态取色偏好保存失败',
-          error: error.runtimeType,
-          stackTrace: stackTrace,
-        );
-        if (mounted) SmartDialog.showToast('设置保存失败，请重试');
-        return;
-      }
-      if (!mounted) return;
-      ctr.dynamicColor.value = val;
-      Get.updateMyAppTheme();
+      await _save(
+        SettingBoxKey.dynamicColor,
+        () => ThemePreferences.saveDynamicColor(enabled),
+        () => _dynamicColor = enabled,
+      );
     } finally {
       _changingDynamicColor = false;
     }
@@ -107,60 +109,59 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                 context: context,
                 builder: (context) => SelectDialog<ThemeType>(
                   title: '主题模式',
-                  value: ctr.themeType.value,
+                  value: _themeType,
                   values: ThemeType.values.map((e) => (e, e.label)).toList(),
                 ),
               );
-              if (result != null) {
-                ctr.themeType.value = result;
-                GStorage.setting.put(SettingBoxKey.themeMode, result.index);
-                Get.changeThemeMode(ThemeUtils.themeMode = result.toThemeMode);
+              if (mounted && result != null && result != _themeType) {
+                await _save(
+                  SettingBoxKey.themeMode,
+                  () => ThemePreferences.saveType(result),
+                  () => _themeType = result,
+                  applyTheme: () => Get.changeThemeMode(
+                    ThemeUtils.themeMode = result.toThemeMode,
+                  ),
+                );
               }
             },
             leading: const Icon(Icons.flashlight_on_outlined),
             title: Text('主题模式', style: titleStyle),
-            subtitle: Obx(
-              () => Text(
-                '当前模式：${ctr.themeType.value.label}',
-                style: subTitleStyle,
-              ),
+            subtitle: Text(
+              '当前模式：${_themeType.label}',
+              style: subTitleStyle,
             ),
           ),
-          Obx(
-            () => PopupListTile<FlexSchemeVariant>(
-              enabled: !ctr.dynamicColor.value,
-              leading: const Icon(Icons.palette_outlined),
-              title: '调色板风格',
-              value: () =>
-                  (_dynamicSchemeVariant, _dynamicSchemeVariant.variantName),
-              options: FlexSchemeVariant.values
-                  .map((e) => (e, e.variantName))
-                  .toList(),
-              onSelected: (value, setState) {
-                _dynamicSchemeVariant = value;
-                GStorage.setting
-                    .put(SettingBoxKey.schemeVariant, value.index)
-                    .whenComplete(Get.updateMyAppTheme);
-              },
-            ),
+          PopupListTile<FlexSchemeVariant>(
+            enabled: !_dynamicColor,
+            leading: const Icon(Icons.palette_outlined),
+            title: '调色板风格',
+            value: () => (_variant, _variant.variantName),
+            options: FlexSchemeVariant.values
+                .map((e) => (e, e.variantName))
+                .toList(),
+            onSelected: (value, _) async {
+              await _save(
+                SettingBoxKey.schemeVariant,
+                () => ThemePreferences.saveVariant(value),
+                () => _variant = value,
+              );
+            },
           ),
-          Obx(
-            () => ListTile(
-              title: const Text('动态取色'),
-              leading: ExcludeFocus(
-                child: Checkbox(
-                  value: ctr.dynamicColor.value,
-                  onChanged: _onChanged,
-                  materialTapTargetSize: .shrinkWrap,
-                  visualDensity: const .new(horizontal: -4, vertical: -4),
-                ),
+          ListTile(
+            title: const Text('动态取色'),
+            leading: ExcludeFocus(
+              child: Checkbox(
+                value: _dynamicColor,
+                onChanged: _onChanged,
+                materialTapTargetSize: .shrinkWrap,
+                visualDensity: const .new(horizontal: -4, vertical: -4),
               ),
-              onTap: _onChanged,
             ),
+            onTap: _onChanged,
           ),
           Padding(
             padding: padding + const .all(12),
-            child: Obx(_buildColorPanel),
+            child: _buildColorPanel(),
           ),
           Padding(
             padding: padding,
@@ -195,9 +196,9 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
   }
 
   Widget _buildColorPanel() {
-    final currentColor = ctr.currentColor.value;
+    final currentColor = _currentColor;
     return AnimatedHeightWidgetExt(
-      expand: !ctr.dynamicColor.value,
+      expand: !_dynamicColor,
       duration: const Duration(milliseconds: 200),
       child: Wrap(
         spacing: 22,
@@ -206,10 +207,8 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
         children: [
           Builder(
             builder: (context) {
-              final isCurr = currentColor > colorThemeTypes.length;
-              final color = isCurr
-                  ? Color(currentColor)
-                  : colorThemeTypes[currentColor].color;
+              final isCurr = !ThemePreferences.isPreset(currentColor);
+              final color = ThemePreferences.seedColor(currentColor);
               return GestureDetector(
                 behavior: .opaque,
                 onTap: () {
@@ -221,13 +220,9 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                       title: const Text('Color Picker'),
                       content: SlideColorPicker(
                         color: color,
-                        onChanged: (Color? color) {
-                          if (color != null) {
-                            final res = color.toARGB32();
-                            ctr.currentColor.value = res;
-                            GStorage.setting
-                                .put(SettingBoxKey.customColor, res)
-                                .whenComplete(Get.updateMyAppTheme);
+                        onChanged: (Color? color) async {
+                          if (mounted && color != null) {
+                            await _selectColor(color.toARGB32());
                           }
                         },
                       ),
@@ -239,7 +234,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                   children: [
                     ColorPalette(
                       colorScheme: color.asColorSchemeSeed(
-                        _dynamicSchemeVariant,
+                        _variant,
                         theme.brightness,
                       ),
                       selected: isCurr,
@@ -264,18 +259,13 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
               final isCurr = currentColor == i;
               return GestureDetector(
                 behavior: .opaque,
-                onTap: () {
-                  ctr.currentColor.value = i;
-                  GStorage.setting
-                      .put(SettingBoxKey.customColor, i)
-                      .whenComplete(Get.updateMyAppTheme);
-                },
+                onTap: () => _selectColor(i),
                 child: Column(
                   spacing: 3,
                   children: [
                     ColorPalette(
                       colorScheme: color.asColorSchemeSeed(
-                        _dynamicSchemeVariant,
+                        _variant,
                         theme.brightness,
                       ),
                       selected: isCurr,
@@ -296,10 +286,4 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
       ),
     );
   }
-}
-
-class _ColorSelectController extends GetxController {
-  final RxBool dynamicColor = Pref.dynamicColor.obs;
-  final RxInt currentColor = Pref.customColor.obs;
-  final Rx<ThemeType> themeType = Pref.themeType.obs;
 }

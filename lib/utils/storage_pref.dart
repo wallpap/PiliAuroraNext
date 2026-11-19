@@ -17,6 +17,7 @@ import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
+import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/models/common/video/live_quality.dart';
@@ -99,18 +100,9 @@ abstract final class Pref {
         defaultValue: 0,
       )];
 
-  static int get _themeTypeInt => _setting.get(
-    SettingBoxKey.themeMode,
-    defaultValue: ThemeType.system.index,
-  );
+  static ThemeType get themeType => ThemePreferences.type;
 
-  static ThemeType get themeType => ThemeType.values[_themeTypeInt];
-
-  static ThemeMode get themeMode => switch (_themeTypeInt) {
-    0 => ThemeMode.light,
-    1 => ThemeMode.dark,
-    _ => ThemeMode.system,
-  };
+  static ThemeMode get themeMode => themeType.toThemeMode;
 
   static List<double> get springDescription => List<double>.from(
     _setting.get(SettingBoxKey.springDescription) ??
@@ -372,11 +364,7 @@ abstract final class Pref {
   static int get dynamicPeriod =>
       _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 5);
 
-  static FlexSchemeVariant get schemeVariant =>
-      FlexSchemeVariant.values[_setting.get(
-        SettingBoxKey.schemeVariant,
-        defaultValue: FlexSchemeVariant.material3Legacy.index,
-      )];
+  static FlexSchemeVariant get schemeVariant => ThemePreferences.variant;
 
   static double get danmakuFontScaleFS => _setting.get(
     SettingBoxKey.danmakuFontScaleFS,
@@ -789,11 +777,9 @@ abstract final class Pref {
   static bool get p1080 =>
       _setting.get(SettingBoxKey.p1080, defaultValue: true);
 
-  static int get customColor =>
-      _setting.get(SettingBoxKey.customColor, defaultValue: 0);
+  static int get customColor => ThemePreferences.color;
 
-  static bool get dynamicColor =>
-      _setting.get(SettingBoxKey.dynamicColor, defaultValue: true);
+  static bool get dynamicColor => ThemePreferences.dynamicColor;
 
   static bool get enableSystemProxy =>
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);

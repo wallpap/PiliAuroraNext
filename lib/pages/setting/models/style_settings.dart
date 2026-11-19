@@ -33,8 +33,8 @@ import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
+import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
 import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
@@ -130,10 +130,7 @@ List<SettingsModel> get styleSettings => [
               color: theme.colorScheme.primary,
             );
           }
-          final customColor = Pref.customColor;
-          final color =
-              colorThemeTypes.elementAtOrNull(customColor)?.color ??
-              Color(customColor);
+          final color = ThemePreferences.seedColor(ThemePreferences.color);
           return SizedBox.square(
             dimension: 20,
             child: ColorPalette(
@@ -981,7 +978,7 @@ Future<void> _showToastDialog(
 Future<void> _setThemeType(ThemeType value, VoidCallback setState) async {
   await saveSetting(
     key: SettingBoxKey.themeMode,
-    write: () => GStorage.setting.put(SettingBoxKey.themeMode, value.index),
+    write: () => ThemePreferences.saveType(value),
     apply: () {
       Get.changeThemeMode(ThemeUtils.themeMode = value.toThemeMode);
       setState();

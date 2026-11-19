@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/style.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
+import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/extension/core_palettes_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
@@ -23,10 +23,7 @@ abstract final class ThemeUtils {
       lightScheme = _light!;
       darkScheme = _dark!;
     } else {
-      final customColor = Pref.customColor;
-      final brandColor =
-          colorThemeTypes.elementAtOrNull(customColor)?.color ??
-          Color(customColor);
+      final brandColor = ThemePreferences.seedColor(ThemePreferences.color);
       final variant = Pref.schemeVariant;
 
       lightScheme = brandColor.asColorSchemeSeed(variant, .light);

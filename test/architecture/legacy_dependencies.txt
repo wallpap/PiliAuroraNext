@@ -205,9 +205,6 @@ pages/setting/models/system_settings.dart -> utils/storage_pref.dart
 pages/setting/models/video_settings.dart -> utils/storage.dart
 pages/setting/models/video_settings.dart -> utils/storage_pref.dart
 pages/setting/models/video_settings.dart -> utils/video_utils.dart
-pages/setting/pages/color_select.dart -> utils/storage.dart
-pages/setting/pages/color_select.dart -> utils/storage_pref.dart
-pages/setting/pages/color_select.dart#_ColorSelectController -> GetxController
 pages/setting/pages/display_mode.dart -> package:hive_ce/hive.dart
 pages/setting/pages/display_mode.dart -> utils/storage.dart
 pages/setting/pages/font_setting.dart -> utils/storage_pref.dart

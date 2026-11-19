@@ -42,6 +42,11 @@ void main() {
       '/pages/',
       '/utils/storage_pref',
     ],
+    'services/settings/theme_preferences.dart': [
+      'package:get/',
+      '/pages/',
+      '/utils/storage_pref',
+    ],
   };
   test(
     'download feature enforces domain, application and presentation boundaries',
