@@ -3,6 +3,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
+import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/settings.dart';
@@ -80,6 +81,48 @@ void main() {
   SetImSettingsReq writeAt(int index) => SetImSettingsReq.fromBuffer(
     GrpcReq.decompressProtobuf(requests[index].options.data),
   );
+
+  test('私信置顶区分两种写入，失败保留服务端已确认状态', () async {
+    final session = sessionFixture();
+    final settings = ConversationSettingsHandle(
+      session: session,
+      talkerUid: 456,
+    );
+    addTearDown(session.dispose);
+    addTearDown(settings.dispose);
+
+    final load = settings.getIsPinned();
+    await interceptor.waitForRequests(1);
+    final read = requests.single;
+    expect(read.options.path, endsWith(GrpcUrl.sessionUpdate));
+    final request = SessionUpdateReq.fromBuffer(
+      GrpcReq.decompressProtobuf(read.options.data),
+    );
+    expect(request.sessionId.privateId.talkerUid, Int64(456));
+    read.reply.complete(
+      GrpcReq.compressProtobuf(
+        SessionUpdateReply(session: Session(isPinned: true)).writeToBuffer(),
+      ),
+    );
+    await load;
+    expect(settings.state.value.isPinned, isTrue);
+
+    final unpin = settings.setPinned();
+    await interceptor.waitForRequests(2);
+    expect(requests[1].options.path, endsWith(GrpcUrl.unpinSession));
+    requests[1].reply.complete(
+      GrpcReq.compressProtobuf(UnPinSessionReply().writeToBuffer()),
+    );
+    expect((await unpin).isSuccess, isTrue);
+    expect(settings.state.value.isPinned, isFalse);
+
+    final pin = settings.setPinned();
+    await interceptor.waitForRequests(3);
+    expect(requests[2].options.path, endsWith(GrpcUrl.pinSession));
+    requests[2].reply.complete(<int>[]);
+    expect((await pin).isSuccess, isFalse);
+    expect(settings.state.value.isPinned, isFalse);
+  });
 
   test('同键写入串行、不同键并行，失败回到已确认值，刷新等待写入', () async {
     final handle = await load();

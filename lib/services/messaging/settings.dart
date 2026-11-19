@@ -1,10 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
-    show PrivateId, SessionId, SessionUpdateReply;
-import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -13,6 +9,8 @@ import 'package:pili_aurora_next/models/remote/msg/im_user_infos/datum.dart';
 import 'package:pili_aurora_next/models/remote/msg/msg_dnd/uid_setting.dart';
 import 'package:pili_aurora_next/models/remote/msg/session_ss/data.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
+import 'package:pili_aurora_next/services/messaging/session_adapter.dart';
+import 'package:pili_aurora_next/services/messaging/session_models.dart';
 import 'package:pili_aurora_next/services/messaging/settings_adapter.dart';
 import 'package:pili_aurora_next/services/messaging/settings_models.dart';
 
@@ -256,14 +254,14 @@ class ConversationSettingsHandle {
   Future<void> getIsPinned() async {
     final generation = ++_pinGeneration;
     final result = await session.run(
-      (account) => ImGrpc.sessionUpdate(
-        sessionId: _sessionId,
+      (account) => const SessionAdapter().readPinned(
+        key: _sessionKey,
         account: account,
       ),
     );
     if (!_isCurrent(_pinGeneration, generation)) return;
-    if (result case Success<SessionUpdateReply>(:final response)) {
-      state.value = _copy(isPinned: response.session.isPinned);
+    if (result case Success<bool>(:final response)) {
+      state.value = _copy(isPinned: response);
     }
   }
 
@@ -301,9 +299,11 @@ class ConversationSettingsHandle {
     final version = ++_pinWriteVersion;
     _pinGeneration++;
     final result = await session.run<void>(
-      (account) => next
-          ? ImGrpc.pinSession(sessionId: _sessionId, account: account)
-          : ImGrpc.unpinSession(sessionId: _sessionId, account: account),
+      (account) => const SessionAdapter().setPinned(
+        key: _sessionKey,
+        account: account,
+        pinned: next,
+      ),
     );
     if (!_isActive) return const Error('账号已切换');
     if (result case Success<void>() when version == _pinWriteVersion) {
@@ -384,8 +384,9 @@ class ConversationSettingsHandle {
     return result;
   }
 
-  SessionId get _sessionId => SessionId(
-    privateId: PrivateId(talkerUid: Int64(talkerUid)),
+  late final _sessionKey = SessionKey(
+    kind: SessionKeyKind.private,
+    primary: talkerUid,
   );
 
   ConversationSettingsSnapshot _copy({

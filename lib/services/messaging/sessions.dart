@@ -69,7 +69,7 @@ class Sessions {
       (account) => adapter.setPinned(
         account: account,
         key: key,
-        isPinned: isPinned,
+        pinned: !isPinned,
       ),
     );
     if (!scope.isActive || !result.isSuccess) return result;

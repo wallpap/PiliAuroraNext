@@ -96,15 +96,30 @@ class SessionAdapter {
     account: account,
   );
 
+  Future<LoadingState<bool>> readPinned({
+    required Account account,
+    required SessionKey key,
+  }) async {
+    final result = await ImGrpc.sessionUpdate(
+      sessionId: _sessionId(key),
+      account: account,
+    );
+    return switch (result) {
+      Success(:final response) => Success(response.session.isPinned),
+      final Error error => error,
+      final Loading pending => pending,
+    };
+  }
+
   Future<LoadingState<void>> setPinned({
     required Account account,
     required SessionKey key,
-    required bool isPinned,
+    required bool pinned,
   }) {
     final id = _sessionId(key);
-    return isPinned
-        ? ImGrpc.unpinSession(sessionId: id, account: account)
-        : ImGrpc.pinSession(sessionId: id, account: account);
+    return pinned
+        ? ImGrpc.pinSession(sessionId: id, account: account)
+        : ImGrpc.unpinSession(sessionId: id, account: account);
   }
 
   Future<LoadingState<void>> clearUnread({
