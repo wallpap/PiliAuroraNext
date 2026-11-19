@@ -1,14 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 import 'package:pili_aurora_next/models/home/rcmd/result.dart';
 import 'package:pili_aurora_next/models/model_hot_video_item.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
 
 CooperativeVideo _video(int aid, {bool bvidOnly = false}) => (
   aid: bvidOnly ? null : aid,

@@ -169,6 +169,9 @@ void main() {
       'pages/member_dynamics/controller.dart',
       'pages/common/dyn/like_list/controller.dart',
       'pages/common/dyn/repost_list/controller.dart',
+      'services/blocked_authors.dart',
+      'services/cooperative_authors.dart',
+      'utils/media_author_filter.dart',
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {

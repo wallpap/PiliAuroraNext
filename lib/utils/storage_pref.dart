@@ -35,7 +35,6 @@ import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/utils/device_utils.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/login_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -54,14 +53,6 @@ abstract final class Pref {
     return value is int && value >= 0 && value <= 6 ? value : 0;
   }
 
-  static bool get checkCooperativeAuthors => _setting.get(
-    SettingBoxKey.checkCooperativeAuthors,
-    defaultValue: true,
-  );
-  static bool get filterBlockedAuthors => _setting.get(
-    SettingBoxKey.filterBlockedAuthors,
-    defaultValue: true,
-  );
   static bool get hideInvalidSubscriptionVideos => _setting.get(
     SettingBoxKey.hideInvalidSubscriptionVideos,
     defaultValue: false,
@@ -97,39 +88,10 @@ abstract final class Pref {
     ),
   );
 
-  static Map get _blackMidsByAccount => _localCache.get(
-    LocalCacheKey.blackMidsByAccount,
-    defaultValue: const {},
-  );
-
-  static Set<int> get blackMids =>
-      (_blackMidsByAccount[Accounts.main.mid.toString()] as Iterable?)
-          ?.cast<int>()
-          .toSet() ??
-      <int>{};
-
-  static set blackMids(Set<int> blackMidsSet) =>
-      _localCache.put(LocalCacheKey.blackMidsByAccount, {
-        ..._blackMidsByAccount,
-        Accounts.main.mid.toString(): blackMidsSet.toList(),
-      });
-
   static RuleFilter get danmakuFilterRule => _localCache.get(
     LocalCacheKey.danmakuFilterRules,
     defaultValue: RuleFilter.empty(),
   );
-
-  static void setBlackMid(int mid) {
-    final data = GlobalData();
-    data.blackMids = {...data.blackMids, mid};
-    blackMids = data.blackMids;
-  }
-
-  static void removeBlackMid(int mid) {
-    final data = GlobalData();
-    data.blackMids = {...data.blackMids}..remove(mid);
-    blackMids = data.blackMids;
-  }
 
   static MemberTabType get memberTab =>
       MemberTabType.values[_setting.get(

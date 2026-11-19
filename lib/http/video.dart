@@ -39,7 +39,7 @@ import 'package:pili_aurora_next/features/content_discovery/data/video_filter_pr
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/services/blocked_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 import 'package:pili_aurora_next/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 import 'package:protobuf/protobuf.dart';

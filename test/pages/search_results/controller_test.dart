@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/features/search/application/search_results.dart
 import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
 import 'package:pili_aurora_next/pages/search_result/view.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -107,6 +107,9 @@ void main() {
   });
   setUp(() {
     requests.clear();
+    for (final mid in [200, 500]) {
+      BlockedAuthors.setBlocked(mid, false);
+    }
     GStorage.localCache.put(
       LocalCacheKey.mixinKey,
       '01234567890123456789012345678901',
@@ -160,7 +163,7 @@ void main() {
     Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
     GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
     GStorage.setting.put(SettingBoxKey.checkCooperativeAuthors, true);
-    GlobalData().blackMids = {500};
+    BlockedAuthors.setBlocked(500, true);
     final provider = searchResultsProvider(query());
     final settled = Completer<SearchResultsState>();
     container.listen(provider, (_, next) {
@@ -469,7 +472,7 @@ void main() {
   test('屏蔽过滤沿原始页补足，连续五页无增长停止', () async {
     Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
     GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
-    GlobalData().blackMids = {200};
+    BlockedAuthors.setBlocked(200, true);
     final q = query();
     final provider = searchResultsProvider(q);
     final settled = Completer<SearchResultsState>();
@@ -508,7 +511,7 @@ void main() {
   test('过滤空页沿新页码补足，综合卡片保留首屏快照', () async {
     Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
     GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
-    GlobalData().blackMids = {200};
+    BlockedAuthors.setBlocked(200, true);
     final q = query(type: SearchType.all);
     final provider = searchResultsProvider(q);
     final settled = Completer<SearchResultsState>();

@@ -1,5 +1,4 @@
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 
 class GlobalData {
   int imgQuality = Pref.picQuality;
@@ -10,22 +9,6 @@ class GlobalData {
     if (coins != null) {
       coins = coins! - coin;
     }
-  }
-
-  int? _blackMidsOwner;
-  Set<int> _blackMids = {};
-
-  Set<int> get blackMids {
-    if (_blackMidsOwner != Accounts.main.mid) {
-      _blackMidsOwner = Accounts.main.mid;
-      _blackMids = Pref.blackMids;
-    }
-    return _blackMids;
-  }
-
-  set blackMids(Set<int> value) {
-    _blackMidsOwner = Accounts.main.mid;
-    _blackMids = value;
   }
 
   bool dynamicsWaterfallFlow = Pref.dynamicsWaterfallFlow;

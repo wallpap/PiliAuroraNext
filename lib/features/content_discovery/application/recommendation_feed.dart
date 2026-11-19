@@ -12,11 +12,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_state.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 
 class _RecommendationQuery {
   _RecommendationQuery(this.context, this.account, this.app, this.saved);

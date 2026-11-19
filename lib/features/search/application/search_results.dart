@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 import 'package:pili_aurora_next/features/search/data/search_repository.dart';
 import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -11,11 +13,7 @@ import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/models/search/search_esports.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/services/blocked_authors.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 export 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 
@@ -123,9 +121,10 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
   ) async {
     final hidden = _hidden;
     final filters = Map<String, dynamic>.from(jsonDecode(query.filters) as Map);
-    final filtering = Pref.filterBlockedAuthors;
-    final blacklist = BlockedAuthors.ensureLoaded();
-    final includeCoauthors = Pref.checkCooperativeAuthors;
+    const authorFilter = DiscoveryFilter();
+    final filtering = authorFilter.enabled;
+    final includeCoauthors = authorFilter.includeCoauthors;
+    final blacklist = authorFilter.prepare();
     var page = before?.nextPage ?? 1;
     var emptyPages = before?.emptyPages ?? 0;
     var more = false;
@@ -145,11 +144,7 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
     bool isCurrent() => _current(owner, account, main);
     bool isBlocked(Object? item) =>
         filtering &&
-        MediaAuthorFilter.isBlocked(
-          item,
-          BlockedAuthors.contains,
-          includeCoauthors: includeCoauthors,
-        );
+        authorFilter.blocks(item, checkCoauthors: includeCoauthors);
     SearchResultsState snapshot({bool loadingMore = false}) =>
         SearchResultsState(
           items: items.where((item) => !hidden.contains(_identity(item))),
@@ -189,7 +184,7 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
         if (data is SearchVideoData) {
           firstAid = data.list?.firstOrNull?.aid;
           users = (data.searchUser ?? [])
-              .where((e) => !filtering || !BlockedAuthors.contains(e.mid))
+              .where((e) => !filtering || !authorFilter.contains(e.mid))
               .toList();
           media = data.searchMedia ?? [];
           activities = data.searchActivity ?? [];
@@ -202,8 +197,7 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
         final key = _identity(item);
         if (hidden.contains(key) || !seen.add(key)) continue;
         items.add(item);
-        if (const DiscoveryFilter().authorsToCheck(item).firstOrNull
-            case final video?) {
+        if (authorFilter.authorsToCheck(item).firstOrNull case final video?) {
           pending[video] = item as Object;
         }
       }

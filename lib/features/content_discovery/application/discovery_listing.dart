@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
 
 final discoveryFilterProvider = Provider<DiscoveryFilter>(
   (ref) => const DiscoveryFilter(),

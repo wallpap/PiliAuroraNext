@@ -62,7 +62,6 @@ pages/common/common_intro_controller.dart#CommonIntroController -> TripleMixin
 pages/common/common_intro_controller.dart#FavMixin -> TripleMixin
 pages/common/common_list_controller.dart#CommonListController -> CommonController
 pages/common/discovery_list_controller.dart -> utils/accounts.dart
-pages/common/discovery_list_controller.dart -> utils/storage_pref.dart
 pages/common/discovery_list_controller.dart#DiscoveryListController -> CommonListController
 pages/common/dyn/common_dyn_controller.dart -> utils/storage_pref.dart
 pages/common/dyn/common_dyn_controller.dart#CommonDynController -> GetxController

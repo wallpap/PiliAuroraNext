@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/cooperative_author_repository.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
 
 typedef _AuthorCacheEntry = ({Set<int>? mids, DateTime expiresAt});
 
@@ -17,7 +14,9 @@ class CooperativeAuthors {
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
-  static final shared = CooperativeAuthors(load: _loadAuthors);
+  static final shared = CooperativeAuthors(
+    load: const CooperativeAuthorRepository().load,
+  );
   static const _maxConcurrent = 2;
   static const _maxEntries = 256;
   final Future<Set<int>?> Function(String bvid) load;
@@ -26,23 +25,6 @@ class CooperativeAuthors {
   final _pending = <String, Future<Set<int>?>>{};
   final _waiters = Queue<Completer<void>>();
   int _active = 0;
-
-  static Future<Set<int>?> _loadAuthors(String bvid) async {
-    final result = await VideoHttp.videoIntro(
-      bvid: bvid,
-      account: Accounts.main,
-    );
-    if (result case Success(:final response)) {
-      final staff = response.staff;
-      if (staff == null || staff.isEmpty) return null;
-      final mids = <int>{
-        ?response.owner?.mid,
-        ...staff.map((author) => safeToInt(author.mid)).whereType<int>(),
-      }..removeWhere((mid) => mid <= 0);
-      return mids.isEmpty ? null : mids;
-    }
-    return null;
-  }
 
   Future<void> prepare(
     List<CooperativeVideo> videos, {

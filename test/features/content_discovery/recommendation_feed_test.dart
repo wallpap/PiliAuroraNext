@@ -21,8 +21,8 @@ import 'package:pili_aurora_next/features/content_discovery/application/recommen
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -154,7 +154,7 @@ void main() {
     settings.data
       ..clear()
       ..[SettingBoxKey.enableSaveLastData] = false;
-    GlobalData().blackMids = {7};
+    BlockedAuthors.setBlocked(7, true);
     feed = _Feed();
     container = _mount(feed);
   });

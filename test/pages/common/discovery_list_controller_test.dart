@@ -10,12 +10,12 @@ import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/item.d
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -87,7 +87,7 @@ void main() {
     settings.data.clear();
     Accounts.accountMode[0] = AnonymousAccount();
     Accounts.accountMode[AccountType.recommend.index] = AnonymousAccount();
-    GlobalData().blackMids = {7};
+    BlockedAuthors.setBlocked(7, true);
     feed = _Feed();
   });
   tearDown(() => feed.onDelete());
@@ -150,7 +150,7 @@ void main() {
     await disabled;
     expect(feed.loadingState.value.data, [cooperation]);
     settings.data[SettingBoxKey.checkCooperativeAuthors] = true;
-    GlobalData().blackMids = {};
+    BlockedAuthors.setBlocked(7, false);
     final empty = feed.onRefresh();
     await feed.respond(Success([_Video(2, 8, cooperation: true)]));
     await empty;

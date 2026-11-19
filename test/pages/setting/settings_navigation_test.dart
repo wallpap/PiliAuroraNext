@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
 import 'package:pili_aurora_next/models/common/setting_type.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/pages/setting/common_setting.dart';
@@ -55,23 +56,24 @@ void main() {
   });
 
   testWidgets('黑名单父子开关默认开启，父开关切换后保留子项选择', (tester) async {
+    const authorFilter = DiscoveryFilter();
     final item = privacySettings.whereType<SwitchModel>().single;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: item.widget)));
-    expect(Pref.filterBlockedAuthors, isTrue);
-    expect(Pref.checkCooperativeAuthors, isTrue);
+    expect(authorFilter.enabled, isTrue);
+    expect(authorFilter.includeCoauthors, isTrue);
     expect(find.text('检查合作视频作者'), findsOneWidget);
     await tester.tap(find.text('检查合作视频作者'));
     await tester.pumpAndSettle();
-    expect(Pref.checkCooperativeAuthors, isFalse);
-    expect(Pref.filterBlockedAuthors, isTrue);
+    expect(authorFilter.includeCoauthors, isFalse);
+    expect(authorFilter.enabled, isTrue);
     await tester.tap(find.text('增强黑名单屏蔽'));
     await tester.pumpAndSettle();
-    expect(Pref.filterBlockedAuthors, isFalse);
+    expect(authorFilter.enabled, isFalse);
     expect(find.text('检查合作视频作者'), findsNothing);
     await tester.tap(find.text('增强黑名单屏蔽'));
     await tester.pumpAndSettle();
-    expect(Pref.filterBlockedAuthors, isTrue);
-    expect(Pref.checkCooperativeAuthors, isFalse);
+    expect(authorFilter.enabled, isTrue);
+    expect(authorFilter.includeCoauthors, isFalse);
     expect(find.text('检查合作视频作者'), findsOneWidget);
   });
 

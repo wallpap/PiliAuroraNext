@@ -1,19 +1,20 @@
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/author_filter_preferences.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
-import 'package:pili_aurora_next/services/blocked_authors.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/media_author_filter.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 推荐与历史发现页共用作者规则；缓存仅保存作者身份，不缓存屏蔽结论。
 class DiscoveryFilter {
   const DiscoveryFilter();
 
+  bool get enabled => AuthorFilterPreferences.filterBlockedAuthors;
+  bool get includeCoauthors => AuthorFilterPreferences.checkCooperativeAuthors;
+  bool contains(int? mid) => BlockedAuthors.contains(mid);
+
   Future<void>? prepare() => BlockedAuthors.ensureLoaded();
 
   Iterable<CooperativeVideo> authorsToCheck(Object? items) {
-    if (!Pref.filterBlockedAuthors ||
-        !Pref.checkCooperativeAuthors ||
-        GlobalData().blackMids.isEmpty) {
+    if (!enabled || !includeCoauthors || !BlockedAuthors.hasBlockedAuthors) {
       return const [];
     }
     return MediaAuthorFilter.videos(items).where(
@@ -27,11 +28,13 @@ class DiscoveryFilter {
   bool needsAuthorCheck(Object? item) => authorsToCheck(item).isNotEmpty;
 
   bool isBlocked(Object? item) =>
-      Pref.filterBlockedAuthors &&
+      enabled && blocks(item, checkCoauthors: includeCoauthors);
+
+  bool blocks(Object? item, {required bool checkCoauthors}) =>
       MediaAuthorFilter.isBlocked(
         item,
-        BlockedAuthors.contains,
-        includeCoauthors: Pref.checkCooperativeAuthors,
+        contains,
+        includeCoauthors: checkCoauthors,
       );
 
   List<T> filter<T>(
@@ -39,7 +42,7 @@ class DiscoveryFilter {
     Iterable<T> existing = const [],
     bool deduplicate = false,
   }) {
-    if (!Pref.filterBlockedAuthors && !deduplicate) return source.toList();
+    if (!enabled && !deduplicate) return source.toList();
     final seen = existing
         .map(MediaAuthorFilter.contentKey)
         .whereType<Object>()

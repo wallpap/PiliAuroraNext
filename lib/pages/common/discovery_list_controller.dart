@@ -1,9 +1,8 @@
-import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
-import 'package:pili_aurora_next/services/cooperative_authors.dart';
+import 'package:pili_aurora_next/pages/common/common_list_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 发现类内容在进入页面状态前过滤，并沿原来源补足当前批次。
 abstract class DiscoveryListController<R, T>
@@ -15,7 +14,7 @@ abstract class DiscoveryListController<R, T>
 
   @override
   bool get refillFilteredPages =>
-      supportsPagination && Pref.filterBlockedAuthors;
+      supportsPagination && const DiscoveryFilter().enabled;
 
   Account get queryAccount => Accounts.main;
 
