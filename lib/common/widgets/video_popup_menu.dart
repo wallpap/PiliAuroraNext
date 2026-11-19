@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
@@ -97,26 +97,17 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
 
   void _showFeedback(BaseSimpleVideoItemModel item, VoidCallback? onRemove) {
     if (!mounted || !identical(item, widget.videoItem)) return;
-    final account = item is RcmdVideoItemAppModel
-        ? Accounts.get(.recommend)
-        : Accounts.main;
-    if (account.accessKey?.isNotEmpty != true) {
-      SmartDialog.showToast(account.isLogin ? '请退出账号后重新登录' : '账号未登录');
+    final operation = VideoFeedback.capture(item);
+    if (operation.loginError case final message?) {
+      SmartDialog.showToast(message);
       return;
     }
     showDialog<void>(
       context: context,
       builder: (_) => VideoFeedbackDialog(
         item: item,
-        isCurrent: () =>
-            mounted &&
-            identical(item, widget.videoItem) &&
-            identical(
-              account,
-              item is RcmdVideoItemAppModel
-                  ? Accounts.get(.recommend)
-                  : Accounts.main,
-            ),
+        operation: operation,
+        isCurrent: () => mounted && identical(item, widget.videoItem),
         onRemove: onRemove,
       ),
     );

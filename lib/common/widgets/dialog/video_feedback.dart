@@ -1,23 +1,22 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
 import 'package:pili_aurora_next/models/home/rcmd/result.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 class VideoFeedbackDialog extends StatefulWidget {
   const VideoFeedbackDialog({
     super.key,
     required this.item,
+    required this.operation,
     required this.isCurrent,
     this.onRemove,
   });
 
   final BaseSimpleVideoItemModel item;
+  final VideoFeedback operation;
   final bool Function() isCurrent;
   final VoidCallback? onRemove;
 
@@ -26,32 +25,9 @@ class VideoFeedbackDialog extends StatefulWidget {
 }
 
 class _VideoFeedbackDialogState extends State<VideoFeedbackDialog> {
-  late final Account _account;
-
-  @override
-  void initState() {
-    super.initState();
-    _account = widget.item is RcmdVideoItemAppModel
-        ? Accounts.get(.recommend)
-        : Accounts.main;
-  }
-
   bool _pending = false;
-
   bool get _current =>
-      mounted &&
-      widget.isCurrent() &&
-      identical(
-        _account,
-        widget.item is RcmdVideoItemAppModel
-            ? Accounts.get(.recommend)
-            : Accounts.main,
-      );
-
-  Object? get _targetKey => switch (widget.item) {
-    RcmdVideoItemAppModel item => (item.goto, item.param),
-    final item => item.bvid,
-  };
+      mounted && widget.isCurrent() && widget.operation.isCurrent;
 
   Future<void> _submit({
     Reason? reason,
@@ -60,43 +36,20 @@ class _VideoFeedbackDialogState extends State<VideoFeedbackDialog> {
   }) async {
     if (_pending || !_current) return;
     final item = widget.item;
-    final targetKey = _targetKey;
+    final operation = widget.operation;
     final route = ModalRoute.of(context);
     setState(() => _pending = true);
     try {
-      final LoadingState<void> result;
-      if (item is RcmdVideoItemAppModel) {
-        final id = item.param;
-        final target = item.goto;
-        if (id == null || target == null) {
-          SmartDialog.showToast('推荐反馈信息不完整，请刷新后重试');
-          return;
-        }
-        result = cancel
-            ? await VideoHttp.feedDislikeCancel(
-                id: id,
-                goto: target,
-                account: _account,
-              )
-            : await VideoHttp.feedDislike(
-                id: id,
-                goto: target,
-                reasonId: reason?.id,
-                feedbackId: feedback?.id,
-                account: _account,
-              );
-      } else {
-        result = await VideoHttp.dislikeVideo(
-          bvid: item.bvid ?? '',
-          type: !cancel,
-          account: _account,
-        );
-      }
+      final result = await operation.submit(
+        reasonId: reason?.id,
+        feedbackId: feedback?.id,
+        cancel: cancel,
+      );
       if (!mounted ||
           !_current ||
           route?.isCurrent == false ||
           !identical(item, widget.item) ||
-          targetKey != _targetKey) {
+          !identical(operation, widget.operation)) {
         return;
       }
       if (result.isSuccess) {

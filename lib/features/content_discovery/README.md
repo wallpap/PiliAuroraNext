@@ -6,6 +6,7 @@
 
 - `application/recommendation_feed.dart`：autoDispose `recommendationFeedProvider` 持有推荐列表、查询代次、并发下载、补位、历史位置、重试与移除。查询同时绑定主账号屏蔽规则和推荐账号对象身份；同 UID 换凭据也淘汰旧查询。共用凭据的两条角色通知同步撤销旧查询，在微任务中合并重读。
 - `data/recommendation_repository.dart`：接收查询捕获的推荐账号、App/Web 来源、页索引、容量和取消令牌，适配 `VideoHttp`。请求排队后不再读取当前推荐角色。
+- `application/video_feedback.dart`：打开反馈时绑定卡片目标和账号。App 推荐反馈使用推荐账号，其他卡片使用主账号；换凭据后，旧弹窗不能提交或移除卡片。
 - `application/discovery_filter.dart`：推荐、搜索与历史发现列表共用作者判定和去重规则。`BlockedAuthors` 按主账号对象及角色代次同步完整名单，沿用按 UID 保存的缓存；在途名单不会覆盖同期确认的拉黑或解除，也不能在凭据替换后回写。`CooperativeAuthors.shared` 只缓存作者身份，共用两个并发名额；屏蔽结论按当前黑名单重算。
 - `application/recommendation_preferences.dart`：观察 Hive 的 App/Web、保留上次内容与历史提示开关。来源切换取消旧查询并从第一页重读；历史开关更新当前提示与下一次刷新，不要求设置页找到已挂载的推荐页。
 - `data/video_filter_preferences.dart`：每页解码读取一份已保存的标题、分区和阈值快照，按入口保留原过滤范围；损坏的正则只禁用对应关键词规则，不阻断列表。
