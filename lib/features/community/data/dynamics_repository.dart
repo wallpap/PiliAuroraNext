@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_draft.dart';
+import 'package:pili_aurora_next/grpc/dyn.dart';
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
@@ -19,6 +20,8 @@ final dynamicsRepositoryProvider = Provider(
 
 class DynamicsRepository {
   const DynamicsRepository();
+
+  Future<int?> unread(Account account) => DynGrpc.dynRed(account);
 
   Future<LoadingState<String?>> publish(
     Account account,

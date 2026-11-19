@@ -1,3 +1,5 @@
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/validate.dart';
@@ -8,9 +10,19 @@ import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart'
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/models/search/suggest.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/wbi_sign.dart';
 
 class SearchRepository {
   const SearchRepository();
+
+  Future<String?> defaultKeyword() async {
+    final response = await Request().get(
+      Api.searchDefault,
+      queryParameters: await WbiSign.makSign({'web_location': 333.1365}),
+    );
+    if (response.data['code'] != 0) return null;
+    return response.data['data']?['name'] as String? ?? '';
+  }
 
   Future<LoadingState<SearchSuggestModel>> suggest(
     Account account,

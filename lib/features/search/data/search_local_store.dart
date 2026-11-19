@@ -22,6 +22,12 @@ class SearchLocalStore {
 
   bool get recordsHistory => Pref.recordSearchHistory;
 
+  bool get showsDefaultWord => Pref.enableSearchWord;
+
+  Stream<bool> watchDefaultWord() => GStorage.setting
+      .watch(key: SettingBoxKey.enableSearchWord)
+      .map((_) => showsDefaultWord);
+
   Stream<bool> watchRecordsHistory() => GStorage.setting
       .watch(key: SettingBoxKey.recordSearchHistory)
       .map((_) => recordsHistory);

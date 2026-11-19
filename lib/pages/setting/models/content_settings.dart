@@ -15,7 +15,6 @@ import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_level_filter.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart'
     show DynamicsDataModel, ItemModulesModel;
-import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
@@ -28,12 +27,12 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 List<SettingsModel> get contentSettings => [
-  SettingsGroup(
+  const SettingsGroup(
     title: '搜索与发现',
     subtitle: '搜索建议、历史与热门内容',
-    leading: const Icon(Icons.search),
+    leading: Icon(Icons.search),
     children: [
-      const SwitchModel(
+      SwitchModel(
         title: '显示热门推荐',
         subtitle: '热门页面显示每周必看等推荐内容入口',
         leading: Icon(Icons.local_fire_department_outlined),
@@ -41,33 +40,33 @@ List<SettingsModel> get contentSettings => [
         defaultVal: false,
         needReboot: true,
       ),
-      const SwitchModel(
+      SwitchModel(
         title: '搜索建议',
         leading: Icon(Icons.search),
         setKey: SettingBoxKey.searchSuggestion,
         defaultVal: true,
       ),
-      const SwitchModel(
+      SwitchModel(
         title: '记录搜索历史',
         leading: Icon(Icons.history),
         setKey: SettingBoxKey.recordSearchHistory,
         defaultVal: true,
       ),
-      const SwitchModel(
+      SwitchModel(
         title: '展示追番时间表',
         leading: Icon(MdiIcons.chartTimelineVariantShimmer),
         setKey: SettingBoxKey.showPgcTimeline,
         defaultVal: true,
         needReboot: true,
       ),
-      const SwitchModel(
+      SwitchModel(
         title: '大家都在搜',
         subtitle: '是否展示「大家都在搜」',
         leading: Icon(Icons.data_thresholding_outlined),
         setKey: SettingBoxKey.enableHotKey,
         defaultVal: true,
       ),
-      const SwitchModel(
+      SwitchModel(
         title: '搜索发现',
         subtitle: '是否展示「搜索发现」',
         leading: Icon(Icons.search_outlined),
@@ -77,20 +76,9 @@ List<SettingsModel> get contentSettings => [
       SwitchModel(
         title: '搜索默认词',
         subtitle: '是否展示搜索框默认词',
-        leading: const Icon(Icons.whatshot_outlined),
+        leading: Icon(Icons.whatshot_outlined),
         setKey: SettingBoxKey.enableSearchWord,
         defaultVal: false,
-        onChanged: (val) {
-          if (Get.isRegistered<HomeController>()) {
-            final controller = Get.find<HomeController>()
-              ..enableSearchWord = val;
-            if (val) {
-              controller.querySearchDefault();
-            } else {
-              controller.defaultSearch.value = '';
-            }
-          }
-        },
       ),
     ],
   ),

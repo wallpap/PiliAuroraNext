@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/login/controller.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/controlled_http_adapter.dart';
@@ -15,14 +17,17 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Adapter adapter;
   late _Controller controller;
+  final savedAccounts = MemoryBox<LoginAccount>();
 
   setUpAll(() {
+    Accounts.account = savedAccounts;
     GStorage.setting = MemoryBox<dynamic>();
     GStorage.localCache = MemoryBox<dynamic>();
     Request();
     Request.dio.interceptors.clear();
   });
   setUp(() {
+    savedAccounts.data.clear();
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
     controller = _Controller()..onStart();
@@ -32,6 +37,19 @@ void main() {
     adapter.close();
   });
   tearDownAll(() => Request.dio.close(force: true));
+
+  testWidgets('Cookie 验证期间编辑输入后不保存未验证的凭据', (tester) async {
+    await _mount(tester);
+    controller.cookieTextController.text = 'DedeUserID=100; bili_jct=fixture';
+    final request = controller.loginByCookie();
+    await _flush(tester);
+    expect(adapter.pending, hasLength(1));
+    controller.cookieTextController.text = 'DedeUserID=200; bili_jct=edited';
+    adapter.json(0, {'code': 0});
+    await _flush(tester);
+    await request;
+    expect(savedAccounts.values, isEmpty);
+  });
 
   testWidgets('短信登录忽略页面关闭后的成功响应', (tester) async {
     await _mount(tester);

@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/features/account/presentation/account_dashboard
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
-import 'package:pili_aurora_next/pages/login/controller.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:get/get.dart';
@@ -51,7 +51,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       showBackBtn: widget.showBackBtn,
       showReply: GStorage.reply != null,
       wrapScroll: onBuild,
-      onSwitchAccount: () => LoginPageController.switchAccountDialog(context),
+      onSwitchAccount: () => showAccountSwitchDialog(context),
       shellActions: !_mainController.hasHome
           ? Row(
               mainAxisSize: MainAxisSize.min,

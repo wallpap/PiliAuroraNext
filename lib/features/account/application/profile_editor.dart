@@ -1,20 +1,19 @@
-import 'package:pili_aurora_next/features/account/application/account_profile.dart';
-
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+import 'package:pili_aurora_next/features/account/data/profile_editor_repository.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member_profile.dart';
-import 'package:pili_aurora_next/models/common/member/profile_type.dart';
-import 'package:pili_aurora_next/models/remote/account_myinfo/data.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
-/// 页面持有资料快照；查询和写入均按账号对象及快照隔离。
-class MemberProfileController extends ChangeNotifier {
-  MemberProfileController() {
+/// 每个编辑实例持有资料快照，查询和写入按账号对象及快照隔离。
+class ProfileEditor extends ChangeNotifier {
+  ProfileEditor() {
     Accounts.mainChanges.addListener(_accountChanged);
   }
 
@@ -28,13 +27,13 @@ class MemberProfileController extends ChangeNotifier {
   ProfileType? _verificationType;
   int _verificationQuery = 0;
 
-  bool _ownsAccount(Account owner) =>
+  bool ownsAccount(Account owner) =>
       !_disposed &&
       identical(owner, account) &&
       identical(owner, Accounts.main);
 
   bool owns(Account owner, AccountMyInfoData? source) =>
-      _ownsAccount(owner) &&
+      ownsAccount(owner) &&
       source != null &&
       identical(source, state.dataOrNull);
 
@@ -55,7 +54,7 @@ class MemberProfileController extends ChangeNotifier {
     notifyListeners();
     LoadingState<AccountMyInfoData> result;
     try {
-      result = await MemberProfileHttp.info(owner);
+      result = await ProfileEditorRepository.info(owner);
     } catch (error, stackTrace) {
       result = Error.fromException(error, stackTrace);
     }
@@ -112,12 +111,12 @@ class MemberProfileController extends ChangeNotifier {
     final operation = _operation = Object();
     notifyListeners();
     try {
-      final result = await MemberProfileHttp.update(
+      final result = await ProfileEditorRepository.update(
         account: owner,
         type: type,
         value: value,
       );
-      if (_ownsAccount(owner) && result is UnknownResult) {
+      if (ownsAccount(owner) && result is UnknownResult) {
         // 刷新替换快照不能解除仍在途写入的待确认屏障。
         needsVerification = true;
         _verificationType = type;
@@ -161,11 +160,11 @@ class MemberProfileController extends ChangeNotifier {
     final operation = _operation = Object();
     notifyListeners();
     try {
-      final result = await MemberProfileHttp.avatar(
+      final result = await ProfileEditorRepository.avatar(
         account: owner,
         filePath: filePath,
       );
-      if (_ownsAccount(owner) && result is UnknownResult) {
+      if (ownsAccount(owner) && result is UnknownResult) {
         needsVerification = true;
         _verificationType = null;
         _verificationQuery = _query;

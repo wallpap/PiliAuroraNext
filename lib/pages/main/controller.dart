@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/grpc/dyn.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_unread.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
@@ -37,9 +38,17 @@ class MainController extends GetxController
   final RxInt selectedIndex = 0.obs;
   late final VoidCallback _unregisterPageDiagnostics;
 
-  int _dynamicGeneration = 0;
-  final RxInt dynCount = 0.obs;
-  late DynamicBadgeMode dynamicBadgeMode;
+  final _dynamicUnread = DynamicUnread();
+  ValueListenable<int> get dynCount => _dynamicUnread.count;
+  final _dynamicBadgeMode = ValueNotifier(DynamicBadgeMode.hidden);
+  ValueListenable<DynamicBadgeMode> get dynamicBadgeModeChanges =>
+      _dynamicBadgeMode;
+  DynamicBadgeMode get dynamicBadgeMode => _dynamicBadgeMode.value;
+  set dynamicBadgeMode(DynamicBadgeMode value) {
+    _dynamicBadgeMode.value = value;
+    if (value == DynamicBadgeMode.hidden) _dynamicUnread.clear();
+  }
+
   late bool checkDynamic = Pref.checkDynamic;
   late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
   late int _lastCheckDynamicAt = 0;
@@ -156,26 +165,11 @@ class MainController extends GetxController
   }
 
   void getUnreadDynamic() {
-    if (!Accounts.main.isLogin || !hasDyn) {
-      return;
-    }
-    final generation = ++_dynamicGeneration;
-    final account = Accounts.main;
-    DynGrpc.dynRed().then((res) {
-      if (!isClosed &&
-          generation == _dynamicGeneration &&
-          identical(account, Accounts.main) &&
-          Accounts.main.isLogin &&
-          res != null) {
-        setDynCount(res);
-      }
-    });
+    if (hasDyn) unawaited(_dynamicUnread.refresh());
   }
 
   void setDynCount([int count = 0]) {
-    _dynamicGeneration++;
-    if (!hasDyn) return;
-    dynCount.value = count;
+    if (hasDyn) _dynamicUnread.clear(count);
   }
 
   void checkUnreadDynamic() {
@@ -209,17 +203,12 @@ class MainController extends GetxController
   }
 
   void checkDefaultSearch([bool shouldCheck = false]) {
-    if (hasHome && homeController.enableSearchWord) {
+    if (hasHome) {
       if (shouldCheck &&
           navigationBars[selectedIndex.value] != NavigationBarType.home) {
         return;
       }
-      int now = DateTime.now().millisecondsSinceEpoch;
-      if (now - homeController.lateCheckSearchAt >= _period) {
-        homeController
-          ..lateCheckSearchAt = now
-          ..querySearchDefault();
-      }
+      homeController.searchHint.refreshIfDue();
     }
   }
 
@@ -313,7 +302,8 @@ class MainController extends GetxController
   @override
   void onClose() {
     Accounts.mainChanges.removeListener(_onMainChanged);
-    _dynamicGeneration++;
+    _dynamicUnread.dispose();
+    _dynamicBadgeMode.dispose();
     _unregisterPageDiagnostics();
     barOffset?.close();
     controller.dispose();
@@ -323,13 +313,10 @@ class MainController extends GetxController
   void _onMainChanged() => onChangeAccount(Accounts.main.isLogin);
 
   void onChangeAccount(bool isLogin) {
-    _dynamicGeneration++;
     setDynCount();
     if (isLogin) {
       queryUnreadMsg();
-      getUnreadDynamic();
-    } else {
-      setDynCount();
+      if (dynamicBadgeMode != DynamicBadgeMode.hidden) getUnreadDynamic();
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/account/application/account_roles.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
@@ -94,6 +95,20 @@ void main() {
       same(AnonymousAccount()),
     ]);
     expect(container.read(recommendAccountProvider).isLogin, isFalse);
+    expectMainUnchanged();
+  });
+
+  test('提交旧角色草稿时使用同 UID 最新保存的凭据', () async {
+    const roles = AccountRoles();
+    final draft = roles.selection();
+    final choices = List.of(draft.roles)..[AccountType.video.index] = 200;
+    final renewed = login(200, csrf: 'renewed');
+    Accounts.replaceCredentials(renewed);
+    await accounts.put('200', renewed);
+
+    expect(await roles.apply(draft, choices), isTrue);
+    expect(Accounts.video, same(renewed));
+    expect(accounts.get('200'), same(renewed));
     expectMainUnchanged();
   });
 

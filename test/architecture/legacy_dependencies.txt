@@ -131,11 +131,8 @@ pages/episode_panel/view.dart -> http/fav.dart
 pages/episode_panel/view.dart -> http/video.dart
 pages/episode_panel/view.dart -> utils/accounts.dart
 pages/episode_panel/view.dart -> utils/storage_pref.dart
-pages/home/controller.dart -> http/api.dart
-pages/home/controller.dart -> http/init.dart
 pages/home/controller.dart -> utils/storage.dart
 pages/home/controller.dart -> utils/storage_pref.dart
-pages/home/controller.dart -> utils/wbi_sign.dart
 pages/home/controller.dart#HomeController -> GetxController
 pages/live/widgets/live_item_app.dart -> http/live.dart
 pages/live_area/controller.dart -> http/live.dart
@@ -166,14 +163,10 @@ pages/live_room/widgets/chat_panel.dart -> utils/accounts.dart
 pages/live_room/widgets/desktop_sidebar.dart -> http/live.dart
 pages/live_room/widgets/desktop_sidebar.dart -> utils/accounts.dart
 pages/log_table/controller.dart -> http/user.dart
-pages/login/controller.dart -> http/init.dart
 pages/login/controller.dart -> http/login.dart
-pages/login/controller.dart -> package:dio/dio.dart
-pages/login/controller.dart -> utils/accounts.dart
 pages/login/controller.dart#LoginPageController -> GetxController
 pages/login/geetest/geetest_webview_dialog.dart -> http/browser_ua.dart
 pages/login_devices/controller.dart -> http/login.dart
-pages/main/controller.dart -> grpc/dyn.dart
 pages/main/controller.dart -> utils/accounts.dart
 pages/main/controller.dart -> utils/storage.dart
 pages/main/controller.dart -> utils/storage_pref.dart
@@ -185,9 +178,6 @@ pages/match_info/controller.dart -> utils/accounts.dart
 pages/match_info/controller.dart#MatchInfoController -> CommonDynController
 pages/member/widget/user_info_card.dart -> utils/accounts.dart
 pages/member_dynamics/view.dart -> utils/global_data.dart
-pages/member_profile/controller.dart -> http/member_profile.dart
-pages/member_profile/controller.dart -> utils/accounts.dart
-pages/member_profile/view.dart -> utils/accounts.dart
 pages/member_search/child/view.dart -> utils/global_data.dart
 pages/member_upower_rank/controller.dart -> http/member.dart
 pages/mine/view.dart -> utils/storage.dart

@@ -173,8 +173,8 @@ class _HomePageState extends CommonPageState<HomePage>
             ),
             onTap: () => Get.toNamed(
               '/search',
-              parameters: _homeController.enableSearchWord
-                  ? {'hintText': _homeController.defaultSearch.value}
+              parameters: _homeController.searchHint.enabled
+                  ? {'hintText': _homeController.searchHint.text.value}
                   : null,
             ),
             child: Row(
@@ -187,9 +187,10 @@ class _HomePageState extends CommonPageState<HomePage>
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Obx(
-                    () => Text(
-                      _homeController.defaultSearch.value,
+                  child: ValueListenableBuilder(
+                    valueListenable: _homeController.searchHint.text,
+                    builder: (context, text, _) => Text(
+                      text,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: _colorScheme.outline),

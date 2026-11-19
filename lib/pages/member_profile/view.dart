@@ -4,11 +4,10 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/profile_type.dart';
-import 'package:pili_aurora_next/models/remote/account_myinfo/data.dart';
-import 'package:pili_aurora_next/pages/member_profile/controller.dart';
+import 'package:pili_aurora_next/features/account/application/profile_editor.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/file_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
@@ -31,7 +30,7 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final _controller = MemberProfileController();
+  final _controller = ProfileEditor();
   final _imagePicker = ImagePicker();
   bool _picking = false;
 
@@ -305,7 +304,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 onPressed: saving
                     ? null
                     : () async {
-                        if (!mounted || !identical(owner, Accounts.main)) {
+                        if (!mounted || !_controller.ownsAccount(owner)) {
                           return;
                         }
                         if (_controller.needsVerification) {
@@ -313,7 +312,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           await _getInfo();
                           if (!mounted ||
                               !dialogContext.mounted ||
-                              !identical(owner, Accounts.main)) {
+                              !_controller.ownsAccount(owner)) {
                             return;
                           }
                           source = _controller.state.dataOrNull;

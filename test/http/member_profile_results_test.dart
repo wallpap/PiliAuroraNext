@@ -4,9 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member_profile.dart';
+import 'package:pili_aurora_next/features/account/data/profile_editor_repository.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
-import 'package:pili_aurora_next/models/common/member/profile_type.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
@@ -64,7 +64,7 @@ void main() {
       {'mid': 1, 'coins': 'bad'},
     ]) {
       body = {'code': 0, 'data': data};
-      final result = await MemberProfileHttp.info(account);
+      final result = await ProfileEditorRepository.info(account);
       expect(result, isA<Error>());
       expect((result as Error).cause, isNotNull);
     }
@@ -72,7 +72,7 @@ void main() {
       'code': 0,
       'data': {'mid': 1, 'name': '测试', 'coins': 10},
     };
-    expect((await MemberProfileHttp.info(account)).data.name, '测试');
+    expect((await ProfileEditorRepository.info(account)).data.name, '测试');
     expect(requests.last.extra['account'], same(account));
     expect(requests.last.queryParameters['access_key'], 'synthetic-access');
   });
@@ -80,7 +80,7 @@ void main() {
   test('资料写入保留业务拒绝；成功无回显有效，签名账号固定且禁重试', () async {
     body = {'code': -403, 'message': '修改被拒绝'};
     expect(
-      (await MemberProfileHttp.update(
+      (await ProfileEditorRepository.update(
         account: account,
         type: ProfileType.sign,
         value: '草稿',
@@ -90,7 +90,7 @@ void main() {
     body = {'code': 0};
     for (final type in ProfileType.values) {
       expect(
-        (await MemberProfileHttp.update(
+        (await ProfileEditorRepository.update(
           account: account,
           type: type,
           value: 'value',
@@ -107,7 +107,7 @@ void main() {
 
   test('写入损坏响应与断连均待确认，不自动重放', () async {
     body = {'private-response': 'secret'};
-    final malformed = await MemberProfileHttp.update(
+    final malformed = await ProfileEditorRepository.update(
       account: account,
       type: ProfileType.uname,
       value: '昵称',
@@ -117,7 +117,7 @@ void main() {
     expect(malformed.toString(), isNot(contains('secret')));
     failTransport = true;
     requests.clear();
-    final disconnected = await MemberProfileHttp.update(
+    final disconnected = await ProfileEditorRepository.update(
       account: account,
       type: ProfileType.uname,
       value: '昵称',
@@ -130,7 +130,7 @@ void main() {
     final directory = await Directory.systemTemp.createTemp('pili-profile-');
     addTearDown(() => directory.delete(recursive: true));
     final image = File('${directory.path}/avatar.png');
-    final missing = await MemberProfileHttp.avatar(
+    final missing = await ProfileEditorRepository.avatar(
       account: account,
       filePath: image.path,
     );
@@ -140,7 +140,7 @@ void main() {
     await image.writeAsBytes([1, 2, 3]);
     body = {'code': 0};
     expect(
-      (await MemberProfileHttp.avatar(
+      (await ProfileEditorRepository.avatar(
         account: account,
         filePath: image.path,
       )).isSuccess,

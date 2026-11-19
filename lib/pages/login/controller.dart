@@ -1,27 +1,22 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:pili_aurora_next/common/dial_prefix.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
-import 'package:pili_aurora_next/common/widgets/radio_widget.dart';
-import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
+import 'package:pili_aurora_next/features/account/application/login_session.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/login.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/login/model.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class LoginPageController extends GetxController
     with GetSingleTickerProviderStateMixin {
+  static const _session = LoginSession();
   final TextEditingController telTextController = TextEditingController();
   final TextEditingController usernameTextController = TextEditingController();
   final TextEditingController passwordTextController = TextEditingController();
@@ -187,61 +182,29 @@ class LoginPageController extends GetxController
     }
   }
 
-  static String validateCookie(String cookie) {
-    return cookie
-        .split(';')
-        .where((e) {
-          try {
-            Cookie.fromSetCookieValue(e.trim());
-          } catch (_) {
-            return false;
-          }
-          return true;
-        })
-        .join(';');
-  }
+  bool _cookieLoginPending = false;
 
-  // cookie登录
   Future<void> loginByCookie() async {
-    if (cookieTextController.text.isEmpty) {
-      SmartDialog.showToast('cookie不能为空');
-      return;
-    }
+    if (isClosed || _cookieLoginPending) return;
+    final input = cookieTextController.text;
+    bool isCurrent() => !isClosed && cookieTextController.text == input;
+    _cookieLoginPending = true;
     try {
-      final result = await Request().get(
-        "/x/member/web/account",
-        options: Options(
-          headers: {
-            "cookie": validateCookie(cookieTextController.text),
-          },
-          extra: {'account': AnonymousAccount()},
-        ),
+      final result = await _session.loginWithCookie(
+        input,
+        isCurrent: isCurrent,
       );
-      if (result.data['code'] == 0) {
-        try {
-          await LoginAccount(
-            BiliCookieJar.fromJson(
-              Map.fromEntries(
-                cookieTextController.text.split(';').map((item) {
-                  final list = item.split('=');
-                  return MapEntry(list.first, list.skip(1).join());
-                }),
-              ),
-            ),
-            null,
-            null,
-          ).onChange();
-          if (!Accounts.main.isLogin) await switchAccountDialog(Get.context!);
-          SmartDialog.showToast('登录成功');
-          Get.back();
-        } catch (e) {
-          SmartDialog.showToast("登录失败: $e");
-        }
-      } else {
-        SmartDialog.showToast("哔哩哔哩登录已失效，请重新登录");
+      if (!isCurrent() || result == null) return;
+      if (!result.isSuccess) {
+        unawaited(result.toast());
+        return;
       }
-    } catch (e) {
-      SmartDialog.showToast("获取哔哩哔哩用户信息失败，可前往账号管理重试");
+      if (!_session.mainIsLoggedIn) await showAccountSwitchDialog(Get.context!);
+      if (!isCurrent()) return;
+      SmartDialog.showToast('登录成功');
+      Get.back();
+    } finally {
+      _cookieLoginPending = false;
     }
   }
 
@@ -652,144 +615,13 @@ class LoginPageController extends GetxController
   }
 
   Future<void> setAccount(Map tokenInfo, List cookieInfo) async {
-    final account = LoginAccount(
-      BiliCookieJar.fromList(cookieInfo),
-      tokenInfo['access_token'],
-      tokenInfo['refresh_token'],
-    );
-    Accounts.replaceCredentials(account);
-    await Future.wait([?account.onChange(), AnonymousAccount().delete()]);
-    if (Accounts.main.isLogin) {
+    await _session.loginWithAppCredentials(tokenInfo, cookieInfo);
+    if (isClosed) return;
+    if (_session.mainIsLoggedIn) {
       SmartDialog.showToast('登录成功');
     } else {
       SmartDialog.showToast('登录成功, 请先设置账号模式');
-      await switchAccountDialog(Get.context!);
+      await showAccountSwitchDialog(Get.context!);
     }
-  }
-
-  static Future<void>? switchAccountDialog(BuildContext context) {
-    if (Accounts.account.isEmpty) {
-      SmartDialog.showToast('请先登录');
-      return Get.toNamed('/loginPage');
-    }
-    final colorScheme = ColorScheme.of(context);
-    final selectAccount = List.of(Accounts.accountMode);
-    final options = {
-      AnonymousAccount(): '0',
-      ...Accounts.account.toMap().map(
-        (k, v) => MapEntry(v, k as String),
-      ),
-    };
-    bool quickSelect = selectAccount.every((e) => e == selectAccount.first);
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          crossAxisAlignment: .start,
-          mainAxisAlignment: .spaceBetween,
-          children: [
-            Text.rich(
-              style: const TextStyle(height: 1.5),
-              TextSpan(
-                children: [
-                  const TextSpan(text: '账号切换'),
-                  TextSpan(
-                    text: '\nmid为0时使用匿名',
-                    style: TextStyle(fontSize: 14, color: colorScheme.outline),
-                  ),
-                ],
-              ),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                visualDensity: .compact,
-                tapTargetSize: .shrinkWrap,
-              ),
-              onPressed: () {
-                quickSelect = !quickSelect;
-                (context as Element).markNeedsBuild();
-              },
-              child: Text(quickSelect ? '详细' : '快速'),
-            ),
-          ],
-        ),
-        titlePadding: const .only(left: 22, top: 16, right: 22, bottom: 3),
-        contentPadding: const .symmetric(vertical: 5),
-        actionsPadding: const .only(left: 16, right: 16, bottom: 10),
-        content: SingleChildScrollView(
-          child: AnimatedSize(
-            curve: Curves.easeIn,
-            alignment: .topCenter,
-            duration: const Duration(milliseconds: 200),
-            child: quickSelect
-                ? Builder(
-                    builder: (context) => RadioGroup<Account>(
-                      groupValue: selectAccount[0],
-                      onChanged: (v) {
-                        selectAccount.fillRange(0, selectAccount.length, v);
-                        (context as Element).markNeedsBuild();
-                      },
-                      child: Column(
-                        crossAxisAlignment: .start,
-                        children: options.entries
-                            .map(
-                              (entry) => RadioWidget<Account>(
-                                value: entry.key,
-                                title: entry.value,
-                                mainAxisSize: .max,
-                                padding: PlatformUtils.isDesktop
-                                    ? const .only(left: 12)
-                                    : const .only(left: 12, top: 2, bottom: 2),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: .start,
-                    children: AccountType.values
-                        .map(
-                          (e) => Builder(
-                            builder: (context) => RadioGroup<Account>(
-                              groupValue: selectAccount[e.index],
-                              onChanged: (v) {
-                                selectAccount[e.index] = v!;
-                                (context as Element).markNeedsBuild();
-                              },
-                              child: WrapRadioOptionsGroup<Account>(
-                                groupTitle: e.title,
-                                options: options,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: Text('取消', style: TextStyle(color: colorScheme.outline)),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              for (final type in AccountType.values) {
-                final index = type.index;
-                final account = quickSelect
-                    ? selectAccount.first
-                    : selectAccount[index];
-                if (account != Accounts.accountMode[index]) {
-                  Accounts.set(type, account);
-                }
-              }
-            },
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
   }
 }

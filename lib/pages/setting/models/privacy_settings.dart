@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/login.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/login/controller.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -43,7 +43,7 @@ List<SettingsModel> get privacySettings => [
   NormalModel(
     title: '切换账号',
     leading: const Icon(Icons.switch_account_outlined),
-    onTap: (context, _) => LoginPageController.switchAccountDialog(context),
+    onTap: (context, _) => showAccountSwitchDialog(context),
   ),
   const NormalModel(
     title: '退出登录',

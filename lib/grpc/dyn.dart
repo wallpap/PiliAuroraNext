@@ -18,12 +18,13 @@ import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:fixnum/fixnum.dart';
 
 abstract final class DynGrpc {
-  static Future<int?> dynRed() async {
+  static Future<int?> dynRed(Account account) async {
     final res = await GrpcReq.request(
       GrpcUrl.dynRed,
       DynRedReq(tabOffset: [TabOffset(tab: 1)]),
       DynRedReply.fromBuffer,
       kind: .query,
+      account: account,
     );
     return res.dataOrNull?.dynRedItem.count.toInt();
   }

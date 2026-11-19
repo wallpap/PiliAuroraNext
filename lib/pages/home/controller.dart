@@ -3,10 +3,9 @@ import 'dart:math';
 
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 
-import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/features/search/application/search_hint.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
@@ -15,7 +14,6 @@ import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -29,9 +27,7 @@ class HomeController extends GetxController
   RxBool? showTopBar;
   late final bool hideTopBar;
 
-  bool enableSearchWord = Pref.enableSearchWord;
-  late final RxString defaultSearch = ''.obs;
-  late int lateCheckSearchAt = 0;
+  late final SearchHint searchHint;
 
   final _pages = <HomeTabType, ScrollOrRefreshMixin>{};
   ScrollOrRefreshMixin? registeredPage(HomeTabType type) => _pages[type];
@@ -62,10 +58,7 @@ class HomeController extends GetxController
       }
     }
 
-    if (enableSearchWord) {
-      lateCheckSearchAt = DateTime.now().millisecondsSinceEpoch;
-      querySearchDefault();
-    }
+    searchHint = SearchHint();
 
     setTabConfig();
     _unregisterPageDiagnostics = Diagnostics.instance.register(
@@ -147,19 +140,7 @@ class HomeController extends GetxController
     _pages.clear();
     _unregisterPageDiagnostics();
     tabController.dispose();
+    searchHint.dispose();
     super.onClose();
-  }
-
-  Future<void> querySearchDefault() async {
-    try {
-      final res = await Request().get(
-        Api.searchDefault,
-        queryParameters: await WbiSign.makSign({'web_location': 333.1365}),
-      );
-      if (res.data['code'] == 0) {
-        defaultSearch.value = res.data['data']?['name'] ?? '';
-        // defaultSearch.value = res.data['data']?['show_name'] ?? '';
-      }
-    } catch (_) {}
   }
 }
