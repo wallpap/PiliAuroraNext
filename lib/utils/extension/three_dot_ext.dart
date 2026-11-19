@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
     show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/common_whisper_controller.dart';

@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pbenum.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:pili_aurora_next/grpc/dm.dart';
 import 'package:pili_aurora_next/http/browser_ua.dart';

@@ -5,7 +5,7 @@ import 'dart:async' show StreamSubscription, unawaited;
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pbenum.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';

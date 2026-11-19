@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute;
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 

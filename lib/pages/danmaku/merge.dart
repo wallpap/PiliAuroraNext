@@ -4,7 +4,7 @@ import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';

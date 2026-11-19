@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 
 /// 原始网络分段按完整段淘汰；读取不改变保留顺序。

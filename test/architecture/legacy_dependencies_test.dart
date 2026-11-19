@@ -42,7 +42,8 @@ bool _isPresentation(String source) =>
 
 bool _isRestricted(String target) =>
     (target.startsWith('http/') && target != 'http/loading_state.dart') ||
-    (target.startsWith('grpc/') && !target.startsWith('grpc/bilibili/')) ||
+    target.startsWith('grpc/') ||
+    target.startsWith('generated/') ||
     _legacyUtilities.contains(target) ||
     target.startsWith('package:dio/') ||
     target.startsWith('package:grpc/') ||
@@ -58,7 +59,7 @@ void main() {
       final source = path
           .relative(file.path, from: 'lib')
           .replaceAll('\\', '/');
-      if (source.startsWith('grpc/bilibili/') || source.endsWith('.g.dart')) {
+      if (source.startsWith('generated/') || source.endsWith('.g.dart')) {
         continue;
       }
       final unit = parseSource(file.readAsStringSync());

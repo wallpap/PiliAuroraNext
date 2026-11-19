@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.d
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show
         DynamicItem,
         ModuleAuthor,

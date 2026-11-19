@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/history/application/history_library.da
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

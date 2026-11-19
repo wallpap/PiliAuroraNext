@@ -1,6 +1,6 @@
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v1.pb.dart'
     show DynRedReq, TabOffset, DynRedReply;
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show
         OpusType,
         OpusDetailReq,

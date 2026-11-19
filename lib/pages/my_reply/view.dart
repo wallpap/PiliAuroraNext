@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';

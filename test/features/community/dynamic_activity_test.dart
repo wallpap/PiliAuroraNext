@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show
         LikeListReply,
         LikeListReq,

@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 

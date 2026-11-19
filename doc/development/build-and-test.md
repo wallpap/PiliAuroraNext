@@ -203,7 +203,7 @@ Windows 输出与 shader 更新的验证入口见[视频输出说明](../mainten
 fvm dart run tool/jnigen.dart
 ```
 
-protobuf 和 JNI 产物应从对应源定义及生成流程更新。生成后检查差异并运行相关测试。
+JNI 产物应从源定义和脚本更新。Bilibili protobuf 的来源状态与更新约定见[协议产物](../../lib/generated/README.md)。更新产物后检查差异并运行相关测试。
 
 ## 故障定位
 

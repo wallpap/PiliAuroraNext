@@ -2,7 +2,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_activity_cursor.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show ModuleAuthor, DynamicItem;
 import 'package:pili_aurora_next/grpc/dyn.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

@@ -5,7 +5,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/utils/storage.dart';
 

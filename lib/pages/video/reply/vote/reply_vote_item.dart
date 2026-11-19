@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show VoteCard;
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

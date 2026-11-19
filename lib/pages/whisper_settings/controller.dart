@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
     show IMSettingType, Setting;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/messaging/providers.dart';

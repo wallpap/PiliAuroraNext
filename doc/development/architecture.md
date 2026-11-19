@@ -56,7 +56,8 @@ flowchart LR
 | `lib/pages/` | 按用户功能组织 view、controller 和局部组件 | 路由、controller、对应测试 |
 | `lib/http/` | 业务 API 与请求层横切逻辑 | API 调用方、响应模型、`init.dart` |
 | `lib/services/` | 下载、消息、直播流、账号、诊断等跨页面或长生命周期能力 | 生命周期、资源所有者、对应测试 |
-| `lib/models/`、`lib/grpc/` | API 模型、共享数据、枚举及 gRPC/protobuf 数据 | 上游定义和生成流程 |
+| `lib/models/`、`lib/grpc/` | API 模型、共享数据、枚举及 gRPC 传输适配 | 功能层调用方、响应模型 |
+| `lib/generated/bilibili/` | Bilibili protobuf 生成快照 | [协议产物更新约定](../../lib/generated/README.md) |
 | `lib/plugin/pl_player/` | 播放状态、媒体源、弹幕、原生输出和全屏控制 | `controller.dart`、对应平台实现和测试 |
 | `lib/common/`、`lib/utils/` | 通用 UI、存储、缓存、平台判断及辅助逻辑 | 全部调用方，避免把页面状态放进通用层 |
 | `android/`、`windows/`、`third_party/` | 平台工程、插件和本地维护的依赖实现 | 依赖登记、生成脚本和平台构建配置 |

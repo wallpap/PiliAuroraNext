@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show SearchItem;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_search_type.dart';

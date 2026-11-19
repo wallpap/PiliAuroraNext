@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, Content, Member;
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';

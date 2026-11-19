@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/grpc/bilibili/metadata.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/metadata/device.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/metadata/fawkes.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/metadata/locale.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/metadata/network.pb.dart' as network;
+import 'package:pili_aurora_next/generated/bilibili/metadata.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/metadata/device.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/metadata/fawkes.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/metadata/locale.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/metadata/network.pb.dart' as network;
 import 'package:pili_aurora_next/utils/login_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 

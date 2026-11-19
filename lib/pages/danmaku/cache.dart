@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/utils/danmaku_utils.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';

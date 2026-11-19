@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show ModuleAuthor;
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';

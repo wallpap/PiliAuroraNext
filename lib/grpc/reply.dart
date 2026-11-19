@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/pagination.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/pagination.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

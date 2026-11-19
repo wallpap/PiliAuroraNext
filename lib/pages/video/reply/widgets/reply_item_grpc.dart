@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/text_ellipsis/text_ellipsis.dart';
 import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
 import 'package:pili_aurora_next/common/widgets/translucent_row.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, ReplyControl, Content, Url, ReplyControl_VoteOption, Emote;
 import 'package:pili_aurora_next/grpc/reply.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

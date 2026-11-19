@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/app/archive/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/archive/v1.pb.dart'
     show Dimension;
 
 extension DimensionExt on Dimension {

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart' as pb;
-import 'package:pili_aurora_next/grpc/bilibili/dagw/component/avatar/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart' as pb;
+import 'package:pili_aurora_next/generated/bilibili/dagw/component/avatar/v1.pb.dart'
     as avatar;
-import 'package:pili_aurora_next/grpc/bilibili/dagw/component/avatar/common.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/dagw/component/avatar/common.pb.dart'
     as avatar_common;
 import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

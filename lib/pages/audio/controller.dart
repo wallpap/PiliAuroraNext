@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/grpc/audio.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart'
     show
         DetailItem,
         PlayURLResp,

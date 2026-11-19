@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 
 /// 仅扫描本页及保留评论的预览，不读取设置、不查询用户资料。
 void filterRepliesByLevel(List<ReplyInfo> replies, int minimumLevel) {

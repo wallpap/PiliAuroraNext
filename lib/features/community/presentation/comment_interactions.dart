@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';

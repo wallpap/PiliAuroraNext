@@ -4,7 +4,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show LikeListReply, ModuleAuthor, RepostListRsp, DynamicItem, Extend;
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/http/api.dart';

@@ -4,7 +4,7 @@ import 'dart:io' show Platform;
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';

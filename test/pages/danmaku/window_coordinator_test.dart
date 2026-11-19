@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';

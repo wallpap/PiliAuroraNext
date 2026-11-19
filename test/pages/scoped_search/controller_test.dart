@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/interfaces/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/interfaces/v1.pb.dart'
     show SearchArchiveReply, SearchArchiveReq, Arc;
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';

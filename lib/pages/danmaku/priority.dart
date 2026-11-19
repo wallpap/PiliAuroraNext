@@ -1,6 +1,6 @@
 import 'dart:collection';
 
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 
 /// 100 ms 的优先候选额度；真实素材与密集合成素材共同验证的折中值。

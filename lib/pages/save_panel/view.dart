@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';

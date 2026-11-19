@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/settings.dart';

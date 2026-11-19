@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show SearchItemReply, SearchItem, SearchItemType;
 import 'package:pili_aurora_next/grpc/reply.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

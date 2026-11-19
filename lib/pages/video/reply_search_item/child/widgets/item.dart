@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show SearchItem, SearchItemVideoSubType;
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_search_type.dart';

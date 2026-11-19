@@ -3,7 +3,7 @@ import 'dart:io' show File, Platform;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart'
     show DetailItem;
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_info_h5/data.dart';

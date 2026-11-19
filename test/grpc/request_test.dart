@@ -6,10 +6,10 @@ import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/grpc/audio.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart'
     show ThumbUpReq_ThumbType;
-import 'package:pili_aurora_next/grpc/bilibili/im/interfaces/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/rpc.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/im/interfaces/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/rpc.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

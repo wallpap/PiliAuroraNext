@@ -6,7 +6,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/http/api.dart';

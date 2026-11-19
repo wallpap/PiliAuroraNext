@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 
 /// 来源接入处将服务端毫秒转换为媒体微秒。
 class DanmakuTimelineEntry {

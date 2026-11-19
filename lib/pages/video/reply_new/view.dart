@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';

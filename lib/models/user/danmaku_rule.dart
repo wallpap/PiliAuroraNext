@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/models/user/danmaku_block.dart';
 
 class RuleFilter {

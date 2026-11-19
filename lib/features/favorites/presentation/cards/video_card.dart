@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/select_mask.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pbenum.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';

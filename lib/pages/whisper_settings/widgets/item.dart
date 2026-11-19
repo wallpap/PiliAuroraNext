@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
     show SelectItem, Setting, SettingSwitch;
 import 'package:material_ui/material_ui.dart';
 import 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;

@@ -4,7 +4,7 @@ import 'dart:io' show File;
 
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/dm.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';

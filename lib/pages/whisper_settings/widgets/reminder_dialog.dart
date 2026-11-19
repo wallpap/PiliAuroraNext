@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart' show IMSettingType;
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart' show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/whisper_settings/controller.dart';

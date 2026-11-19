@@ -12,7 +12,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart'
     show RichTextItem;
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, CursorReply;
 import 'package:pili_aurora_next/http/loading_state.dart';
 
