@@ -46,9 +46,6 @@ class MainController extends GetxController
     if (value == DynamicBadgeMode.hidden) _dynamicUnread.clear();
   }
 
-  late bool checkDynamic = Pref.checkDynamic;
-  late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
-  late int _lastCheckDynamicAt = 0;
   late bool hasDyn = false;
   DiscoveryPageHandle? dynamicController;
   VoidCallback registerDynamicsPage(DiscoveryPageHandle handle) {
@@ -125,9 +122,7 @@ class MainController extends GetxController
         dynamicBadgeMode != DynamicBadgeMode.hidden &&
         hasDyn &&
         navigationBars[selectedIndex.value] != .dynamics;
-    if (_shouldCheckDynamic && checkDynamic) {
-      _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
-    }
+    if (_shouldCheckDynamic) _dynamicUnread.markInitialCheck();
 
     hasHome = navigationBars.contains(NavigationBarType.home);
     _shouldCheckMessages = msgBadgeMode != DynamicBadgeMode.hidden && hasHome;
@@ -170,16 +165,8 @@ class MainController extends GetxController
   }
 
   void checkUnreadDynamic() {
-    if (!hasDyn ||
-        !Accounts.main.isLogin ||
-        dynamicBadgeMode == DynamicBadgeMode.hidden ||
-        !checkDynamic) {
-      return;
-    }
-    int now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastCheckDynamicAt >= dynamicPeriod) {
-      _lastCheckDynamicAt = now;
-      getUnreadDynamic();
+    if (hasDyn && dynamicBadgeMode != DynamicBadgeMode.hidden) {
+      unawaited(_dynamicUnread.refreshIfDue());
     }
   }
 

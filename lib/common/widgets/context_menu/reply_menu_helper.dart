@@ -110,17 +110,16 @@ void showReplyCopyDialog(
               buttonItems.add(
                 ContextMenuButtonItem(
                   onPressed: () async {
-                    final previous = ReplyGrpc.replyRegExp;
-                    final enabled = ReplyGrpc.enableFilter;
+                    final previous = CommentFilterSettings.keywords;
                     final selected = RegExp.escape(state.selectedText!);
-                    final text = enabled ? '|$selected' : selected;
+                    final text = previous.isNotEmpty ? '|$selected' : selected;
 
                     final confirmed = await showConfirmDialog(
                       context: context,
                       title: const Text('是否确认评论过滤的变更：'),
                       content: Text.rich(
                         TextSpan(
-                          text: previous.pattern,
+                          text: previous,
                           children: [
                             TextSpan(
                               text: text,
@@ -133,23 +132,23 @@ void showReplyCopyDialog(
                         ),
                       ),
                     );
-                    if (!confirmed ||
-                        !context.mounted ||
-                        previous != ReplyGrpc.replyRegExp ||
-                        enabled != ReplyGrpc.enableFilter) {
-                      return;
+                    if (!confirmed || !context.mounted) return;
+                    try {
+                      final saved = await CommentFilterSettings.appendKeyword(
+                        previous,
+                        text,
+                      );
+                      if (saved && context.mounted) {
+                        SmartDialog.showToast('已保存');
+                      }
+                    } catch (error, stack) {
+                      logger.w(
+                        '评论过滤设置保存失败',
+                        error: error.runtimeType,
+                        stackTrace: stack,
+                      );
+                      if (context.mounted) SmartDialog.showToast('保存失败，请重试');
                     }
-                    final filter = previous.pattern + text;
-                    ReplyGrpc.replyRegExp = RegExp(
-                      filter,
-                      caseSensitive: true,
-                    );
-                    ReplyGrpc.enableFilter = true;
-                    GStorage.setting.put(
-                      SettingBoxKey.banWordForReply,
-                      filter,
-                    );
-                    SmartDialog.showToast('已保存');
                   },
                   label: '加入过滤',
                 ),

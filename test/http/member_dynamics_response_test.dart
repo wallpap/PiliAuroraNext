@@ -5,7 +5,6 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -83,7 +82,7 @@ void main() {
     requests.clear();
     failTransport = switchWhileSigning = false;
     body = respond = null;
-    DynamicsDataModel.enableFilter = false;
+    await GStorage.setting.delete(SettingBoxKey.banWordForDyn);
   });
   tearDownAll(() => Request.dio.close(force: true));
 
@@ -142,14 +141,7 @@ void main() {
   });
 
   test('空间动态过滤补页固定账号，拒绝无进展游标并限制请求数', () async {
-    final previousPattern = DynamicsDataModel.banWordForDyn;
-    final previousFilter = DynamicsDataModel.enableFilter;
-    addTearDown(() {
-      DynamicsDataModel.banWordForDyn = previousPattern;
-      DynamicsDataModel.enableFilter = previousFilter;
-    });
-    DynamicsDataModel.enableFilter = true;
-    DynamicsDataModel.banWordForDyn = RegExp('blocked');
+    await GStorage.setting.put(SettingBoxKey.banWordForDyn, 'blocked');
     final filtered = {
       'id_str': '1',
       'modules': {

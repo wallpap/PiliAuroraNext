@@ -8,6 +8,7 @@ import 'package:pili_aurora_next/grpc/reply.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../support/memory_box.dart';
 
@@ -42,10 +43,11 @@ void main() {
         ),
       );
   });
-  setUp(() {
-    ReplyGrpc.replyRegExp = RegExp('blocked');
-    ReplyGrpc.enableFilter = true;
-    ReplyGrpc.antiGoodsReply = true;
+  setUp(() async {
+    await GStorage.setting.putAll({
+      SettingBoxKey.banWordForReply: 'blocked',
+      SettingBoxKey.antiGoodsReply: true,
+    });
   });
   tearDownAll(() => Request.dio.close(force: true));
 
@@ -80,7 +82,10 @@ void main() {
     () async {
       body = MainListReply(upTop: reply(1, 'blocked'));
       expect((await query()).hasUpTop(), isFalse);
-      ReplyGrpc.enableFilter = ReplyGrpc.antiGoodsReply = false;
+      await GStorage.setting.putAll({
+        SettingBoxKey.banWordForReply: '',
+        SettingBoxKey.antiGoodsReply: false,
+      });
       body = MainListReply(upTop: reply(1, 'allowed', [reply(2, 'blocked')]));
       expect((await query()).upTop.replies.single.id.toInt(), 2);
     },

@@ -6,7 +6,6 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/grpc/reply.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
@@ -18,6 +17,7 @@ import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../../../support/memory_box.dart';
 
@@ -91,13 +91,11 @@ void main() {
     null,
     null,
   );
-  setUp(() {
+  setUp(() async {
     responses.clear();
     requests.clear();
     Accounts.accountMode[AccountType.main.index] = account('old');
-    ReplyGrpc.replyRegExp = RegExp('blocked');
-    ReplyGrpc.enableFilter = true;
-    ReplyGrpc.antiGoodsReply = false;
+    await GStorage.setting.put(SettingBoxKey.banWordForReply, 'blocked');
     query = commentQuery();
     container = ProviderContainer.test();
     final provider = commentsProvider(query);

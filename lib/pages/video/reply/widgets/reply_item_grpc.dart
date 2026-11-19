@@ -16,6 +16,7 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/text_ellipsis/text_ellipsis.dart';
 import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
 import 'package:pili_aurora_next/common/widgets/translucent_row.dart';
+import 'package:pili_aurora_next/features/community/application/comment_filter_settings.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, ReplyControl, Content, Url, ReplyControl_VoteOption, Emote;
 import 'package:pili_aurora_next/grpc/reply.dart';
@@ -47,7 +48,6 @@ import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/url_utils.dart';
@@ -97,8 +97,6 @@ class ReplyItemGrpc extends StatelessWidget {
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
-  static bool enableWordRe = Pref.enableWordRe;
-  static int? replyLengthLimit = Pref.replyLengthLimit;
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +345,7 @@ class ReplyItemGrpc extends StatelessWidget {
           child: TextMore.rich(
             primary: colorScheme.primary,
             style: const TextStyle(height: 1.75, fontSize: 14),
-            maxLines: replyLevel == 1 ? replyLengthLimit : null,
+            maxLines: replyLevel == 1 ? Pref.replyLengthLimit : null,
             TextSpan(
               children: [
                 if (replyControl.isUpTop) ...[
@@ -770,7 +768,7 @@ class ReplyItemGrpc extends StatelessWidget {
     }
 
     void addUrl(String matchStr, Url url, {bool addPlainText = false}) {
-      if (url.extra.isWordSearch && !enableWordRe) {
+      if (url.extra.isWordSearch && !Pref.enableWordRe) {
         if (addPlainText) {
           addPlainTextSpan(matchStr);
         }

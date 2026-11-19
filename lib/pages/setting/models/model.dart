@@ -308,7 +308,7 @@ class _SettingEdit {
 SettingsModel getBanWordModel({
   required String title,
   required String key,
-  required ValueChanged<RegExp> onChanged,
+  ValueChanged<RegExp>? onChanged,
 }) {
   String banWord = GStorage.setting.get(key, defaultValue: '');
   bool editing = false;
@@ -334,7 +334,7 @@ SettingsModel getBanWordModel({
             save: (pattern) async {
               await GStorage.setting.put(key, pattern.pattern);
               banWord = pattern.pattern;
-              edit.apply(() => onChanged(pattern));
+              edit.apply(() => onChanged?.call(pattern));
               setState();
             },
           ),
@@ -357,7 +357,6 @@ SettingsModel getVideoFilterSelectModel({
   bool isFilter = true,
   ValueChanged<int>? onChanged,
 }) {
-  assert(!isFilter || onChanged != null);
   int value = GStorage.setting.get(key, defaultValue: defaultValue);
   bool editing = false;
   return NormalModel(

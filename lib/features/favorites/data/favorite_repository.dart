@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/subscriptions/data/hidden_media.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 class FavoriteRepository {
@@ -286,4 +287,7 @@ class FavoriteRepository {
           )).data['location']
           as String;
   int? get quickFolder => Pref.quickFavId;
+
+  Future<void> setQuickFolder(int? id) =>
+      GStorage.setting.put(SettingBoxKey.quickFavId, id);
 }

@@ -40,7 +40,7 @@ class _Intro extends CommonIntroController {
   @override
   void actionTriple() {}
   @override
-  void actionLikeVideo() {}
+  Future<void> actionLikeVideo() async {}
 }
 
 void main() {

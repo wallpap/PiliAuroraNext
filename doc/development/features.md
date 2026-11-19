@@ -51,7 +51,7 @@
 
 页面修改前核对 aid、bvid、cid、`contentKey`、候选来源和起播策略，页面副作用提交时检查资源及 owner 身份。URL 不承担业务内容身份，页面通过 owner 控制播放。约束见[播放状态模型](playback-model.md)，原生交接见[运行流程](runtime-flows.md#播放器切源与网络恢复)。
 
-点播重选入口在 `video/controller.dart`、`video/playback_source.dart`，直播切流在 `live_room/controller.dart`，音频列表及控制在 `audio/controller.dart`。选择确认、失败重试及迟到回执约定见[状态管理](state-management.md#http-与写入结果)，定向回归见[测试目录](../../test/README.md)。
+点播重选入口在 `video/controller.dart`、`video/playback_source.dart`，直播切流在 `live_room/controller.dart`。`lib/features/playback/application/` 持有视频详情查询、视频互动与剧集收藏，以及独立音频的列表快照、排序和双向游标；音频控制与租约交接仍在 `audio/controller.dart`。选择确认、失败重试及迟到回执约定见[状态管理](state-management.md#http-与写入结果)，定向回归见[测试目录](../../test/README.md)。
 
 `lib/services/desktop_playback_windows.dart` 为每个小窗启动独立进程与播放器；主窗口管理排列、声音、设置快照和离线进度。Windows 超分重载、纹理释放与原生验证见[Windows 视频输出](../maintenance/windows-video-output.md)。Android 的 Surface 预挂载、旋转和 MediaCodec 恢复须单独验收。
 

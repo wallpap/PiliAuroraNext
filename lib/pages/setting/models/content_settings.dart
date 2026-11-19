@@ -2,25 +2,19 @@ import 'dart:io' show Platform;
 
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/grpc/reply.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/common/member/tab_type.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_level_filter.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart'
-    show DynamicsDataModel, ItemModulesModel;
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
-import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -104,7 +98,7 @@ List<SettingsModel> get contentSettings => [
         subtitle: '0行为不折叠',
         leading: const Icon(Icons.compress),
         getTrailing: (theme) => Text(
-          '${ReplyItemGrpc.replyLengthLimit}行',
+          '${Pref.replyLengthLimit ?? 0}行',
           style: theme.textTheme.titleSmall,
         ),
         onTap: _showReplyLengthDialog,
@@ -148,13 +142,12 @@ List<SettingsModel> get contentSettings => [
         onTap: _showFavDialog,
         defaultVal: false,
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '评论区搜索关键词',
         subtitle: '展示评论区搜索关键词',
-        leading: const Icon(Icons.search_outlined),
+        leading: Icon(Icons.search_outlined),
         setKey: SettingBoxKey.enableWordRe,
         defaultVal: false,
-        onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
       ),
       const SwitchModel(
         title: '禁用“收到的赞”入口和角标',
@@ -202,8 +195,8 @@ List<SettingsModel> get contentSettings => [
         setKey: SettingBoxKey.hideInvalidSubscriptionVideos,
         defaultVal: false,
       ),
-      SplitModel(
-        normalModel: const NormalModel.split(
+      const SplitModel(
+        normalModel: NormalModel.split(
           title: '检查未读动态',
           subtitle: '点击设置检查周期(min)',
           leading: Icon(Icons.notifications_none),
@@ -211,7 +204,6 @@ List<SettingsModel> get contentSettings => [
         switchModel: SwitchModel.split(
           defaultVal: true,
           setKey: SettingBoxKey.checkDynamic,
-          onChanged: (value) => Get.find<MainController>().checkDynamic = value,
           onTap: _showDynDialog,
         ),
       ),
@@ -230,13 +222,12 @@ List<SettingsModel> get contentSettings => [
             .put(SettingBoxKey.defaultDynamicType, value.index)
             .whenComplete(setState),
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '显示动态互动内容',
         subtitle: '开启后则在动态卡片底部显示互动内容（如关注的人点赞、热评等）',
-        leading: const Icon(Icons.quickreply_outlined),
+        leading: Icon(Icons.quickreply_outlined),
         setKey: SettingBoxKey.showDynInteraction,
         defaultVal: true,
-        onChanged: (val) => ItemModulesModel.showDynInteraction = val,
       ),
       NormalModel(
         title: '用户页默认展示TAB',
@@ -244,12 +235,11 @@ List<SettingsModel> get contentSettings => [
         getSubtitle: () => '当前优先展示「${Pref.memberTab.title}」',
         onTap: _showMemberTabDialog,
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '显示UP主页小店TAB',
-        leading: const Icon(Icons.shop_outlined),
+        leading: Icon(Icons.shop_outlined),
         setKey: SettingBoxKey.showMemberShop,
         defaultVal: false,
-        onChanged: (value) => MemberTabType.showMemberShop = value,
       ),
     ],
   ),
@@ -264,20 +254,15 @@ List<SettingsModel> get contentSettings => [
         setKey: SettingBoxKey.showArgueMsg,
         defaultVal: true,
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '显示动态警告/争议信息',
-        leading: const Icon(Icons.warning_amber_rounded),
+        leading: Icon(Icons.warning_amber_rounded),
         setKey: SettingBoxKey.showDynDispute,
         defaultVal: false,
-        onChanged: (val) => ItemModulesModel.showDynDispute = val,
       ),
       getBanWordModel(
         title: '评论关键词过滤',
         key: SettingBoxKey.banWordForReply,
-        onChanged: (value) {
-          ReplyGrpc.replyRegExp = value;
-          ReplyGrpc.enableFilter = value.pattern.isNotEmpty;
-        },
       ),
       PopupModel(
         title: '最低评论用户等级',
@@ -291,24 +276,18 @@ List<SettingsModel> get contentSettings => [
       getBanWordModel(
         title: '动态关键词过滤',
         key: SettingBoxKey.banWordForDyn,
-        onChanged: (value) {
-          DynamicsDataModel.banWordForDyn = value;
-          DynamicsDataModel.enableFilter = value.pattern.isNotEmpty;
-        },
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '屏蔽带货动态',
-        leading: const Icon(CustomIcons.shopping_bag_not_interested),
+        leading: Icon(CustomIcons.shopping_bag_not_interested),
         setKey: SettingBoxKey.antiGoodsDyn,
         defaultVal: false,
-        onChanged: (value) => DynamicsDataModel.antiGoodsDyn = value,
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '屏蔽带货评论',
-        leading: const Icon(CustomIcons.shopping_bag_not_interested),
+        leading: Icon(CustomIcons.shopping_bag_not_interested),
         setKey: SettingBoxKey.antiGoodsReply,
         defaultVal: false,
-        onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
       ),
     ],
   ),
@@ -378,12 +357,7 @@ Future<void> _showDynDialog(BuildContext context) => showDialog<void>(
       if (minutes <= 0) throw const FormatException();
       return minutes;
     },
-    save: (value) async {
-      await GStorage.setting.put(SettingBoxKey.dynamicPeriod, value);
-      if (Get.isRegistered<MainController>()) {
-        Get.find<MainController>().dynamicPeriod = value * 60 * 1000;
-      }
-    },
+    save: (value) => GStorage.setting.put(SettingBoxKey.dynamicPeriod, value),
   ),
 );
 
@@ -394,7 +368,7 @@ Future<void> _showReplyLengthDialog(
   context: context,
   builder: (_) => SettingInputDialog<int>(
     title: '评论折叠行数',
-    initialValue: (ReplyItemGrpc.replyLengthLimit ?? 0).toString(),
+    initialValue: (Pref.replyLengthLimit ?? 0).toString(),
     numeric: true,
     suffix: '行',
     validationMessage: '请输入非负整数',
@@ -406,7 +380,6 @@ Future<void> _showReplyLengthDialog(
     },
     save: (value) async {
       await GStorage.setting.put(SettingBoxKey.replyLengthLimit, value);
-      ReplyItemGrpc.replyLengthLimit = value == 0 ? null : value;
       setState();
     },
   ),
@@ -414,62 +387,61 @@ Future<void> _showReplyLengthDialog(
 
 Future<void> _showFavDialog(BuildContext context) async {
   final account = Accounts.main;
-  if (account.isLogin) {
-    final res = await FavHttp.allFavFolders(account.mid, account: account);
-    if (!context.mounted || !identical(account, Accounts.main)) return;
-    if (res case Success(:final response)) {
-      final list = response.list;
-      if (list == null || list.isEmpty) {
-        SmartDialog.showToast('暂无可选收藏夹');
-        return;
-      }
-      final quickFavId = Pref.quickFavId;
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          clipBehavior: Clip.hardEdge,
-          title: const Text('选择默认收藏夹'),
-          contentPadding: const EdgeInsets.only(top: 5, bottom: 18),
-          content: SingleChildScrollView(
-            child: RadioGroup(
-              onChanged: (value) async {
-                if (!identical(account, Accounts.main)) return;
-                final saved = await saveSetting(
-                  key: SettingBoxKey.quickFavId,
-                  write: () =>
-                      GStorage.setting.put(SettingBoxKey.quickFavId, value),
-                  canPresent: () =>
-                      context.mounted && identical(account, Accounts.main),
-                  successMessage: '设置成功',
-                );
-                if (saved &&
-                    context.mounted &&
-                    (ModalRoute.of(context)?.isCurrent ?? false)) {
-                  Navigator.pop(context);
-                }
-              },
-              groupValue: quickFavId,
-              child: Column(
-                children: list
-                    .map(
-                      (item) => RadioListTile(
-                        toggleable: true,
-                        dense: true,
-                        title: Text(item.title),
-                        value: item.id,
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
+  if (!account.isLogin) return;
+  final library = FavoriteLibrary.legacy;
+  final List<FavFolderInfo> folders;
+  try {
+    folders = await library.destinations(account);
+  } catch (error, stack) {
+    if (context.mounted && library.owns(account)) {
+      (error is Error ? error : Error.fromException(error, stack)).toast();
+    }
+    return;
+  }
+  if (!context.mounted || !library.owns(account)) return;
+  if (folders.isEmpty) {
+    SmartDialog.showToast('暂无可选收藏夹');
+    return;
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      clipBehavior: Clip.hardEdge,
+      title: const Text('选择默认收藏夹'),
+      contentPadding: const EdgeInsets.only(top: 5, bottom: 18),
+      content: SingleChildScrollView(
+        child: RadioGroup<int>(
+          onChanged: (value) async {
+            if (!library.owns(account)) return;
+            final saved = await saveSetting(
+              key: SettingBoxKey.quickFavId,
+              write: () => library.setQuickFolder(account, value),
+              canPresent: () => context.mounted && library.owns(account),
+              successMessage: '设置成功',
+            );
+            if (saved &&
+                context.mounted &&
+                library.owns(account) &&
+                (ModalRoute.of(context)?.isCurrent ?? false)) {
+              Navigator.pop(context);
+            }
+          },
+          groupValue: library.quickFolder,
+          child: Column(
+            children: [
+              for (final folder in folders)
+                RadioListTile<int>(
+                  toggleable: true,
+                  dense: true,
+                  title: Text(folder.title),
+                  value: folder.id,
+                ),
+            ],
           ),
         ),
-      );
-    } else {
-      res.toast();
-    }
-  }
+      ),
+    ),
+  );
 }
 
 Future<void> _showMemberTabDialog(

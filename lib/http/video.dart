@@ -35,10 +35,9 @@ import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_sign.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/recommend_filter.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/video_filter_preferences.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/services/blocked_authors.dart';
 import 'package:pili_aurora_next/utils/wbi_sign.dart';
@@ -47,9 +46,6 @@ import 'package:protobuf/protobuf.dart';
 
 /// view层根据 status 判断渲染逻辑
 abstract final class VideoHttp {
-  static RegExp zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
-  static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
-
   // 首页推荐视频
   static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
     required int ps,
@@ -75,12 +71,13 @@ abstract final class VideoHttp {
         options: Options(extra: {'account': account}),
         kind: ApiCallKind.query,
         decode: (body) {
+          final filter = VideoFilterPreferences.read();
           List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
           for (final i in body['data']['item']) {
             // 过滤非视频卡片；作者屏蔽由发现列表统一处理，以保留补位所需数量。
             if (i['goto'] == 'av' && i['owner'] != null) {
               RcmdVideoItemModel videoItem = RcmdVideoItemModel.fromJson(i);
-              if (!RecommendFilter.filter(videoItem)) {
+              if (!filter.blocksRecommendation(videoItem)) {
                 list.add(videoItem);
               }
             }
@@ -152,6 +149,7 @@ abstract final class VideoHttp {
       ),
       kind: ApiCallKind.query,
       decode: (body) {
+        final filter = VideoFilterPreferences.read();
         final list = <RcmdVideoItemAppModel>[];
         for (final i in body['data']['items']) {
           // 屏蔽推广卡片。
@@ -160,13 +158,11 @@ abstract final class VideoHttp {
               i['ad_info'] == null &&
               i['can_play'] == 1 &&
               i['args'] != null) {
-            if (enableFilter &&
-                i['args']?['tname'] != null &&
-                zoneRegExp.hasMatch(i['args']['tname'])) {
+            if (filter.blocksZone(i['args']['tname'])) {
               continue;
             }
             RcmdVideoItemAppModel videoItem = RcmdVideoItemAppModel.fromJson(i);
-            if (!RecommendFilter.filter(videoItem)) {
+            if (!filter.blocksRecommendation(videoItem)) {
               list.add(videoItem);
             }
           }
@@ -190,18 +186,15 @@ abstract final class VideoHttp {
       options: Options(extra: {'account': account}),
       kind: ApiCallKind.query,
       decode: (body) {
+        final filter = VideoFilterPreferences.read();
         List<HotVideoItemModel> list = <HotVideoItemModel>[];
         for (final i in body['data']['list']) {
-          if (!RecommendFilter.filterTitle(i['title']) &&
-              !RecommendFilter.filterLikeRatio(
+          if (!filter.blocksTitleOrEngagement(
+                i['title'],
                 i['stat']['like'],
                 i['stat']['view'],
-              )) {
-            if (enableFilter &&
-                i['tname'] != null &&
-                zoneRegExp.hasMatch(i['tname'])) {
-              continue;
-            }
+              ) &&
+              !filter.blocksZone(i['tname'])) {
             list.add(HotVideoItemModel.fromJson(i));
           }
         }
@@ -366,11 +359,12 @@ abstract final class VideoHttp {
       options: Options(extra: {'account': account}),
       kind: ApiCallKind.query,
       decode: (body) {
+        final filter = VideoFilterPreferences.read();
         final items = (body['data'] as List?)?.map(
           (i) => HotVideoItemModel.fromJson(i),
         );
-        final list = RecommendFilter.applyFilterToRelatedVideos
-            ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()
+        final list = filter.includeRelated
+            ? items?.where((i) => !filter.blocksVideo(i)).toList()
             : items?.toList();
         return list;
       },
@@ -1043,22 +1037,6 @@ abstract final class VideoHttp {
     }
   }
 
-  static bool _canAddRank(Map i) {
-    if (!RecommendFilter.filterTitle(i['title']) &&
-        !RecommendFilter.filterLikeRatio(
-          i['stat']['like'],
-          i['stat']['view'],
-        )) {
-      if (enableFilter &&
-          i['tname'] != null &&
-          zoneRegExp.hasMatch(i['tname'])) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }
-
   // 视频排行
   static Future<LoadingState<List<HotVideoItemModel>>> getRankVideoList(
     int rid, {
@@ -1073,9 +1051,15 @@ abstract final class VideoHttp {
         options: Options(extra: {'account': account}),
         kind: ApiCallKind.query,
         decode: (body) {
-          List<HotVideoItemModel> list = <HotVideoItemModel>[];
+          final filter = VideoFilterPreferences.read();
+          final list = <HotVideoItemModel>[];
           for (final i in body['data']['list']) {
-            if (_canAddRank(i)) {
+            if (!filter.blocksTitleOrEngagement(
+                  i['title'],
+                  i['stat']['like'],
+                  i['stat']['view'],
+                ) &&
+                !filter.blocksZone(i['tname'])) {
               list.add(HotVideoItemModel.fromJson(i));
             }
           }

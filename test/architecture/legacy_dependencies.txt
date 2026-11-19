@@ -225,16 +225,12 @@ pages/setting/decoder_test.dart -> utils/storage_pref.dart
 pages/setting/decoder_test_process.dart -> package:hive_ce/hive.dart
 pages/setting/decoder_test_process.dart -> utils/storage.dart
 pages/setting/decoder_test_process.dart -> utils/storage_pref.dart
-pages/setting/models/content_settings.dart -> grpc/reply.dart
-pages/setting/models/content_settings.dart -> http/fav.dart
 pages/setting/models/content_settings.dart -> utils/accounts.dart
 pages/setting/models/content_settings.dart -> utils/storage.dart
 pages/setting/models/content_settings.dart -> utils/storage_pref.dart
 pages/setting/models/model.dart -> utils/storage.dart
 pages/setting/models/play_settings.dart -> utils/storage.dart
 pages/setting/models/play_settings.dart -> utils/storage_pref.dart
-pages/setting/models/recommend_settings.dart -> http/video.dart
-pages/setting/models/recommend_settings.dart -> utils/recommend_filter.dart
 pages/setting/models/style_settings.dart -> utils/global_data.dart
 pages/setting/models/style_settings.dart -> utils/storage.dart
 pages/setting/models/style_settings.dart -> utils/storage_pref.dart

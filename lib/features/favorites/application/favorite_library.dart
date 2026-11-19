@@ -53,6 +53,13 @@ class FavoriteLibrary extends LibraryModule {
     return _repository.folders(account);
   }
 
+  int? get quickFolder => _repository.quickFolder;
+
+  Future<void> setQuickFolder(Account account, int? id) async {
+    if (!owns(account) || !account.isLogin) throw const Error('账号已切换或未登录');
+    await _repository.setQuickFolder(id);
+  }
+
   Future<FavFolderInfo> folder(Account account, int id) async {
     if (!owns(account) || id <= 0) throw const Error('账号或收藏夹已更新');
     return (await _repository.folder(account, id)).data;

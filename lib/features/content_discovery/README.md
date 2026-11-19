@@ -8,6 +8,7 @@
 - `data/recommendation_repository.dart`：接收查询捕获的推荐账号、App/Web 来源、页索引、容量和取消令牌，适配 `VideoHttp`。请求排队后不再读取当前推荐角色。
 - `application/discovery_filter.dart`：新推荐与历史发现列表共用过滤、去重和待补查作者判定。黑名单同步仍由 `BlockedAuthors` 持有，合作作者身份缓存与两路检查由 `CooperativeAuthors.shared` 持有；屏蔽结论每次按当前规则重算。
 - `application/recommendation_preferences.dart`：观察 Hive 的 App/Web、保留上次内容与历史提示开关。来源切换取消旧查询并从第一页重读；历史开关更新当前提示与下一次刷新，不要求设置页找到已挂载的推荐页。
+- `data/video_filter_preferences.dart`：每页解码读取一份已保存的标题、分区和阈值快照，按入口保留原过滤范围；损坏的正则只禁用对应关键词规则，不阻断列表。
 - `presentation/`：Widget 持有滚动控制器和保活；视口仅上报容量、列数与活动状态。`RecommendationPageHandle` 供旧首页壳刷新、滚动和诊断读取；卸载按句柄身份注销，旧页面不能移除新页面注册。
 
 没有独立领域对象时直接沿用共享的视频模型；不为目录对称增加转发模型。列表快照不可修改，合作作者集合沿共享模型保留原有补查语义。

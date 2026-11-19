@@ -78,6 +78,48 @@ void main() {
     });
   });
   tearDownAll(() => Request.dio.close(force: true));
+  test(
+    'discovery decodes each page with the saved title and zone filters',
+    () async {
+      addTearDown(() async {
+        await GStorage.setting.delete(SettingBoxKey.banWordForRecommend);
+        await GStorage.setting.delete(SettingBoxKey.banWordForZone);
+      });
+      Map<String, dynamic> video(String title, String zone) => {
+        'title': title,
+        'tname': zone,
+        'duration': 90,
+        'owner': {'mid': 1},
+        'stat': {'like': 20, 'view': 100},
+      };
+      body = {
+        'code': 0,
+        'data': {
+          'list': [
+            video('Spoiler', 'Video'),
+            video('Demo', 'Game'),
+            video('Saved', 'Video'),
+          ],
+        },
+      };
+      await GStorage.setting.putAll({
+        SettingBoxKey.banWordForRecommend: 'spoiler',
+        SettingBoxKey.banWordForZone: 'game',
+      });
+      expect(
+        (await VideoHttp.hotVideoList(
+          pn: 1,
+          ps: 20,
+        )).data.map((item) => item.title),
+        ['Saved'],
+      );
+      await GStorage.setting.put(SettingBoxKey.banWordForRecommend, '[');
+      expect(
+        (await VideoHttp.getRankVideoList(0)).data.map((item) => item.title),
+        ['Spoiler', 'Saved'],
+      );
+    },
+  );
   test('15类视频查询保留拒绝码，非法响应和传输失败通过结果交付', () async {
     for (final query in queries) {
       body = {'code': -403, 'message': '拒绝查询'};

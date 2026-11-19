@@ -11,10 +11,8 @@ enum MemberTabType {
   shop('小店'),
   ;
 
-  static bool showMemberShop = Pref.showMemberShop;
-
   static bool contains(String type) {
-    if (type == shop.name && !showMemberShop) {
+    if (type == shop.name && !Pref.showMemberShop) {
       return false;
     }
     for (final e in MemberTabType.values) {

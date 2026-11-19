@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
+import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/article_content_model.dart';
 import 'package:pili_aurora_next/models/model_avatar.dart';
@@ -40,14 +41,6 @@ class DynamicsDataModel {
     return title ?? '';
   }
 
-  static RegExp banWordForDyn = RegExp(
-    Pref.banWordForDyn,
-    caseSensitive: false,
-  );
-  static bool enableFilter = banWordForDyn.pattern.isNotEmpty;
-
-  static bool antiGoodsDyn = Pref.antiGoodsDyn;
-
   DynamicsDataModel.fromJson(
     Map<String, dynamic> json, {
     DynamicsTabType type = DynamicsTabType.all,
@@ -57,25 +50,26 @@ class DynamicsDataModel {
 
     List? list = json['items'] as List?;
     if (list != null && list.isNotEmpty) {
+      final (:keywords, :hideGoods) = ContentFilterPreferences.dynamics();
       items = <DynamicItemModel>[];
       late final filterBan =
           type != DynamicsTabType.up && tempBannedList?.isNotEmpty == true;
       for (final e in list) {
         DynamicItemModel item = DynamicItemModel.fromJson(e);
-        if (antiGoodsDyn &&
+        if (hideGoods &&
             (item.orig?.modules.moduleDynamic?.additional?.type ==
                     'ADDITIONAL_TYPE_GOODS' ||
                 item.modules.moduleDynamic?.additional?.type ==
                     'ADDITIONAL_TYPE_GOODS')) {
           continue;
         }
-        if (enableFilter) {
+        if (keywords != null) {
           if (item.orig case final orig?) {
-            if (banWordForDyn.hasMatch(_getMatchText(orig))) {
+            if (keywords.hasMatch(_getMatchText(orig))) {
               continue;
             }
           }
-          if (banWordForDyn.hasMatch(_getMatchText(item))) {
+          if (keywords.hasMatch(_getMatchText(item))) {
             continue;
           }
         }
@@ -178,9 +172,6 @@ class ItemModulesModel {
   ModuleBlocked? moduleBlocked;
   ModuleFold? moduleFold;
 
-  static bool showDynDispute = Pref.showDynDispute;
-  static bool showDynInteraction = Pref.showDynInteraction;
-
   ItemModulesModel.fromJson(Map<String, dynamic> json) {
     moduleAuthor = json['module_author'] != null
         ? ModuleAuthorModel.fromJson(json['module_author'])
@@ -197,12 +188,12 @@ class ItemModulesModel {
     moduleFold = json['module_fold'] != null
         ? ModuleFold.fromJson(json['module_fold'])
         : null;
-    if (showDynInteraction) {
+    if (Pref.showDynInteraction) {
       moduleInteraction = json['module_interaction'] != null
           ? ModuleInteraction.fromJson(json['module_interaction'])
           : null;
     }
-    if (showDynDispute) {
+    if (Pref.showDynDispute) {
       moduleDispute = json['module_dispute'] != null
           ? ModuleDispute.fromJson(json['module_dispute'])
           : null;
