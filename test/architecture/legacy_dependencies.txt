@@ -142,7 +142,6 @@ pages/episode_panel/view.dart -> http/fav.dart
 pages/episode_panel/view.dart -> http/video.dart
 pages/episode_panel/view.dart -> utils/accounts.dart
 pages/episode_panel/view.dart -> utils/storage_pref.dart
-pages/home/controller.dart -> utils/storage.dart
 pages/home/controller.dart -> utils/storage_pref.dart
 pages/home/controller.dart#HomeController -> GetxController
 pages/live/widgets/live_item_app.dart -> http/live.dart

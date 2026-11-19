@@ -7,12 +7,10 @@ import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_
 import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/http/constants.dart';
 import 'package:pili_aurora_next/models/common/bar_hide_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/common/follow_order_type.dart';
 import 'package:pili_aurora_next/models/common/member/tab_type.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
@@ -228,24 +226,6 @@ abstract final class Pref {
 
   static int get picQuality =>
       _setting.get(SettingBoxKey.defaultPicQa, defaultValue: 10);
-
-  static DynamicBadgeMode get dynamicBadgeType =>
-      DynamicBadgeMode.values[_setting.get(
-        SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
-      )];
-
-  static DynamicBadgeMode get msgBadgeMode =>
-      DynamicBadgeMode.values[_setting.get(
-        SettingBoxKey.msgBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
-      )];
-
-  static Set<MsgUnReadType> get msgUnReadTypeV2 =>
-      (_setting.get(SettingBoxKey.msgUnReadTypeV2) as List?)
-          ?.map((index) => MsgUnReadType.values[index])
-          .toSet() ??
-      MsgUnReadType.values.toSet();
 
   static int get previewQ =>
       _setting.get(SettingBoxKey.previewQuality, defaultValue: 100);
@@ -869,12 +849,6 @@ abstract final class Pref {
       ReplySortType.values[_setting.get(
         SettingBoxKey.reply2SortType,
         defaultValue: ReplySortType.time.index,
-      )];
-
-  static DynamicBadgeMode get dynamicBadgeMode =>
-      DynamicBadgeMode.values[_setting.get(
-        SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
       )];
 
   static bool get enableMYBar =>

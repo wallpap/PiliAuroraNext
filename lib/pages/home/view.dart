@@ -7,9 +7,15 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
+import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
+import 'package:pili_aurora_next/pages/hot/view.dart';
+import 'package:pili_aurora_next/pages/live/view.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/pages/pgc/view.dart';
+import 'package:pili_aurora_next/pages/rank/view.dart';
+import 'package:pili_aurora_next/pages/rcmd/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
@@ -97,7 +103,14 @@ class _HomePageState extends CommonPageState<HomePage>
                   TabActivity(
                     controller: _homeController.tabController,
                     index: index,
-                    child: tab.page,
+                    child: switch (tab) {
+                      .live => const LivePage(),
+                      .rcmd => const RcmdPage(),
+                      .hot => const HotPage(),
+                      .rank => const RankPage(),
+                      .bangumi => const PgcPage(tabType: HomeTabType.bangumi),
+                      .cinema => const PgcPage(tabType: HomeTabType.cinema),
+                    },
                   ),
               ],
             ),
@@ -292,39 +305,36 @@ Widget msgBadge(MainController mainController) {
       final unread = ref.watch(overviewProvider);
       final disableLike = ref.watch(disableLikeMessagesProvider);
       final isLogin = ref.watch(mainAccountProvider).isLogin;
-      return Obx(
-        () {
-          mainController.msgBadgeRevision.value;
-          if (isLogin) {
-            final total = unread.total(
-              mainController.msgUnReadTypes,
-              disableLike: disableLike,
-            );
-            final count = total == null || total == 0
-                ? null
-                : total > 99
-                ? '99+'
-                : '$total';
-            final isNumBadge = mainController.msgBadgeMode == .number;
-            return IconButton(
-              tooltip: '消息',
-              onPressed: () {
-                mainController.lastCheckUnreadAt =
-                    DateTime.now().millisecondsSinceEpoch;
-                Get.toNamed('/whisper');
-              },
-              icon: Badge(
-                isLabelVisible:
-                    mainController.msgBadgeMode != .hidden && count != null,
-                alignment: isNumBadge
-                    ? const Alignment(0.0, -0.85)
-                    : const Alignment(1.0, -0.85),
-                label: isNumBadge && count != null ? Text(count) : null,
-                child: const Icon(Icons.notifications_none),
-              ),
-            );
-          }
-          return const SizedBox.shrink();
+      if (!isLogin) return const SizedBox.shrink();
+      return ValueListenableBuilder(
+        valueListenable: mainController.messageBadge,
+        builder: (context, preferences, _) {
+          final total = unread.total(
+            preferences.types,
+            disableLike: disableLike,
+          );
+          final count = total == null || total == 0
+              ? null
+              : total > 99
+              ? '99+'
+              : '$total';
+          final isNumBadge = preferences.mode == .number;
+          return IconButton(
+            tooltip: '消息',
+            onPressed: () {
+              mainController.lastCheckUnreadAt =
+                  DateTime.now().millisecondsSinceEpoch;
+              Get.toNamed('/whisper');
+            },
+            icon: Badge(
+              isLabelVisible: preferences.mode != .hidden && count != null,
+              alignment: isNumBadge
+                  ? const Alignment(0.0, -0.85)
+                  : const Alignment(1.0, -0.85),
+              label: isNumBadge && count != null ? Text(count) : null,
+              child: const Icon(Icons.notifications_none),
+            ),
+          );
         },
       );
     },

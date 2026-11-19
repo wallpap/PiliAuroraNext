@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_unread.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
@@ -12,6 +11,7 @@ import 'package:pili_aurora_next/pages/mine/view.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/overview.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
+import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
 import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
@@ -41,10 +41,6 @@ class MainController extends GetxController
   ValueListenable<DynamicBadgeMode> get dynamicBadgeModeChanges =>
       _dynamicBadgeMode;
   DynamicBadgeMode get dynamicBadgeMode => _dynamicBadgeMode.value;
-  set dynamicBadgeMode(DynamicBadgeMode value) {
-    _dynamicBadgeMode.value = value;
-    if (value == DynamicBadgeMode.hidden) _dynamicUnread.clear();
-  }
 
   late bool hasDyn = false;
   DiscoveryPageHandle? dynamicController;
@@ -58,9 +54,12 @@ class MainController extends GetxController
   late bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
 
-  late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
-  late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
-  final msgBadgeRevision = 0.obs;
+  late final _messageBadge = ValueNotifier<MessageBadgePreferences>((
+    mode: BadgePreferences.messageMode,
+    types: BadgePreferences.messageTypes,
+  ));
+  ValueListenable<MessageBadgePreferences> get messageBadge => _messageBadge;
+  late final StreamSubscription<BadgePreferenceChange> _badgeSubscription;
   late int lastCheckUnreadAt = 0;
 
   final enableMYBar = Pref.enableMYBar;
@@ -115,7 +114,7 @@ class MainController extends GetxController
       }
     }
 
-    dynamicBadgeMode = Pref.dynamicBadgeMode;
+    _dynamicBadgeMode.value = BadgePreferences.dynamicMode;
 
     hasDyn = navigationBars.contains(NavigationBarType.dynamics);
     _shouldCheckDynamic =
@@ -125,10 +124,12 @@ class MainController extends GetxController
     if (_shouldCheckDynamic) _dynamicUnread.markInitialCheck();
 
     hasHome = navigationBars.contains(NavigationBarType.home);
-    _shouldCheckMessages = msgBadgeMode != DynamicBadgeMode.hidden && hasHome;
+    _shouldCheckMessages =
+        _messageBadge.value.mode != DynamicBadgeMode.hidden && hasHome;
     if (_shouldCheckMessages) {
       lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
     }
+    _badgeSubscription = BadgePreferences.changes.listen(_onBadgePreference);
   }
 
   @override
@@ -143,14 +144,31 @@ class MainController extends GetxController
     if (_shouldCheckMessages) unawaited(queryUnreadMsg());
   }
 
-  void updateMessageBadge() => msgBadgeRevision.value++;
+  void _onBadgePreference(BadgePreferenceChange change) {
+    switch (change) {
+      case DynamicBadgeModeChanged(:final mode):
+        _dynamicBadgeMode.value = mode;
+        if (mode == DynamicBadgeMode.hidden) {
+          _dynamicUnread.clear();
+        } else {
+          getUnreadDynamic();
+        }
+      case MessageBadgeModeChanged(:final mode):
+        _messageBadge.value = (mode: mode, types: _messageBadge.value.types);
+        if (mode != DynamicBadgeMode.hidden) unawaited(queryUnreadMsg());
+      case MessageBadgeTypesChanged(:final types):
+        final mode = _messageBadge.value.mode;
+        _messageBadge.value = (mode: mode, types: types);
+        if (mode != DynamicBadgeMode.hidden) unawaited(queryUnreadMsg());
+    }
+  }
 
-  Future<void> queryUnreadMsg([bool isChangeType = false]) async {
-    updateMessageBadge();
+  Future<void> queryUnreadMsg() async {
+    final (:mode, :types) = _messageBadge.value;
     if (!Accounts.main.isLogin ||
         !hasHome ||
-        msgUnReadTypes.isEmpty ||
-        msgBadgeMode == DynamicBadgeMode.hidden) {
+        types.isEmpty ||
+        mode == DynamicBadgeMode.hidden) {
       return;
     }
     await overviewFor(Messaging.instance.session).refresh();
@@ -189,7 +207,7 @@ class MainController extends GetxController
   void checkUnread([bool shouldCheck = false]) {
     if (Accounts.main.isLogin &&
         hasHome &&
-        msgBadgeMode != DynamicBadgeMode.hidden) {
+        _messageBadge.value.mode != DynamicBadgeMode.hidden) {
       if (shouldCheck &&
           navigationBars[selectedIndex.value] != NavigationBarType.home) {
         return;
@@ -276,8 +294,10 @@ class MainController extends GetxController
   @override
   void onClose() {
     Accounts.mainChanges.removeListener(_onMainChanged);
+    unawaited(_badgeSubscription.cancel());
     _dynamicUnread.dispose();
     _dynamicBadgeMode.dispose();
+    _messageBadge.dispose();
     _unregisterPageDiagnostics();
     barOffset?.close();
     controller.dispose();

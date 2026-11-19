@@ -54,6 +54,20 @@ void main() {
     );
   });
 
+  testWidgets('过期首页标签被过滤，仍默认打开推荐', (tester) async {
+    await GStorage.setting.put(SettingBoxKey.tabBarSort, [
+      99,
+      HomeTabType.hot.index,
+      'old',
+      HomeTabType.rcmd.index,
+      HomeTabType.hot.index,
+    ]);
+    addTearDown(() => GStorage.setting.delete(SettingBoxKey.tabBarSort));
+    final controller = Get.put(HomeController());
+    expect(controller.tabs, [HomeTabType.hot, HomeTabType.rcmd]);
+    expect(controller.tabs[controller.tabController.index], HomeTabType.rcmd);
+  });
+
   testWidgets('Get 删除首页控制器时注销诊断源', (tester) async {
     final controller = Get.put<HomeController>(HomeController());
     expect(Diagnostics.instance.readSources(prefix: 'homePage'), isNotEmpty);

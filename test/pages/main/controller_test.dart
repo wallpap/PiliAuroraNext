@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
+import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -15,14 +17,16 @@ import '../../support/memory_box.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final store = _PendingBadgeSettings();
   setUpAll(() {
-    GStorage.setting = MemoryBox<dynamic>();
+    GStorage.setting = store;
     GStorage.localCache = MemoryBox<dynamic>();
     GStorage.userInfo = MemoryBox<UserInfoData>();
   });
 
   setUp(() async {
     Get.testMode = true;
+    store.pendingMode = null;
     await GStorage.setting.clear();
     await GStorage.setting.putAll({
       SettingBoxKey.autoUpdate: false,
@@ -123,6 +127,31 @@ void main() {
 
     expect(controller.dynamicCalls, 0);
     expect(controller.messageCalls, 0);
+  });
+
+  testWidgets('角标设置落盘后才应用；隐藏期间修改消息类型不触发刷新', (tester) async {
+    final controller = _CountingMainController();
+    Get.put<MainController>(controller);
+    await tester.pumpWidget(const SizedBox());
+    expect(controller.messageCalls, 1);
+
+    final pending = store.pendingMode = Completer<void>();
+    final hide = BadgePreferences.saveMessageMode(DynamicBadgeMode.hidden);
+    await tester.pump();
+    expect(controller.messageBadge.value.mode, DynamicBadgeMode.number);
+    pending.complete();
+    await hide;
+    await tester.pump();
+    expect(controller.messageBadge.value.mode, DynamicBadgeMode.hidden);
+
+    await BadgePreferences.saveMessageTypes({MsgUnReadType.reply});
+    await tester.pump();
+    expect(controller.messageBadge.value.types, {MsgUnReadType.reply});
+    expect(controller.messageCalls, 1);
+    await BadgePreferences.saveMessageMode(DynamicBadgeMode.point);
+    await tester.pump();
+    expect(controller.messageBadge.value.mode, DynamicBadgeMode.point);
+    expect(controller.messageCalls, 2);
   });
 
   for (final scenario in [
@@ -297,9 +326,19 @@ class _CountingMainController extends MainController {
   }
 
   @override
-  Future<void> queryUnreadMsg([bool isChangeType = false]) {
+  Future<void> queryUnreadMsg() {
     messageCalls++;
     phases.add(SchedulerBinding.instance.schedulerPhase);
     return messageResponse?.future ?? Future<void>.value();
+  }
+}
+
+class _PendingBadgeSettings extends MemoryBox<dynamic> {
+  Completer<void>? pendingMode;
+
+  @override
+  Future<void> put(dynamic key, dynamic value) async {
+    if (key == SettingBoxKey.msgBadgeMode) await pendingMode?.future;
+    await super.put(key, value);
   }
 }

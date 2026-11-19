@@ -186,7 +186,7 @@ void main() {
           final enumDispatch =
               source == 'models/common/home_tab_type.dart' &&
               (uri.startsWith('package:get/') ||
-                  target?.endsWith('/controller.dart') == true);
+                  target?.startsWith('pages/') == true);
           if (removed.contains(target) || settingsToPage || enumDispatch) {
             violations.add('$root/$source -> $uri');
           }

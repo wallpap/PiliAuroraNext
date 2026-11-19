@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -34,6 +35,18 @@ abstract final class NavigationPreferences {
         ? NavigationBarType.values
         : List<NavigationBarType>.unmodifiable(configured);
     final index = tabs.indexOf(defaultTab);
+    return (tabs: tabs, index: index < 0 ? 0 : index);
+  }
+
+  static ({List<HomeTabType> tabs, int index}) readHome() {
+    final configured = orderFor(SettingBoxKey.tabBarSort)
+        ?.where((index) => index >= 0 && index < HomeTabType.values.length)
+        .map((index) => HomeTabType.values[index])
+        .toList();
+    final tabs = configured == null || configured.isEmpty
+        ? HomeTabType.values
+        : List<HomeTabType>.unmodifiable(configured);
+    final index = tabs.indexOf(HomeTabType.rcmd);
     return (tabs: tabs, index: index < 0 ? 0 : index);
   }
 }

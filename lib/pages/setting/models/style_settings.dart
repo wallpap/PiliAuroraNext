@@ -31,6 +31,7 @@ import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
+import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
 import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
@@ -345,14 +346,14 @@ List<SettingsModel> get styleSettings => [
       PopupModel(
         title: '动态未读标记',
         leading: const Icon(Icons.motion_photos_on_outlined),
-        value: () => Pref.dynamicBadgeType,
+        value: () => BadgePreferences.dynamicMode,
         items: DynamicBadgeMode.values,
         onSelected: _setDynBadge,
       ),
       PopupModel(
         title: '消息未读标记',
         leading: const Icon(MdiIcons.bellBadgeOutline),
-        value: () => Pref.msgBadgeMode,
+        value: () => BadgePreferences.messageMode,
         items: DynamicBadgeMode.values,
         onSelected: _setMsgBadge,
       ),
@@ -361,7 +362,7 @@ List<SettingsModel> get styleSettings => [
         title: '消息未读类型',
         leading: const Icon(MdiIcons.bellCogOutline),
         getSubtitle: () =>
-            '当前消息类型：${Pref.msgUnReadTypeV2.map((item) => item.title).join('、')}',
+            '当前消息类型：${BadgePreferences.messageTypes.map((item) => item.title).join('、')}',
       ),
     ],
   ),
@@ -868,14 +869,8 @@ Future<void> _showCardWidthDialog(
 Future<void> _setDynBadge(DynamicBadgeMode value, VoidCallback setState) async {
   await saveSetting(
     key: SettingBoxKey.dynamicBadgeMode,
-    write: () =>
-        GStorage.setting.put(SettingBoxKey.dynamicBadgeMode, value.index),
-    apply: () {
-      final mainController = Get.find<MainController>()
-        ..dynamicBadgeMode = value;
-      if (value != DynamicBadgeMode.hidden) mainController.getUnreadDynamic();
-      setState();
-    },
+    write: () => BadgePreferences.saveDynamicMode(value),
+    apply: setState,
     canPresent: () => true,
   );
 }
@@ -883,16 +878,8 @@ Future<void> _setDynBadge(DynamicBadgeMode value, VoidCallback setState) async {
 Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {
   await saveSetting(
     key: SettingBoxKey.msgBadgeMode,
-    write: () => GStorage.setting.put(SettingBoxKey.msgBadgeMode, value.index),
-    apply: () {
-      final mainController = Get.find<MainController>()..msgBadgeMode = value;
-      if (value != DynamicBadgeMode.hidden) {
-        mainController.queryUnreadMsg(true);
-      } else {
-        mainController.updateMessageBadge();
-      }
-      setState();
-    },
+    write: () => BadgePreferences.saveMessageMode(value),
+    apply: setState,
     canPresent: () => true,
   );
 }
@@ -905,24 +892,15 @@ Future<void> _showMsgUnReadDialog(
     context: context,
     builder: (context) => MultiSelectDialog<MsgUnReadType>(
       title: '消息未读类型',
-      initValues: Pref.msgUnReadTypeV2,
+      initValues: BadgePreferences.messageTypes,
       values: {for (final i in MsgUnReadType.values) i: i.title},
     ),
   );
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.msgUnReadTypeV2,
-      write: () => GStorage.setting.put(
-        SettingBoxKey.msgUnReadTypeV2,
-        res.map((item) => item.index).toList()..sort(),
-      ),
-      apply: () {
-        final mainController = Get.find<MainController>()..msgUnReadTypes = res;
-        if (mainController.msgBadgeMode != DynamicBadgeMode.hidden) {
-          mainController.queryUnreadMsg();
-        }
-        setState();
-      },
+      write: () => BadgePreferences.saveMessageTypes(res),
+      apply: setState,
       canPresent: () => context.mounted,
       successMessage: '设置成功',
     );
