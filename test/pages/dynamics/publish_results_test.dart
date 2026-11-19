@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/features/community/application/vote_editor.dart
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
@@ -395,7 +395,7 @@ void main() {
 
   testWidgets('动态可见性查询故障只报告无法确认，不误报仅自己可见', (tester) async {
     await mount(tester);
-    final pending = RequestUtils.checkCreatedDyn(id: '1', isManual: true);
+    final pending = checkPublishedDynamic(id: '1', isManual: true);
     await until(tester, () => requests.length == 1);
     requests.single.reply.complete({'code': -500, 'message': '服务暂不可用'});
     await settle(tester);

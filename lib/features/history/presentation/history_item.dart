@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_action.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
@@ -222,8 +222,7 @@ class HistoryItem extends StatelessWidget {
                       business != 'live' &&
                       business?.contains('article') != true)
                     AppPopupMenuItem(
-                      onTap: () =>
-                          RequestUtils.addToWatchLater(bvid: item.history.bvid),
+                      onTap: () => addToWatchLater(bvid: item.history.bvid),
                       height: 38,
                       child: const Row(
                         children: [

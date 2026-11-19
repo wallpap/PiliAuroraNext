@@ -8,6 +8,7 @@ import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve/data.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 final dynamicDetailsProvider = Provider(
   (ref) => DynamicDetails(ref.read(dynamicsRepositoryProvider)),
@@ -17,6 +18,7 @@ class DynamicDetails {
   DynamicDetails(this._repository);
 
   static final legacy = DynamicDetails(const DynamicsRepository());
+  static bool get checkAfterPublish => Pref.enableCreateDynAntifraud;
 
   final DynamicsRepository _repository;
   final _pending = HashMap<Account, Set<Object>>.identity();

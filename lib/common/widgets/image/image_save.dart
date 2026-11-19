@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_action.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
@@ -69,7 +69,7 @@ void imageSaveDialog({
                           tooltip: '稍后再看',
                           onPressed: () => {
                             Get.back(),
-                            RequestUtils.addToWatchLater(aid: aid, bvid: bvid),
+                            addToWatchLater(aid: aid, bvid: bvid),
                           },
                           icon: const Icon(Icons.watch_later_outlined),
                         ),

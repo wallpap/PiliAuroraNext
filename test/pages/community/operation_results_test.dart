@@ -38,7 +38,7 @@ import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/reply_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_visibility_dialog.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -643,7 +643,7 @@ void main() {
     await finish(tester);
   });
 
-  Future<void> checkReply(CommentReply item) => ReplyUtils.onCheckReply(
+  Future<void> checkReply(CommentReply item) => checkReplyVisibility(
     replyInfo: item,
     biliSendCommAntifraud: false,
     sourceId: 1,
@@ -685,7 +685,7 @@ void main() {
 
   testWidgets('评论管理：自动检查延迟期间离开后不发请求', (tester) async {
     await mountReplyCheck(tester);
-    final action = ReplyUtils.onCheckReply(
+    final action = checkReplyVisibility(
       replyInfo: reply(2),
       biliSendCommAntifraud: false,
       sourceId: 1,
@@ -707,7 +707,7 @@ void main() {
     final sourceRoute = Get.routing.route;
     Get.to<void>(() => const Scaffold(body: Text('发布页')));
     await settle(tester);
-    final action = ReplyUtils.onCheckReply(
+    final action = checkReplyVisibility(
       replyInfo: reply(2),
       biliSendCommAntifraud: false,
       sourceId: 1,
@@ -738,7 +738,7 @@ void main() {
   testWidgets('评论管理：来源替换或账号切换不交付旧检查结果', (tester) async {
     await mountReplyCheck(tester);
     var current = true;
-    final replaced = ReplyUtils.onCheckReply(
+    final replaced = checkReplyVisibility(
       replyInfo: reply(2),
       biliSendCommAntifraud: false,
       sourceId: 1,

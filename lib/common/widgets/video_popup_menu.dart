@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_action.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
@@ -139,7 +139,7 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                     _VideoCustomAction(
                       '稍后再看',
                       const Icon(MdiIcons.clockTimeEightOutline, size: 16),
-                      () => RequestUtils.addToWatchLater(bvid: videoItem.bvid),
+                      () => addToWatchLater(bvid: videoItem.bvid),
                     ),
                   if (videoItem.cid != null && Pref.enableAi)
                     _VideoCustomAction(

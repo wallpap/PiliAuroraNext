@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart'
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/reply_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_visibility_dialog.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -113,7 +113,7 @@ class _MyReplyState extends ConsumerState<MyReply> with DynMixin {
 
   void _onCheckReply(CommentReply replyInfo) {
     final oid = replyInfo.oid.toInt();
-    ReplyUtils.onCheckReply(
+    checkReplyVisibility(
       replyInfo: replyInfo,
       biliSendCommAntifraud: CommentPreferences.checkSendVisibility,
       sourceId: switch (replyInfo.type.toInt()) {

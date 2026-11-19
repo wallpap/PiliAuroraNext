@@ -33,7 +33,7 @@ import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -828,10 +828,10 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
         }
         if (response != null && !isPrivate && publishTime == null) {
           unawaited(
-            RequestUtils.checkCreatedDyn(
+            checkPublishedDynamic(
               id: response,
               dynText: rawText,
-              account: account,
+              owner: identity,
             ),
           );
         }

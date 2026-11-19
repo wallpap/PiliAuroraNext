@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/features/account/application/account_scope.dart
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:collection/collection.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
@@ -490,10 +490,10 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
         }
         if (response != null) {
           unawaited(
-            RequestUtils.checkCreatedDyn(
+            checkPublishedDynamic(
               id: response,
               dynText: rawText,
-              account: account,
+              owner: identity,
             ),
           );
         }

@@ -24,7 +24,8 @@ import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_action.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -305,7 +306,7 @@ class AuthorPanel extends StatelessWidget {
                 ListTile(
                   onTap: () {
                     Get.back();
-                    RequestUtils.addToWatchLater(bvid: bvid);
+                    addToWatchLater(bvid: bvid);
                   },
                   minLeadingWidth: 0,
                   leading: const Icon(Icons.watch_later_outlined, size: 19),
@@ -403,9 +404,10 @@ class AuthorPanel extends StatelessWidget {
                 ListTile(
                   onTap: () {
                     Get.back();
-                    RequestUtils.checkCreatedDyn(
+                    checkPublishedDynamic(
                       id: item.idStr,
                       isManual: true,
+                      owner: identity,
                     );
                   },
                   minLeadingWidth: 0,
