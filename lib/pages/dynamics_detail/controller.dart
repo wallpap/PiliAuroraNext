@@ -2,28 +2,27 @@ import 'dart:async';
 
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show ReloadMixin;
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 
 class DynamicDetailController extends CommonDynController with ReloadMixin {
-  DynamicDetailController({super.count});
+  DynamicDetailController(this._details, {super.count});
+
+  final DynamicDetails _details;
 
   @override
   int oid = 0;
   @override
   int replyType = 0;
   late DynamicItemModel dynItem;
-  bool _changingReplySubject = false;
-  bool _changingVisibility = false;
   bool _loadingSource = false;
   bool _sourceReady = false;
+  Timer? _replySubjectRefresh;
   Future<void> Function()? refreshComments;
 
   @override
@@ -32,7 +31,6 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   @override
   void onInit() {
     super.onInit();
-    dynItem = Get.arguments['item'];
     final commentType = dynItem.basic?.commentType;
     final commentIdStr = dynItem.basic?.commentIdStr;
     if (commentType != null &&
@@ -51,10 +49,7 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
     final item = dynItem;
     final account = Accounts.heartbeat;
     try {
-      final result = await DynamicsHttp.dynamicDetail(
-        id: item.idStr,
-        account: account,
-      );
+      final result = await _details.load(account, item.idStr);
       if (isClosed ||
           !identical(item, dynItem) ||
           !identical(account, Accounts.heartbeat)) {
@@ -87,76 +82,58 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
     Object dynId,
   ) async {
     if (isClosed) return const Error('页面已关闭');
-    if (_changingVisibility) return const Error('正在设置可见范围，请稍候');
     final account = Accounts.main;
     final item = dynItem;
     if (dynId.toString() != item.idStr.toString()) {
       return const Error('动态已变更，请重试');
     }
-    _changingVisibility = true;
-    try {
-      final result = await DynamicsHttp.dynPrivatePubSetting(
-        account: account,
-        dynId: dynId,
-        action: isPrivate ? 'public_pub' : 'private_pub',
-      );
-      if (isClosed ||
-          !identical(account, Accounts.main) ||
-          !identical(item, dynItem)) {
-        return const Error('账号或动态已变更');
-      }
-      if (result.isSuccess) {
-        item.modules.moduleAuthor?.badgeText = isPrivate ? null : '仅自己可见';
-        SmartDialog.showToast('设置成功');
-      } else {
-        result.toast();
-      }
-      return result;
-    } finally {
-      _changingVisibility = false;
+    final result = await _details.setVisibility(account, dynId, isPrivate);
+    if (isClosed ||
+        !identical(account, Accounts.main) ||
+        !identical(item, dynItem)) {
+      return const Error('账号或动态已变更');
     }
+    if (result == null) return const Error('正在设置可见范围，请稍候');
+    if (result.isSuccess) {
+      item.modules.moduleAuthor?.badgeText = isPrivate ? null : '仅自己可见';
+      SmartDialog.showToast('设置成功');
+    } else {
+      result.toast();
+    }
+    return result;
   }
 
   Future<void> onSetReplySubject(int action) async {
-    if (_changingReplySubject) return;
-    _changingReplySubject = true;
+    if (isClosed) return;
     final account = Accounts.main;
     final item = dynItem;
     final oid = this.oid;
     final type = replyType;
-    try {
-      final res = await ReplyHttp.replySubjectModify(
-        account: account,
-        oid: oid,
-        type: type,
-        action: action,
+    bool ownsTarget() =>
+        !isClosed &&
+        identical(account, Accounts.main) &&
+        identical(item, dynItem) &&
+        oid == this.oid &&
+        type == replyType;
+    final result = await _details.setReplySubject(account, oid, type, action);
+    if (!ownsTarget()) return;
+    if (result case Success(:final response)) {
+      SmartDialog.showToast(
+        response?.trim().isNotEmpty == true ? response! : '设置成功',
       );
-      if (isClosed ||
-          !identical(account, Accounts.main) ||
-          !identical(item, dynItem) ||
-          oid != this.oid ||
-          type != replyType) {
-        return;
-      }
-      if (res case Success(:final response)) {
-        SmartDialog.showToast(
-          response?.trim().isNotEmpty == true ? response! : '设置成功',
-        );
-        Timer(const Duration(milliseconds: 500), () {
-          if (!isClosed &&
-              identical(account, Accounts.main) &&
-              identical(item, dynItem) &&
-              oid == this.oid &&
-              type == replyType) {
-            onReload();
-          }
-        });
-      } else {
-        res.toast();
-      }
-    } finally {
-      _changingReplySubject = false;
+      _replySubjectRefresh?.cancel();
+      _replySubjectRefresh = Timer(const Duration(milliseconds: 500), () {
+        if (ownsTarget()) onReload();
+      });
+    } else if (result is Error) {
+      result.toast();
     }
+  }
+
+  @override
+  void onClose() {
+    _replySubjectRefresh?.cancel();
+    super.onClose();
   }
 
   @override

@@ -12,7 +12,9 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/time_picker.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_publishing.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamic_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart' show PicModel;
@@ -745,6 +747,10 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     final topic = _topic.value;
     final reserveId = _reserveCard.value?.id;
     final images = pictureDraft;
+    final publishing = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(dynamicsPublishingProvider);
     bool isCurrent() =>
         mounted &&
         identical(account, Accounts.main) &&
@@ -752,50 +758,25 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     _publishing.value = true;
     feedBack();
     try {
-      pictures ??= await uploadPictures(account: account);
-      if (!isCurrent()) return;
-      final LoadingState<String?> result;
-      if (editConfig != null) {
-        final edited = await DynamicsHttp.editDyn(
-          account: account,
-          dynId: editConfig.dynId,
-          repostDynId: editConfig.repostDynId,
+      final result = await publishing.submit(
+        account,
+        DynamicDraft(
+          editId: editConfig?.dynId,
+          repostId: editConfig?.repostDynId,
           rawText: extraContent == null ? text : null,
-          pics: pictures,
+          publishTime: publishTime,
           replyOption: replyOption,
-          privatePub: isPrivate ? 1 : null,
+          isPrivate: isPrivate,
           title: title,
-          topic: topic,
-          extraContent: extraContent,
-        );
-        result = edited is Error ? edited : const Success(null);
-      } else {
-        result = await DynamicsHttp.createDynamic(
-          account: account,
-          mid: account.mid,
-          rawText: extraContent == null ? text : null,
-          pics: pictures,
-          publishTime: publishTime == null
-              ? null
-              : publishTime.millisecondsSinceEpoch ~/ 1000,
-          replyOption: replyOption,
-          privatePub: isPrivate ? 1 : null,
-          title: title,
-          topic: topic,
-          extraContent: extraContent,
-          attachCard: reserveId == null
-              ? null
-              : {
-                  'common_card': {
-                    'type': 14,
-                    'biz_id': reserveId,
-                    'reserve_source': 0,
-                    'reserve_lottery': 0,
-                  },
-                },
-        );
-      }
-      if (!isCurrent()) return;
+          topic: topic == null ? null : (topic.first, topic.second),
+          richText: extraContent,
+          reserveId: reserveId,
+        ),
+        preparePictures: () async =>
+            pictures ?? await uploadPictures(account: account),
+        canSubmit: isCurrent,
+      );
+      if (!isCurrent() || result == null) return;
       if (result case Success(:final response)) {
         const equality = DeepCollectionEquality();
         hasPub =
@@ -822,17 +803,14 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
             stackTrace: stackTrace,
           );
         }
-        if (response != null) {
-          unawaited(RequestUtils.insertCreatedDyn(response, account: account));
-          if (!isPrivate && publishTime == null) {
-            unawaited(
-              RequestUtils.checkCreatedDyn(
-                id: response,
-                dynText: rawText,
-                account: account,
-              ),
-            );
-          }
+        if (response != null && !isPrivate && publishTime == null) {
+          unawaited(
+            RequestUtils.checkCreatedDyn(
+              id: response,
+              dynText: rawText,
+              account: account,
+            ),
+          );
         }
       } else {
         result.toast();

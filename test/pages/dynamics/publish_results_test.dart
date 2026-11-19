@@ -14,6 +14,7 @@ import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/features/community/application/reserve_editor.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_updates.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/vote_editor.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
@@ -79,9 +80,11 @@ void main() {
       await dismissal;
     });
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: const Scaffold(body: Text('原页面')),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: const Scaffold(body: Text('原页面')),
+        ),
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
@@ -218,6 +221,11 @@ void main() {
   });
 
   testWidgets('转发成功和迟到失败不会关闭之后打开的页面', (tester) async {
+    final notifications = <DynamicsChange>[];
+    final subscription = DynamicsUpdates.shared.changes.listen(
+      notifications.add,
+    );
+    addTearDown(subscription.cancel);
     await mount(tester, const RepostPanel(dynIdStr: '1'));
     final state = tester.state<CommonRichTextPubPageState>(
       find.byType(RepostPanel),
@@ -231,6 +239,7 @@ void main() {
     await settle(tester);
     await pending;
     expect(find.text('新页面'), findsOneWidget);
+    expect(notifications.map((event) => event.account), [original]);
     Get.back();
     await settle(tester);
     final second = state.onPublish();

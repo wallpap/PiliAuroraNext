@@ -1,5 +1,5 @@
 import 'dart:async' show FutureOr, unawaited;
-import 'dart:math';
+import 'dart:math' show min;
 
 import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
@@ -14,10 +14,8 @@ import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/validate.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/login/gaia_result.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/features/community/application/dynamics_updates.dart';
 import 'package:pili_aurora_next/pages/group_panel/view.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -237,13 +235,6 @@ abstract final class RequestUtils {
     );
   }
 
-  static Future<void> insertCreatedDyn(Object? id, {Account? account}) async {
-    account ??= Accounts.main;
-    if (id != null && identical(account, Accounts.main)) {
-      DynamicsUpdates.shared.published(account);
-    }
-  }
-
   static Future<void> checkCreatedDyn({
     dynamic id,
     String? dynText,
@@ -337,59 +328,6 @@ abstract final class RequestUtils {
       } catch (e, stackTrace) {
         logger.w('check dyn error: $e', error: e, stackTrace: stackTrace);
       }
-    }
-  }
-
-  static final _likingDynamics = <DynamicItemModel>{};
-
-  // 同一动态共用在途状态，避免列表与详情入口重复写入。
-  static Future<void> onLikeDynamic(
-    DynamicItemModel item,
-    bool uiStatus,
-    VoidCallback onSuccess, {
-    BuildContext? context,
-  }) async {
-    if (!_likingDynamics.add(item)) return;
-    final account = Accounts.main;
-    final dynamicId = item.idStr?.toString();
-    final like = item.modules.moduleStat?.like;
-    final status = like?.status ?? false;
-    feedBack();
-    try {
-      if (status ^ uiStatus) {
-        SmartDialog.showToast(status ? '点赞成功' : '取消赞');
-        onSuccess();
-        return;
-      }
-      if (dynamicId == null || dynamicId.isEmpty) {
-        SmartDialog.showToast('动态缺少 ID，请刷新后重试');
-        return;
-      }
-      final result = await DynamicsHttp.thumbDynamic(
-        account: account,
-        dynamicId: dynamicId,
-        up: status ? 2 : 1,
-      );
-      if (!identical(account, Accounts.main) ||
-          context?.mounted == false ||
-          item.idStr.toString() != dynamicId ||
-          !identical(like, item.modules.moduleStat?.like)) {
-        return;
-      }
-      if (result.isSuccess) {
-        SmartDialog.showToast(status ? '取消赞' : '点赞成功');
-        if (like != null) {
-          if (like.count case final count?) {
-            like.count = max(0, count + (status ? -1 : 1));
-          }
-          like.status = !status;
-        }
-        onSuccess();
-      } else {
-        result.toast();
-      }
-    } finally {
-      _likingDynamics.remove(item);
     }
   }
 

@@ -19,13 +19,14 @@ import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.da
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/common/widgets/tap_region_surface.dart';
 import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_like_action.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/pages/common/dyn/like_list/view.dart';
 import 'package:pili_aurora_next/pages/common/dyn/repost_list/view.dart';
@@ -35,11 +36,9 @@ import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -87,22 +86,25 @@ class _DynamicDetailPageState
     super.initState();
     final args = Get.arguments;
     final item = args['item'] as DynamicItemModel;
-    final id = item.idStr.toString();
     if (args['viewComment'] ?? false) {
       WidgetsBinding.instance.addPostFrameCallback(_jumpToComment);
     }
     final stat = item.modules.moduleStat;
-    controller = Get.putOrFind<DynamicDetailController>(
-      () => DynamicDetailController(count: stat?.comment?.count ?? -1),
-      tag: id,
-    );
+    controller = DynamicDetailController(
+      ref.read(dynamicDetailsProvider),
+      count: stat?.comment?.count ?? -1,
+    )..dynItem = item;
+    controller.onStart();
   }
 
   ScrollableState? _scrollable;
+  Timer? _editRefresh;
 
   @override
   void dispose() {
     controller.refreshComments = null;
+    controller.onDelete();
+    _editRefresh?.cancel();
     _scrollable = null;
     super.dispose();
   }
@@ -251,14 +253,15 @@ class _DynamicDetailPageState
         repostDynId: item.orig?.idStr,
       ),
       onSuccess: () {
-        Timer(
+        if (!isCurrent()) return;
+        _editRefresh?.cancel();
+        _editRefresh = Timer(
           const Duration(milliseconds: 500),
           () async {
             if (!isCurrent()) return;
-            final res = await DynamicsHttp.dynamicDetail(
-              id: item.idStr,
-              account: account,
-            );
+            final res = await ref
+                .read(dynamicDetailsProvider)
+                .load(account, item.idStr);
             if (res case Success(:final response)) {
               if (isCurrent()) {
                 controller.dynItem = response;
@@ -655,20 +658,21 @@ class _DynamicDetailPageState
                 Expanded(
                   child: Builder(
                     builder: (context) {
+                      final displayedStatus = moduleStat?.like?.status ?? false;
                       return textIconButton(
                         icon: FontAwesomeIcons.thumbsUp.data,
                         activatedIcon: FontAwesomeIcons.solidThumbsUp.data,
                         text: '点赞',
                         stat: moduleStat?.like,
-                        onPressed: (iconColor) => RequestUtils.onLikeDynamic(
+                        onPressed: (_) => onLikeDynamic(
+                          context,
                           controller.dynItem,
-                          iconColor == primary,
+                          displayedStatus,
                           () {
                             if (context.mounted) {
                               (context as Element).markNeedsBuild();
                             }
                           },
-                          context: context,
                         ),
                       );
                     },

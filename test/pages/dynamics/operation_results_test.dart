@@ -1,21 +1,24 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart'
     show VoteInfo, Option;
 import 'package:pili_aurora_next/pages/dynamics/widgets/additional_panel.dart';
+import 'package:pili_aurora_next/pages/dynamics/widgets/action_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
+import 'package:pili_aurora_next/pages/dynamics_detail/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
@@ -59,9 +62,11 @@ void main() {
       await dismissal;
     });
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: Scaffold(body: child ?? const SizedBox()),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: Scaffold(body: child ?? const SizedBox()),
+        ),
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
@@ -97,41 +102,94 @@ void main() {
         'icon_badge': {'text': '仅自己可见'},
       },
       'module_stat': {
+        'forward': {'count': 0},
+        'comment': {'count': 0},
         'like': {'status': true, 'count': 0},
       },
     },
   });
 
-  testWidgets('动态点赞共用在途状态，待确认不改计数，成功不产生负数且切号拒绝旧结果', (tester) async {
+  testWidgets('再次打开同一动态显示新页面的内容，返回后保留原详情', (tester) async {
     await mount(tester);
-    final dynamic = item();
-    final like = dynamic.modules.moduleStat!.like!;
-    var changes = 0;
-    final pending = RequestUtils.onLikeDynamic(dynamic, true, () => changes++);
-    await RequestUtils.onLikeDynamic(dynamic, true, () => changes++);
+
+    void open(String author) {
+      final dynamic = DynamicItemModel.fromJson({
+        'id_str': '1',
+        'modules': {
+          'module_author': {'name': author, 'mid': 1},
+        },
+      });
+      Get.to(
+        () => const DynamicDetailPage(),
+        arguments: {'item': dynamic},
+        preventDuplicates: false,
+      );
+    }
+
+    open('首次打开的动态作者');
     await until(tester, () => requests.length == 1);
+    requests[0].reply.complete({'code': -404, 'message': '原评论来源不可用'});
+    await settle(tester);
+    expect(find.text('首次打开的动态作者'), findsWidgets);
+
+    open('再次打开的动态作者');
+    await until(tester, () => requests.length == 2);
+    requests[1].reply.complete({'code': -404, 'message': '新评论来源不可用'});
+    await settle(tester);
+    expect(find.text('再次打开的动态作者'), findsWidgets);
+    expect(find.text('首次打开的动态作者'), findsNothing);
+
+    Get.back();
+    await settle(tester);
+    expect(find.text('首次打开的动态作者'), findsWidgets);
+    await finish(tester);
+  });
+
+  testWidgets('同一动态的独立卡片共用点赞锁，待确认和凭据替换保留原计数', (tester) async {
+    final dynamic = item();
+    await mount(
+      tester,
+      Column(
+        children: [
+          ActionPanel(item: dynamic),
+          ActionPanel(item: item()),
+        ],
+      ),
+    );
+    Finder likeButton(int index) => find
+        .descendant(
+          of: find.byType(ActionPanel).at(index),
+          matching: find.byType(TextButton),
+        )
+        .last;
+    Finder icon(int index) => find.descendant(
+      of: likeButton(index),
+      matching: find.byType(Icon),
+    );
+    await tester.tap(likeButton(0));
+    await until(tester, () => requests.length == 1);
+    await tester.tap(likeButton(1));
+    await tester.pump();
+    expect(requests, hasLength(1));
     requests[0].reply.complete({'code': '0'});
     await settle(tester);
-    await pending;
-    expect(changes, 0);
-    expect(like.status, isTrue);
-    expect(like.count, 0);
-    final retry = RequestUtils.onLikeDynamic(dynamic, true, () => changes++);
+    expect(tester.widget<Icon>(icon(0)).semanticLabel, '已赞');
+    expect(find.text('操作结果待确认，请先核对后再操作'), findsOneWidget);
+    await tester.tap(likeButton(0));
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': 0});
     await settle(tester);
-    await retry;
-    expect(changes, 1);
-    expect(like.status, isFalse);
-    expect(like.count, 0);
-    final stale = RequestUtils.onLikeDynamic(dynamic, false, () => changes++);
+    expect(tester.widget<Icon>(icon(0)).semanticLabel, '点赞');
+    expect(
+      find.descendant(of: likeButton(0), matching: find.text('0')),
+      findsOneWidget,
+    );
+    await tester.tap(likeButton(0));
     await until(tester, () => requests.length == 3);
-    Accounts.accountMode[AccountType.main.index] = replacement;
+    Accounts.accountMode[AccountType.main.index] = account(original.mid);
     requests[2].reply.complete({'code': 0});
     await settle(tester);
-    await stale;
-    expect(changes, 1);
-    expect(like.status, isFalse);
+    expect(tester.widget<Icon>(icon(0)).semanticLabel, '点赞');
     expect(
       requests.every(
         (request) => identical(request.options.extra['account'], original),
@@ -141,13 +199,15 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('动态可见范围保存互斥，待确认和换动态后的迟到成功不更新标签', (tester) async {
+  testWidgets('重新打开动态仍共用可见范围写入锁，待确认和迟到成功不更新标签', (tester) async {
     await mount(tester);
     final dynamic = item();
-    final controller = DynamicDetailController()..dynItem = dynamic;
+    final details = ProviderScope.containerOf(
+      tester.element(find.byType(Scaffold)),
+    ).read(dynamicDetailsProvider);
+    final controller = DynamicDetailController(details)..dynItem = dynamic;
     addTearDown(controller.onDelete.call);
     final pending = controller.onSetPubSetting(true, '1');
-    expect(await controller.onSetPubSetting(true, '1'), isA<Error>());
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete({'code': '0'});
     await settle(tester);
@@ -155,7 +215,11 @@ void main() {
     expect(dynamic.modules.moduleAuthor!.badgeText, '仅自己可见');
     final stale = controller.onSetPubSetting(true, '1');
     await until(tester, () => requests.length == 2);
-    controller.dynItem = item();
+    controller.onDelete();
+    final reopened = DynamicDetailController(details)..dynItem = item();
+    addTearDown(reopened.onDelete.call);
+    expect(await reopened.onSetPubSetting(true, '1'), isA<Error>());
+    expect(requests, hasLength(2));
     requests[1].reply.complete({'code': 0});
     await settle(tester);
     expect(await stale, isA<Error>());

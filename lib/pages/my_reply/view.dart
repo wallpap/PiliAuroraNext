@@ -1,8 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
+import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
 import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
@@ -10,39 +12,25 @@ import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/reply_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
-class MyReply extends StatefulWidget {
+class MyReply extends ConsumerStatefulWidget {
   const MyReply({super.key});
 
   @override
-  State<MyReply> createState() => _MyReplyState();
+  ConsumerState<MyReply> createState() => _MyReplyState();
 }
 
-class _MyReplyState extends State<MyReply> with DynMixin {
-  final List<ReplyInfo> _replies = <ReplyInfo>[];
-
-  @override
-  void initState() {
-    super.initState();
-    _initReply();
-  }
-
-  void _initReply() {
-    _replies
-      ..assignAll(GStorage.reply!.values.map(ReplyInfo.fromBuffer))
-      ..sort((a, b) => b.ctime.compareTo(a.ctime)); // rpid not aligned;
-  }
-
+class _MyReplyState extends ConsumerState<MyReply> with DynMixin {
   @override
   Widget build(BuildContext context) {
+    final replies = ref.watch(savedRepliesProvider);
+    final archive = ref.read(savedRepliesProvider.notifier);
     return SimpleScaffold(
       appBar: AppBar(
         title: const Text('我的评论'),
@@ -56,9 +44,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
                   title: const Text('Clear Local Storage?'),
                 );
                 if (!confirmed || !context.mounted) return;
-                GStorage.reply!.clear();
-                _replies.clear();
-                setState(() {});
+                await archive.clear();
               },
               icon: const Icon(Icons.clear_all),
             ),
@@ -78,18 +64,20 @@ class _MyReplyState extends State<MyReply> with DynMixin {
       body: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          _replies.isNotEmpty
+          replies.isNotEmpty
               ? ViewSliverSafeArea(
                   sliver: SliverWaterfallFlow(
                     gridDelegate: dynGridDelegate,
                     delegate: SliverChildBuilderDelegate(
-                      childCount: _replies.length,
+                      childCount: replies.length,
                       (context, index) => ReplyItemGrpc(
                         replyLevel: 0,
                         needDivider: false,
-                        replyItem: _replies[index],
+                        replyItem: replies[index],
                         replyReply: _replyReply,
-                        onDelete: (_, _) => _onDelete(index),
+                        onDelete: (reply, childIndex) {
+                          if (mounted) archive.remove(reply, childIndex);
+                        },
                         onCheckReply: _onCheckReply,
                       ),
                     ),
@@ -124,17 +112,12 @@ class _MyReplyState extends State<MyReply> with DynMixin {
     }
   }
 
-  void _onDelete(int index) {
-    _replies.removeAt(index);
-    setState(() {});
-  }
-
   void _onCheckReply(ReplyInfo replyInfo) {
     final oid = replyInfo.oid.toInt();
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
       biliSendCommAntifraud: Pref.biliSendCommAntifraud,
-      sourceId: switch (oid) {
+      sourceId: switch (replyInfo.type.toInt()) {
         1 => IdUtils.av2bv(oid),
         _ => oid.toString(),
       },
@@ -144,11 +127,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
     );
   }
 
-  String _onExport() {
-    return Utils.jsonEncoder.convert(
-      _replies.map((e) => e.toProto3Json()).toList(),
-    );
-  }
+  String _onExport() => ref.read(savedRepliesProvider.notifier).exportReplies();
 
   void _showExportDialog() {
     const style = TextStyle(fontSize: 14);
@@ -182,20 +161,9 @@ class _MyReplyState extends State<MyReply> with DynMixin {
     );
   }
 
-  Future<void> _onImport(List<dynamic> list) async {
-    await GStorage.reply!.putAll({
-      for (var e in list)
-        e['id'].toString(): (ReplyInfo.create()..mergeFromProto3Json(e))
-            .writeToBuffer(),
-    });
-    if (mounted) {
-      _initReply();
-      setState(() {});
-    }
-  }
-
   void _showImportDialog() {
     const style = TextStyle(fontSize: 14);
+    final importReplies = ref.read(savedRepliesProvider.notifier).importReplies;
     showDialog(
       context: context,
       builder: (context) => SimpleDialog(
@@ -211,7 +179,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
                 context,
                 title: '评论',
                 onExport: _onExport,
-                onImport: _onImport,
+                onImport: importReplies,
                 showConfirmDialog: false,
               );
             },
@@ -221,7 +189,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
             title: const Text('从本地文件导入', style: style),
             onTap: () {
               Get.back();
-              importFromLocalFile<List<dynamic>>(onImport: _onImport);
+              importFromLocalFile<List<dynamic>>(onImport: importReplies);
             },
           ),
         ],

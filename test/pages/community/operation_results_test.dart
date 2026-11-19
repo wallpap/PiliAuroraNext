@@ -23,6 +23,7 @@ import 'package:pili_aurora_next/pages/emote/preview.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/features/community/data/comments/comments_repository.dart';
 
 import '../../support/comment_fixture.dart';
@@ -49,6 +50,8 @@ class _PinFixture extends CommentFixture {
 }
 
 class _Detail extends DynamicDetailController {
+  _Detail(super.details);
+
   int reloads = 0;
   @override
   Future<void> onReload() async {
@@ -503,7 +506,9 @@ void main() {
 
   testWidgets('评论管理：评论开关保留失败与成功文案，切号取消延迟刷新', (tester) async {
     await mount(tester, const SizedBox());
-    final controller = _Detail()
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = _Detail(container.read(dynamicDetailsProvider))
       ..oid = 1
       ..replyType = 1
       ..dynItem = DynamicItemModel.fromJson({'id_str': '1'});

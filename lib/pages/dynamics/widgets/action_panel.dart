@@ -1,8 +1,8 @@
+import 'package:pili_aurora_next/features/community/presentation/dynamic_like_action.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -90,7 +90,8 @@ class ActionPanel extends StatelessWidget {
               final IconData icon;
               final Color color;
               final String label;
-              if (like.status ?? false) {
+              final displayedStatus = like.status ?? false;
+              if (displayedStatus) {
                 icon = FontAwesomeIcons.solidThumbsUp.data;
                 color = primary;
                 label = '已赞';
@@ -106,15 +107,15 @@ class ActionPanel extends StatelessWidget {
                 semanticLabel: label,
               );
               return TextButton.icon(
-                onPressed: () => RequestUtils.onLikeDynamic(
+                onPressed: () => onLikeDynamic(
+                  context,
                   item,
-                  likeIcon.color == primary,
+                  displayedStatus,
                   () {
                     if (context.mounted) {
                       (context as Element?)?.markNeedsBuild();
                     }
                   },
-                  context: context,
                 ),
                 icon: likeIcon,
                 style: btnStyle,
@@ -125,7 +126,7 @@ class ActionPanel extends StatelessWidget {
                   child: Text(
                     like.count != null ? NumUtils.numFormat(like.count) : '点赞',
                     key: ValueKey<int?>(like.count),
-                    style: TextStyle(color: like.status! ? primary : outline),
+                    style: TextStyle(color: color),
                   ),
                 ),
               );

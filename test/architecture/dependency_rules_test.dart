@@ -246,7 +246,7 @@ void main() {
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
   test(
-    'dynamic timeline management and activity transports have one data owner',
+    'dynamic transports stay in community data or declared legacy callers',
     () {
       final violations = <String>[];
       const owners = {
@@ -258,13 +258,34 @@ void main() {
             'features/community/data/dynamics_repository.dart',
         'DynamicsHttp.rmTop':
             'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.createDynamic':
+            'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.editDyn':
+            'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.thumbDynamic':
+            'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.dynamicDetail':
+            'features/community/data/dynamics_repository.dart',
+        'DynamicsHttp.dynPrivatePubSetting':
+            'features/community/data/dynamics_repository.dart',
+        'ReplyHttp.replySubjectModify':
+            'features/community/data/dynamics_repository.dart',
         'DynGrpc.likeList':
             'features/community/data/dynamic_activity_repository.dart',
         'DynGrpc.repostList':
             'features/community/data/dynamic_activity_repository.dart',
       };
+      const legacyCallers = {
+        'DynamicsHttp.thumbDynamic': {'pages/article/controller.dart'},
+        'DynamicsHttp.dynamicDetail': {
+          'utils/page_utils.dart',
+          'utils/request_utils.dart',
+        },
+      };
       final candidates = owners.keys.toSet();
-      final transportNames = candidates.map((key) => key.split('.').first).toSet();
+      final transportNames = candidates
+          .map((key) => key.split('.').first)
+          .toSet();
       for (final file in Directory('lib').listSync(recursive: true)) {
         if (file is! File || !file.path.endsWith('.dart')) continue;
         final source = path
@@ -273,7 +294,8 @@ void main() {
         final body = file.readAsStringSync();
         if (!transportNames.any(body.contains)) continue;
         for (final call in matchingStaticCalls(body, candidates)) {
-          if (source != owners[call]) {
+          if (source != owners[call] &&
+              legacyCallers[call]?.contains(source) != true) {
             violations.add('$source calls $call');
           }
         }
