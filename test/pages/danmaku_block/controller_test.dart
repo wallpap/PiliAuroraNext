@@ -2,15 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart' hide Transition;
+import 'package:pili_aurora_next/features/playback/application/danmaku_block.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/dm_block_type.dart';
-import 'package:pili_aurora_next/pages/danmaku_block/controller.dart';
 import 'package:pili_aurora_next/pages/danmaku_block/view.dart';
-import 'package:pili_aurora_next/models/user/danmaku_block.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -227,7 +227,7 @@ void main() {
     await loaded();
     final notifier = container.read(danmakuBlockProvider.notifier);
     expect(
-      await notifier.save(DmBlockType.regex, '[', replaceId: 1),
+      await notifier.save(DmBlockType.regex, '/[/', replaceId: 1),
       isA<Error>(),
     );
     expect(await notifier.save(DmBlockType.uid, 'a'), isA<Error>());
@@ -321,8 +321,11 @@ void main() {
         DanmakuBlockState(
           rules: succeeds
               ? Success([
-                  [SimpleRule.fromJson(rule(1))],
-                  const <SimpleRule>[],
+                  const [SimpleRule(id: 1, type: 0, filter: 'word')],
+                  const [
+                    SimpleRule(id: 2, type: 1, filter: '/[/'),
+                    SimpleRule(id: 3, type: 1, filter: '/ok/'),
+                  ],
                   const <SimpleRule>[],
                 ])
               : const Error('fixture failure'),
@@ -346,6 +349,10 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(player.filters.dmFilterString, succeeds ? ['word'] : ['cached']);
+      if (succeeds) {
+        expect(player.filters.matches(midHash: '', content: 'OK'), isTrue);
+        expect(find.text('正则(2)'), findsOneWidget);
+      }
       final applied = player.filters;
       notifier.publish(
         DanmakuBlockState(rules: const Error('refresh failure')),

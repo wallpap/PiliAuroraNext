@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/user/danmaku_block.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_rule.dart';
 
 class RuleFilter {
   static final _regExp = RegExp(r'^/(.*)/$');
@@ -17,14 +17,10 @@ class RuleFilter {
   RuleFilter.fromRuleTypeEntries(List<List<SimpleRule>> rules) {
     dmFilterString = rules[0].map((e) => e.filter).toList();
 
-    dmRegExp = rules[1]
-        .map(
-          (e) => RegExp(
-            _regExp.matchAsPrefix(e.filter)?.group(1) ?? e.filter,
-            caseSensitive: false,
-          ),
-        )
-        .toList();
+    dmRegExp = [
+      for (final rule in rules[1])
+        if (compilePattern(rule.filter) case final pattern?) pattern,
+    ];
 
     dmUid = rules[2].map((e) => e.filter).toSet();
 
@@ -32,6 +28,17 @@ class RuleFilter {
   }
 
   RuleFilter.empty();
+
+  static RegExp? compilePattern(String pattern) {
+    try {
+      return RegExp(
+        _regExp.matchAsPrefix(pattern)?.group(1) ?? pattern,
+        caseSensitive: false,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
 
   bool matches({required String midHash, required String content}) {
     return dmUid.contains(midHash) ||

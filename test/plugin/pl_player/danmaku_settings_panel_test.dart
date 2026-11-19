@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_mixin.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';

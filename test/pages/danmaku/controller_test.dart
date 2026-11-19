@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/pages/danmaku/controller.dart';
 import 'package:pili_aurora_next/pages/danmaku/raw_cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';

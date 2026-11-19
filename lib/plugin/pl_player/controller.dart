@@ -16,7 +16,8 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/audio_normalization.dart';
 import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_rule_cache.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/features/playback/application/seek_preview_timeline.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
@@ -551,7 +552,7 @@ class PlPlayerController
 
   // 弹幕相关配置
   bool get enableTapDm => PlatformUtils.isMobile && Pref.enableTapDm;
-  late RuleFilter _filters = Pref.danmakuFilterRule;
+  late RuleFilter _filters = DanmakuRuleCache.read();
   RuleFilter get filters => _filters;
   set filters(RuleFilter value) {
     _filters = value;

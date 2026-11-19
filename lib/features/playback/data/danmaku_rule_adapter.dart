@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 
 class RuleFilterAdapter extends TypeAdapter<RuleFilter> {
   @override

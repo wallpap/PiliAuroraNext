@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/utils/danmaku_utils.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';

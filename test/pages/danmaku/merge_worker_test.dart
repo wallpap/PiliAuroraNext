@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';

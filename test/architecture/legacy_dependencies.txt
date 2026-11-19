@@ -85,9 +85,6 @@ pages/danmaku/view.dart -> package:hive_ce/hive.dart
 pages/danmaku/view.dart -> utils/danmaku_utils.dart
 pages/danmaku/view.dart -> utils/storage.dart
 pages/danmaku/view.dart -> utils/storage_pref.dart
-pages/danmaku_block/controller.dart -> http/danmaku_block.dart
-pages/danmaku_block/controller.dart -> utils/accounts.dart
-pages/danmaku_block/view.dart -> utils/storage.dart
 pages/dynamics/widgets/additional_panel.dart -> http/dynamics.dart
 pages/dynamics/widgets/additional_panel.dart -> utils/accounts.dart
 pages/dynamics/widgets/author_panel.dart -> http/constants.dart

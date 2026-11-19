@@ -24,7 +24,6 @@ import 'package:pili_aurora_next/models/common/video/live_quality.dart';
 import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/pages/setting/pages/fullscreen_sc_size.dart'
     show kFullScreenSCWidth;
@@ -87,11 +86,6 @@ abstract final class Pref {
       SettingBoxKey.dynamicDetailRatio,
       defaultValue: const [60.0, 40.0],
     ),
-  );
-
-  static RuleFilter get danmakuFilterRule => _localCache.get(
-    LocalCacheKey.danmakuFilterRules,
-    defaultValue: RuleFilter.empty(),
   );
 
   static MemberTabType get memberTab =>

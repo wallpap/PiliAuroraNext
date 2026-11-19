@@ -3,12 +3,12 @@ import 'dart:math' as math;
 
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/http/danmaku.dart';
-import 'package:pili_aurora_next/http/danmaku_block.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_block_repository.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_rule_cache.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 
 typedef DanmakuBlockRules = ({
   RuleFilter Function() read,
@@ -165,13 +165,13 @@ class VideoDanmakuInteractions {
       if (filter.dmUid.add(entry.mid)) {
         filter.count++;
         blockRules.publish(filter);
-        await GStorage.localCache.put(LocalCacheKey.danmakuFilterRules, filter);
+        await DanmakuRuleCache.save(filter);
       }
       if (!isCurrent) return null;
-      final blockResult = await DanmakuFilterHttp.danmakuFilterAdd(
+      final blockResult = await DanmakuBlockRepository.danmakuFilterAdd(
         account: _account,
         filter: entry.mid,
-        type: 2,
+        type: DmBlockType.uid.index,
       );
       if (!isCurrent) return null;
       if (blockResult is Error) {

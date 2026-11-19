@@ -3,11 +3,14 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/http/danmaku_block.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_block_repository.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_rule_cache.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/dm_block_type.dart';
-import 'package:pili_aurora_next/models/user/danmaku_block.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
@@ -64,23 +67,17 @@ class DanmakuBlockNotifier extends Notifier<DanmakuBlockState> {
     final account = _account;
     final version = ++_queryVersion;
     state = DanmakuBlockState();
-    LoadingState<DanmakuBlockDataModel> result;
+    LoadingState<DanmakuBlockListing> result;
     try {
-      result = await DanmakuFilterHttp.danmakuFilter(account: account);
+      result = await DanmakuBlockRepository.danmakuFilter(account: account);
     } catch (error, stackTrace) {
       result = Error.fromException(error, stackTrace);
     }
     if (!_isCurrent(owner) || version != _queryVersion) return;
     state = switch (result) {
       Success(:final response) => DanmakuBlockState(
-        rules: Success(
-          List.unmodifiable([
-            List<SimpleRule>.unmodifiable(response.rule),
-            List<SimpleRule>.unmodifiable(response.rule1),
-            List<SimpleRule>.unmodifiable(response.rule2),
-          ]),
-        ),
-        notice: response.toast,
+        rules: Success(response.rules),
+        notice: response.notice,
       ),
       Error() => DanmakuBlockState(rules: result),
       _ => DanmakuBlockState(rules: const Error('加载失败，请重试')),
@@ -98,9 +95,7 @@ class DanmakuBlockNotifier extends Notifier<DanmakuBlockState> {
   }) async {
     if (filter.isEmpty) return const Error('输入内容不能为空');
     if (type == DmBlockType.regex) {
-      try {
-        RegExp(filter);
-      } on FormatException {
+      if (RuleFilter.compilePattern(filter) == null) {
         return const Error('正则表达式无效');
       }
     } else if (type == DmBlockType.uid) {
@@ -123,7 +118,7 @@ class DanmakuBlockNotifier extends Notifier<DanmakuBlockState> {
     state = DanmakuBlockState(rules: state.rules, isSaving: true);
     try {
       if (removeId != null) {
-        final result = await DanmakuFilterHttp.danmakuFilterDel(
+        final result = await DanmakuBlockRepository.danmakuFilterDel(
           ids: removeId,
           account: account,
         );
@@ -135,7 +130,7 @@ class DanmakuBlockNotifier extends Notifier<DanmakuBlockState> {
         );
       }
       if (filter != null) {
-        final result = await DanmakuFilterHttp.danmakuFilterAdd(
+        final result = await DanmakuBlockRepository.danmakuFilterAdd(
           filter: filter,
           type: type.index,
           account: account,
@@ -186,6 +181,18 @@ class DanmakuBlockNotifier extends Notifier<DanmakuBlockState> {
     state = DanmakuBlockState(
       rules: Success(List.unmodifiable(lists)),
       isSaving: true,
+    );
+  }
+}
+
+Future<void> cacheDanmakuBlockRules(RuleFilter filter) async {
+  try {
+    await DanmakuRuleCache.save(filter);
+  } catch (error, stackTrace) {
+    logger.w(
+      '保存弹幕屏蔽缓存失败',
+      error: error.runtimeType,
+      stackTrace: stackTrace,
     );
   }
 }
