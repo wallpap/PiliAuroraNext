@@ -320,13 +320,13 @@ void main() {
       final notifier = _BlockNotifier(
         DanmakuBlockState(
           rules: succeeds
-              ? Success([
-                  const [SimpleRule(id: 1, type: 0, filter: 'word')],
-                  const [
+              ? const Success([
+                  [SimpleRule(id: 1, type: 0, filter: 'word')],
+                  [
                     SimpleRule(id: 2, type: 1, filter: '/[/'),
                     SimpleRule(id: 3, type: 1, filter: '/ok/'),
                   ],
-                  const <SimpleRule>[],
+                  <SimpleRule>[],
                 ])
               : const Error('fixture failure'),
         ),

@@ -18,8 +18,7 @@ class RuleFilter {
     dmFilterString = rules[0].map((e) => e.filter).toList();
 
     dmRegExp = [
-      for (final rule in rules[1])
-        if (compilePattern(rule.filter) case final pattern?) pattern,
+      for (final rule in rules[1]) ?compilePattern(rule.filter),
     ];
 
     dmUid = rules[2].map((e) => e.filter).toSet();
