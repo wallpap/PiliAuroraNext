@@ -38,8 +38,7 @@ import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
@@ -140,7 +139,7 @@ class AudioController with AudioNormalizationMixin {
   );
   ValueListenable<AudioPlaylistSnapshot> get playlistState => _playlist.state;
   int _playGeneration = 0;
-  Account? _playAccount;
+  AccountScope? _playOwner;
   bool _playbackReady = false;
   int? _pendingPlayGeneration;
   Future<void>? _playerInitialization;
@@ -219,11 +218,11 @@ class AudioController with AudioNormalizationMixin {
 
   late double speed = 1.0;
 
-  bool _ownsControl(Player? target, int generation, Account account) =>
+  bool _ownsControl(Player? target, int generation, AccountScope owner) =>
       !_audioClosed &&
       identical(player, target) &&
       generation == _playGeneration &&
-      identical(account, Accounts.main);
+      owner.isCurrent;
 
   Player get _readyPlayer => player ?? (throw StateError('音频播放器尚未就绪'));
 
@@ -237,11 +236,11 @@ class AudioController with AudioNormalizationMixin {
   Future<bool> setSpeed(double value) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = ++_speedRevision;
     try {
       await _readyPlayer.setRate(value);
-      if (!_ownsControl(target, generation, account) ||
+      if (!_ownsControl(target, generation, accountOwner) ||
           revision != _speedRevision) {
         return false;
       }
@@ -249,7 +248,7 @@ class AudioController with AudioNormalizationMixin {
       _updatePlaybackState();
       return true;
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _speedRevision) {
         _reportControlFailure('播放速度调整失败，请重试', error, stack);
       }
@@ -314,11 +313,11 @@ class AudioController with AudioNormalizationMixin {
     volume = roundVolumeRatio(volume.clamp(0.0, Pref.maxVolume));
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = ++_volumeRevision;
     try {
       await _readyPlayer.setVolume(volumePercent(volume));
-      if (!_ownsControl(target, generation, account) ||
+      if (!_ownsControl(target, generation, accountOwner) ||
           revision != _volumeRevision) {
         return false;
       }
@@ -327,7 +326,7 @@ class AudioController with AudioNormalizationMixin {
       if (clearLastVolme) _lastVolume = null;
       return true;
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _volumeRevision) {
         _volumeDraft.value = desktopVolume.value;
         _reportControlFailure('音量调整失败，请重试', error, stack);
@@ -352,12 +351,12 @@ class AudioController with AudioNormalizationMixin {
   Future<void> _saveVolume(Future<void> Function() save) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = _volumeRevision;
     try {
       await save();
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _volumeRevision) {
         _reportControlFailure('音量已调整，设置保存失败，请重试', error, stack);
       }
@@ -368,12 +367,12 @@ class AudioController with AudioNormalizationMixin {
     final volume = desktopVolume.value;
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = _volumeRevision;
     await _saveVolume(
       () => AudioPreferences.saveDesktopVolumeRatio(roundVolumeRatio(volume)),
     );
-    if (!_ownsControl(target, generation, account) ||
+    if (!_ownsControl(target, generation, accountOwner) ||
         revision != _volumeRevision) {
       return;
     }
@@ -381,7 +380,7 @@ class AudioController with AudioNormalizationMixin {
       final result = await PlPlayerController.instance?.setPlayerVolumePercent(
         volumePercent(volume),
       );
-      if (!_ownsControl(target, generation, account) ||
+      if (!_ownsControl(target, generation, accountOwner) ||
           revision != _volumeRevision) {
         return;
       }
@@ -389,7 +388,7 @@ class AudioController with AudioNormalizationMixin {
         throw result!.failure ?? StateError('视频音量同步失败');
       }
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _volumeRevision) {
         _reportControlFailure('音频音量已调整，视频音量同步失败', error, stack);
       }
@@ -421,7 +420,7 @@ class AudioController with AudioNormalizationMixin {
     final audioUrl = args.audioUrl;
     final hasAudioUrl = audioUrl != null;
     if (hasAudioUrl) {
-      _playAccount = Accounts.main;
+      _playOwner = AccountScope.capture();
       final generation = ++_playGeneration;
       _querySponsorBlock(generation);
       _onOpenMedia(
@@ -458,10 +457,10 @@ class AudioController with AudioNormalizationMixin {
   Future<void> onSeek(Duration duration) async {
     final target = _readyPlayer;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = ++_seekRevision;
     await target.seek(duration);
-    if (!_ownsControl(target, generation, account) ||
+    if (!_ownsControl(target, generation, accountOwner) ||
         revision != _seekRevision) {
       return;
     }
@@ -474,11 +473,11 @@ class AudioController with AudioNormalizationMixin {
   ) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     try {
       await operation();
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account)) {
+      if (_ownsControl(target, generation, accountOwner)) {
         _reportControlFailure('播放操作失败，请重试', error, stack);
       }
     }
@@ -490,13 +489,13 @@ class AudioController with AudioNormalizationMixin {
   Future<void> seekFromUi(Duration duration) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final operation = onSeek(duration);
     final revision = _seekRevision;
     try {
       await operation;
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _seekRevision) {
         position.value = target?.state.position.inSeconds ?? 0;
         _reportControlFailure('进度调整失败，请重试', error, stack);
@@ -551,7 +550,7 @@ class AudioController with AudioNormalizationMixin {
   bool _ownsPlayback(int generation) =>
       !_audioClosed &&
       generation == _playGeneration &&
-      identical(_playAccount, Accounts.main);
+      _playOwner?.isCurrent == true;
 
   bool _playbackFailed(Object error, StackTrace stack, int generation) {
     if (_ownsPlayback(generation)) {
@@ -570,7 +569,7 @@ class AudioController with AudioNormalizationMixin {
   Future<bool> _queryPlayUrl() async {
     final generation = ++_playGeneration;
     _pendingPlayGeneration = generation;
-    _playAccount = Accounts.main;
+    _playOwner = AccountScope.capture();
     _playbackReady = false;
     _querySponsorBlock(generation);
     try {
@@ -921,7 +920,7 @@ class AudioController with AudioNormalizationMixin {
       error.toast();
       return;
     }
-    if (!Accounts.main.isLogin) {
+    if (!AccountScope.signedIn) {
       SmartDialog.showToast('账号未登录');
       return;
     }
@@ -952,9 +951,9 @@ class AudioController with AudioNormalizationMixin {
     final item = audioItem.value?.info;
     final target = item?.target.oid ?? oid;
     final ugc = (item?.target.type ?? itemType) == 1;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     bool current() =>
-        context.mounted && !_audioClosed && identical(account, Accounts.main);
+        context.mounted && !_audioClosed && accountOwner.isCurrent;
     final audioUrl = ugc
         ? '${HttpString.baseUrl}/video/${IdUtils.av2bv(target.toInt())}'
         : '${HttpString.baseUrl}/audio/au$target';
@@ -995,7 +994,7 @@ class AudioController with AudioNormalizationMixin {
                 }
               },
             ),
-          if (account.isLogin)
+          if (accountOwner.account.isLogin)
             DialogOption(
               child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
               onPressed: () {
@@ -1017,7 +1016,7 @@ class AudioController with AudioNormalizationMixin {
                 }
               },
             ),
-          if (ugc && account.isLogin)
+          if (ugc && accountOwner.account.isLogin)
             DialogOption(
               child: const Text('分享至消息', style: TextStyle(fontSize: 14)),
               onPressed: () async {
@@ -1063,12 +1062,12 @@ class AudioController with AudioNormalizationMixin {
   });
 
   MediaNavigation get _mediaNavigation {
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     return MediaNavigation(
       isCurrent: () =>
           !_audioClosed &&
           player != null &&
-          identical(account, Accounts.main) &&
+          accountOwner.isCurrent &&
           videoPlayerServiceHandler?.onPlay == onPlay,
       next: () => _skipPlaylist(1),
       previous: () => _skipPlaylist(-1),

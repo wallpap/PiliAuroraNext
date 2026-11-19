@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/features/community/domain/emote/emote.dart'
 import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_publish_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/extension/file_ext.dart';
@@ -347,14 +347,14 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   late double _mentionOffset = 0;
   final _mentionMemory = CommunityPickerMemory<MentionItem>();
   Future<void>? onMention([bool fromClick = false]) async {
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
     final res = await DynMentionPanel.onDynMention(
       context,
       memory: _mentionMemory,
       offset: _mentionOffset,
       onCachePos: (offset) => _mentionOffset = offset,
     );
-    if (mounted && identical(account, Accounts.main) && res != null) {
+    if (mounted && identity.isCurrent && res != null) {
       if (res is MentionItem) {
         _onInsertUser(res, fromClick);
       } else if (res is Set<MentionItem>) {
@@ -557,7 +557,8 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   Future<void> onPublish() async {
     if (!mounted) return;
     feedBack();
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     List<Map<String, dynamic>>? pictures;
     if (imageList.isNotEmpty) {
       _showingUploadProgress = true;
@@ -575,7 +576,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         _showingUploadProgress = false;
       }
     }
-    if (!mounted || !identical(account, Accounts.main)) return;
+    if (!mounted || !identity.isCurrent) return;
     return onCustomPublish(pictures: pictures);
   }
 }

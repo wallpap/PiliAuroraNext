@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/pages/article/widgets/opus_content.dart';
 import 'package:pili_aurora_next/pages/article/widgets/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
@@ -338,7 +338,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             AppPopupMenuItem(
               onTap: () async {
                 final summary = controller.summary;
-                final account = Accounts.main;
+                final identity = AccountScope.capture();
                 final articleId = controller.commentId;
                 if (summary.cover == null &&
                     !await controller.getArticleInfo(true)) {
@@ -346,7 +346,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 }
                 if (!mounted ||
                     controller.isClosed ||
-                    !identical(account, Accounts.main) ||
+                    !identity.isCurrent ||
                     articleId != controller.commentId) {
                   return;
                 }
@@ -480,7 +480,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                                 return;
                               }
                               final summary = controller.summary;
-                              final account = Accounts.main;
+                              final identity = AccountScope.capture();
                               final articleId = controller.id;
                               final articleType = controller.type;
                               showModalBottomSheet(
@@ -497,7 +497,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                                     if (forward != null &&
                                         btnContext.mounted &&
                                         !controller.isClosed &&
-                                        identical(account, Accounts.main) &&
+                                        identity.isCurrent &&
                                         articleId == controller.id &&
                                         articleType == controller.type &&
                                         identical(

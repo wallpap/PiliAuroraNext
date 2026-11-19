@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:get/get.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -667,18 +667,18 @@ class _ReserveButton extends StatefulWidget {
 
 class _ReserveButtonState extends State<_ReserveButton> {
   bool _saving = false;
-  final _account = Accounts.main;
+  final _owner = AccountScope.capture();
 
   Future<void> _onReserve() async {
     if (_saving) return;
-    if (!identical(_account, Accounts.main)) {
+    if (!_owner.isCurrent) {
       SmartDialog.showToast('账号已切换，请刷新后重试');
       return;
     }
     final reserve = widget.reserve;
     final button = reserve.button;
     if (button == null || reserve.rid == null) return;
-    final account = Accounts.main;
+    final account = _owner.account;
     final dynamicId = widget.dynamicId;
     setState(() => _saving = true);
     try {
@@ -689,7 +689,7 @@ class _ReserveButtonState extends State<_ReserveButton> {
       );
       if (result == null ||
           !mounted ||
-          !identical(account, Accounts.main) ||
+          !_owner.isCurrent ||
           !identical(reserve, widget.reserve) ||
           !identical(button, reserve.button) ||
           dynamicId != widget.dynamicId) {

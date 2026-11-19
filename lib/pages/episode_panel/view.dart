@@ -24,7 +24,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
@@ -177,14 +177,15 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
     _isReversed = List.filled(widget.list.length, false);
 
-    Accounts.mainChanges.addListener(_queryFav);
+    AccountScope.changes.addListener(_queryFav);
     _queryFav();
   }
 
   Future<void> _queryFav() async {
     final version = ++_favVersion;
     _favBusy.value = false;
-    final account = Accounts.main;
+    final owner = AccountScope.capture();
+    final account = owner.account;
     final seasonId = widget.seasonId;
     final bvid = widget.bvid;
     if (widget.type != EpisodeType.season ||
@@ -202,7 +203,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
     if (!mounted ||
         version != _favVersion ||
-        !identical(account, Accounts.main) ||
+        !owner.isCurrent ||
         seasonId != widget.seasonId ||
         bvid != widget.bvid) {
       return;
@@ -215,7 +216,8 @@ class _EpisodePanelState extends State<EpisodePanel>
   }
 
   Future<void> _toggleFav(bool wasFav) async {
-    final account = Accounts.main;
+    final owner = AccountScope.capture();
+    final account = owner.account;
     final target = widget.seasonId;
     if (_favBusy.value || !account.isLogin || target == null || target <= 0) {
       return;
@@ -230,7 +232,7 @@ class _EpisodePanelState extends State<EpisodePanel>
       );
       if (!mounted ||
           version != _favVersion ||
-          !identical(account, Accounts.main) ||
+          !owner.isCurrent ||
           target != widget.seasonId) {
         return;
       }
@@ -249,7 +251,7 @@ class _EpisodePanelState extends State<EpisodePanel>
 
   @override
   void dispose() {
-    Accounts.mainChanges.removeListener(_queryFav);
+    AccountScope.changes.removeListener(_queryFav);
     _favVersion++;
     _favBusy.close();
     _tabController
@@ -489,7 +491,7 @@ class _EpisodePanelState extends State<EpisodePanel>
             onTap: () {
               if (isCurrentIndex) return;
               if (episode.badge == "会员" &&
-                  Accounts.mainEqVideo &&
+                  AccountScope.mainUsesVideoCredentials &&
                   vipStatus != 1) {
                 SmartDialog.showToast('需要大会员');
                 // return;

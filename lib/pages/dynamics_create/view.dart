@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/pages/dynamics_create_reserve/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/view.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
@@ -733,7 +733,8 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (!mounted || _publishing.value) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final route = ModalRoute.of(context);
     final editConfig = widget.editConfig;
     final onSuccess = widget.onSuccess;
@@ -752,9 +753,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
       listen: false,
     ).read(dynamicsPublishingProvider);
     bool isCurrent() =>
-        mounted &&
-        identical(account, Accounts.main) &&
-        editConfig == widget.editConfig;
+        mounted && identity.isCurrent && editConfig == widget.editConfig;
     _publishing.value = true;
     feedBack();
     try {
@@ -830,14 +829,14 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   double _topicOffset = 0;
   final _topicMemory = CommunityPickerMemory<void>();
   Future<void> _onSelectTopic() async {
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
     TopicItem? res = await SelectTopicPanel.onSelectTopic(
       context,
       memory: _topicMemory,
       offset: _topicOffset,
       onCachePos: (offset) => _topicOffset = offset,
     );
-    if (mounted && identical(account, Accounts.main) && res != null) {
+    if (mounted && identity.isCurrent && res != null) {
       _topic.value = Pair(first: res.id, second: res.name);
     }
   }

@@ -22,7 +22,7 @@ import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/view.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/latex_to_unicode.dart';
@@ -322,7 +322,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                   if (_capturingScreenshot || _publishing.value) return;
                   _capturingScreenshot = true;
                   String? temporaryPath;
-                  final account = Accounts.main;
+                  final identity = AccountScope.capture();
                   final route = ModalRoute.of(context);
                   var invalidated = false;
                   void onNavigation() {
@@ -335,7 +335,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                       mounted &&
                       !invalidated &&
                       (route?.isCurrent ?? true) &&
-                      identical(account, Accounts.main) &&
+                      identity.isCurrent &&
                       !_publishing.value;
                   bool Function() current = pageCurrent;
                   routeObserver.addNavigationListener(onNavigation);
@@ -407,7 +407,8 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (!mounted || _publishing.value) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     if (!account.isLogin) {
       SmartDialog.showToast('账号未登录');
       return;
@@ -425,7 +426,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
     final atNameToMid = <String, int>{};
     bool isCurrent() =>
         mounted &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         target.oid == widget.oid &&
         target.replyType == widget.replyType &&
         target.root == widget.root &&

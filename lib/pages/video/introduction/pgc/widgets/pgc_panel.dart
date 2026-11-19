@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/section.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     hide EpisodeItem;
 import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -331,7 +331,9 @@ class _PgcPanelState extends State<PgcPanel> {
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(8)),
           onTap: () {
-            if (item.badge == '会员' && Accounts.mainEqVideo && vipStatus) {
+            if (item.badge == '会员' &&
+                AccountScope.mainUsesVideoCredentials &&
+                vipStatus) {
               SmartDialog.showToast('需要大会员');
             }
             widget.onChangeEpisode(item);

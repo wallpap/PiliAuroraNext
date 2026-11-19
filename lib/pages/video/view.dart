@@ -72,7 +72,7 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_control
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
@@ -285,7 +285,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     }
 
     if (videoDetailController.showReply) {
-      Accounts.mainChanges.addListener(_onReplyAccountChanged);
+      AccountScope.changes.addListener(_onReplyAccountChanged);
       _onReplyTargetChanged();
       videoDetailController.onReplyTargetChanged = _onReplyTargetChanged;
       videoDetailController.onReplyCount = (count) => _replyCount.value = count;
@@ -472,7 +472,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
       _relatedSubscription!.close();
       _relatedQuery.dispose();
     }
-    Accounts.mainChanges.removeListener(_onReplyAccountChanged);
+    AccountScope.changes.removeListener(_onReplyAccountChanged);
     videoDetailController.onReplyTargetChanged = null;
     videoDetailController.onReplyCount = null;
     _replyTarget.dispose();

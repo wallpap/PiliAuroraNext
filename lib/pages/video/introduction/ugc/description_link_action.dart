@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 
@@ -33,11 +33,11 @@ class UgcDescriptionLinkAction {
     if (_running || !context.mounted || !isCurrent()) return;
     _running = true;
     final request = NavigationRequest();
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
     bool current() =>
         context.mounted &&
         request.isCurrent &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         isCurrent();
     try {
       final ytbId = youtubeRegExp.firstMatch(url)?.group(1);

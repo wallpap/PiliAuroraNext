@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     hide EpisodeItem;
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
@@ -104,7 +104,7 @@ class PgcIntroController extends CommonIntroController {
       SmartDialog.showToast('分集信息尚未加载，请重试');
       return;
     }
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final pgcTitle = pgcItem.title;
     final pgcCover = pgcItem.cover;
     final pgcType = pgcItem.type;
@@ -121,7 +121,7 @@ class PgcIntroController extends CommonIntroController {
     final shareUrl = item?.shareUrl;
     final shareCover = item?.cover;
     bool ownsAccount() =>
-        context.mounted && !isClosed && identical(account, Accounts.main);
+        context.mounted && !isClosed && accountOwner.isCurrent;
 
     String videoUrl =
         '${HttpString.baseUrl}/bangumi/play/ep$epId${videoDetailCtr.playedTimePos(false)}';
@@ -248,16 +248,16 @@ class PgcIntroController extends CommonIntroController {
   Future<bool> onChangeEpisode(BaseEpisodeItem episode) async {
     if (isClosed) return false;
     final version = ++_episodeChange;
-    final account = Accounts.heartbeat;
-    final mainAccount = Accounts.main;
+    final playbackAccount = AccountScope.captureHeartbeat();
+    final mainAccount = AccountScope.capture();
     final source = (bvid, cid.value, epId);
     final videoSource = (videoDetailCtr.bvid, videoDetailCtr.cid.value);
     final ownsPlayback = videoDetailCtr.playbackOwner.guard();
     bool current() =>
         !isClosed &&
         version == _episodeChange &&
-        identical(account, Accounts.heartbeat) &&
-        identical(mainAccount, Accounts.main) &&
+        playbackAccount.isCurrent &&
+        mainAccount.isCurrent &&
         source == (bvid, cid.value, epId) &&
         videoSource == (videoDetailCtr.bvid, videoDetailCtr.cid.value) &&
         ownsPlayback();
@@ -269,7 +269,11 @@ class PgcIntroController extends CommonIntroController {
       final String? cover = episode.cover;
       int? cid = episode.cid;
       if (cid == null || cid <= 0) {
-        final result = await VideoDetails.resolvePart(account, bvid, aid);
+        final result = await VideoDetails.resolvePart(
+          playbackAccount.account,
+          bvid,
+          aid,
+        );
         if (!current()) return false;
         if (result is Error) {
           result.toast();

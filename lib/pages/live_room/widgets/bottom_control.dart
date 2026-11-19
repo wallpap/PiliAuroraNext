@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/common_btn.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_volume_control.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -99,7 +99,7 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
                   ),
                   onTap: () {
                     if (kDebugMode || liveRoomCtr.isLogin) {
-                      final account = Accounts.main;
+                      final identity = AccountScope.capture();
                       final roomId = liveRoomCtr.roomId;
                       Get.toNamed(
                         '/liveDmBlockPage',
@@ -109,7 +109,7 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
                         arguments: ((keywords, uids) {
                           if (!liveRoomCtr.isClosed &&
                               liveRoomCtr.roomId == roomId &&
-                              identical(account, Accounts.main)) {
+                              identity.isCurrent) {
                             liveRoomCtr.updateBlockRules(keywords, uids);
                           }
                         }) as LiveBlockRulesChanged,

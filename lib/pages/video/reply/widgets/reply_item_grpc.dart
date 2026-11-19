@@ -30,7 +30,7 @@ import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
@@ -433,12 +433,13 @@ class ReplyItemGrpc extends StatelessWidget {
               return;
             }
             isProcessing = true;
-            final account = Accounts.main;
+            final identity = AccountScope.capture();
+            final account = identity.account;
             final owner = context.widget;
             final res = await commentActions.translate(account, replyItem);
             isProcessing = false;
             if (!context.mounted ||
-                !identical(account, Accounts.main) ||
+                !identity.isCurrent ||
                 !identical(owner, context.widget)) {
               return;
             }
@@ -997,14 +998,15 @@ class ReplyItemGrpc extends StatelessWidget {
     required bool isSubReply,
   }) {
     late String message = item.content.message;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final owner = context.widget;
     final oid = item.oid;
     final rpid = item.id;
     bool isCurrent() =>
         context.mounted &&
         identical(owner, context.widget) &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         item.oid == oid &&
         item.id == rpid;
     final ownerMid = Int64(account.mid);

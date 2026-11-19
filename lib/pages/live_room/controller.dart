@@ -38,7 +38,7 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
@@ -177,8 +177,8 @@ class LiveRoomController {
   final RxBool isPortrait = false.obs;
   late List<({int code, String desc})> acceptQnList = [];
 
-  bool get isLogin => Accounts.main.isLogin;
-  int get mid => Accounts.main.mid;
+  bool get isLogin => AccountScope.signedIn;
+  int get mid => AccountScope.capture().account.mid;
 
   String? videoUrl;
   late bool isFullScreen = false;
@@ -286,14 +286,15 @@ class LiveRoomController {
     if (!playbackOwner.isActive) return const LoadResult.inactive();
     final generation = ++_sourceGeneration;
     final ownsPlayback = playbackOwner.guard();
-    final account = Accounts.heartbeat;
+    final accountOwner = AccountScope.captureHeartbeat();
+    final account = accountOwner.account;
     final requestedRoomId = roomId;
     bool current() =>
         !isClosed &&
         ownsPlayback() &&
         generation == _sourceGeneration &&
         roomId == requestedRoomId &&
-        identical(account, Accounts.heartbeat);
+        accountOwner.isCurrent;
     final contentKey = 'live:$requestedRoomId';
     final start =
         startPolicy ??
@@ -441,7 +442,7 @@ class LiveRoomController {
     if (isCurrent == null) playbackOwner.invalidateRequests();
     final generation = ++_sourceGeneration;
     final ownsPlayback = playbackOwner.guard();
-    final account = Accounts.heartbeat;
+    final accountOwner = AccountScope.captureHeartbeat();
     final requestedRoomId = roomId;
     final streams = stream;
     bool current() =>
@@ -449,7 +450,7 @@ class LiveRoomController {
         ownsPlayback() &&
         generation == _sourceGeneration &&
         roomId == requestedRoomId &&
-        identical(account, Accounts.heartbeat) &&
+        accountOwner.isCurrent &&
         identical(streams, stream) &&
         (isCurrent?.call() ?? true);
     try {
@@ -758,9 +759,9 @@ class LiveRoomController {
 
   Future<void> _fetchBlockRules() async {
     final target = roomId;
-    final account = Accounts.main;
-    final res = await LiveChatQueries.blockRules(target, account);
-    if (isClosed || target != roomId || !identical(account, Accounts.main)) {
+    final accountOwner = AccountScope.capture();
+    final res = await LiveChatQueries.blockRules(target, accountOwner.account);
+    if (isClosed || target != roomId || !accountOwner.isCurrent) {
       return;
     }
     if (res case Success(:final response?)) {
@@ -805,7 +806,7 @@ class LiveRoomController {
   }) => LiveMessageStream(
     streamToken: info.token,
     roomId: roomId,
-    uid: Accounts.heartbeat.mid,
+    uid: AccountScope.captureHeartbeat().account.mid,
     servers: info.hostList
         .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
         .toList(),

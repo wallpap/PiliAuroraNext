@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/extension/file_ext.dart';
@@ -31,7 +31,8 @@ class CreateFavPage extends ConsumerStatefulWidget {
 }
 
 class _CreateFavPageState extends ConsumerState<CreateFavPage> {
-  final Account _account = Accounts.main;
+  final _owner = AccountScope.capture();
+  Account get _account => _owner.account;
   bool _saving = false;
   bool _uploading = false;
   bool _loadingFolder = false;
@@ -71,7 +72,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
         .then((res) {
           if (!mounted) return;
           _loadingFolder = false;
-          if (!identical(_account, Accounts.main)) {
+          if (!_owner.isCurrent) {
             setState(() => _errMsg = '账号已切换，请重新打开页面');
             return;
           }
@@ -90,7 +91,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
 
   Future<void> _saveFolder() async {
     if (_saving || _uploading || _loadingFolder) return;
-    if (!identical(_account, Accounts.main)) {
+    if (!_owner.isCurrent) {
       SmartDialog.showToast('账号已切换，请重新打开页面');
       return;
     }
@@ -112,7 +113,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
           );
       if (!mounted ||
           ModalRoute.of(context)?.isCurrent != true ||
-          !identical(_account, Accounts.main)) {
+          !_owner.isCurrent) {
         return;
       }
       if (res case Success(:final response)) {
@@ -123,7 +124,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
       }
     } catch (error, stackTrace) {
       logger.w('保存收藏夹未完成', error: error.runtimeType, stackTrace: stackTrace);
-      if (mounted && identical(_account, Accounts.main)) {
+      if (mounted && _owner.isCurrent) {
         SmartDialog.showToast('操作结果待确认，请核对收藏夹后再操作');
       }
     } finally {
@@ -163,7 +164,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
   }
 
   Future<void> _pickImg(BuildContext context, ThemeData theme) async {
-    if (_saving || _uploading || !identical(_account, Accounts.main)) return;
+    if (_saving || _uploading || !_owner.isCurrent) return;
     String? temporaryPath;
     try {
       final pickedFile = await _imagePicker.pickImage(
@@ -194,18 +195,18 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
           await File(imgPath).tryDel();
           temporaryPath = imgPath = croppedFile.path;
         }
-        if (!mounted || !identical(_account, Accounts.main)) return;
+        if (!mounted || !_owner.isCurrent) return;
         setState(() => _uploading = true);
         final location = await ref
             .read(favoriteLibraryProvider)
             .uploadCover(_account, imgPath);
-        if (!mounted || !identical(_account, Accounts.main)) return;
+        if (!mounted || !_owner.isCurrent) return;
         if (location.isEmpty) throw const FormatException('上传响应缺少封面地址');
         setState(() => _cover = location);
       }
     } catch (error, stackTrace) {
       logger.w('收藏夹封面更新失败', error: error.runtimeType, stackTrace: stackTrace);
-      if (mounted && identical(_account, Accounts.main)) {
+      if (mounted && _owner.isCurrent) {
         SmartDialog.showToast('封面更新失败，请重试');
       }
     } finally {

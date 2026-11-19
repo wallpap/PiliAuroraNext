@@ -12,7 +12,6 @@ import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
 import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
@@ -60,7 +59,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
@@ -398,7 +397,7 @@ class VideoDetailController with BlockMixin {
     } catch (_) {}
   }
 
-  final isLoginVideo = Accounts.get(AccountType.video).isLogin;
+  final isLoginVideo = AccountScope.captureVideo().account.isLogin;
 
   void cacheLocalProgress() {
     final position = plPlayerController.playerStatus.isCompleted
@@ -733,7 +732,7 @@ class VideoDetailController with BlockMixin {
     final generation = ++_sourceSelectionGeneration;
     final identity = (bvid, cid.value, epId, seasonId);
     final sourceData = data;
-    final account = Accounts.get(AccountType.video);
+    final accountOwner = AccountScope.captureVideo();
     final ownsPlayback = playbackOwner.guard();
     bool valid() =>
         !isClosed &&
@@ -741,7 +740,7 @@ class VideoDetailController with BlockMixin {
         generation == _sourceSelectionGeneration &&
         identity == (bvid, cid.value, epId, seasonId) &&
         identical(data, sourceData) &&
-        identical(account, Accounts.get(AccountType.video));
+        accountOwner.isCurrent;
     try {
       final selection = VideoPlaybackSource.resolve(
         sourceData,
@@ -1150,7 +1149,8 @@ class VideoDetailController with BlockMixin {
       source: _networkSource,
       mediaVolume: volume,
     );
-    final account = Accounts.get(AccountType.video);
+    final accountOwner = AccountScope.captureVideo();
+    final account = accountOwner.account;
     final mediaQuery = _captureVideoQuery(account);
     _videoQueryCancel?.cancel();
     _videoQueryCancel = mediaQuery;
@@ -1161,7 +1161,7 @@ class VideoDetailController with BlockMixin {
         ownsPlayback() &&
         !mediaQuery.isCancelled &&
         identical(_videoQueryCancel, mediaQuery) &&
-        identical(account, Accounts.get(AccountType.video)) &&
+        accountOwner.isCurrent &&
         identity == (bvid, cid.value, epId, seasonId);
     final start =
         startPolicy ??
@@ -1556,7 +1556,7 @@ class VideoDetailController with BlockMixin {
 
       if (response.subtitle?.subtitles case final sub? when (sub.isNotEmpty)) {
         _setSubtitle(sub, isCurrent: isCurrent);
-      } else if (!Accounts.main.isLogin) {
+      } else if (!AccountScope.signedIn) {
         final res = await SubtitleRepository.publicTracks(aid, cid.value);
         if (!isCurrent()) return;
         if (res case Success(:final response)) {
@@ -1601,7 +1601,7 @@ class VideoDetailController with BlockMixin {
 
   void reportVideo() {
     if (isClosed) return;
-    if (Accounts.main.isLogin) {
+    if (AccountScope.signedIn) {
       PageUtils.reportVideo(aid);
     } else {
       SmartDialog.showToast('账号未登录');
@@ -1898,7 +1898,8 @@ class VideoDetailController with BlockMixin {
     final requestBvid = bvid;
     final requestAid = aid;
     final requestEpId = epId;
-    final account = Accounts.get(AccountType.video);
+    final accountOwner = AccountScope.captureVideo();
+    final account = accountOwner.account;
     bool current() =>
         !isClosed &&
         request.isCurrent &&
@@ -1906,7 +1907,7 @@ class VideoDetailController with BlockMixin {
         bvid == requestBvid &&
         aid == requestAid &&
         epId == requestEpId &&
-        identical(account, Accounts.get(AccountType.video));
+        accountOwner.isCurrent;
     try {
       request.showLoading('投屏地址获取中');
       final res = await loadCastUrl(

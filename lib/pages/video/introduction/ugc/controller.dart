@@ -21,7 +21,7 @@ import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/device_utils.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
@@ -161,9 +161,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   // 分享视频
   @override
   void actionShareVideo(BuildContext context) {
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     bool ownsAccount() =>
-        context.mounted && !isClosed && identical(account, Accounts.main);
+        context.mounted && !isClosed && accountOwner.isCurrent;
     final videoDetail = this.videoDetail.value;
     final cid = this.cid.value;
     final partIndex = videoDetail.pages?.indexWhere((e) => e.cid == cid);
@@ -350,16 +350,16 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }) async {
     if (isClosed) return false;
     final version = ++_episodeChange;
-    final account = Accounts.heartbeat;
-    final mainAccount = Accounts.main;
+    final playbackAccount = AccountScope.captureHeartbeat();
+    final mainAccount = AccountScope.capture();
     final source = (bvid, cid.value);
     final videoSource = (videoDetailCtr.bvid, videoDetailCtr.cid.value);
     final ownsPlayback = videoDetailCtr.playbackOwner.guard();
     bool current() =>
         !isClosed &&
         version == _episodeChange &&
-        identical(account, Accounts.heartbeat) &&
-        identical(mainAccount, Accounts.main) &&
+        playbackAccount.isCurrent &&
+        mainAccount.isCurrent &&
         source == (bvid, cid.value) &&
         videoSource == (videoDetailCtr.bvid, videoDetailCtr.cid.value) &&
         ownsPlayback();
@@ -371,7 +371,11 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       final String? cover = episode.cover;
       Dimension? dimension;
       if (cid == null || cid <= 0) {
-        final result = await VideoDetails.resolvePart(account, bvid, aid);
+        final result = await VideoDetails.resolvePart(
+          playbackAccount.account,
+          bvid,
+          aid,
+        );
         if (!current()) return false;
         if (result is Error) {
           result.toast();
@@ -549,7 +553,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     int cid,
     int? mid,
   ) async {
-    if (!Accounts.heartbeat.isLogin) {
+    if (!AccountScope.captureHeartbeat().account.isLogin) {
       SmartDialog.showToast("账号未登录");
       return null;
     }
@@ -579,7 +583,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   Future<void> aiConclusion() async {
     final video = bvid;
     final part = cid.value;
-    final account = Accounts.heartbeat;
+    final playbackAccount = AccountScope.captureHeartbeat();
     final result = await getAiConclusion(
       bvid,
       cid.value,
@@ -588,7 +592,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     if (!isClosed &&
         video == bvid &&
         part == cid.value &&
-        identical(account, Accounts.heartbeat)) {
+        playbackAccount.isCurrent) {
       aiConclusionResult = result;
     }
   }

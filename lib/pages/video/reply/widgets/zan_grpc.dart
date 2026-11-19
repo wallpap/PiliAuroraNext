@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;
@@ -28,7 +28,8 @@ class _ZanButtonGrpcState extends State<ZanButtonGrpc> {
 
   Future<void> _react({required bool like}) async {
     if (_processing) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     if (!account.isLogin) {
       SmartDialog.showToast('请先登录');
       return;
@@ -42,13 +43,11 @@ class _ZanButtonGrpcState extends State<ZanButtonGrpc> {
         item,
         like: like,
         isCurrent: () =>
-            mounted &&
-            identical(account, Accounts.main) &&
-            identical(item, widget.replyItem),
+            mounted && identity.isCurrent && identical(item, widget.replyItem),
       );
       if (result == null ||
           !mounted ||
-          !identical(account, Accounts.main) ||
+          !identity.isCurrent ||
           !identical(item, widget.replyItem)) {
         return;
       }

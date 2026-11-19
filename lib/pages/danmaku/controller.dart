@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -76,7 +76,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
   bool _mergeDanmaku;
   final bool _isFileSource;
 
-  late final _isLogin = Accounts.main.isLogin;
+  late final _isLogin = AccountScope.signedIn;
 
   final _cache = DanmakuCache();
   // 请求中的分段单独记录；成功加载后由缓存记录，淘汰后允许重新请求。

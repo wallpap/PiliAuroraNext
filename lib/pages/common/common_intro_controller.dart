@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.da
 import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/triple_mixin.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -50,7 +50,7 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
   }
 
   @override
-  bool get isLogin => Accounts.main.isLogin;
+  bool get isLogin => AccountScope.signedIn;
 
   StatDetail? getStat();
 
@@ -130,11 +130,11 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
   bool nextPlay();
 
   MediaNavigation get mediaNavigation {
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     return MediaNavigation(
       isCurrent: () =>
           !isClosed &&
-          identical(account, Accounts.main) &&
+          accountOwner.isCurrent &&
           videoPlayerServiceHandler?.onPlay == null &&
           videoDetailCtr.playbackOwner.isActive,
       next: nextPlay,
@@ -223,7 +223,7 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
 
   Future<void> viewLater() async {
     if (_savingLater || isClosed) return;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final video = bvid;
     final removing = hasLater.value;
     _savingLater = true;
@@ -231,10 +231,13 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
       final res = await (removing
           ? LaterLibrary.legacy.remove(
               [IdUtils.bv2av(video)],
-              account: account,
+              account: accountOwner.account,
             )
-          : LaterLibrary.legacy.add(bvid: video, account: account));
-      if (isClosed || bvid != video || !identical(account, Accounts.main)) {
+          : LaterLibrary.legacy.add(
+              bvid: video,
+              account: accountOwner.account,
+            ));
+      if (isClosed || bvid != video || !accountOwner.isCurrent) {
         return;
       }
       if (res.isSuccess) {
@@ -265,10 +268,10 @@ mixin FavMixin on TripleMixin {
   }
 
   void showFavBottomSheet(BuildContext context, {bool isLongPress = false}) {
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final target = getFavRidType;
     final source = favoriteOwner;
-    if (!account.isLogin) {
+    if (!accountOwner.account.isLogin) {
       SmartDialog.showToast('账号未登录');
       return;
     }
@@ -283,7 +286,7 @@ mixin FavMixin on TripleMixin {
       isCurrent: () =>
           !isClosed &&
           identical(source, favoriteOwner) &&
-          identical(account, Accounts.main) &&
+          accountOwner.isCurrent &&
           getFavRidType == target,
       onSaved: confirmedFavorite,
     );
@@ -291,18 +294,18 @@ mixin FavMixin on TripleMixin {
 
   Future<void> quickFavorite() async {
     if (_savingFav || isClosed) return;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final target = getFavRidType;
     final source = favoriteOwner;
     bool current() =>
         !isClosed &&
         identical(source, favoriteOwner) &&
-        identical(account, Accounts.main) &&
+        accountOwner.isCurrent &&
         getFavRidType == target;
     _savingFav = true;
     try {
       final result = await FavoriteLibrary.legacy.quick(
-        account,
+        accountOwner.account,
         target,
         isCurrent: current,
       );

@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
@@ -242,13 +242,14 @@ class AuthorPanel extends StatelessWidget {
   }
 
   void morePanel(BuildContext context) {
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final owner = context.widget;
     final dynamicId = item.idStr.toString();
     bool ownsTarget() =>
         context.mounted &&
         identical(context.widget, owner) &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         dynamicId == item.idStr.toString();
     String? bvid;
     try {
@@ -398,7 +399,7 @@ class AuthorPanel extends StatelessWidget {
                 },
                 minLeadingWidth: 0,
               ),
-              if (kDebugMode || moduleAuthor.mid == Accounts.main.mid) ...[
+              if (kDebugMode || moduleAuthor.mid == identity.account.mid) ...[
                 ListTile(
                   onTap: () {
                     Get.back();
@@ -621,7 +622,7 @@ class AuthorPanel extends StatelessWidget {
                     ),
                   ),
               ],
-              if (Accounts.main.isLogin)
+              if (identity.account.isLogin)
                 ListTile(
                   title: Text(
                     '举报',

@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote_decoration.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
@@ -37,10 +37,10 @@ class VotePanel extends StatefulWidget {
 
 class _VotePanelState extends State<VotePanel> {
   late bool anonymous = false;
-  final _account = Accounts.main;
+  final _owner = AccountScope.capture();
   bool _submitting = false;
   int _generation = 0;
-  bool get _isCurrent => identical(_account, Accounts.main);
+  bool get _isCurrent => _owner.isCurrent;
 
   late VoteInfo _voteInfo;
   late final RxList<int> groupValue =
@@ -51,14 +51,14 @@ class _VotePanelState extends State<VotePanel> {
       (_voteInfo.endTime ?? 0) * 1000 > DateTime.now().millisecondsSinceEpoch;
   late bool _showPercentage = !_enabled;
   int get _maxCnt => _voteInfo.choiceCnt ?? _voteInfo.options.length;
-  bool get isLogin => _isCurrent && _account.isLogin;
+  bool get isLogin => _isCurrent && _owner.account.isLogin;
   late final followeeVote = Rxn<List<FolloweeVote>>();
 
   @override
   void initState() {
     super.initState();
     _voteInfo = widget.voteInfo;
-    Accounts.mainChanges.addListener(_onAccountChanged);
+    AccountScope.changes.addListener(_onAccountChanged);
     _loadFolloweeVotes();
   }
 
@@ -72,7 +72,7 @@ class _VotePanelState extends State<VotePanel> {
     final info = _voteInfo;
     final generation = _generation;
     final result = await const VoteRepository().followees(
-      _account,
+      _owner.account,
       info.voteId,
     );
     if (!mounted ||
@@ -105,7 +105,7 @@ class _VotePanelState extends State<VotePanel> {
 
   @override
   void dispose() {
-    Accounts.mainChanges.removeListener(_onAccountChanged);
+    AccountScope.changes.removeListener(_onAccountChanged);
     _generation++;
     super.dispose();
   }
@@ -611,10 +611,11 @@ Future<void> showVoteDialog(
   int voteId, [
   int? dynamicId,
 ]) async {
-  final account = Accounts.main;
+  final owner = AccountScope.capture();
+  final account = owner.account;
   const repository = VoteRepository();
   final voteInfo = await repository.detail(account, voteId);
-  if (context.mounted && identical(account, Accounts.main)) {
+  if (context.mounted && owner.isCurrent) {
     if (voteInfo case Success(:final response)) {
       showDialog(
         context: context,

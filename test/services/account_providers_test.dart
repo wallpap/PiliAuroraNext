@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/account/application/account_roles.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
@@ -94,6 +95,19 @@ void main() {
     final newSession = Messaging.instance.session;
     expect(newSession.isActive, isTrue);
     expect(newSession.key, isNot(oldSession.key));
+  });
+
+  test('主账号恢复原凭据后不接收上一会话结果，视频角色独立', () {
+    Accounts.accountMode[AccountType.video.index] = recommendAccount;
+    final mainRequest = AccountScope.capture();
+    final videoRequest = AccountScope.captureVideo();
+
+    Accounts.replaceCredentials(login(100, csrf: 'renewed'));
+    Accounts.replaceCredentials(mainAccount);
+
+    expect(mainRequest.isCurrent, isFalse);
+    expect(AccountScope.capture().isCurrent, isTrue);
+    expect(videoRequest.isCurrent, isTrue);
   });
 
   test('真实推荐账号切换发布同 mid 的新凭据，不重建主账号及消息 Session', () async {

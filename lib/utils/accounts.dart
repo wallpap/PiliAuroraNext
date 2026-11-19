@@ -28,6 +28,8 @@ abstract final class Accounts {
   }
 
   static Account get video => accountMode[AccountType.video.index];
+  static final _videoChanges = ValueNotifier(0);
+  static ValueListenable<int> get videoChanges => _videoChanges;
   static Account? _temporaryHeartbeatOwner;
   static final _heartbeatChanges = ValueNotifier(0);
   static ValueListenable<int> get heartbeatChanges => _heartbeatChanges;
@@ -57,6 +59,7 @@ abstract final class Accounts {
   static void replaceCredentials(LoginAccount account) {
     final previousHistory = history;
     final previousMain = main;
+    final previousVideo = video;
     final previousHeartbeat = heartbeat;
     final previousRecommend = get(AccountType.recommend);
     if (_temporaryHeartbeatOwner?.mid == account.mid) {
@@ -70,6 +73,7 @@ abstract final class Accounts {
       }
     }
     if (!identical(previousMain, main)) _onMainChanged();
+    if (!identical(previousVideo, video)) _videoChanges.value++;
     if (!identical(previousHeartbeat, heartbeat)) _heartbeatChanges.value++;
     if (!identical(previousRecommend, get(AccountType.recommend))) {
       _recommendChanges.value++;
@@ -102,6 +106,7 @@ abstract final class Accounts {
       }
     }
     _onMainChanged();
+    _videoChanges.value++;
     _recommendChanges.value++;
     _historyChanges.value++;
     _heartbeatChanges.value++;
@@ -119,6 +124,7 @@ abstract final class Accounts {
       accountMode[i] = AnonymousAccount();
     }
     _onMainChanged();
+    _videoChanges.value++;
     _recommendChanges.value++;
     _historyChanges.value++;
     _heartbeatChanges.value++;
@@ -129,6 +135,7 @@ abstract final class Accounts {
   static Future<void> deleteAll(Set<Account> accounts) async {
     final previousHistory = history;
     final previousMain = Accounts.main;
+    final previousVideo = video;
     final previousRecommend = get(AccountType.recommend);
     final isLoginMain = previousMain.isLogin;
     for (int i = 0; i < AccountType.values.length; i++) {
@@ -139,6 +146,7 @@ abstract final class Accounts {
     if (!identical(previousMain, Accounts.main)) {
       _onMainChanged();
     }
+    if (!identical(previousVideo, video)) _videoChanges.value++;
     if (!identical(previousRecommend, get(AccountType.recommend))) {
       _recommendChanges.value++;
     }
@@ -163,6 +171,7 @@ abstract final class Accounts {
     if (key == AccountType.heartbeat) _temporaryHeartbeatOwner = null;
     accountMode[key.index] = account..type.add(key);
     if (key == AccountType.main) _onMainChanged();
+    if (key == AccountType.video) _videoChanges.value++;
     if (key == AccountType.recommend) _recommendChanges.value++;
     if (key == AccountType.heartbeat) _heartbeatChanges.value++;
     if (!identical(previousHistory, history)) _historyChanges.value++;

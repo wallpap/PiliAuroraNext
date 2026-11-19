@@ -25,7 +25,7 @@ import 'package:pili_aurora_next/pages/member/widget/header_layout_widget.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/member_guard/view.dart';
 import 'package:pili_aurora_next/pages/member_upower_rank/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/bili_colors.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
@@ -420,7 +420,7 @@ class UserInfoCard extends StatelessWidget {
           if (!isOwner)
             IconButton.outlined(
               onPressed: () {
-                if (Accounts.main.isLogin) {
+                if (AccountScope.signedIn) {
                   final mid = int.tryParse(card.mid ?? '');
                   if (mid == null || mid <= 0) {
                     SmartDialog.showToast('用户信息无效，请刷新后重试');

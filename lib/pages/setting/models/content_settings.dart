@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -387,19 +387,20 @@ Future<void> _showReplyLengthDialog(
 );
 
 Future<void> _showFavDialog(BuildContext context) async {
-  final account = Accounts.main;
+  final owner = AccountScope.capture();
+  final account = owner.account;
   if (!account.isLogin) return;
   final library = FavoriteLibrary.legacy;
   final List<FavFolderInfo> folders;
   try {
     folders = await library.destinations(account);
   } catch (error, stack) {
-    if (context.mounted && library.owns(account)) {
+    if (context.mounted && owner.isCurrent) {
       (error is Error ? error : Error.fromException(error, stack)).toast();
     }
     return;
   }
-  if (!context.mounted || !library.owns(account)) return;
+  if (!context.mounted || !owner.isCurrent) return;
   if (folders.isEmpty) {
     SmartDialog.showToast('暂无可选收藏夹');
     return;
@@ -413,16 +414,16 @@ Future<void> _showFavDialog(BuildContext context) async {
       content: SingleChildScrollView(
         child: RadioGroup<int>(
           onChanged: (value) async {
-            if (!library.owns(account)) return;
+            if (!owner.isCurrent) return;
             final saved = await saveSetting(
               key: SettingBoxKey.quickFavId,
               write: () => library.setQuickFolder(account, value),
-              canPresent: () => context.mounted && library.owns(account),
+              canPresent: () => context.mounted && owner.isCurrent,
               successMessage: '设置成功',
             );
             if (saved &&
                 context.mounted &&
-                library.owns(account) &&
+                owner.isCurrent &&
                 (ModalRoute.of(context)?.isCurrent ?? false)) {
               Navigator.pop(context);
             }

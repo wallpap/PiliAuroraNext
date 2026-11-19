@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:collection/collection.dart';
@@ -416,7 +416,8 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (!mounted || _publishing.value) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final item = widget.item;
     final dynIdStr = item?.idStr ?? widget.dynIdStr;
     final rid = widget.rid;
@@ -437,7 +438,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ).read(dynamicsPublishingProvider);
     bool isCurrent() =>
         mounted &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         identical(item, widget.item) &&
         rid == widget.rid &&
         dynIdStr == (widget.item?.idStr ?? widget.dynIdStr) &&

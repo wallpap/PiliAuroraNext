@@ -24,7 +24,7 @@ import 'package:pili_aurora_next/features/download/application/download_service.
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
@@ -267,7 +267,9 @@ class _DownloadPanelState extends ConsumerState<DownloadPanel> {
       return false;
     }
 
-    if (kReleaseMode && episode.badge == '会员' && Accounts.mainEqVideo) {
+    if (kReleaseMode &&
+        episode.badge == '会员' &&
+        AccountScope.mainUsesVideoCredentials) {
       if (vipStatus != 1) {
         if (!isDownloadAll) {
           SmartDialog.showToast('需要大会员');

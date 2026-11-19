@@ -35,7 +35,7 @@ import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_page_detail.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -63,7 +63,7 @@ class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
   @override
   late final DynamicDetailController controller;
   final _activityOwner = Object();
-  final _openingAccount = Accounts.main;
+  final _openingOwner = AccountScope.capture();
   DynamicActivityQuery get _activityQuery =>
       (owner: _activityOwner, id: controller.dynItem.idStr.toString());
 
@@ -238,11 +238,11 @@ class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
         replyOption = .close;
       }
     }
-    final account = Accounts.main;
+    final owner = AccountScope.capture();
     bool isCurrent() =>
         mounted &&
         !controller.isClosed &&
-        identical(account, Accounts.main) &&
+        owner.isCurrent &&
         identical(item, controller.dynItem);
     CreateDynPanel.onCreateDyn(
       context,
@@ -265,7 +265,7 @@ class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
             if (!isCurrent()) return;
             final res = await ref
                 .read(dynamicDetailsProvider)
-                .load(account, item.idStr);
+                .load(owner.account, item.idStr);
             if (res case Success(:final response)) {
               if (isCurrent()) {
                 controller.dynItem = response;
@@ -311,10 +311,8 @@ class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
     return Consumer(
       builder: (context, ref, _) {
         final query = _activityQuery;
-        final sameAccount = identical(
-          _openingAccount,
-          ref.watch(mainAccountProvider),
-        );
+        ref.watch(mainAccountProvider);
+        final sameAccount = _openingOwner.isCurrent;
         final stat = controller.dynItem.modules.moduleStat;
         final repostCount =
             ref.watch(dynamicRepostsProvider(query)).metadata?.total ??
