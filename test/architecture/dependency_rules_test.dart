@@ -37,6 +37,11 @@ void main() {
       '/device_utils',
     ],
     'features/download/data/download_manager.dart': ['/http/'],
+    'services/settings/window_preferences.dart': [
+      'package:get/',
+      '/pages/',
+      '/utils/storage_pref',
+    ],
   };
   test(
     'download feature enforces domain, application and presentation boundaries',

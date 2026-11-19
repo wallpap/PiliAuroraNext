@@ -6,6 +6,7 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
 import 'package:pili_aurora_next/utils/calc_window_position.dart';
 import 'package:pili_aurora_next/utils/max_screen_size.dart';
@@ -130,11 +131,11 @@ Future<void> initializePlatformWindow() async {
       title: Constants.appName,
     );
     await windowManager.waitUntilReadyToShow(windowOptions);
-    final windowSize = Pref.windowSize;
+    final windowSize = WindowPreferences.size;
     await windowManager.setBounds(
       await calcWindowPosition(windowSize) & windowSize,
     );
-    if (Pref.isWindowMaximized) await windowManager.maximize();
+    if (WindowPreferences.isMaximized) await windowManager.maximize();
     await windowManager.show();
     await windowManager.focus();
   }

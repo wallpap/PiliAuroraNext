@@ -57,6 +57,7 @@ import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
@@ -401,7 +402,9 @@ class PlPlayerController
 
   late final RxBool autoPipEnabled = Pref.autoPiP.obs;
   bool get autoPiP => autoPipEnabled.value;
-  late final RxBool pauseOnMinimize = Pref.pauseOnMinimize.obs;
+  late final RxBool pauseOnMinimize = WindowPreference.pauseOnMinimize
+      .read()
+      .obs;
   PlaybackOwner? _minimizedWindowOwner;
   PlaybackInhibitorToken? _minimizedWindowToken;
   bool _listensToWindowEvents = false;

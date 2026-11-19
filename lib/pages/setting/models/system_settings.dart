@@ -6,7 +6,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/clear_cache_item.dart';
@@ -15,6 +14,7 @@ import 'package:pili_aurora_next/pages/setting/widgets/slider_dialog.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/download_path.dart';
 import 'package:pili_aurora_next/utils/filtering_text.dart';
@@ -77,16 +77,10 @@ List<SettingsModel> get systemSettings => [
     leading: const Icon(Icons.storage_outlined),
     children: [
       if (PlatformUtils.isDesktop) ...[
-        SwitchModel(
+        SwitchModel.window(
           title: '退出时最小化',
           leading: const Icon(Icons.exit_to_app),
-          setKey: SettingBoxKey.minimizeOnExit,
-          defaultVal: true,
-          onChanged: (value) {
-            try {
-              Get.find<MainController>().minimizeOnExit = value;
-            } catch (_) {}
-          },
+          preference: WindowPreference.minimizeOnExit,
         ),
         NormalModel(
           title: '缓存路径',

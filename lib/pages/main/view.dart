@@ -23,6 +23,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart
 import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/services/windows_update_exit.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
@@ -33,7 +34,6 @@ import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/mobile_observer.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -51,7 +51,6 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends PopScopeState<MainApp>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver, WindowListener {
   final _mainController = Get.put(MainController());
-  late final _setting = GStorage.setting;
   late EdgeInsets _padding;
   late ColorScheme _colorScheme;
   Brightness? _brightness;
@@ -112,7 +111,7 @@ class _MainAppState extends PopScopeState<MainApp>
       windowManager
         ..addListener(this)
         ..setPreventClose(true);
-      if (_mainController.showTrayIcon) {
+      if (WindowPreference.showTrayIcon.read()) {
         _handleTray();
       }
     }
@@ -171,6 +170,7 @@ class _MainAppState extends PopScopeState<MainApp>
     if (PlatformUtils.isDesktop) {
       _disposeTray();
       windowManager.removeListener(this);
+      _releaseMinimizeInhibitor();
     }
     removeObserverMobile(this);
     PiliScheme.listener?.cancel();
@@ -180,12 +180,12 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void onWindowMaximize() {
-    _setting.put(SettingBoxKey.isWindowMaximized, true);
+    WindowPreferences.saveMaximized(true);
   }
 
   @override
   void onWindowUnmaximize() {
-    _setting.put(SettingBoxKey.isWindowMaximized, false);
+    WindowPreferences.saveMaximized(false);
   }
 
   @override
@@ -194,7 +194,7 @@ class _MainAppState extends PopScopeState<MainApp>
       return;
     }
     final Offset offset = await windowManager.getPosition();
-    _setting.put(SettingBoxKey.windowPosition, [offset.dx, offset.dy]);
+    await WindowPreferences.savePosition(offset);
   }
 
   @override
@@ -203,15 +203,13 @@ class _MainAppState extends PopScopeState<MainApp>
       return;
     }
     final Rect bounds = await windowManager.getBounds();
-    _setting.putAll({
-      SettingBoxKey.windowSize: [bounds.width, bounds.height],
-      SettingBoxKey.windowPosition: [bounds.left, bounds.top],
-    });
+    await WindowPreferences.saveBounds(bounds);
   }
 
   @override
   void onWindowClose() {
-    if (_mainController.showTrayIcon && _mainController.minimizeOnExit) {
+    if (_isClosing) return;
+    if (WindowPreferences.hideOnClose(trayAvailable: _trayIcon != null)) {
       _hide();
       _onHideWindow();
     } else {
@@ -236,29 +234,24 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void onWindowRestore() {
-    _onShowWindow();
+    _releaseMinimizeInhibitor();
   }
 
   void _onHideWindow() {
-    if (PlPlayerController.instance?.pauseOnMinimize.value ??
-        _mainController.pauseOnMinimize) {
-      if (PlPlayerController.instance case final player?) {
-        final owner = player.activePlaybackOwner;
-        final isPlaying = player.playerStatus.isPlaying && owner != null;
-        _mainController.isPlaying = isPlaying;
-        if (isPlaying) {
-          _minimizeOwner = owner;
-          _minimizeToken ??= owner.acquireInhibitor(
-            PlaybackInhibitorSource.system,
-          );
-        }
-      } else {
-        _mainController.isPlaying = false;
-      }
+    final player = PlPlayerController.instance;
+    if (player == null ||
+        !player.pauseOnMinimize.value ||
+        !player.playerStatus.isPlaying) {
+      return;
     }
+    final owner = player.activePlaybackOwner;
+    if (owner == null || identical(_minimizeOwner, owner)) return;
+    _releaseMinimizeInhibitor();
+    _minimizeOwner = owner;
+    _minimizeToken = owner.acquireInhibitor(PlaybackInhibitorSource.system);
   }
 
-  void _onShowWindow() {
+  void _releaseMinimizeInhibitor() {
     final owner = _minimizeOwner;
     final token = _minimizeToken;
     _minimizeOwner = null;
@@ -266,7 +259,6 @@ class _MainAppState extends PopScopeState<MainApp>
     if (owner != null && token != null) {
       unawaited(owner.releaseInhibitor(token));
     }
-    _mainController.isPlaying = false;
   }
 
   double? _opacity;
@@ -290,8 +282,10 @@ class _MainAppState extends PopScopeState<MainApp>
     await windowManager.hide();
   }
 
-  Future<void> _show() {
-    return windowManager.show();
+  Future<void> _show() async {
+    if (!mounted || _isClosing) return;
+    _releaseMinimizeInhibitor();
+    await windowManager.show();
   }
 
   void _scheduleClose() {
@@ -302,70 +296,78 @@ class _MainAppState extends PopScopeState<MainApp>
 
   void _disposeTray() {
     final trayIcon = _trayIcon;
-    if (trayIcon != null) {
-      if (_trayListenerId case final listenerId?) {
-        trayIcon.removeListener(listenerId);
-      }
-      trayIcon.dispose();
-    }
+    final listenerId = _trayListenerId;
+    final trayMenu = _trayMenu;
+    final showItem = _trayShowItem;
+    final exitItem = _trayExitItem;
+    final trayImage = _trayImage;
     _trayIcon = null;
     _trayListenerId = null;
-    _trayMenu?.dispose();
     _trayMenu = null;
-    _trayShowItem?.dispose();
     _trayShowItem = null;
-    _trayExitItem?.dispose();
     _trayExitItem = null;
-    _trayImage?.dispose();
     _trayImage = null;
+    if (trayIcon != null) {
+      if (listenerId != null) trayIcon.removeListener(listenerId);
+      trayIcon.dispose();
+    }
+    trayMenu?.dispose();
+    showItem?.dispose();
+    exitItem?.dispose();
+    trayImage?.dispose();
   }
 
   Future<void> _handleTrayIconClick() async {
-    if (await windowManager.isVisible()) {
+    final visible = await windowManager.isVisible();
+    if (!mounted || _isClosing) return;
+    if (visible) {
       _onHideWindow();
       _hide();
     } else {
-      _onShowWindow();
       _show();
     }
   }
 
   void _handleTray() {
-    final trayIcon = tray.TrayIcon.create();
-    final trayImage = tray.ImageAsset.fromAsset(
+    try {
+      _initializeTray();
+    } catch (error, stack) {
+      logger.w('创建托盘失败', error: error.runtimeType, stackTrace: stack);
+      try {
+        _disposeTray();
+      } catch (error, stack) {
+        logger.w('清理托盘失败', error: error.runtimeType, stackTrace: stack);
+      }
+    }
+  }
+
+  void _initializeTray() {
+    final trayIcon = _trayIcon = tray.TrayIcon.create();
+    if (trayIcon == null) return;
+    final trayImage = _trayImage = tray.ImageAsset.fromAsset(
       Assets.themed(
         Assets.logoIco,
         _brightness ??
             WidgetsBinding.instance.platformDispatcher.platformBrightness,
       ),
     );
-    final trayMenu = tray.Menu.create();
-    final showItem = tray.MenuItem.createWithLabelAndType(
+    final trayMenu = _trayMenu = tray.Menu.create();
+    final showItem = _trayShowItem = tray.MenuItem.createWithLabelAndType(
       '显示窗口',
       tray.MenuItemType.normal,
     );
-    final exitItem = tray.MenuItem.createWithLabelAndType(
+    final exitItem = _trayExitItem = tray.MenuItem.createWithLabelAndType(
       '退出 ${Constants.appName}',
       tray.MenuItemType.normal,
     );
-    if (trayIcon == null ||
-        trayImage == null ||
+    if (trayImage == null ||
         trayMenu == null ||
         showItem == null ||
         exitItem == null) {
-      trayIcon?.dispose();
-      trayImage?.dispose();
-      trayMenu?.dispose();
-      showItem?.dispose();
-      exitItem?.dispose();
+      _disposeTray();
       return;
     }
 
-    _trayIcon = trayIcon;
-    _trayImage = trayImage;
-    _trayMenu = trayMenu;
-    _trayShowItem = showItem;
-    _trayExitItem = exitItem;
     _trayListenerId = trayIcon.addListener((event) {
       if (event is tray.TrayIconClickedEvent) {
         unawaited(_handleTrayIconClick());
@@ -385,8 +387,8 @@ class _MainAppState extends PopScopeState<MainApp>
       ..icon = trayImage
       ..setTooltip(Constants.appName)
       ..setContextMenu(trayMenu)
-      ..setContextMenuTrigger(tray.ContextMenuTrigger.rightClicked)
-      ..setVisible(true);
+      ..setContextMenuTrigger(tray.ContextMenuTrigger.rightClicked);
+    if (!trayIcon.setVisible(true)) _disposeTray();
   }
 
   void _updateTrayImage(Brightness brightness) {
@@ -416,18 +418,16 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void onPopInvokedWithResult(bool didPop, Object? result) {
-    if (_mainController.directExitOnBack) {
-      _onBack();
+    if (WindowPreferences.returnToFirstTab(
+      _mainController.selectedIndex.value,
+    )) {
+      _mainController
+        ..setIndex(0)
+        ..barOffset?.value = 0.0
+        ..showBottomBar?.value = true
+        ..setSearchBar();
     } else {
-      if (_mainController.selectedIndex.value != 0) {
-        _mainController
-          ..setIndex(0)
-          ..barOffset?.value = 0.0
-          ..showBottomBar?.value = true
-          ..setSearchBar();
-      } else {
-        _onBack();
-      }
+      _onBack();
     }
   }
 

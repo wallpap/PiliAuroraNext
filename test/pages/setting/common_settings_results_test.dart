@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/switch_item.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -103,6 +104,31 @@ void main() {
     expect(toggle(tester).value, isTrue);
     expect(find.text('设置已保存，应用失败，请重启后重试'), findsOneWidget);
     expect(find.textContaining('private-apply'), findsNothing);
+    await finish(tester);
+  });
+
+  testWidgets('播放设置确认落盘后才应用最小化偏好，无需注册主壳', (tester) async {
+    settings.saving = Completer<void>();
+    final applied = <bool>[];
+    await mount(
+      tester,
+      SwitchModel.window(
+        title: '最小化时暂停/还原时播放',
+        preference: WindowPreference.pauseOnMinimize,
+        onChanged: applied.add,
+      ).widget,
+    );
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(settings.writes, [('pauseOnMinimize', true)]);
+    expect(WindowPreference.pauseOnMinimize.read(), isFalse);
+    expect(toggle(tester).value, isFalse);
+    expect(applied, isEmpty);
+    settings.saving!.complete();
+    await tester.pumpAndSettle();
+    expect(WindowPreference.pauseOnMinimize.read(), isTrue);
+    expect(toggle(tester).value, isTrue);
+    expect(applied, [true]);
     await finish(tester);
   });
 

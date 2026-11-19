@@ -33,11 +33,11 @@ import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
 import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
@@ -155,18 +155,16 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.dashboard_outlined),
     children: [
       if (PlatformUtils.isDesktop) ...[
-        const SwitchModel(
+        SwitchModel.window(
           title: '显示窗口标题栏',
-          leading: Icon(Icons.window),
-          setKey: SettingBoxKey.showWindowTitleBar,
-          defaultVal: true,
+          leading: const Icon(Icons.window),
+          preference: WindowPreference.showTitleBar,
           needReboot: true,
         ),
-        const SwitchModel(
+        SwitchModel.window(
           title: '显示托盘图标',
-          leading: Icon(Icons.donut_large_rounded),
-          setKey: SettingBoxKey.showTrayIcon,
-          defaultVal: true,
+          leading: const Icon(Icons.donut_large_rounded),
+          preference: WindowPreference.showTrayIcon,
           needReboot: true,
         ),
       ],
@@ -291,14 +289,11 @@ List<SettingsModel> get styleSettings => [
         subtitle: '删除或调换Navbar',
         leading: const Icon(Icons.toc_outlined),
       ),
-      SwitchModel(
+      SwitchModel.window(
         title: '返回时直接退出',
         subtitle: '开启后在主页任意tab按返回键都直接退出，关闭则先回到Navbar的第一个tab',
         leading: const Icon(Icons.exit_to_app_outlined),
-        setKey: SettingBoxKey.directExitOnBack,
-        defaultVal: false,
-        onChanged: (value) =>
-            Get.find<MainController>().directExitOnBack = value,
+        preference: WindowPreference.directExitOnBack,
       ),
     ],
   ),

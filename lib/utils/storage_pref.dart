@@ -951,9 +951,6 @@ abstract final class Pref {
   static bool get continuePlayInBackground =>
       _setting.get(SettingBoxKey.continuePlayInBackground, defaultValue: false);
 
-  static bool get directExitOnBack =>
-      _setting.get(SettingBoxKey.directExitOnBack, defaultValue: false);
-
   static bool get historyPause =>
       _localCache.get(LocalCacheKey.historyPause, defaultValue: false);
 
@@ -1002,41 +999,8 @@ abstract final class Pref {
     defaultValue: kFullScreenSCWidth,
   );
 
-  static bool get minimizeOnExit =>
-      _setting.get(SettingBoxKey.minimizeOnExit, defaultValue: true);
-
-  static Size get windowSize {
-    final size = _windowPair(SettingBoxKey.windowSize);
-    if (size == null || size[0] <= 0 || size[1] <= 0) {
-      return const Size(1180, 720);
-    }
-    return Size(size[0], size[1]);
-  }
-
-  static List<double>? get windowPosition =>
-      _windowPair(SettingBoxKey.windowPosition);
-
-  static List<double>? _windowPair(String key) {
-    final value = _setting.get(key);
-    if (value is! List ||
-        value.length != 2 ||
-        value.any((item) => item is! num || !item.isFinite)) {
-      return null;
-    }
-    return value.cast<num>().map((item) => item.toDouble()).toList();
-  }
-
-  static bool get isWindowMaximized =>
-      _setting.get(SettingBoxKey.isWindowMaximized, defaultValue: false);
-
   static bool get keyboardControl =>
       _setting.get(SettingBoxKey.keyboardControl, defaultValue: true);
-
-  static bool get pauseOnMinimize =>
-      _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);
-
-  static bool get showWindowTitleBar =>
-      _setting.get(SettingBoxKey.showWindowTitleBar, defaultValue: true);
 
   static double get desktopVolume => readVolumePreference(
     _setting,
@@ -1057,9 +1021,6 @@ abstract final class Pref {
 
   static bool get enableTapDm =>
       _setting.get(SettingBoxKey.enableTapDm, defaultValue: true);
-
-  static bool get showTrayIcon =>
-      _setting.get(SettingBoxKey.showTrayIcon, defaultValue: true);
 
   static bool get setSystemBrightness =>
       _setting.get(SettingBoxKey.setSystemBrightness, defaultValue: false);

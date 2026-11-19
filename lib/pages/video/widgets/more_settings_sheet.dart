@@ -14,13 +14,14 @@ import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/super_resolution_policy.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
@@ -136,6 +137,7 @@ class VideoMoreSettingsSheet extends StatefulWidget {
 class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
   final _scrollController = ScrollController();
   bool _advanced = false;
+  bool _savingPauseOnMinimize = false;
   VideoDetailController get controller => widget.controller;
 
   @override
@@ -147,6 +149,25 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
   void _run(VoidCallback action) {
     Navigator.of(context).pop();
     if (widget.sourceContext.mounted) action();
+  }
+
+  Future<void> _setPauseOnMinimize(bool value) async {
+    if (_savingPauseOnMinimize) return;
+    final player = controller.plPlayerController;
+    player.pauseOnMinimize.value = value;
+    if (player.tempPlayerConf) return;
+    const preference = WindowPreference.pauseOnMinimize;
+    setState(() => _savingPauseOnMinimize = true);
+    try {
+      await saveSetting(
+        key: preference.key,
+        write: () => preference.save(value),
+        canPresent: () =>
+            mounted && (ModalRoute.of(context)?.isCurrent ?? true),
+      );
+    } finally {
+      if (mounted) setState(() => _savingPauseOnMinimize = false);
+    }
   }
 
   Widget _switch(
@@ -593,19 +614,7 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
                             Icons.pause_circle_outline,
                             '最小化时暂停',
                             player.pauseOnMinimize.value,
-                            (value) {
-                              player.pauseOnMinimize.value = value;
-                              if (!player.tempPlayerConf) {
-                                GStorage.setting.put(
-                                  SettingBoxKey.pauseOnMinimize,
-                                  value,
-                                );
-                                if (Get.isRegistered<MainController>()) {
-                                  Get.find<MainController>().pauseOnMinimize =
-                                      value;
-                                }
-                              }
-                            },
+                            _savingPauseOnMinimize ? null : _setPauseOnMinimize,
                           ),
                         if (PlatformUtils.isMobile)
                           _switch(

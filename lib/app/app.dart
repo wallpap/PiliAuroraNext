@@ -18,6 +18,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart';
 import 'package:pili_aurora_next/router/app_pages.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
@@ -27,12 +28,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 提供应用主题、本地化、路由、全局对话框和导航观察器。
-class PiliAuroraNextApp extends StatelessWidget {
+class PiliAuroraNextApp extends StatefulWidget {
   const PiliAuroraNextApp({super.key, this.playbackRequest});
   final DesktopPlaybackRequest? playbackRequest;
 
   @override
+  State<PiliAuroraNextApp> createState() => _PiliAuroraNextAppState();
+}
+
+class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
+  late final _showTitleBar = WindowPreference.showTitleBar.read();
+
+  @override
   Widget build(BuildContext context) {
+    final playbackRequest = widget.playbackRequest;
     final (light, dark) = ThemeUtils.getAllTheme();
     return ProviderScope(
       overrides: [
@@ -94,6 +103,7 @@ class PiliAuroraNextApp extends StatelessWidget {
   }
 
   Widget _builder(BuildContext context, Widget? child) {
+    final playbackRequest = widget.playbackRequest;
     final viewport = AppViewport(
       uiScale: Pref.uiScale,
       textScale: Pref.defaultTextScale,
@@ -106,7 +116,7 @@ class PiliAuroraNextApp extends StatelessWidget {
               onBack: handleAppBack,
               child: playbackRequest == null
                   ? DesktopWindowFrame(
-                      showTitleBar: Pref.showWindowTitleBar,
+                      showTitleBar: _showTitleBar,
                       child: viewport,
                     )
                   : viewport,

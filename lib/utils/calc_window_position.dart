@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:flutter/rendering.dart' show Offset, Size, Rect;
 import 'package:screen_retriever/screen_retriever.dart';
 
@@ -20,11 +20,10 @@ Future<Offset> calcWindowPosition(Size windowSize) async {
     logger.w('读取光标位置失败', error: error.runtimeType, stackTrace: stackTrace);
   }
   final bounds = displays.map(_visibleBounds).whereType<Rect>().toList();
-  final saved = Pref.windowPosition;
+  final saved = WindowPreferences.position;
   if (saved != null) {
-    final position = Offset(saved[0], saved[1]);
     for (final area in bounds) {
-      if (_canRestore(area, position)) return position;
+      if (_canRestore(area, saved)) return saved;
     }
   }
   Rect? selected;
@@ -45,15 +44,15 @@ Future<Offset> calcWindowPosition(Size windowSize) async {
   }
   selected ??= bounds.firstOrNull;
   if (selected == null) return Offset.zero;
-  if (saved != null && _canRestore(selected, Offset(saved[0], saved[1]))) {
-    return Offset(saved[0], saved[1]);
+  if (saved != null && _canRestore(selected, saved)) {
+    return saved;
   }
   final width = windowSize.width.isFinite && windowSize.width > 0
       ? windowSize.width
-      : 1180.0;
+      : WindowPreferences.defaultSize.width;
   final height = windowSize.height.isFinite && windowSize.height > 0
       ? windowSize.height
-      : 720.0;
+      : WindowPreferences.defaultSize.height;
   return Offset(
     selected.left + math.max(0, (selected.width - width) / 2),
     selected.top + math.max(0, (selected.height - height) / 2),

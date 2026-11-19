@@ -10,7 +10,6 @@ import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
@@ -22,6 +21,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -55,17 +55,12 @@ List<SettingsModel> get playSettings => [
         defaultVal: false,
       ),
       if (PlatformUtils.isDesktop)
-        SwitchModel(
+        SwitchModel.window(
           title: '最小化时暂停/还原时播放',
           leading: const Icon(Icons.pause_circle_outline),
-          setKey: SettingBoxKey.pauseOnMinimize,
-          defaultVal: false,
-          onChanged: (value) {
-            PlPlayerController.instance?.pauseOnMinimize.value = value;
-            try {
-              Get.find<MainController>().pauseOnMinimize = value;
-            } catch (_) {}
-          },
+          preference: WindowPreference.pauseOnMinimize,
+          onChanged: (value) =>
+              PlPlayerController.instance?.pauseOnMinimize.value = value,
         ),
       if (PlatformUtils.isMobile)
         SwitchModel(

@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/switch_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart';
 import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart' hide PopupMenuItemSelected;
@@ -108,6 +109,8 @@ class SplitModel extends SettingsModel {
     subtitle: effectiveSubtitle,
     setKey: switchModel.setKey,
     defaultVal: switchModel.defaultVal,
+    read: switchModel.windowPreference?.read,
+    write: switchModel.windowPreference?.save,
     onChanged: switchModel.onChanged,
     needReboot: switchModel.needReboot,
     leading: normalModel.leading,
@@ -216,6 +219,7 @@ class SwitchModel extends SettingsModel {
   final String? title;
   final String setKey;
   final bool defaultVal;
+  final WindowPreference? windowPreference;
   final FutureOr<void> Function(bool)? onChanged;
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
@@ -233,7 +237,7 @@ class SwitchModel extends SettingsModel {
     this.needReboot = false,
     this.onTap,
     this.children = const [],
-  });
+  }) : windowPreference = null;
 
   const SwitchModel.split({
     required this.setKey,
@@ -242,7 +246,21 @@ class SwitchModel extends SettingsModel {
     this.onChanged,
     this.onTap,
     this.children = const [],
-  }) : title = null;
+  }) : title = null,
+       windowPreference = null;
+
+  SwitchModel.window({
+    super.subtitle,
+    super.leading,
+    required String this.title,
+    required WindowPreference preference,
+    this.onChanged,
+    this.needReboot = false,
+  }) : setKey = preference.key,
+       defaultVal = preference.defaultValue,
+       windowPreference = preference,
+       onTap = null,
+       children = const [];
 
   @override
   String get effectiveTitle => title!;
@@ -263,6 +281,8 @@ class SwitchModel extends SettingsModel {
     subtitle: subtitle,
     setKey: setKey,
     defaultVal: defaultVal,
+    read: windowPreference?.read,
+    write: windowPreference?.save,
     onChanged: onChanged,
     needReboot: needReboot,
     leading: leading,
