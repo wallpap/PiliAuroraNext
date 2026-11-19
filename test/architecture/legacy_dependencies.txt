@@ -209,9 +209,6 @@ pages/video/member/controller.dart -> http/member.dart
 pages/video/member/controller.dart -> utils/accounts.dart
 pages/video/member/controller.dart#HorizontalMemberPageController -> CommonListController
 pages/video/member/view.dart -> utils/accounts.dart
-pages/video/note/controller.dart -> http/video.dart
-pages/video/note/controller.dart#NoteListPageCtr -> CommonListController
-pages/video/note/view.dart -> utils/accounts.dart
 pages/video/pay_coins/view.dart -> utils/global_data.dart
 pages/video/pay_coins/view.dart -> utils/storage.dart
 pages/video/pay_coins/view.dart -> utils/storage_pref.dart

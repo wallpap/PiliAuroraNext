@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/community/data/video_note_repository.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/related_video_repository.dart';
@@ -34,7 +35,7 @@ void main() {
     () => VideoHttp.getRankVideoList(0),
     () => VideoHttp.pgcRankList(seasonType: 1),
     () => VideoHttp.pgcSeasonRankList(seasonType: 2),
-    () => VideoHttp.getVideoNoteList(oid: 1, page: 1),
+    () => VideoNoteRepository.list(Accounts.main, 1, 1),
     VideoHttp.popularSeriesList,
     () => VideoHttp.popularSeriesOne(number: 1),
     () => VideoHttp.popularPrecious(page: 1),

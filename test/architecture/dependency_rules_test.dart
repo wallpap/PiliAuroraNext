@@ -402,6 +402,7 @@ void main() {
       'models/remote/emote/',
       'models/remote/live/live_emote/',
       'models/remote/live/live_area_list/',
+      'models/remote/video/video_note_list/',
       'models/dynamics/vote_model.dart',
       'models/remote/dynamic/dyn_reserve_info/',
       'models/remote/dynamic/dyn_topic_top/',

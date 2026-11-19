@@ -1809,7 +1809,6 @@ class VideoDetailController extends GetxController
       final child = NoteListPage(
         oid: aid,
         enableSlide: false,
-        heroTag: heroTag,
         isStein: graphVersion != null,
         title: title,
       );
@@ -1824,7 +1823,6 @@ class VideoDetailController extends GetxController
         constraints: const BoxConstraints(),
         (context) => NoteListPage(
           oid: aid,
-          heroTag: heroTag,
           isStein: graphVersion != null,
           title: title,
         ),

@@ -25,7 +25,6 @@ import 'package:pili_aurora_next/models/remote/triple/pgc_triple.dart';
 import 'package:pili_aurora_next/models/remote/triple/ugc_triple.dart';
 import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_note_list/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_relation/data.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -1100,31 +1099,6 @@ abstract final class VideoHttp {
     } catch (error, stackTrace) {
       return Error.fromException(error, stackTrace);
     }
-  }
-
-  static Future<LoadingState<VideoNoteData>> getVideoNoteList({
-    dynamic oid,
-    dynamic uperMid,
-    required int page,
-  }) async {
-    final account = Accounts.main;
-
-    return await Request().requestApi(
-      Api.archiveNoteList,
-      queryParameters: {
-        'csrf': account.csrf,
-        'oid': oid,
-        'oid_type': 0,
-        'pn': page,
-        'ps': 10,
-        'uper_mid': ?uperMid,
-      },
-      options: Options(extra: {'account': account}),
-      kind: ApiCallKind.query,
-      decode: (body) {
-        return VideoNoteData.fromJson(body['data']);
-      },
-    );
   }
 
   static Future<LoadingState<List<PopularSeriesListItem>?>> popularSeriesList({

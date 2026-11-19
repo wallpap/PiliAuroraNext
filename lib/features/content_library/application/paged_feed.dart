@@ -64,6 +64,7 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
   Object itemKey(T item);
   Future<FeedPage<T, M>> fetch(Account account, Object? cursor);
   M mergeMetadata(M previous, M next) => next;
+  bool get requiresLogin => true;
 
   /// 需要用户显式继续扫描的领域可保留游标，页面同时关闭空页自动分页。
   bool get endOnEmptyBudget => true;
@@ -84,7 +85,7 @@ abstract class PagedFeed<T, M> extends AsyncNotifier<FeedState<T, M>> {
     _generation = Object();
     final source = _generation;
     final account = watchAccount();
-    if (!account.isLogin) throw const Error('账号未登录');
+    if (requiresLogin && !account.isLogin) throw const Error('账号未登录');
     final owner = ref;
     var page = await fetch(account, null);
     final cursors = <Object>{};
