@@ -95,8 +95,9 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                                     keyword,
                                     blocked: false,
                                   );
-                                  if (!context.mounted || !handle.isActive)
+                                  if (!context.mounted || !handle.isActive) {
                                     return;
+                                  }
                                   if (result.isSuccess) {
                                     SmartDialog.showToast('删除成功');
                                   } else {

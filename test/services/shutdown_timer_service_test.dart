@@ -182,8 +182,9 @@ void main() {
       pause: () async {},
       isPlaying: () => true,
     );
-    service.startShutdownTimer(1);
-    service.dispose();
+    service
+      ..startShutdownTimer(1)
+      ..dispose();
     messages.clear();
 
     service.startShutdownTimer(1);

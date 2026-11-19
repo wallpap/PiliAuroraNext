@@ -7,7 +7,6 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPicker;
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 const _kSqueeze = 1.25;
