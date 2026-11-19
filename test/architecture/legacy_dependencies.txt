@@ -300,13 +300,6 @@ pages/video/reply_new/view.dart -> utils/accounts.dart
 pages/video/reply_new/view.dart -> utils/storage_pref.dart
 pages/video/reply_reply/view.dart -> generated/bilibili/main/community/reply/v1.pb.dart
 pages/video/reply_reply/view.dart -> utils/storage_pref.dart
-pages/video/reply_search_item/child/controller.dart -> generated/bilibili/main/community/reply/v1.pb.dart
-pages/video/reply_search_item/child/controller.dart -> grpc/reply.dart
-pages/video/reply_search_item/child/controller.dart -> utils/accounts.dart
-pages/video/reply_search_item/child/controller.dart#ReplySearchChildController -> CommonListController
-pages/video/reply_search_item/child/view.dart -> generated/bilibili/main/community/reply/v1.pb.dart
-pages/video/reply_search_item/child/widgets/item.dart -> generated/bilibili/main/community/reply/v1.pb.dart
-pages/video/reply_search_item/controller.dart#ReplySearchController -> GetxController
 pages/video/send_danmaku/view.dart -> utils/storage_pref.dart
 pages/video/view.dart -> utils/accounts.dart
 pages/video/view.dart -> utils/storage.dart

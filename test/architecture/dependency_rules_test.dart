@@ -265,7 +265,7 @@ void main() {
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
   test(
-    'dynamic transports stay in community data',
+    'dynamic and reply attachment transports stay in community data',
     () {
       final violations = <String>[];
       const owners = {
@@ -293,6 +293,8 @@ void main() {
             'features/community/data/dynamic_activity_repository.dart',
         'DynGrpc.repostList':
             'features/community/data/dynamic_activity_repository.dart',
+        'ReplyGrpc.searchItem':
+            'features/community/data/comments/reply_search_repository.dart',
       };
       final candidates = owners.keys.toSet();
       final transportNames = candidates
