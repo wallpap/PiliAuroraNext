@@ -4,24 +4,32 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
+import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
+import 'package:pili_aurora_next/pages/video/introduction/local/view.dart';
+import 'package:pili_aurora_next/pages/video/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/theme_utils.dart';
+
+import '../../services/download/download_fixtures.dart';
+import '../../support/memory_box.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,10 +39,10 @@ void main() {
     directory = await Directory.systemTemp.createTemp(
       'pili-playback-lifecycle-',
     );
-    Hive.init(directory.path);
-    GStorage.setting = await Hive.openBox('setting');
-    GStorage.video = await Hive.openBox('video');
-    GStorage.localCache = await Hive.openBox('cache');
+    GStorage.setting = MemoryBox();
+    GStorage.video = MemoryBox();
+    GStorage.localCache = MemoryBox();
+    GStorage.watchProgress = MemoryBox<int>();
     await GStorage.setting.put(SettingBoxKey.autoPlayEnable, true);
     await GStorage.localCache.put(
       LocalCacheKey.timeStamp,
@@ -48,7 +56,6 @@ void main() {
   });
   tearDownAll(() async {
     Request.dio.close(force: true);
-    await Hive.close();
     await directory.delete(recursive: true);
   });
 
@@ -60,6 +67,74 @@ void main() {
     ..videoType = VideoType.ugc
     ..isFileSource = false
     ..isVertical = false.obs;
+
+  testWidgets('同一转场标识的点播路由独立持有播放与窗口交接', (tester) async {
+    await GStorage.setting.put(SettingBoxKey.autoPlayEnable, false);
+    ThemeUtils.getAllTheme();
+    addTearDown(() async {
+      Get.reset();
+      await GStorage.setting.put(SettingBoxKey.autoPlayEnable, true);
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        child: GetMaterialApp(
+          navigatorObservers: [routeObserver],
+          home: const Scaffold(),
+          getPages: [
+            GetPage(name: '/videoV', page: () => const VideoDetailPageV()),
+          ],
+        ),
+      ),
+    );
+    Future<VideoDetailController> open(int cid) async {
+      final entry = downloadEntry(cid: cid, completed: true)
+        ..entryDirPath = directory.path;
+      unawaited(
+        Get.toNamed<void>(
+          '/videoV',
+          preventDuplicates: false,
+          arguments: {
+            'heroTag': 'same-hero',
+            'videoType': VideoType.ugc,
+            'sourceType': SourceType.file,
+            'entry': entry,
+            'aid': entry.avid,
+            'cid': cid,
+            'bvid': entry.bvid,
+            'title': '离线视频 $cid',
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+      return tester
+          .widget<LocalIntroPanel>(find.byType(LocalIntroPanel))
+          .controller
+          .videoDetailCtr;
+    }
+
+    final first = await open(11);
+    final second = await open(12);
+    expect(second, isNot(same(first)));
+    expect(first.cid.value, 11);
+    expect(second.cid.value, 12);
+    expect(second.playbackOwner.isActive, isTrue);
+    int? windowCid() =>
+        (first.plPlayerController.desktopPlaybackRequest?.call().arguments
+            as Map?)?['cid'];
+    expect(windowCid(), 12);
+
+    Get.back<void>();
+    await tester.pumpAndSettle();
+    expect(second.isClosed, isTrue);
+    expect(first.playbackOwner.isActive, isTrue);
+    expect(windowCid(), 11);
+    Get.back<void>();
+    await tester.pumpAndSettle();
+    expect(first.isClosed, isTrue);
+    expect(windowCid(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   test('快速切集执行新请求，旧响应不能初始化新集', () async {
     final controller = page();

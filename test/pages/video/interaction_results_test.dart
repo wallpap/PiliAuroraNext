@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.da
 import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
+import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
@@ -37,14 +38,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
+  final controllers = <CommonIntroController>[];
   LoginAccount account(int id) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': 'fixture-$id'}),
     'fixture-access-$id',
     null,
   );
   late Account original;
-  T own<T extends GetxController>(T controller) {
+  T own<T extends CommonIntroController>(T controller) {
     controllers.add(controller);
     return controller;
   }
@@ -72,7 +73,7 @@ void main() {
   });
   tearDown(() {
     for (final controller in controllers) {
-      controller.onDelete();
+      controller.close();
     }
     controllers.clear();
     GlobalData().coins = null;
@@ -240,7 +241,7 @@ void main() {
       expect(requests, hasLength(1));
       final reading = controller.queryPgcLikeCoinFav();
       await interceptor.waitForRequests(2);
-      controller.onDelete();
+      controller.close();
       requests[1].reply.complete({
         'code': 0,
         'data': {'like': 1, 'favorite': 1, 'coin_number': 2},
@@ -305,7 +306,7 @@ void main() {
     });
     final introduction = controller.queryVideoIntro();
     await interceptor.waitForRequests(4);
-    controller.onDelete();
+    controller.close();
     requests[2].reply.complete({'code': 0, 'data': []});
     requests[3].reply.complete({'code': -403, 'message': '拒绝简介'});
     await introduction;

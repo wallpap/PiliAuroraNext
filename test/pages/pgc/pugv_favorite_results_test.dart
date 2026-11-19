@@ -38,7 +38,7 @@ void main() {
     requests.clear();
     Accounts.accountMode[AccountType.main.index] = login('old');
   });
-  tearDown(() => controller.onDelete());
+  tearDown(() => controller.close());
   tearDownAll(() async {
     Request.dio.close(force: true);
     await interceptor.close();

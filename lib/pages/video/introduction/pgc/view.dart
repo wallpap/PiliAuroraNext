@@ -19,7 +19,6 @@ import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/widgets/pgc_panel.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -28,7 +27,7 @@ import 'package:material_ui/material_ui.dart';
 
 class PgcIntroPage extends StatefulWidget {
   final int? cid;
-  final String heroTag;
+  final PgcIntroController controller;
   final Function showEpisodes;
   final Function showIntroDetail;
   final double maxWidth;
@@ -39,7 +38,7 @@ class PgcIntroPage extends StatefulWidget {
   const PgcIntroPage({
     super.key,
     this.cid,
-    required this.heroTag,
+    required this.controller,
     required this.showEpisodes,
     required this.showIntroDetail,
     required this.maxWidth,
@@ -53,18 +52,8 @@ class PgcIntroPage extends StatefulWidget {
 }
 
 class _PgcIntroPageState extends State<PgcIntroPage> {
-  late final PgcIntroController introController;
-  late final VideoDetailController videoDetailCtr;
-
-  @override
-  void initState() {
-    super.initState();
-    introController = Get.putOrFind(
-      PgcIntroController.new,
-      tag: widget.heroTag,
-    );
-    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
-  }
+  PgcIntroController get introController => widget.controller;
+  VideoDetailController get videoDetailCtr => introController.videoDetailCtr;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +87,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                     ) ==
                     true)
               PgcPanel(
-                heroTag: widget.heroTag,
+                videoDetail: videoDetailCtr,
                 pages: item.episodes ?? const [],
                 sections: item.section,
                 seasonTitle: item.seasonTitle,

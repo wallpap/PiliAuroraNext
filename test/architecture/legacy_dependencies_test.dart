@@ -15,6 +15,28 @@ const _getxTypes = {
   'GetxServiceMixin',
   'RxController',
   'SuperController',
+  'GetTickerProviderStateMixin',
+  'GetSingleTickerProviderStateMixin',
+};
+
+const _getxRegistryCalls = {
+  'Get.create',
+  'Get.delete',
+  'Get.find',
+  'Get.isRegistered',
+  'Get.lazyPut',
+  'Get.put',
+  'Get.putAsync',
+  'Get.putOrFind',
+  'Get.replace',
+  'GetInstance.create',
+  'GetInstance.delete',
+  'GetInstance.find',
+  'GetInstance.lazyPut',
+  'GetInstance.put',
+  'GetInstance.putAsync',
+  'GetInstance.putOrFind',
+  'GetInstance.replace',
 };
 
 const _legacyUtilities = {
@@ -82,6 +104,9 @@ void main() {
         continue;
       }
       final unit = parseSource(file.readAsStringSync());
+      for (final call in matchingUnitStaticCalls(unit, _getxRegistryCalls)) {
+        violations.add('$source -> $call');
+      }
       if (_isPresentation(source)) {
         for (final uri in unitDependencies(unit)) {
           final target = localDependency(file, uri) ?? uri;

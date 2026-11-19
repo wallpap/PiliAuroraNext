@@ -2,9 +2,6 @@ import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:get/get.dart';
 
 extension GetExt on GetInterface {
-  S putOrFind<S>(InstanceBuilderCallback<S> dep, {String? tag}) =>
-      GetInstance().putOrFind(dep, tag: tag);
-
   void updateMyAppTheme() {
     final (light, dark) = ThemeUtils.getAllTheme();
     rootController

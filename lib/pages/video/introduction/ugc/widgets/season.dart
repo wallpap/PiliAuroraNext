@@ -13,12 +13,10 @@ import 'package:material_ui/material_ui.dart';
 class SeasonPanel extends StatefulWidget {
   const SeasonPanel({
     super.key,
-    required this.heroTag,
     required this.showEpisodes,
     this.canTap = true,
     required this.ugcIntroController,
   });
-  final String heroTag;
   final Function showEpisodes;
   final bool canTap;
   final UgcIntroController ugcIntroController;
@@ -29,7 +27,8 @@ class SeasonPanel extends StatefulWidget {
 
 class _SeasonPanelState extends State<SeasonPanel> {
   RxInt currentIndex = 0.obs;
-  late VideoDetailController _videoDetailController;
+  VideoDetailController get _videoDetailController =>
+      widget.ugcIntroController.videoDetailCtr;
   StreamSubscription? _listener;
   List<EpisodeItem> episodes = <EpisodeItem>[];
 
@@ -40,9 +39,6 @@ class _SeasonPanelState extends State<SeasonPanel> {
   @override
   void initState() {
     super.initState();
-    _videoDetailController = Get.find<VideoDetailController>(
-      tag: widget.heroTag,
-    );
 
     _videoDetailController.seasonCid = ugcIntroController.cid.value != 0
         ? (videoDetail.pages?.isNotEmpty == true

@@ -30,7 +30,6 @@ import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/bili_colors.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
@@ -49,14 +48,14 @@ import 'package:material_ui/material_ui.dart';
 class UgcIntroPanel extends StatefulWidget {
   const UgcIntroPanel({
     super.key,
-    required this.heroTag,
+    required this.controller,
     required this.showAiBottomSheet,
     required this.showEpisodes,
     required this.onShowMemberPage,
     required this.isPortrait,
     required this.isHorizontal,
   });
-  final String heroTag;
+  final UgcIntroController controller;
   final Function showAiBottomSheet;
   final Function showEpisodes;
   final ValueChanged<int?> onShowMemberPage;
@@ -69,18 +68,8 @@ class UgcIntroPanel extends StatefulWidget {
 
 class _UgcIntroPanelState extends State<UgcIntroPanel> {
   late ColorScheme colorScheme;
-  late final UgcIntroController introController;
-  late final VideoDetailController videoDetailCtr =
-      Get.find<VideoDetailController>(tag: widget.heroTag);
-
-  @override
-  void initState() {
-    super.initState();
-    introController = Get.putOrFind(
-      UgcIntroController.new,
-      tag: widget.heroTag,
-    );
-  }
+  UgcIntroController get introController => widget.controller;
+  VideoDetailController get videoDetailCtr => introController.videoDetailCtr;
 
   @override
   void didChangeDependencies() {
@@ -189,7 +178,6 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     Obx(
                       () => SeasonPanel(
                         key: ValueKey(introController.videoDetail.value),
-                        heroTag: widget.heroTag,
                         showEpisodes: widget.showEpisodes,
                         ugcIntroController: introController,
                       ),
@@ -204,7 +192,6 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     Obx(
                       () => PagesPanel(
                         key: ValueKey(introController.videoDetail.value),
-                        heroTag: widget.heroTag,
                         ugcIntroController: introController,
                         bvid: introController.bvid,
                         showEpisodes: widget.showEpisodes,
@@ -631,13 +618,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     recognizer: NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
                         try {
-                          Get.find<VideoDetailController>(
-                            tag: widget.heroTag,
-                          ).plPlayerController.seekTo(
+                          videoDetailCtr.seekFromPage(
                             Duration(
                               seconds: DurationUtils.parseDuration(matchStr),
                             ),
-                            isSeek: false,
                           );
                         } catch (_) {}
                       },

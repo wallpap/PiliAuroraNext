@@ -15,7 +15,6 @@ import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PgcPanel extends StatefulWidget {
@@ -31,7 +30,7 @@ class PgcPanel extends StatefulWidget {
     required this.onChangeEpisode,
     this.onChangeEpisodeList,
     required this.showEpisodes,
-    required this.heroTag,
+    required this.videoDetail,
     this.newEp,
   });
 
@@ -45,7 +44,7 @@ class PgcPanel extends StatefulWidget {
   final ValueChanged<BaseEpisodeItem> onChangeEpisode;
   final ValueChanged<List<EpisodeItem>>? onChangeEpisodeList;
   final Function showEpisodes;
-  final String heroTag;
+  final VideoDetailController videoDetail;
   final NewEp? newEp;
 
   @override
@@ -61,7 +60,7 @@ class _PgcPanelState extends State<PgcPanel> {
   late final bool vipStatus;
   late int cid;
   bool _cidUpdateScheduled = false;
-  late final VideoDetailController videoDetailCtr;
+  VideoDetailController get videoDetailCtr => widget.videoDetail;
   late final StreamSubscription<int> _listener;
 
   List<Section> get _extraSections => [
@@ -119,7 +118,6 @@ class _PgcPanelState extends State<PgcPanel> {
     );
 
     vipStatus = Pref.userInfoCache?.vipStatus != 1;
-    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
     widget.onChangeEpisodeList?.call(visiblePages);
 
     _listener = videoDetailCtr.cid.listen((int value) {

@@ -66,16 +66,14 @@ class _CaptureFacade extends GetxController implements PlPlayerController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _CaptureVideo extends GetxController implements VideoDetailController {
-  _CaptureVideo(this.plPlayerController);
+class _CaptureVideo extends VideoDetailController {
+  _CaptureVideo(this._facade) {
+    bvid = 'BV17x411w7KC';
+    cid = 1.obs;
+  }
+  final _CaptureFacade _facade;
   @override
-  final _CaptureFacade plPlayerController;
-  @override
-  final bvid = 'BV17x411w7KC';
-  @override
-  final cid = 1.obs;
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  _CaptureFacade get plPlayerController => _facade;
 }
 
 void main() {
@@ -195,12 +193,23 @@ void main() {
       await mount(tester);
       final player = _CapturePlayer();
       final facade = _CaptureFacade(player);
-      Get.put<VideoDetailController>(_CaptureVideo(facade), tag: 'capture');
+      final video = _CaptureVideo(facade);
       Get.to(
-        () => const Scaffold(
-          body: ReplyPage(oid: 1, root: 0, parent: 0, replyType: 1),
+        () => Scaffold(
+          body: ReplyPage(
+            oid: 1,
+            root: 0,
+            parent: 0,
+            replyType: 1,
+            videoTools: (
+              durationMilliseconds: () => null,
+              seek: (_) => false,
+              position: () => null,
+              capture: video.commentFrame,
+              share: (_) => null,
+            ),
+          ),
         ),
-        arguments: {'heroTag': 'capture'},
       );
       await settle(tester);
       await tester.tap(find.byTooltip('更多'));

@@ -176,7 +176,7 @@ void main() {
         Accounts.accountMode[AccountType.main.index] = account;
         handler.clear();
         videoPlayerServiceHandler = null;
-        controller.onDelete();
+        controller.close();
       });
       handler.onVideoDetailChange(
         Part(part: mode),

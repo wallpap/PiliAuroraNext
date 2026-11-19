@@ -23,14 +23,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
+  final controllers = <PgcIntroController>[];
   LoginAccount account(int id) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': 'fixture-$id'}),
     null,
     null,
   );
   late Account original;
-  T own<T extends GetxController>(T controller) {
+  T own<T extends PgcIntroController>(T controller) {
     controllers.add(controller);
     return controller;
   }
@@ -52,7 +52,7 @@ void main() {
   });
   tearDown(() {
     for (final controller in controllers) {
-      controller.onDelete();
+      controller.close();
     }
     controllers.clear();
     Get.reset();

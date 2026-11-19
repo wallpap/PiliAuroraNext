@@ -1,13 +1,14 @@
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/scheduler.dart' show SchedulerBinding;
+import 'package:flutter/scheduler.dart' show SchedulerBinding, TickerProvider;
 import 'package:get/get.dart';
 
 class LocalIntroController extends CommonIntroController {
@@ -41,14 +42,14 @@ class LocalIntroController extends CommonIntroController {
   late final Set<String> aidSet = {};
 
   @override
-  void onClose() {
+  void close() {
     aidSet.clear();
-    super.onClose();
+    super.close();
   }
 
   @override
-  void onInit() {
-    super.onInit();
+  void open(VideoDetailController video, TickerProvider vsync) {
+    super.open(video, vsync);
     videoDetail.value.title = videoDetailCtr.args['title'];
     if (DesktopPlaybackWindows.isPlayerWindow) {
       this.list.value = [videoDetailCtr.entry];

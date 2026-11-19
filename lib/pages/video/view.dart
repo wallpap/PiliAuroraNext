@@ -2,6 +2,7 @@ import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 import 'dart:math';
 
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -19,6 +20,8 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/simple_app_bar.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/video_header.dart';
 import 'package:pili_aurora_next/common/widgets/svg/play_icon.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/models/common/episode_panel_type.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
@@ -98,7 +101,11 @@ class VideoDetailPageV extends ConsumerStatefulWidget {
 }
 
 class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
-    with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
+    with
+        RouteAware,
+        RouteAwareMixin,
+        WidgetsBindingObserver,
+        TickerProviderStateMixin {
   final heroTag = Get.arguments['heroTag'];
 
   late final VideoDetailController videoDetailController;
@@ -243,37 +250,36 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     return true;
   }
 
+  late final DesktopPlaybackRequest Function() _desktopRequest = () =>
+      DesktopPlaybackRequest.video({
+        'aid': videoDetailController.aid,
+        'bvid': videoDetailController.bvid,
+        'cid': videoDetailController.cid.value,
+        'epId': videoDetailController.epId,
+        'seasonId': videoDetailController.seasonId,
+        'pgcType': videoDetailController.pgcType,
+        'videoType': videoDetailController.videoType,
+        'pgcApi': videoDetailController.args['pgcApi'],
+        'isVertical': videoDetailController.isVertical.value,
+        'cover': videoDetailController.cover.value,
+        'title': videoDetailController.args['title'] ?? '',
+        'progress':
+            videoDetailController.plPlayerController.positionInMilliseconds,
+        'heroTag': 'desktop-${videoDetailController.cid.value}',
+        if (videoDetailController.isFileSource) ...{
+          'sourceType': SourceType.file,
+          'entry': videoDetailController.entry,
+          'dirPath': videoDetailController.args['dirPath'],
+        },
+      });
+
   @override
   void initState() {
     super.initState();
-
-    videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
-    PlPlayerController.setPlayCallBack(
-      playCallBack,
-      owner: this,
-    );
-    videoDetailController.plPlayerController.desktopPlaybackRequest = () =>
-        DesktopPlaybackRequest.video({
-          'aid': videoDetailController.aid,
-          'bvid': videoDetailController.bvid,
-          'cid': videoDetailController.cid.value,
-          'epId': videoDetailController.epId,
-          'seasonId': videoDetailController.seasonId,
-          'pgcType': videoDetailController.pgcType,
-          'videoType': videoDetailController.videoType,
-          'pgcApi': videoDetailController.args['pgcApi'],
-          'isVertical': videoDetailController.isVertical.value,
-          'cover': videoDetailController.cover.value,
-          'title': videoDetailController.args['title'] ?? '',
-          'progress':
-              videoDetailController.plPlayerController.positionInMilliseconds,
-          'heroTag': 'desktop-${videoDetailController.cid.value}',
-          if (videoDetailController.isFileSource) ...{
-            'sourceType': SourceType.file,
-            'entry': videoDetailController.entry,
-            'dirPath': videoDetailController.args['dirPath'],
-          },
-        });
+    videoDetailController = VideoDetailController()..open(Get.arguments, this);
+    PlPlayerController.setPlayCallBack(playCallBack, owner: this);
+    videoDetailController.plPlayerController.desktopPlaybackRequest =
+        _desktopRequest;
 
     if (videoDetailController.removeSafeArea) {
       hideSystemBar();
@@ -287,17 +293,21 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     }
 
     if (videoDetailController.isFileSource) {
-      localIntroController = Get.put(LocalIntroController(), tag: heroTag);
+      localIntroController = LocalIntroController();
     } else if (videoDetailController.isUgc) {
-      ugcIntroController = Get.put(UgcIntroController(), tag: heroTag);
+      ugcIntroController = UgcIntroController();
+    } else {
+      pgcIntroController = PgcIntroController();
+    }
+    videoDetailController.introduction = introController;
+    introController.open(videoDetailController, this);
+    if (introController case final UgcIntroController ugc) {
       if (videoDetailController.showRelatedVideo) {
         _bindRelatedVideos();
-        ugcIntroController
+        ugc
           ..onRelatedTargetChanged = _relatedTargetChanged
           ..onPlayRelated = _playRelated;
       }
-    } else {
-      pgcIntroController = Get.put(PgcIntroController(), tag: heroTag);
     }
 
     videoSourceInit();
@@ -478,16 +488,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     _authorSubscription?.close();
     _authorArchiveSubscription?.close();
 
-    if (!videoDetailController.isFileSource) {
-      if (videoDetailController.isUgc) {
-        ugcIntroController
-          ..cancelTimer()
-          ..videoDetail.close();
-      } else {
-        pgcIntroController.cancelTimer();
-      }
-    }
-
     if (!videoDetailController.removeSafeArea) {
       showSystemBar();
     }
@@ -497,6 +497,12 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
       videoDetailController.makeHeartBeat();
     }
     removeObserverMobile(this);
+    final player = videoDetailController.plPlayerController;
+    if (identical(player.desktopPlaybackRequest, _desktopRequest)) {
+      player.desktopPlaybackRequest = null;
+    }
+    introController.close();
+    videoDetailController.close();
 
     super.dispose();
   }
@@ -534,6 +540,8 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
   // 返回当前页面时
   Future<void> didPopNext() async {
     final restore = videoDetailController.restorePlaybackAfterRoute();
+    videoDetailController.plPlayerController.desktopPlaybackRequest =
+        _desktopRequest;
     super.didPopNext();
 
     if (videoDetailController.plPlayerController.isCloseAll) {
@@ -1320,7 +1328,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
                 isPortrait: isPortrait,
                 controller: videoDetailController.plPlayerController,
                 videoDetailCtr: videoDetailController,
-                heroTag: heroTag,
+                introController: introController,
               ),
               danmuWidget: isPipMode && pipNoDanmaku
                   ? null
@@ -1399,7 +1407,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     if (videoDetailController.tabCtr.length != tabs.length) {
       videoDetailController.tabCtr.dispose();
       videoDetailController.tabCtr = TabController(
-        vsync: videoDetailController,
+        vsync: this,
         length: tabs.length,
         initialIndex: tabs.isEmpty
             ? 0
@@ -1694,7 +1702,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
           padding: EdgeInsets.only(top: 7, bottom: padding.bottom + 100),
           sliver: LocalIntroPanel(
             key: videoRelatedKey,
-            heroTag: heroTag,
+            controller: localIntroController,
           ),
         ),
       ],
@@ -1725,7 +1733,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
         if (videoDetailController.isUgc) ...[
           UgcIntroPanel(
             key: videoIntroKey,
-            heroTag: heroTag,
+            controller: ugcIntroController,
             showAiBottomSheet: showAiBottomSheet,
             showEpisodes: showEpisodes,
             onShowMemberPage: onShowMemberPage,
@@ -1750,7 +1758,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
           ],
         ] else
           PgcIntroPage(
-            heroTag: heroTag,
+            controller: pgcIntroController,
             cid: videoDetailController.cid.value,
             showEpisodes: showEpisodes,
             showIntroDetail: showIntroDetail,
@@ -1824,7 +1832,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: PagesPanel(
-                  heroTag: heroTag,
                   ugcIntroController: ugcIntroController,
                   bvid: ugcIntroController.bvid,
                   showEpisodes: showEpisodes,
@@ -1834,7 +1841,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
               Expanded(
                 child: Obx(
                   () => EpisodePanel(
-                    heroTag: heroTag,
                     enableSlide: false,
                     ugcIntroController: videoDetailController.isUgc
                         ? ugcIntroController
@@ -1868,7 +1874,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
               child: Obx(
                 () => SeasonPanel(
                   key: ValueKey(introController.videoDetail.value),
-                  heroTag: heroTag,
                   canTap: false,
                   showEpisodes: showEpisodes,
                   ugcIntroController: ugcIntroController,
@@ -1878,7 +1883,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
             Expanded(
               child: Obx(
                 () => EpisodePanel(
-                  heroTag: heroTag,
                   enableSlide: false,
                   ugcIntroController: videoDetailController.isUgc
                       ? ugcIntroController
@@ -1931,26 +1935,95 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
                   }
                 },
               );
+              bool current() => mounted && _replyTarget.value == target;
               return VideoReplyPanel(
                 key: videoReplyPanelKey,
                 isNested: isNested,
-                heroTag: heroTag,
+                videoTools: (
+                  durationMilliseconds: () =>
+                      current() ? videoDetailController.commentDuration : null,
+                  position: () => current()
+                      ? videoDetailController.playedTime ?? Duration.zero
+                      : null,
+                  seek: (position) =>
+                      current() && videoDetailController.seekFromPage(position),
+                  capture: () =>
+                      current() ? videoDetailController.commentFrame() : null,
+                  share: (reply) =>
+                      current() ? _videoCommentShare(reply) : null,
+                ),
                 query: query,
                 sourceId: IdUtils.av2bv(target.aid),
                 writeTarget: (oid: target.aid, type: target.target.type),
-                targetIsCurrent: () => mounted && _replyTarget.value == target,
+                targetIsCurrent: current,
                 scrollController: _replyScroll,
               );
             },
           ),
   );
 
+  CommentVideoShare _videoCommentShare(CommentReply reply) {
+    final hasRoot = reply.rootId != null;
+    final root = hasRoot ? reply.root : reply.id;
+    final oid = reply.oid;
+    final secondary = hasRoot ? '&comment_secondary_id=${reply.id}' : '';
+    final url =
+        'https://www.bilibili.com/video/av$oid?comment_on=1&comment_root_id=$root$secondary';
+    if (videoDetailController.isFileSource) {
+      return (
+        url: url,
+        cover: null,
+        title: null,
+        published: null,
+        author: null,
+      );
+    }
+    if (videoDetailController.isUgc) {
+      final intro = ugcIntroController;
+      final detail = intro.videoDetail.value;
+      final part = detail.pages?.indexWhere(
+        (item) => item.cid == intro.cid.value,
+      );
+      return (
+        url: part != null && part > 0 ? '$url&p=${part + 1}' : url,
+        cover: detail.pic,
+        title: detail.title,
+        published: detail.pubdate,
+        author: detail.owner?.name,
+      );
+    }
+    try {
+      final intro = pgcIntroController;
+      final pgc = intro.pgcItem;
+      final episode = pgc.episodes?.firstWhereOrNull(
+        (episode) => episode.cid == intro.cid.value,
+      );
+      if (episode != null) {
+        final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
+        return (
+          url:
+              'bilibili://comment/detail/${reply.type.toInt()}/$oid/$root/'
+              '?${anchor}enterUri=bilibili://pgc/season/ep/${intro.epId}',
+          cover: episode.cover,
+          title:
+              episode.shareCopy ??
+              '${pgc.title} ${episode.showTitle ?? episode.longTitle ?? ''}',
+          published: episode.pubTime,
+          author: pgc.upInfo?.uname,
+        );
+      }
+    } on Error catch (_) {}
+    return (url: url, cover: null, title: null, published: null, author: null);
+  }
+
   // ai总结
   void showAiBottomSheet() {
     videoDetailController.childKey.currentState?.showBottomSheet(
       constraints: const BoxConstraints(),
-      (context) =>
-          AiConclusionPanel(item: ugcIntroController.aiConclusionResult!),
+      (context) => AiConclusionPanel(
+        item: ugcIntroController.aiConclusionResult!,
+        onSeek: videoDetailController.seekFromPage,
+      ),
     );
   }
 
@@ -1984,7 +2057,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
       return;
     }
     Widget listSheetContent({bool enableSlide = true}) => EpisodePanel(
-      heroTag: heroTag,
       ugcIntroController: videoDetailController.isUgc
           ? ugcIntroController
           : null,

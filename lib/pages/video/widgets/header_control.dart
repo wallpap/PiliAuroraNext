@@ -15,8 +15,6 @@ import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_mixin.dart';
@@ -158,14 +156,14 @@ class HeaderControl extends StatefulWidget {
     required this.isPortrait,
     required this.controller,
     required this.videoDetailCtr,
-    required this.heroTag,
+    required this.introController,
     super.key,
   });
 
   final bool isPortrait;
   final PlPlayerController controller;
   final VideoDetailController videoDetailCtr;
-  final String heroTag;
+  final CommonIntroController introController;
 
   @override
   State<HeaderControl> createState() => HeaderControlState();
@@ -179,15 +177,7 @@ class HeaderControlState extends State<HeaderControl>
   late final PlayUrlModel videoInfo = videoDetailCtr.data;
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
-  String get heroTag => widget.heroTag;
-  late final UgcIntroController ugcIntroController;
-  late final PgcIntroController pgcIntroController;
-  late final LocalIntroController localIntroController;
-  late CommonIntroController introController = isFileSource
-      ? localIntroController
-      : videoDetailCtr.isUgc
-      ? ugcIntroController
-      : pgcIntroController;
+  CommonIntroController get introController => widget.introController;
 
   @override
   bool get isPortrait => widget.isPortrait;
@@ -195,18 +185,6 @@ class HeaderControlState extends State<HeaderControl>
   late final horizontalScreen = videoDetailCtr.horizontalScreen;
 
   Box setting = GStorage.setting;
-
-  @override
-  void initState() {
-    super.initState();
-    if (isFileSource) {
-      introController = Get.find<LocalIntroController>(tag: heroTag);
-    } else if (videoDetailCtr.isUgc) {
-      introController = Get.find<UgcIntroController>(tag: heroTag);
-    } else {
-      introController = Get.find<PgcIntroController>(tag: heroTag);
-    }
-  }
 
   /// 播放前后共用同一个更多面板。
   void showSettingSheet() {

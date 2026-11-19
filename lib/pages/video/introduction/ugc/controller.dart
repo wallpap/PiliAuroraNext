@@ -17,6 +17,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
@@ -59,18 +60,18 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   late final Map<int?, bool> seasonFavState = {};
 
   @override
-  void onInit() {
-    super.onInit();
+  void open(VideoDetailController video, TickerProvider vsync) {
+    super.open(video, vsync);
     final alwaysExpandIntroPanel = Pref.alwaysExpandIntroPanel;
     expand = RxBool(alwaysExpandIntroPanel);
     if (!alwaysExpandIntroPanel && Pref.expandIntroPanelH) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!expand.value && !DeviceUtils.size.isPortrait) {
+        if (!isClosed && !expand.value && !DeviceUtils.size.isPortrait) {
           expand.toggle();
         }
       });
     }
-    videoDetail.value.title = Get.arguments['title'] ?? '';
+    videoDetail.value.title = video.args['title'] ?? '';
   }
 
   @override

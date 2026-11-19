@@ -16,6 +16,7 @@ import 'package:pili_aurora_next/features/community/presentation/comment_interac
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
@@ -25,7 +26,7 @@ class VideoReplyPanel extends ConsumerStatefulWidget {
   const VideoReplyPanel({
     super.key,
     this.replyLevel = 1,
-    required this.heroTag,
+    required this.videoTools,
     required this.isNested,
     required this.query,
     required this.sourceId,
@@ -35,7 +36,7 @@ class VideoReplyPanel extends ConsumerStatefulWidget {
   });
 
   final int replyLevel;
-  final String heroTag;
+  final CommentVideoTools videoTools;
   final bool isNested;
   final CommentsQuery query;
   final Object sourceId;
@@ -67,9 +68,8 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
         oid: oid,
         replyType: replyType,
         targetIsCurrent: widget.targetIsCurrent,
+        videoTools: widget.videoTools,
       );
-
-  String get heroTag => widget.heroTag;
 
   @override
   bool get wantKeepAlive => true;
@@ -218,7 +218,7 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
                   onDelete: (item, subIndex) =>
                       _comments.remove(item, subIndex),
                   upMid: state.upMid,
-                  getTag: () => heroTag,
+                  videoTools: widget.videoTools,
                   onCheckReply: (item) =>
                       _interactions.check(_comments, widget.sourceId, item),
                   onToggleTop: (item) => _interactions.togglePinned(
@@ -272,6 +272,7 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
       MiniScaffold.of(context).showBottomSheet(
         constraints: const BoxConstraints(),
         (context) => VideoReplyReplyPanel(
+          videoTools: widget.videoTools,
           id: id,
           oid: oid,
           rpid: rpid,

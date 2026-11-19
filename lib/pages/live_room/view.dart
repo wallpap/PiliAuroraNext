@@ -81,6 +81,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
+  late final DesktopPlaybackRequest Function() _desktopRequest = () =>
+      DesktopPlaybackRequest.live(_liveRoomController.roomId);
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 
   late final GlobalKey pageKey = GlobalKey();
@@ -95,8 +97,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     addObserverMobile(this);
     _liveRoomController = LiveRoomController(heroTag, Get.arguments)..open();
     plPlayerController = _liveRoomController.plPlayerController
-      ..desktopPlaybackRequest = (() =>
-          DesktopPlaybackRequest.live(_liveRoomController.roomId))
+      ..desktopPlaybackRequest = _desktopRequest
       ..addStatusLister(playerListener);
     PlPlayerController.setPlayCallBack(
       plPlayerController.play,
@@ -129,6 +130,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   @override
   Future<void> didPopNext() async {
     final restore = _liveRoomController.restorePlaybackAfterRoute();
+    plPlayerController.desktopPlaybackRequest = _desktopRequest;
     addObserverMobile(this);
     if (!plPlayerController.isLive) {
       plPlayerController.isLive = true;
@@ -179,6 +181,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     PlPlayerController.setPlayCallBack(null, owner: this);
     plPlayerController.removeStatusLister(playerListener);
+    if (identical(plPlayerController.desktopPlaybackRequest, _desktopRequest)) {
+      plPlayerController.desktopPlaybackRequest = null;
+    }
     _liveRoomController.close();
     super.dispose();
   }

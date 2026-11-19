@@ -22,7 +22,6 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     as ugc;
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -34,7 +33,6 @@ import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -45,7 +43,6 @@ class EpisodePanel extends CommonSlidePage {
     super.key,
     super.enableSlide,
     required this.ugcIntroController,
-    required this.heroTag,
     required this.type,
     // required this.count,
     // required this.name,
@@ -65,7 +62,6 @@ class EpisodePanel extends CommonSlidePage {
   }) : assert(type == EpisodeType.pgc || ugcIntroController != null);
 
   final UgcIntroController? ugcIntroController;
-  final String heroTag;
   final EpisodeType type;
   // final int count;
   // final String name;
@@ -382,7 +378,6 @@ class _EpisodePanelState extends State<EpisodePanel>
                                     ? null
                                     : episode.pages,
                                 cover: episode.arc?.pic,
-                                heroTag: widget.heroTag,
                                 ugcIntroController: widget.ugcIntroController!,
                                 bvid:
                                     episode.bvid ?? IdUtils.av2bv(episode.aid!),
@@ -508,12 +503,9 @@ class _EpisodePanelState extends State<EpisodePanel>
                     _currentItemIndex = index;
                   }
                   if (widget.type == EpisodeType.season) {
-                    try {
-                      Get.find<VideoDetailController>(
-                        tag: widget.ugcIntroController!.heroTag,
-                      ).seasonCid = episode.cid;
-                    } catch (_) {
-                      if (kDebugMode) rethrow;
+                    if (widget.ugcIntroController case final intro?
+                        when !intro.isClosed) {
+                      intro.videoDetailCtr.seasonCid = episode.cid;
                     }
                   }
                 }

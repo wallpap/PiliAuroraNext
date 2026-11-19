@@ -30,7 +30,6 @@ void main() {
   testWidgets(
     'pool refresh obtains the current handle after seek and media replacement',
     (tester) async {
-      Get.put<UgcIntroController>(_Intro(), tag: 'pool-test');
       final renderer = DanmakuWindowRenderer<DanmakuExtra>(
         option: const DanmakuOption(),
         size: const Size(640, 360),
@@ -112,7 +111,6 @@ void main() {
         },
       ),
     );
-    Get.put<UgcIntroController>(_Intro(), tag: 'pool-test');
     final renderer = DanmakuWindowRenderer<DanmakuExtra>(
       option: const DanmakuOption(),
       size: const Size(640, 360),
@@ -358,7 +356,7 @@ class _Header extends HeaderControl {
     : super(
         controller: player,
         videoDetailCtr: _Detail(),
-        heroTag: 'pool-test',
+        introController: _Intro(),
         isPortrait: true,
       );
   @override

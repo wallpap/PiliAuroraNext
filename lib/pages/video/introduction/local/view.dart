@@ -17,9 +17,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
 class LocalIntroPanel extends StatefulWidget {
-  const LocalIntroPanel({super.key, required this.heroTag});
+  const LocalIntroPanel({super.key, required this.controller});
 
-  final String heroTag;
+  final LocalIntroController controller;
 
   @override
   State<LocalIntroPanel> createState() => _LocalIntroPanelState();
@@ -30,7 +30,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
   @override
   bool get wantKeepAlive => true;
 
-  late final _controller = Get.find<LocalIntroController>(tag: widget.heroTag);
+  LocalIntroController get _controller => widget.controller;
 
   @override
   Widget build(BuildContext context) {

@@ -15,11 +15,11 @@ import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart' show FilePicModel;
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/view.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -43,6 +43,7 @@ class ReplyPage extends CommonRichTextPubPage {
   final String? hint;
   final bool canUploadPic;
   final ValueChanged<CommentReply?>? onSuccess;
+  final CommentVideoTools? videoTools;
 
   const ReplyPage({
     super.key,
@@ -57,6 +58,7 @@ class ReplyPage extends CommonRichTextPubPage {
     this.hint,
     this.canUploadPic = true,
     this.onSuccess,
+    this.videoTools,
   });
 
   @override
@@ -67,7 +69,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   bool _capturingScreenshot = false;
   final _publishing = false.obs;
   final RxBool _syncToDynamic = false.obs;
-  final heroTag = Get.arguments?['heroTag'];
 
   final RxBool _latexOn = false.obs;
 
@@ -298,19 +299,14 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             icon: Icon(Icons.post_add, size: 28, color: color),
             title: '插入内容',
           ),
-          if (heroTag != null) ...[
+          if (widget.videoTools case final video?) ...[
             item(
               onTap: () {
-                try {
-                  final plPlayerController = Get.find<VideoDetailController>(
-                    tag: heroTag,
-                  );
+                if (video.position() case final position?) {
                   onInsertText(
-                    ' ${DurationUtils.formatDuration((plPlayerController.playedTime ?? Duration.zero).inSeconds)} ',
+                    ' ${DurationUtils.formatDuration(position.inSeconds)} ',
                     RichTextType.common,
                   );
-                } catch (e, stackTrace) {
-                  logger.w(e.toString(), error: e, stackTrace: stackTrace);
                 }
               },
               icon: Icon(Icons.my_location, size: 28, color: color),
@@ -344,20 +340,11 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                   bool Function() current = pageCurrent;
                   routeObserver.addNavigationListener(onNavigation);
                   try {
-                    final video = Get.find<VideoDetailController>(tag: heroTag);
-                    final bvid = video.bvid;
-                    final cid = video.cid.value;
-                    final controller = video.plPlayerController;
-                    final player = controller.videoPlayerController;
-                    final owner = controller.activePlaybackOwner;
-                    current = () =>
-                        pageCurrent() &&
-                        !video.isClosed &&
-                        video.bvid == bvid &&
-                        video.cid.value == cid &&
-                        identical(player, controller.videoPlayerController) &&
-                        identical(owner, controller.activePlaybackOwner);
-                    final image = await player?.screenshot();
+                    final capture = video.capture();
+                    if (capture != null) {
+                      current = () => pageCurrent() && capture.isCurrent();
+                    }
+                    final image = await capture?.read();
                     if (image == null) {
                       if (current()) SmartDialog.showToast('截图失败，请重试');
                       return;

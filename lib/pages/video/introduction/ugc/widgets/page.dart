@@ -17,7 +17,6 @@ class PagesPanel extends StatefulWidget {
     this.list,
     this.cover,
     required this.bvid,
-    required this.heroTag,
     this.showEpisodes,
     required this.ugcIntroController,
     this.onDownload,
@@ -28,7 +27,6 @@ class PagesPanel extends StatefulWidget {
   final String? cover;
 
   final String bvid;
-  final String heroTag;
   final Function? showEpisodes;
   final UgcIntroController ugcIntroController;
 
@@ -42,7 +40,8 @@ class PagesPanel extends StatefulWidget {
 class _PagesPanelState extends State<PagesPanel> {
   late int cid;
   int pageIndex = -1;
-  late final VideoDetailController _videoDetailController;
+  VideoDetailController get _videoDetailController =>
+      widget.ugcIntroController.videoDetailCtr;
   late final ScrollController _scrollController;
   StreamSubscription? _listener;
 
@@ -56,9 +55,6 @@ class _PagesPanelState extends State<PagesPanel> {
   @override
   void initState() {
     super.initState();
-    _videoDetailController = Get.find<VideoDetailController>(
-      tag: widget.heroTag,
-    );
     double offset = 0;
     if (widget.list == null) {
       cid = widget.ugcIntroController.cid.value;

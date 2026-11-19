@@ -55,7 +55,6 @@ void main() {
         home: Scaffold(
           body: EpisodePanel(
             ugcIntroController: UgcIntroController(),
-            heroTag: 'test',
             type: EpisodeType.season,
             aid: 1,
             bvid: 'BV1xx411c7mD',

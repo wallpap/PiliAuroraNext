@@ -10,13 +10,11 @@ import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
-import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
@@ -38,12 +36,14 @@ class SavePanel extends StatefulWidget {
     // reply
     this.upMid,
     this.musicShare,
+    this.videoShare,
     super.key,
   });
 
   final dynamic upMid;
   final dynamic item;
   final CommentShareOrigin? musicShare;
+  final CommentVideoShare? videoShare;
 
   @override
   State<SavePanel> createState() => _SavePanelState();
@@ -52,11 +52,17 @@ class SavePanel extends StatefulWidget {
     dynamic upMid,
     dynamic item,
     CommentShareOrigin? musicShare,
+    CommentVideoShare? videoShare,
   }) {
     Get.key.currentState!.push(
       PublishRoute(
         pageBuilder: (context, animation, secondaryAnimation) {
-          return SavePanel(upMid: upMid, item: item, musicShare: musicShare);
+          return SavePanel(
+            upMid: upMid,
+            item: item,
+            musicShare: musicShare,
+            videoShare: videoShare,
+          );
         },
         transitionDuration: const Duration(milliseconds: 255),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -108,48 +114,17 @@ class _SavePanelState extends State<SavePanel> {
     final currentRoute = Get.currentRoute;
     late final hasRoot = reply.rootId != null;
 
-    if (currentRoute == '/videoV') {
+    if (widget.videoShare case final video?) {
+      uri = video.url;
+      cover = video.cover;
+      title = video.title;
+      pubdate = video.published;
+      uname = video.author;
+    } else if (currentRoute == '/videoV') {
       final rootId = hasRoot ? reply.root : reply.id;
 
       uri =
           'https://www.bilibili.com/video/av${reply.oid}?comment_on=1&comment_root_id=$rootId${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
-      try {
-        final heroTag = Get.arguments['heroTag'];
-        final videoType = Get.arguments['videoType'];
-        if (videoType == VideoType.pgc || videoType == VideoType.pugv) {
-          final ctr = Get.find<PgcIntroController>(tag: heroTag);
-          final pgcItem = ctr.pgcItem;
-          final cid = ctr.cid.value;
-          final episode = pgcItem.episodes!.firstWhere(
-            (e) => e.cid == cid,
-          );
-          cover = episode.cover;
-          title =
-              episode.shareCopy ??
-              '${pgcItem.title} ${episode.showTitle ?? episode.longTitle ?? ''}';
-          pubdate = episode.pubTime;
-          uname = pgcItem.upInfo?.uname;
-
-          final oid = reply.oid;
-          final type = reply.type.toInt();
-          final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
-          uri =
-              'bilibili://comment/detail/$type/$oid/$rootId/?${anchor}enterUri=bilibili://pgc/season/ep/${ctr.epId}';
-        } else {
-          final ctr = Get.find<UgcIntroController>(tag: heroTag);
-          final videoDetail = ctr.videoDetail.value;
-          cover = videoDetail.pic;
-          title = videoDetail.title;
-          pubdate = videoDetail.pubdate;
-          uname = videoDetail.owner?.name;
-
-          final cid = ctr.cid.value;
-          final part =
-              ctr.videoDetail.value.pages?.indexWhere((i) => i.cid == cid) ??
-              -1;
-          if (part > 0) uri += '&p=${part + 1}';
-        }
-      } catch (_) {}
     } else if (currentRoute.startsWith('/dynamicDetail')) {
       DynamicItemModel? dynItem;
       try {

@@ -49,7 +49,6 @@ class DownloadPanel extends ConsumerStatefulWidget {
     required this.episodes,
     required this.scrollController,
     required this.videoDetailController,
-    required this.heroTag,
     this.ugcIntroController,
     required this.cidSet,
   });
@@ -60,7 +59,6 @@ class DownloadPanel extends ConsumerStatefulWidget {
   final List<ugc.BaseEpisodeItem> episodes;
   final ScrollController scrollController;
   final VideoDetailController videoDetailController;
-  final String heroTag;
   final UgcIntroController? ugcIntroController;
   final Set<int> cidSet;
 
@@ -222,7 +220,6 @@ class _DownloadPanelState extends ConsumerState<DownloadPanel> {
                           child: PagesPanel(
                             list: episode.pages,
                             cover: episode.arc?.pic,
-                            heroTag: widget.heroTag,
                             ugcIntroController: widget.ugcIntroController!,
                             bvid: episode.bvid ?? IdUtils.av2bv(episode.aid!),
                             cidSet: cidSet,

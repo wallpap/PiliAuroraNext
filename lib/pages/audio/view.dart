@@ -23,7 +23,7 @@ import 'package:pili_aurora_next/pages/audio/controller.dart';
 import 'package:pili_aurora_next/pages/audio/volume_button.dart';
 import 'package:pili_aurora_next/pages/setting/models/play_settings.dart'
     show showVolumeDialog;
-import 'package:pili_aurora_next/pages/video/controller.dart';
+import 'package:pili_aurora_next/models/video/play/url.dart' show Volume;
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart'
     show HeaderControlState;
@@ -62,15 +62,12 @@ class AudioPage extends ConsumerStatefulWidget {
     List<int>? subId,
     required int itemType,
     required AudioPlaylistSource from,
-    String? heroTag,
+    Volume? initialVolume,
+    ValueChanged<Duration>? onPosition,
     Duration? start,
     String? audioUrl,
     int? extraId,
   }) {
-    final video =
-        heroTag != null && Get.isRegistered<VideoDetailController>(tag: heroTag)
-        ? Get.find<VideoDetailController>(tag: heroTag)
-        : null;
     Get.toNamed(
       '/audio',
       arguments: AudioPageArguments(
@@ -82,12 +79,8 @@ class AudioPage extends ConsumerStatefulWidget {
         start: start,
         audioUrl: audioUrl,
         extraId: extraId,
-        initialVolume: video?.volume,
-        onPosition: video == null
-            ? null
-            : (position) {
-                if (!video.isClosed) video.playedTime = position;
-              },
+        initialVolume: initialVolume,
+        onPosition: onPosition,
       ),
     );
   }

@@ -80,9 +80,15 @@ String? localDependency(File file, String uri) {
       .replaceAll('\\', '/');
 }
 
-Set<String> matchingStaticCalls(String source, Set<String> candidates) {
+Set<String> matchingStaticCalls(String source, Set<String> candidates) =>
+    matchingUnitStaticCalls(parseSource(source), candidates);
+
+Set<String> matchingUnitStaticCalls(
+  CompilationUnit unit,
+  Set<String> candidates,
+) {
   final visitor = _StaticCallVisitor(candidates);
-  parseSource(source).accept(visitor);
+  unit.accept(visitor);
   return visitor.calls;
 }
 
@@ -97,6 +103,9 @@ class _StaticCallVisitor extends RecursiveAstVisitor<void> {
     final type = switch (node.target) {
       SimpleIdentifier(:final name) => name,
       PrefixedIdentifier(:final identifier) => identifier.name,
+      MethodInvocation(target: null, :final methodName) => methodName.name,
+      InstanceCreationExpression(:final constructorName) =>
+        constructorName.type.name.lexeme,
       _ => null,
     };
     if (type != null) {

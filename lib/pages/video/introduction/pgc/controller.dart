@@ -15,6 +15,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     hide EpisodeItem;
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
@@ -60,15 +61,15 @@ class PgcIntroController extends CommonIntroController {
   );
 
   @override
-  void onInit() {
-    final args = Get.arguments;
+  void open(VideoDetailController video, TickerProvider vsync) {
+    final args = video.args;
     seasonId = args['seasonId'];
     epId = args['epId'];
     isPgc = args['videoType'] == VideoType.pgc;
     pgcItem = args['pgcItem'];
     _playbackEpisodes = pgcItem.episodes ?? <EpisodeItem>[];
 
-    super.onInit();
+    super.open(video, vsync);
     collection.observeAccount(pgc: isPgc);
 
     if (isPgc) {
@@ -379,9 +380,10 @@ class PgcIntroController extends CommonIntroController {
   );
 
   @override
-  void onClose() {
+  void close() {
+    if (isClosed) return;
     _collection?.dispose();
-    super.onClose();
+    super.close();
   }
 
   Future<void> queryIsFollowed() =>

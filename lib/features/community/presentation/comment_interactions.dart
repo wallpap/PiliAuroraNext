@@ -4,6 +4,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
@@ -26,6 +27,7 @@ class CommentInteractions {
     int? oid,
     int? replyType,
     bool Function()? targetIsCurrent,
+    CommentVideoTools? videoTools,
   }) {
     final ownsAccount = comments.capture();
     bool current() => ownsAccount() && (targetIsCurrent?.call() ?? true);
@@ -69,6 +71,7 @@ class CommentInteractions {
           root: key.root,
           parent: key.parent,
           replyType: key.type,
+          videoTools: videoTools,
           replyItem: item,
           items: _drafts[key],
           onSave: (draft) {

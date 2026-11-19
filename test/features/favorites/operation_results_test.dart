@@ -118,7 +118,7 @@ void main() {
 
   test('动作异常沿 Future 返回，同时释放防重复操作的锁', () async {
     final controller = _Intro();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     final cause = StateError('synthetic action failure');
     await expectLater(
       controller.handleAction(() => Future<void>.error(cause)),
@@ -135,7 +135,7 @@ void main() {
   testWidgets('快速收藏等待实际写入，失败显示写入错误且不重复提交', (tester) async {
     await mount(tester);
     final controller = _Intro();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     var completed = false;
     final action = controller.quickFavorite()
       ..then<void>((_) {
@@ -172,7 +172,7 @@ void main() {
     final controller = _Intro()
       ..bvid = 'BV1xx411c7mD'
       ..hasLater = false.obs;
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     final add = controller.viewLater();
     await dispatched(tester, 1);
     await controller.viewLater();
@@ -196,7 +196,7 @@ void main() {
   testWidgets('没有收藏夹时结束加载并提示创建，不发送无效写入', (tester) async {
     await mount(tester);
     final controller = _Intro();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     final action = controller.quickFavorite();
     await tester.pump();
     await dispatched(tester, 1);
@@ -214,7 +214,7 @@ void main() {
   testWidgets('快速收藏的前置查询在切换视频后失效，不继续发送写入', (tester) async {
     await mount(tester);
     final controller = _Intro();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     final action = controller.quickFavorite();
     await dispatched(tester, 1);
     controller.resource = 99;
@@ -237,7 +237,7 @@ void main() {
   testWidgets('快速收藏查询期间切号，不用旧收藏夹向新账号写入', (tester) async {
     await mount(tester);
     final controller = _Intro();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     final action = controller.quickFavorite();
     await tester.pump();
     await dispatched(tester, 1);
@@ -263,7 +263,7 @@ void main() {
 
   testWidgets('收藏夹列表缺失时选择面板呈现空状态', (tester) async {
     final controller = _Intro();
-    addTearDown(controller.onClose);
+    addTearDown(controller.close);
     await mount(
       tester,
       FavoriteSelectionPanel(

@@ -23,8 +23,11 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-abstract class CommonIntroController extends GetxController
-    with GetSingleTickerProviderStateMixin, TripleMixin, FavMixin {
+abstract class CommonIntroController with TripleMixin, FavMixin {
+  bool _closed = false;
+  bool get isClosed => _closed;
+  @override
+  late final TickerProvider tripleVsync;
   late final String heroTag;
   late String bvid;
 
@@ -147,12 +150,12 @@ abstract class CommonIntroController extends GetxController
 
   late final RxInt cid;
 
-  late final videoDetailCtr = Get.find<VideoDetailController>(tag: heroTag);
+  late final VideoDetailController videoDetailCtr;
 
-  @override
-  void onInit() {
-    super.onInit();
-    final args = Get.arguments;
+  void open(VideoDetailController video, TickerProvider vsync) {
+    videoDetailCtr = video;
+    tripleVsync = vsync;
+    final args = video.args;
     heroTag = args['heroTag'];
     bvid = args['bvid'];
     cid = RxInt(args['cid']);
@@ -191,10 +194,12 @@ abstract class CommonIntroController extends GetxController
     }
   }
 
-  @override
-  void onClose() {
+  void close() {
+    if (_closed) return;
+    _closed = true;
     cancelTimer();
-    super.onClose();
+    disposeTriple();
+    videoDetail.close();
   }
 
   @override
@@ -244,6 +249,7 @@ abstract class CommonIntroController extends GetxController
 }
 
 mixin FavMixin on TripleMixin {
+  bool get isClosed;
   late final enableQuickFav = Pref.enableQuickFav;
   bool _savingFav = false;
   (Object, int) get getFavRidType;

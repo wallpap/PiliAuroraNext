@@ -1,5 +1,6 @@
 import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/colored_box_transition.dart';
@@ -37,6 +38,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
     super.key,
     super.enableSlide,
     this.musicShare,
+    this.videoTools,
     this.id,
     required this.oid,
     required this.rpid,
@@ -49,6 +51,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
     this.onUpdate,
   });
   final CommentShareOrigin? musicShare;
+  final CommentVideoTools? videoTools;
   final int? id;
   final int oid;
   final int rpid;
@@ -308,6 +311,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
           child: ReplyItemGrpc(
             replyItem: firstFloor,
             musicShare: widget.musicShare,
+            videoTools: widget.videoTools,
             replyLevel: 2,
             needDivider: false,
             onReply: (replyItem) => _interactions.compose(
@@ -316,6 +320,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               snapshot,
               _source,
               replyItem,
+              videoTools: widget.videoTools,
             ),
             upMid: (_showSeed ? widget.upMid : null) ?? snapshot.upMid,
             onCheckReply: (item) =>
@@ -457,14 +462,23 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     return ReplyItemGrpc(
       replyItem: replyItem,
       musicShare: widget.musicShare,
+      videoTools: widget.videoTools,
       replyLevel: isDialogue ? 3 : 2,
-      onReply: (item) =>
-          _interactions.compose(context, comments, snapshot, _source, item),
+      onReply: (item) => _interactions.compose(
+        context,
+        comments,
+        snapshot,
+        _source,
+        item,
+        videoTools: widget.videoTools,
+      ),
       onDelete: (item, _) => comments.remove(item, null),
       upMid: snapshot.upMid,
       showDialogue: () => MiniScaffold.of(context).showBottomSheet(
         constraints: const BoxConstraints(),
         (context) => VideoReplyReplyPanel(
+          musicShare: widget.musicShare,
+          videoTools: widget.videoTools,
           oid: replyItem.oid.toInt(),
           rpid: replyItem.root.toInt(),
           dialog: replyItem.dialog.toInt(),

@@ -21,6 +21,7 @@ import 'package:pili_aurora_next/features/community/application/comments/comment
 import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
@@ -28,7 +29,6 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -71,7 +71,7 @@ class ReplyItemGrpc extends StatelessWidget {
     this.onDelete,
     this.upMid,
     this.showDialogue,
-    this.getTag,
+    this.videoTools,
     this.onViewImage,
     this.onCheckReply,
     this.onToggleTop,
@@ -87,7 +87,7 @@ class ReplyItemGrpc extends StatelessWidget {
   final Function(CommentReply replyItem, int? subIndex)? onDelete;
   final Int64? upMid;
   final VoidCallback? showDialogue;
-  final Function? getTag;
+  final CommentVideoTools? videoTools;
   final VoidCallback? onViewImage;
   final ValueChanged<CommentReply>? onCheckReply;
   final ValueChanged<CommentReply>? onToggleTop;
@@ -881,24 +881,8 @@ class ReplyItemGrpc extends StatelessWidget {
           );
         } else if (_timeRegExp.hasMatch(matchStr)) {
           matchStr = matchStr.replaceAll('：', ':');
-          final args = Get.arguments;
-          final tagValue =
-              getTag?.call() ?? (args is Map ? args['heroTag'] : null);
-          final tag = tagValue is String ? tagValue : null;
-          VideoDetailController? controller;
-          int? timeLength;
-          if (tag != null &&
-              Get.isRegistered<VideoDetailController>(tag: tag)) {
-            controller = Get.find<VideoDetailController>(tag: tag);
-            if (!controller.isClosed) {
-              try {
-                // 地址尚未解析时 data 仍未初始化。
-                timeLength = controller.data.timeLength;
-              } catch (_) {
-                timeLength = null;
-              }
-            }
-          }
+          final tools = videoTools;
+          final timeLength = tools?.durationMilliseconds();
           var secondsValue = BigInt.zero;
           for (final part in matchStr.split(':')) {
             final value = BigInt.tryParse(part);
@@ -909,13 +893,11 @@ class ReplyItemGrpc extends StatelessWidget {
             secondsValue = secondsValue * BigInt.from(60) + value;
           }
           final isValid =
-              controller != null &&
-              !controller.isClosed &&
+              tools != null &&
               timeLength != null &&
               timeLength > 0 &&
               secondsValue >= BigInt.zero &&
               secondsValue <= BigInt.from(timeLength ~/ 1000);
-          final target = controller;
           spanChildren.add(
             TextSpan(
               text: isValid ? ' $matchStr ' : matchStr,
@@ -923,22 +905,13 @@ class ReplyItemGrpc extends StatelessWidget {
               recognizer: isValid
                   ? (NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
-                        if (target == null ||
-                            target.isClosed ||
-                            !Get.isRegistered<VideoDetailController>(
-                              tag: tag,
-                            ) ||
-                            !identical(
-                              Get.find<VideoDetailController>(tag: tag),
-                              target,
-                            )) {
-                          return;
+                        final target = Duration(seconds: secondsValue.toInt());
+                        final duration = tools.durationMilliseconds();
+                        if (duration != null &&
+                            target.inMilliseconds <= duration &&
+                            tools.seek(target)) {
+                          SmartDialog.showToast('跳转至：$matchStr');
                         }
-                        SmartDialog.showToast('跳转至：$matchStr');
-                        target.plPlayerController.seekTo(
-                          Duration(seconds: secondsValue.toInt()),
-                          isSeek: false,
-                        );
                       })
                   : null,
             ),
@@ -1230,6 +1203,7 @@ class ReplyItemGrpc extends StatelessWidget {
                 upMid: upMid,
                 item: item,
                 musicShare: musicShare,
+                videoShare: videoTools?.share(item),
               );
             },
             minLeadingWidth: 0,

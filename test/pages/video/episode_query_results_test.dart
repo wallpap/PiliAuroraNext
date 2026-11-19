@@ -117,7 +117,7 @@ void main() {
     }
 
     Future<void> finish(WidgetTester tester) async {
-      controller.onDelete();
+      controller.close();
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
@@ -179,7 +179,7 @@ void main() {
           case '离页返回':
             video.playbackOwner.generation++;
           case '关闭':
-            controller.onDelete();
+            controller.close();
         }
         requests[0].reply.complete(
           mode == '分P' || mode == '离页返回'

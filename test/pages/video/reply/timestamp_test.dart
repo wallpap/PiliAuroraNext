@@ -3,10 +3,7 @@ import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
 import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, Content, Member;
@@ -40,7 +37,6 @@ void main() {
               ),
             ),
             replyLevel: 0,
-            getTag: () => 'dynamic-comment',
           ),
         ),
       ),
@@ -55,12 +51,18 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  testWidgets('视频时间戳使用匹配 tag，超范围和关闭后不跳转', (tester) async {
-    final player = _Player();
-    final controller = _Detail(player, 200000);
-    Get.put<VideoDetailController>(controller, tag: 'video-tag');
-    addTearDown(
-      () => Get.delete<VideoDetailController>(tag: 'video-tag', force: true),
+  testWidgets('视频时间戳只跳转当前来源，超范围和失效后不跳转', (tester) async {
+    final seeks = <Duration>[];
+    int? duration = 200000;
+    final CommentVideoTools tools = (
+      durationMilliseconds: () => duration,
+      seek: (position) {
+        seeks.add(position);
+        return true;
+      },
+      position: () => null,
+      capture: () => null,
+      share: (_) => null,
     );
 
     Future<TextSpan> render(String message) async {
@@ -76,7 +78,7 @@ void main() {
                 ),
               ),
               replyLevel: 0,
-              getTag: () => 'video-tag',
+              videoTools: tools,
             ),
           ),
         ),
@@ -101,41 +103,21 @@ void main() {
     final valid = await render('03:12');
     expect(valid.recognizer, isA<TapGestureRecognizer>());
     (valid.recognizer! as TapGestureRecognizer).onTap!();
-    expect(player.seeks, [const Duration(seconds: 192)]);
+    expect(seeks, [const Duration(seconds: 192)]);
     final huge = await render('999999999999999999999999:00');
     expect(huge.recognizer, isNull);
     expect(tester.takeException(), isNull);
-    controller.data = PlayUrlModel(timeLength: 1000);
+    duration = 1000;
     expect((await render('03:12')).recognizer, isNull);
-    controller.data = PlayUrlModel();
+    duration = null;
     expect((await render('03:12')).recognizer, isNull);
-    controller.data = PlayUrlModel(timeLength: 200000);
+    duration = 200000;
     final beforeClose = await render('03:12');
-    Get.delete<VideoDetailController>(tag: 'video-tag', force: true);
+    duration = null;
     (beforeClose.recognizer! as TapGestureRecognizer).onTap!();
-    expect(player.seeks, hasLength(1));
+    expect(seeks, hasLength(1));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 3));
   });
-}
-
-class _Player extends GetxController implements PlPlayerController {
-  final seeks = <Duration>[];
-  @override
-  Future<void> seekTo(Duration position, {bool isSeek = true}) async =>
-      seeks.add(position);
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _Detail extends GetxController implements VideoDetailController {
-  _Detail(this.plPlayerController, int? duration)
-    : data = PlayUrlModel(timeLength: duration);
-  @override
-  PlayUrlModel data;
-  @override
-  final PlPlayerController plPlayerController;
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
