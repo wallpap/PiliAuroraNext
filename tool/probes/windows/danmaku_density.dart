@@ -264,14 +264,14 @@ class _ProbeState extends State<_Probe> {
           'merge': widget.merge,
           'tailSeconds': 8,
           'inputByWeight': weightCounts(widget.source.input),
-          'retainedByWeight': weightCounts(
+          'retainedByWeight': tallyWeights(
             widget.source.cache
                 .readRange(
                   widget.startMs * 1000,
                   (widget.startMs + 30000) * 1000,
                 )
                 .entries
-                .map((e) => e.element),
+                .map((entry) => entry.weight),
           ),
           'viewport': [metrics!.size.width, metrics!.size.height],
           'videoStartMs': videoStartMs,
@@ -331,7 +331,10 @@ class _ProbeState extends State<_Probe> {
                   : e.mode == 4
                   ? DanmakuItemType.bottom
                   : DanmakuItemType.scroll,
-              extra: (weight: e.weight, sourceMs: e.progress),
+              extra: (
+                weight: e.weight,
+                sourceMs: e.positionUs ~/ Duration.microsecondsPerMillisecond,
+              ),
             ),
           );
         }

@@ -253,7 +253,10 @@ void main() {
                     : e.mode == 4
                     ? DanmakuItemType.bottom
                     : DanmakuItemType.scroll,
-                extra: (weight: e.weight, sourceMs: e.progress),
+                extra: (
+                  weight: e.weight,
+                  sourceMs: e.positionUs ~/ Duration.microsecondsPerMillisecond,
+                ),
               ),
             );
             final metrics = DanmakuDensityMetrics(

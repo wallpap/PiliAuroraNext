@@ -85,11 +85,12 @@ DanmakuWindowRenderer<void> _renderer() => DanmakuWindowRenderer(
   ),
   size: const Size(500, 200),
 );
-DanmakuContentItem<void> _content(DanmakuElem element) => DanmakuContentItem(
-  element.content,
-  color: const Color(0xffffffff),
-  selfSend: true,
-);
+DanmakuContentItem<void> _content(DanmakuTimelineEntry element) =>
+    DanmakuContentItem(
+      element.content,
+      color: const Color(0xffffffff),
+      selfSend: true,
+    );
 
 void main() {
   test('source selection and per-frame preparation fill twelve slots by relative weight', () {

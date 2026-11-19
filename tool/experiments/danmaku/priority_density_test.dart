@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.d
 import 'package:pili_aurora_next/pages/danmaku/arrangement.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
-import 'package:pili_aurora_next/pages/danmaku/priority.dart';
+import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
 // 真实文件通过 DANMAKU_REAL_FILES（| 分隔）传入，仅输出聚合统计。
 // DANMAKU_DENSITY_REPORT 指定本地 JSON；不将弹幕正文写入报告。
@@ -84,7 +84,7 @@ void main() {
             .entries;
         final ranked = entries.indexed.toList()
           ..sort((a, b) {
-            final priority = compareDanmakuPriority(a.$2.element, b.$2.element);
+            final priority = DanmakuTimelineEntry.comparePriority(a.$2, b.$2);
             return priority != 0 ? priority : a.$1.compareTo(b.$1);
           });
         for (var offset = 0; offset < entries.length; offset += 4) {
@@ -95,15 +95,15 @@ void main() {
               DanmakuMeasuredCandidate<int>(
                 identity: id++,
                 sourceUs: e.positionUs,
-                width: math.min(1100, e.element.content.runes.length * 25.0),
+                width: math.min(1100, e.content.runes.length * 25.0),
                 height: 30,
-                type: e.element.mode == 5
+                type: e.mode == 5
                     ? DanmakuItemType.top
-                    : e.element.mode == 4
+                    : e.mode == 4
                     ? DanmakuItemType.bottom
                     : DanmakuItemType.scroll,
-                payload: e.element.weight,
-                weight: e.element.weight,
+                payload: e.weight,
+                weight: e.weight,
               ),
           ];
           selected += candidates.length;

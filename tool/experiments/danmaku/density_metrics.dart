@@ -6,10 +6,13 @@ import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 
 typedef DensityTag = ({int weight, int sourceMs});
 
-Map<String, int> weightCounts(Iterable<DanmakuElem> elements) {
+Map<String, int> weightCounts(Iterable<DanmakuElem> elements) =>
+    tallyWeights(elements.map((element) => element.weight));
+
+Map<String, int> tallyWeights(Iterable<int> weights) {
   final counts = <String, int>{};
-  for (final e in elements) {
-    counts.update('${e.weight}', (v) => v + 1, ifAbsent: () => 1);
+  for (final weight in weights) {
+    counts.update('$weight', (v) => v + 1, ifAbsent: () => 1);
   }
   return counts;
 }

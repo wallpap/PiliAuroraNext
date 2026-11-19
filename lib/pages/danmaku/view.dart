@@ -6,13 +6,13 @@ import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/controller.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/echo_source.dart';
 import 'package:pili_aurora_next/pages/danmaku/frame_rate_setting.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
+import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_screen.dart';
@@ -131,16 +131,16 @@ class _PlDanmakuState extends State<PlDanmaku> {
     );
   }
 
-  DanmakuContentItem<DanmakuExtra>? _contentOf(DanmakuElem element) {
+  DanmakuContentItem<DanmakuExtra>? _contentOf(DanmakuTimelineEntry element) {
     final echo = _echoes.contentFor(element);
     if (echo != null) return echo;
     if (!element.isSelf && element.weight < DanmakuOptions.danmakuWeight) {
       return null;
     }
     final extra = VideoDanmaku(
-      id: element.id.toInt(),
+      id: element.id,
       mid: element.midHash,
-      like: element.likeCount.toInt(),
+      like: element.likeCount,
     );
     final color = DanmakuOptions.blockColorful
         ? Colors.white
@@ -149,7 +149,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
       try {
         return SpecialDanmakuContentItem<DanmakuExtra>.fromList(
           color,
-          element.fontsize.toDouble(),
+          element.fontSize.toDouble(),
           jsonDecode(element.content.replaceAll('\n', r'\n')),
           extra: extra,
         );
@@ -164,7 +164,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
       isColorful:
           player.showVipDanmaku &&
           !DanmakuOptions.blockColorful &&
-          element.colorful == DmColorfulType.VipGradualColor,
+          element.vipGradient,
       count: element.count > 1 ? element.count : null,
       fontSizeScale: mergedDanmakuFontScale(
         element.count,

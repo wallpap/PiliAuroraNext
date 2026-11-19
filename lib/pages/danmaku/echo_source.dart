@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
@@ -20,9 +18,8 @@ class DanmakuEchoSource implements DanmakuTimelineSource {
       <
         int,
         ({
-          DanmakuElem element,
+          DanmakuTimelineEntry entry,
           DanmakuContentItem<DanmakuExtra> content,
-          int mediaUs,
         })
       >{};
   final _removed = <int>{};
@@ -58,10 +55,10 @@ class DanmakuEchoSource implements DanmakuTimelineSource {
     if (_echoes.values.any((echo) => identical(echo.content, content))) return;
     final id = extra is VideoDanmaku ? extra.id : _nextLocalId--;
     if (_echoes.containsKey(id)) return;
-    final element = DanmakuElem(
-      id: Int64(id),
+    final entry = DanmakuTimelineEntry(
+      id: id,
       idStr: id.toString(),
-      progress: mediaUs ~/ 1000,
+      positionUs: mediaUs,
       mode: switch (content.type) {
         DanmakuItemType.top => 5,
         DanmakuItemType.bottom => 4,
@@ -71,20 +68,21 @@ class DanmakuEchoSource implements DanmakuTimelineSource {
       content: content.text,
       midHash: extra is VideoDanmaku ? extra.mid : '',
       weight: 11,
-    )..isSelf = true;
+      isSelf: true,
+    );
     if (_echoes.length == 64) _echoes.remove(_echoes.keys.first);
-    _echoes[id] = (element: element, content: content, mediaUs: mediaUs);
+    _echoes[id] = (entry: entry, content: content);
     _changed(mediaUs);
   }
 
-  DanmakuContentItem<DanmakuExtra>? contentFor(DanmakuElem element) =>
-      _echoes[element.id.toInt()]?.content;
+  DanmakuContentItem<DanmakuExtra>? contentFor(DanmakuTimelineEntry entry) =>
+      _echoes[entry.id]?.content;
 
   void remove(Object identity) {
     // 交互身份由编排器生成；快照的业务 id 由挂载处解析后传入。
     if (identity is! int) return;
     final echo = _echoes.remove(identity);
-    final sourceUs = echo == null ? _positions[identity] : echo.mediaUs;
+    final sourceUs = echo?.entry.positionUs ?? _positions[identity];
     if (_removed.length == 256) _removed.remove(_removed.first);
     _removed.add(identity);
     _revision++;
@@ -128,15 +126,15 @@ class DanmakuEchoSource implements DanmakuTimelineSource {
       maxEntriesPerBucket: maxEntriesPerBucket,
     );
     for (final entry in range.entries) {
-      final id = entry.element.id.toInt();
+      final id = entry.id;
       _positions.remove(id);
       if (_positions.length == 2048) _positions.remove(_positions.keys.first);
       _positions[id] = entry.positionUs;
     }
     final entries = <DanmakuTimelineEntry>[
       for (final entry in range.entries)
-        if (!_removed.contains(entry.element.id.toInt()) &&
-            !_echoes.containsKey(entry.element.id.toInt()) &&
+        if (!_removed.contains(entry.id) &&
+            !_echoes.containsKey(entry.id) &&
             !range.coverage.any(
               (part) =>
                   part.state == DanmakuCoverageState.invalidated &&
@@ -145,8 +143,8 @@ class DanmakuEchoSource implements DanmakuTimelineSource {
             ))
           entry,
       for (final echo in _echoes.values)
-        if (echo.mediaUs >= startUs && echo.mediaUs < endUs)
-          DanmakuTimelineEntry(echo.element, localPositionUs: echo.mediaUs),
+        if (echo.entry.positionUs >= startUs && echo.entry.positionUs < endUs)
+          echo.entry,
     ];
     final ordered = entries.indexed.toList()
       ..sort((a, b) {
@@ -154,7 +152,8 @@ class DanmakuEchoSource implements DanmakuTimelineSource {
         return time == 0 ? a.$1.compareTo(b.$1) : time;
       });
     final echoTimes =
-        _echoes.values.map((echo) => echo.mediaUs).toSet().toList()..sort();
+        _echoes.values.map((echo) => echo.entry.positionUs).toSet().toList()
+          ..sort();
     final coverage = <DanmakuRangeCoverage>[];
     for (final part in range.coverage) {
       var cursor = part.startUs;

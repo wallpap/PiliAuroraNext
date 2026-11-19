@@ -1,13 +1,53 @@
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-
-/// 来源接入处将服务端毫秒转换为媒体微秒。
 class DanmakuTimelineEntry {
-  const DanmakuTimelineEntry(this.element, {this.localPositionUs});
+  const DanmakuTimelineEntry({
+    required this.positionUs,
+    required this.content,
+    this.id = 0,
+    this.idStr = '',
+    this.mode = 0,
+    this.fontSize = 0,
+    this.color = 0,
+    this.midHash = '',
+    this.weight = 0,
+    this.likeCount = 0,
+    this.count = 0,
+    this.isSelf = false,
+    this.vipGradient = false,
+  });
 
-  final DanmakuElem element;
-  final int? localPositionUs;
-  int get positionUs =>
-      localPositionUs ?? element.progress * Duration.microsecondsPerMillisecond;
+  final int positionUs;
+  final String content;
+  final int id;
+  final String idStr;
+  final int mode;
+  final int fontSize;
+  final int color;
+  final String midHash;
+  final int weight;
+  final int likeCount;
+  final int count;
+  final bool isSelf;
+  final bool vipGradient;
+
+  static int comparePriority(
+    DanmakuTimelineEntry first,
+    DanmakuTimelineEntry second,
+  ) => compareDanmakuRank(
+    first.isSelf,
+    first.weight,
+    second.isSelf,
+    second.weight,
+  );
+}
+
+int compareDanmakuRank(
+  bool firstSelf,
+  int firstWeight,
+  bool secondSelf,
+  int secondWeight,
+) {
+  if (firstSelf != secondSelf) return firstSelf ? -1 : 1;
+  return secondWeight.compareTo(firstWeight);
 }
 
 enum DanmakuCoverageState { loaded, missing, loading, invalidated, failed }

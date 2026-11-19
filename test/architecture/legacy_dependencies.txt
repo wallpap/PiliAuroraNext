@@ -89,7 +89,6 @@ pages/danmaku/controller.dart -> grpc/dm.dart
 pages/danmaku/controller.dart -> utils/accounts.dart
 pages/danmaku/controller.dart -> utils/danmaku_utils.dart
 pages/danmaku/controller.dart -> utils/storage_pref.dart
-pages/danmaku/echo_source.dart -> generated/bilibili/community/service/dm/v1.pb.dart
 pages/danmaku/element_size.dart -> generated/bilibili/community/service/dm/v1.pb.dart
 pages/danmaku/file_reader.dart -> generated/bilibili/community/service/dm/v1.pb.dart
 pages/danmaku/file_store.dart -> generated/bilibili/community/service/dm/v1.pb.dart
@@ -101,13 +100,10 @@ pages/danmaku/priority.dart -> generated/bilibili/community/service/dm/v1.pb.dar
 pages/danmaku/processing_rules.dart -> generated/bilibili/community/service/dm/v1.pb.dart
 pages/danmaku/processing_rules.dart -> utils/danmaku_utils.dart
 pages/danmaku/raw_cache.dart -> generated/bilibili/community/service/dm/v1.pb.dart
-pages/danmaku/timeline_range.dart -> generated/bilibili/community/service/dm/v1.pb.dart
-pages/danmaku/view.dart -> generated/bilibili/community/service/dm/v1.pb.dart
 pages/danmaku/view.dart -> package:hive_ce/hive.dart
 pages/danmaku/view.dart -> utils/danmaku_utils.dart
 pages/danmaku/view.dart -> utils/storage.dart
 pages/danmaku/view.dart -> utils/storage_pref.dart
-pages/danmaku/window_coordinator.dart -> generated/bilibili/community/service/dm/v1.pb.dart
 pages/danmaku_block/controller.dart -> http/danmaku_block.dart
 pages/danmaku_block/controller.dart -> utils/accounts.dart
 pages/danmaku_block/view.dart -> utils/storage.dart

@@ -2,15 +2,19 @@ import 'dart:collection';
 
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
 /// 100 ms 的优先候选额度；真实素材与密集合成素材共同验证的折中值。
 const danmakuCandidatesPerBucket = 12;
 
 /// 负数表示先显示；自己发送的弹幕先于服务端权重，同权重保持来源次序。
-int compareDanmakuPriority(DanmakuElem a, DanmakuElem b) {
-  final self = (b.isSelf ? 1 : 0).compareTo(a.isSelf ? 1 : 0);
-  return self != 0 ? self : b.weight.compareTo(a.weight);
-}
+int compareDanmakuPriority(DanmakuElem first, DanmakuElem second) =>
+    compareDanmakuRank(
+      first.isSelf,
+      first.weight,
+      second.isSelf,
+      second.weight,
+    );
 
 /// 有界 top-k；返回来源次序，调用方继续遵守媒体时间顺序。
 List<T> selectDanmakuPriority<T>(

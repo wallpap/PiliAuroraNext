@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
@@ -34,7 +33,7 @@ class DanmakuWindowCoordinator<T> {
   static const _bucketUs = 100000;
   final DanmakuTimelineSource source;
   final DanmakuWindowRenderer<T> renderer;
-  final DanmakuContentItem<T>? Function(DanmakuElem) contentOf;
+  final DanmakuContentItem<T>? Function(DanmakuTimelineEntry) contentOf;
   final int preparePerFrame;
   final int maxCandidatesPerBucket;
   final int aheadUs;
@@ -251,24 +250,23 @@ class DanmakuWindowCoordinator<T> {
             .toList();
         final ranked = eligible.indexed.toList()
           ..sort((a, b) {
-            final priority = compareDanmakuPriority(a.$2.element, b.$2.element);
+            final priority = DanmakuTimelineEntry.comparePriority(a.$2, b.$2);
             return priority != 0 ? priority : a.$1.compareTo(b.$1);
           });
         final candidates = <DanmakuWindowContent<T>>[];
         var specials = 0;
         for (final (_, entry) in ranked.take(maxCandidatesPerBucket)) {
-          final element = entry.element;
-          if (element.mode == 7 &&
+          if (entry.mode == 7 &&
               ++specials > DanmakuDisplayLimits.maxSpecialPerBatch) {
             continue;
           }
           final key = (
-            element.idStr,
-            element.id,
-            element.progress,
-            element.mode,
-            element.midHash,
-            element.content,
+            entry.idStr,
+            entry.id,
+            entry.positionUs,
+            entry.mode,
+            entry.midHash,
+            entry.content,
           );
           final ordinal = occurrences.update(
             key,
@@ -277,14 +275,14 @@ class DanmakuWindowCoordinator<T> {
           );
           final identity = (key, ordinal);
           if (renderer.hasPrepared(identity)) continue;
-          final content = contentOf(element);
+          final content = contentOf(entry);
           if (content != null) {
             candidates.add(
               DanmakuWindowContent(
                 identity,
                 entry.positionUs,
                 content,
-                weight: element.weight,
+                weight: entry.weight,
               ),
             );
           }

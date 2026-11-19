@@ -67,7 +67,7 @@ void main() {
       ], segmentIndex: 0);
       final range = source.readRange(0, 100000);
       expect(range.entries.length, 12);
-      expect(range.entries.last.element.content, '高权重');
+      expect(range.entries.last.content, '高权重');
       expect(
         range.entries.map((e) => e.positionUs),
         orderedEquals([
@@ -102,12 +102,12 @@ void main() {
     await source.ensureRange(0, 360000000);
     final range = source.readRange(0, 100000);
     expect(range.entries.length, 120);
-    final restored = range.entries
-        .singleWhere((e) => e.element.content == '等待提升')
-        .element;
+    final restored = range.entries.singleWhere(
+      (entry) => entry.content == '等待提升',
+    );
     expect(restored.weight, 11);
     expect(restored.count, 2);
-    expect(restored.progress, 0);
+    expect(restored.positionUs, 0);
   });
 
   test(
@@ -141,8 +141,8 @@ void main() {
       final range = source.readRange(0, 360000000);
       expect(range.isLoaded, isTrue);
       expect(range.entries, hasLength(reply.elems.length));
-      expect(range.entries.first.element.content, '正常弹幕0');
-      expect(range.entries.last.element.content, '正常弹幕17501');
+      expect(range.entries.first.content, '正常弹幕0');
+      expect(range.entries.last.content, '正常弹幕17501');
     },
   );
 
@@ -246,12 +246,12 @@ void main() {
     final before = source.readRange(359000000, 361000000);
     expect(before.isLoaded, isTrue);
     expect(before.entries, hasLength(1));
-    expect(before.entries.single.element.count, 2);
+    expect(before.entries.single.count, 2);
     player.filters = RuleFilter([], [], {});
     await source.refreshRules();
     final after = source.readRange(359000000, 361000000);
-    expect(after.entries.map((e) => e.element.content), ['跨段重复', '屏蔽内容']);
-    expect(after.entries.first.element.count, 2);
+    expect(after.entries.map((entry) => entry.content), ['跨段重复', '屏蔽内容']);
+    expect(after.entries.first.count, 2);
     await source.ensureRange(0, 2000000);
     expect(source.readRange(0, 2000000).isLoaded, isTrue);
     await file.writeAsBytes(
@@ -259,7 +259,7 @@ void main() {
     );
     await source.ensureRange(0, 2000000);
     expect(
-      source.readRange(0, 2000000).entries.single.element.content,
+      source.readRange(0, 2000000).entries.single.content,
       '文件已替换',
     );
   });

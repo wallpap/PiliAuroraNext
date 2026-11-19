@@ -444,10 +444,8 @@ class PlDanmakuController implements DanmakuTimelineSource {
     },
   );
 
-  Iterable<DanmakuElem> peekBufferedDanmaku(int start, int end) => readRange(
-    start * 1000,
-    end * 1000,
-  ).entries.take(64).map((entry) => entry.element);
+  Iterable<DanmakuTimelineEntry> peekBufferedDanmaku(int start, int end) =>
+      readRange(start * 1000, end * 1000).entries.take(64);
 
   void initFileDmIfNeeded() {
     unawaited(_scheduleFileRange());

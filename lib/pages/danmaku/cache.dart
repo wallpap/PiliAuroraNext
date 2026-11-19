@@ -89,7 +89,25 @@ class DanmakuCache {
         maxEntriesPerBucket ?? upper - lower,
         compareDanmakuPriority,
       );
-      entries.addAll(selected.map(DanmakuTimelineEntry.new));
+      for (final element in selected) {
+        entries.add(
+          DanmakuTimelineEntry(
+            positionUs: element.progress * Duration.microsecondsPerMillisecond,
+            content: element.content,
+            id: element.id.toInt(),
+            idStr: element.idStr,
+            mode: element.mode,
+            fontSize: element.fontsize,
+            color: element.color,
+            midHash: element.midHash,
+            weight: element.weight,
+            likeCount: element.likeCount.toInt(),
+            count: element.count,
+            isSelf: element.isSelf,
+            vipGradient: element.colorful == DmColorfulType.VipGradualColor,
+          ),
+        );
+      }
       bucket = _buckets.firstKeyAfter(bucket);
     }
     return DanmakuTimelineRange(
