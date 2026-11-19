@@ -192,12 +192,12 @@ abstract interface class DecoderTestSession {
 
 /// 每个组合使用独立播放会话；超时或停止后先确认原生释放，再允许下一个组合。
 class NativeDecoderTestSession implements DecoderTestSession {
-  NativeDecoderTestSession(this.decoder, this.sample) {
+  NativeDecoderTestSession(this.decoder, this.sample, {String? videoSync}) {
     _runtime = NativePlaybackRuntime(
       configuration: PlaybackRuntimeConfig(
         playerOptions: {
           'audio': 'no',
-          'video-sync': Pref.videoSync,
+          'video-sync': videoSync ?? Pref.videoSync,
           ...nativeVideoPlayerOptions(),
         },
         // 软件基线只切换 hwdec，保持相同的视频输出路径。

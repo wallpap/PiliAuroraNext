@@ -127,9 +127,6 @@ abstract final class GStorage {
     };
   }
 
-  static SettingsBackup get settingsBackup =>
-      SettingsBackup(setting: setting, video: video);
-
   static void regAdapter() {
     Hive
       ..registerAdapter(OwnerAdapter())

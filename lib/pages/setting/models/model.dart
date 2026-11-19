@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/pages/setting/widgets/switch_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart' hide PopupMenuItemSelected;
 
@@ -330,7 +330,7 @@ SettingsModel getBanWordModel({
   required String key,
   ValueChanged<RegExp>? onChanged,
 }) {
-  String banWord = GStorage.setting.get(key, defaultValue: '');
+  String banWord = SettingsValues.general.readOr(key, '');
   bool editing = false;
   return NormalModel(
     leading: const Icon(Icons.filter_alt_outlined),
@@ -352,7 +352,7 @@ SettingsModel getBanWordModel({
             validationMessage: '请输入有效的正则表达式',
             isCurrent: () => edit.isCurrent,
             save: (pattern) async {
-              await GStorage.setting.put(key, pattern.pattern);
+              await SettingsValues.general.save(key, pattern.pattern);
               banWord = pattern.pattern;
               edit.apply(() => onChanged?.call(pattern));
               setState();
@@ -377,7 +377,7 @@ SettingsModel getVideoFilterSelectModel({
   bool isFilter = true,
   ValueChanged<int>? onChanged,
 }) {
-  int value = GStorage.setting.get(key, defaultValue: defaultValue);
+  int value = SettingsValues.general.readOr(key, defaultValue);
   bool editing = false;
   return NormalModel(
     title: '$title${isFilter ? '过滤' : ''}',
@@ -393,7 +393,7 @@ SettingsModel getVideoFilterSelectModel({
       editing = true;
       final edit = _SettingEdit(context);
       Future<void> save(int next) async {
-        await GStorage.setting.put(key, next);
+        await SettingsValues.general.save(key, next);
         value = next;
         edit.apply(() => onChanged?.call(next));
         setState();

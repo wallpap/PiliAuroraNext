@@ -2,10 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
@@ -13,8 +11,6 @@ import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/pages/setting/decoder_test.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -255,8 +251,6 @@ Future<void> runDecoderTestWorker() async {
     WidgetsFlutterBinding.ensureInitialized();
     await windowManager.ensureInitialized();
     MediaKit.ensureInitialized();
-    GStorage.setting = await Hive.openBox('decoder-test', bytes: Uint8List(0));
-    await GStorage.setting.put(SettingBoxKey.videoSync, input['videoSync']);
     session = NativeDecoderTestSession(
       decoder,
       VideoItem(
@@ -267,6 +261,7 @@ Future<void> runDecoderTestWorker() async {
         width: input['width'] as int?,
         height: input['height'] as int?,
       ),
+      videoSync: input['videoSync'] as String,
     );
     final active = session;
     // 父进程退出或停止测试时，连接关闭也会终止子进程。
@@ -296,7 +291,6 @@ Future<void> runDecoderTestWorker() async {
     await active.dispose();
     socket.add(jsonEncode(_encodeResult(result)));
     await socket.close();
-    await Hive.close();
     exit(0);
   } catch (_) {
     // 原生驱动访问违规不会到达这里，由父进程按退出码报告。

@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
@@ -55,7 +55,10 @@ class _DocProviderItemState extends State<DocProviderItem> {
       }
       _value = next;
       try {
-        await GStorage.setting.put(SettingBoxKey.enableDocProvider, next);
+        await SettingsValues.general.save(
+          SettingBoxKey.enableDocProvider,
+          next,
+        );
         _savedValue = next;
         _needsSave = false;
       } catch (error, stackTrace) {

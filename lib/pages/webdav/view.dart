@@ -1,13 +1,9 @@
-import 'package:pili_aurora_next/utils/credential_cipher.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/pages/webdav/webdav.dart';
-import 'package:pili_aurora_next/services/settings/webdav_client.dart';
+import 'package:pili_aurora_next/services/settings/webdav_preferences.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -24,10 +20,11 @@ class WebDavSettingPage extends StatefulWidget {
 }
 
 class _WebDavSettingPageState extends State<WebDavSettingPage> {
-  final _uriCtr = TextEditingController(text: Pref.webdavUri);
-  final _usernameCtr = TextEditingController(text: Pref.webdavUsername);
-  final _passwordCtr = TextEditingController(text: Pref.webdavPassword);
-  final _directoryCtr = TextEditingController(text: Pref.webdavDirectory);
+  final _initial = WebDavPreferences.read();
+  late final _uriCtr = TextEditingController(text: _initial.uri);
+  late final _usernameCtr = TextEditingController(text: _initial.username);
+  late final _passwordCtr = TextEditingController(text: _initial.password);
+  late final _directoryCtr = TextEditingController(text: _initial.directory);
   bool _obscureText = true;
 
   @override
@@ -134,44 +131,26 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
           child: FloatingActionButton(
             child: const Icon(Icons.save),
             onPressed: () async {
-              // 先校验草稿，不用无效/远程明文地址覆盖已有配置。
+              final draft = (
+                uri: _uriCtr.text.trim(),
+                username: _usernameCtr.text,
+                password: _passwordCtr.text,
+                directory: _directoryCtr.text,
+              );
               try {
-                if (_usernameCtr.text.contains(':')) {
-                  throw ArgumentError('WebDAV Basic Auth 用户名不能包含冒号');
-                }
-                if (_uriCtr.text.trim().isNotEmpty) {
-                  WebDavSettingsClient.validateEndpoint(
-                    Uri.parse(_uriCtr.text.trim()),
-                    allowInsecureLoopback: true,
+                await WebDavPreferences.save(draft);
+                if (!mounted || draft.uri.isEmpty) return;
+                final res = await (const WebDav()).init();
+                if (mounted) {
+                  SmartDialog.showToast(
+                    res.first ? '配置成功' : '配置失败: ${res.second}',
                   );
                 }
               } catch (error) {
+                if (!mounted) return;
                 SmartDialog.showToast(
                   '配置失败: ${DiagnosticRedactor.text(error)}',
                 );
-                return;
-              }
-              await GStorage.setting.putAll({
-                SettingBoxKey.webdavUri: _uriCtr.text.trim(),
-                SettingBoxKey.webdavUsername: _usernameCtr.text,
-                SettingBoxKey.webdavPassword: CredentialCipher.encrypt(
-                  _passwordCtr.text,
-                ),
-                SettingBoxKey.webdavDirectory: _directoryCtr.text,
-              });
-              if (_uriCtr.text.trim().isEmpty) {
-                return;
-              }
-              try {
-                final res = await (const WebDav()).init();
-                if (res.first) {
-                  SmartDialog.showToast('配置成功');
-                } else {
-                  SmartDialog.showToast('配置失败: ${res.second}');
-                }
-              } catch (e) {
-                SmartDialog.showToast('配置失败: ${e.toString()}');
-                return;
               }
             },
           ),

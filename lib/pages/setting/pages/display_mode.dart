@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_displaymode/flutter_displaymode.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SetDisplayMode extends StatefulWidget {
@@ -22,8 +21,6 @@ class _SetDisplayModeState extends State<SetDisplayMode> {
   DisplayMode? active;
   DisplayMode? preferred;
 
-  Box setting = GStorage.setting;
-
   @override
   void initState() {
     super.initState();
@@ -34,7 +31,10 @@ class _SetDisplayModeState extends State<SetDisplayMode> {
   Future<void> fetchAll() async {
     preferred = await FlutterDisplayMode.preferred;
     active = await FlutterDisplayMode.active;
-    setting.put(SettingBoxKey.displayMode, preferred.toString());
+    await SettingsValues.general.save(
+      SettingBoxKey.displayMode,
+      preferred.toString(),
+    );
     if (mounted) {
       setState(() {});
     }
@@ -48,7 +48,9 @@ class _SetDisplayModeState extends State<SetDisplayMode> {
       logger.w(e.toString(), error: e, stackTrace: stackTrace);
     }
 
-    final value = setting.get(SettingBoxKey.displayMode);
+    final value = SettingsValues.general.read<String>(
+      SettingBoxKey.displayMode,
+    );
     if (value != null) {
       preferred = modes.firstWhereOrNull((e) => e.toString() == value);
     }

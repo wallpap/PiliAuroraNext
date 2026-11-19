@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
@@ -62,7 +62,7 @@ class _FullScreenScSizeState extends State<FullScreenScSize> {
 
   void _onReset() {
     _width = kFullScreenSCWidth;
-    GStorage.setting.delete(SettingBoxKey.fullScreenSCWidth);
+    SettingsValues.general.reset(SettingBoxKey.fullScreenSCWidth);
     setState(() {});
   }
 
@@ -132,6 +132,6 @@ class _FullScreenScSizeState extends State<FullScreenScSize> {
   }
 
   void _onHorizontalDragEnd(DragEndDetails details) {
-    GStorage.setting.put(SettingBoxKey.fullScreenSCWidth, _width);
+    SettingsValues.general.save(SettingBoxKey.fullScreenSCWidth, _width);
   }
 }

@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/app_shell/presentation/scroll_bars.dar
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/features/app_shell/presentation/shell_actions.dart';
 import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -53,7 +53,7 @@ class _MediaPageState extends CommonPageState<MinePage>
     super.build(context);
     return AccountDashboard(
       showBackBtn: widget.showBackBtn,
-      showReply: GStorage.reply != null,
+      showReply: commentArchiveAvailable,
       wrapScroll: onBuild,
       onSwitchAccount: () => showAccountSwitchDialog(context),
       shellActions: widget.showShellActions

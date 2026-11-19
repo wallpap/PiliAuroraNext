@@ -1058,7 +1058,7 @@ List<SettingsModel> get appearanceExtraSettings => [
   ),
   const SwitchModel(
     title: '显示粉丝勋章',
-    leading: const Icon(MdiIcons.medalOutline),
+    leading: Icon(MdiIcons.medalOutline),
     setKey: SettingBoxKey.showMedal,
     defaultVal: true,
   ),

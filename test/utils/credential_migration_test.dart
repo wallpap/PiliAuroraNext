@@ -1,4 +1,7 @@
 import 'dart:convert';
+
+import 'package:pili_aurora_next/services/settings/application_settings.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -33,7 +36,7 @@ void main() {
           isNot(contains('fixture-webdav-secret')),
         );
         expect(
-          GStorage.settingsBackup.exportJson(),
+          ApplicationSettings.backup.exportJson(),
           isNot(contains('fixture-webdav-secret')),
         );
       } finally {

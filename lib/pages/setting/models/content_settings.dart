@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
@@ -168,8 +168,8 @@ List<SettingsModel> get contentSettings => [
         leading: const Icon(Icons.whatshot_outlined),
         value: () => Pref.replySortType,
         items: ReplySortType.values.take(2),
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.replySortType, value.index)
+        onSelected: (value, setState) => SettingsValues.general
+            .save(SettingBoxKey.replySortType, value.index)
             .whenComplete(setState),
       ),
       PopupModel(
@@ -177,8 +177,8 @@ List<SettingsModel> get contentSettings => [
         leading: const Icon(Icons.subdirectory_arrow_right_outlined),
         value: () => Pref.reply2SortType,
         items: ReplySortType.values.take(2),
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.reply2SortType, value.index)
+        onSelected: (value, setState) => SettingsValues.general
+            .save(SettingBoxKey.reply2SortType, value.index)
             .whenComplete(setState),
       ),
     ],
@@ -218,8 +218,8 @@ List<SettingsModel> get contentSettings => [
         leading: const Icon(Icons.dynamic_feed_rounded),
         value: () => Pref.defaultDynamicType,
         items: DynamicsTabType.values.take(4),
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.defaultDynamicType, value.index)
+        onSelected: (value, setState) => SettingsValues.general
+            .save(SettingBoxKey.defaultDynamicType, value.index)
             .whenComplete(setState),
       ),
       const SwitchModel(
@@ -269,8 +269,8 @@ List<SettingsModel> get contentSettings => [
         leading: const Icon(Icons.filter_alt_outlined),
         value: () => ReplyLevelFilter.values[Pref.minimumReplyUserLevel],
         items: ReplyLevelFilter.values,
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.minimumReplyUserLevel, value.index)
+        onSelected: (value, setState) => SettingsValues.general
+            .save(SettingBoxKey.minimumReplyUserLevel, value.index)
             .whenComplete(setState),
       ),
       getBanWordModel(
@@ -357,7 +357,8 @@ Future<void> _showDynDialog(BuildContext context) => showDialog<void>(
       if (minutes <= 0) throw const FormatException();
       return minutes;
     },
-    save: (value) => GStorage.setting.put(SettingBoxKey.dynamicPeriod, value),
+    save: (value) =>
+        SettingsValues.general.save(SettingBoxKey.dynamicPeriod, value),
   ),
 );
 
@@ -379,7 +380,7 @@ Future<void> _showReplyLengthDialog(
       return lines;
     },
     save: (value) async {
-      await GStorage.setting.put(SettingBoxKey.replyLengthLimit, value);
+      await SettingsValues.general.save(SettingBoxKey.replyLengthLimit, value);
       setState();
     },
   ),
@@ -457,7 +458,7 @@ Future<void> _showMemberTabDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.memberTab, res.index);
+    await SettingsValues.general.save(SettingBoxKey.memberTab, res.index);
     setState();
   }
 }

@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/utils/download_path.dart';
 import 'package:pili_aurora_next/utils/filtering_text.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -155,9 +155,9 @@ Future<void> _setDownloadPath(
     }
     if (!context.mounted) return;
     if (nextPath == defDownloadPath) {
-      await GStorage.setting.delete(SettingBoxKey.downloadPath);
+      await SettingsValues.general.reset(SettingBoxKey.downloadPath);
     } else {
-      await GStorage.setting.put(SettingBoxKey.downloadPath, nextPath);
+      await SettingsValues.general.save(SettingBoxKey.downloadPath, nextPath);
     }
     downloadPath = nextPath;
     if (context.mounted) setState();
@@ -255,7 +255,8 @@ Future<void> _showReplyCountDialog(
     if (!context.mounted) return;
     await saveSetting(
       key: SettingBoxKey.retryCount,
-      write: () => GStorage.setting.put(SettingBoxKey.retryCount, res.toInt()),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.retryCount, res.toInt()),
       apply: setState,
       canPresent: () => context.mounted,
       successMessage: '重启生效',
@@ -283,7 +284,8 @@ Future<void> _showReplyDelayDialog(
     if (!context.mounted) return;
     await saveSetting(
       key: SettingBoxKey.retryDelay,
-      write: () => GStorage.setting.put(SettingBoxKey.retryDelay, res.toInt()),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.retryDelay, res.toInt()),
       apply: setState,
       canPresent: () => context.mounted,
       successMessage: '重启生效',
@@ -348,7 +350,7 @@ void _showProxyDialog(BuildContext context) {
             }
             final saved = await saveSetting(
               key: SettingBoxKey.systemProxyHost,
-              write: () => GStorage.setting.putAll({
+              write: () => SettingsValues.general.saveAll({
                 SettingBoxKey.systemProxyHost: systemProxyHost.trim(),
                 SettingBoxKey.systemProxyPort: systemProxyPort,
               }),
@@ -396,7 +398,7 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
               if (!val.isFinite || val < 0) throw const FormatException();
               final saved = await saveSetting(
                 key: SettingBoxKey.maxCacheSize,
-                write: () => GStorage.setting.put(
+                write: () => SettingsValues.general.save(
                   SettingBoxKey.maxCacheSize,
                   val * 1024 * 1024,
                 ),

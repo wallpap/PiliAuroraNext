@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:pili_aurora_next/build_config.dart';
@@ -10,17 +9,15 @@ import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/pages/setting/models/about_settings.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_backup.dart';
+import 'package:pili_aurora_next/services/settings/application_settings.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/device_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/update.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -179,18 +176,8 @@ Commit Hash: ${BuildConfig.commitHash}''',
               context,
               title: '登录信息',
               localFileName: () => 'account',
-              onExport: () =>
-                  Utils.jsonEncoder.convert(Accounts.account.toMap()),
-              onImport: (json) async {
-                final res = json.map(
-                  (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
-                );
-                await Accounts.account.putAll(res);
-                await Accounts.refresh();
-                if (Accounts.main.isLogin) {
-                  await LoginUtils.onLoginMain();
-                }
-              },
+              onExport: AccountBackup.exportJson,
+              onImport: AccountBackup.importMap,
             ),
           ),
           ListTile(
@@ -201,8 +188,8 @@ Commit Hash: ${BuildConfig.commitHash}''',
               context,
               title: '设置',
               localFileName: () => 'setting_${DeviceUtils.platformName}',
-              onExport: GStorage.settingsBackup.exportJson,
-              onImport: GStorage.settingsBackup.restoreMap,
+              onExport: ApplicationSettings.backup.exportJson,
+              onImport: ApplicationSettings.backup.restoreMap,
             ),
           ),
           ListTile(
@@ -218,10 +205,7 @@ Commit Hash: ${BuildConfig.commitHash}''',
                     DialogOption(
                       onPressed: () async {
                         Get.back();
-                        await Future.wait([
-                          GStorage.setting.clear(),
-                          GStorage.video.clear(),
-                        ]);
+                        await ApplicationSettings.reset(includeAccounts: false);
                         SmartDialog.showToast('重置成功');
                       },
                       child: const Text('重置可导出的设置', style: style),
@@ -229,7 +213,7 @@ Commit Hash: ${BuildConfig.commitHash}''',
                     DialogOption(
                       onPressed: () async {
                         Get.back();
-                        await GStorage.clear();
+                        await ApplicationSettings.reset(includeAccounts: true);
                         SmartDialog.showToast('重置成功');
                       },
                       child: const Text('重置所有数据（含登录信息）', style: style),

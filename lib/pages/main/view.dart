@@ -42,7 +42,8 @@ import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/mobile_observer.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/services/settings/storage_shutdown.dart';
 import 'package:pili_aurora_next/utils/update.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -112,9 +113,10 @@ class MainAppState extends PopScopeState<MainApp>
           'progress',
           () async {
             final player = PlPlayerController.instance;
-            if (player != null && player.isFileSource && player.cid != null) {
-              await GStorage.watchProgress.put(
-                player.cid.toString(),
+            final cid = player?.cid;
+            if (player != null && player.isFileSource && cid != null) {
+              await OfflineProgress.record(
+                cid,
                 player.positionInMilliseconds,
               );
             }
@@ -131,8 +133,7 @@ class MainAppState extends PopScopeState<MainApp>
           },
         ),
       ],
-      ('compact', GStorage.compact),
-      ('storage', GStorage.close),
+      ...storageShutdown,
     ],
     terminate: DeviceUtils.exitApp,
   );
