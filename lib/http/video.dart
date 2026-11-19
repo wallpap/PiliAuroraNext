@@ -1247,12 +1247,13 @@ abstract final class VideoHttp {
   }
 
   static Future<LoadingState<PlayUrlModel>> tvPlayUrl({
+    Account? account,
     required int cid,
     required int objectId, // aid, epid
     required int playurlType, // ugc 1, pgc 2
     int? qn,
   }) async {
-    final account = Accounts.get(AccountType.video);
+    account ??= Accounts.get(AccountType.video);
 
     final accessKey = account.accessKey;
     final params = {

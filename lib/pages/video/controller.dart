@@ -32,6 +32,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     as ugc;
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
+import 'package:pili_aurora_next/features/playback/application/cast_media.dart';
 import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
 import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
@@ -72,7 +73,6 @@ import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
@@ -1987,20 +1987,19 @@ class VideoDetailController extends GetxController
         identical(account, Accounts.get(AccountType.video));
     try {
       request.showLoading('投屏地址获取中');
-      final res = await VideoHttp.tvPlayUrl(
+      final res = await loadCastUrl(
+        account: account,
         cid: requestCid,
-        objectId: requestEpId ?? requestAid,
-        playurlType: requestEpId != null ? 2 : 1,
-        qn: currentVideoQa.value?.code,
+        aid: requestAid,
+        episodeId: requestEpId,
+        quality: currentVideoQa.value?.code,
       );
       if (!current()) return;
-      if (res case Success(:final response)) {
-        final first = response.durl?.firstOrNull;
-        if (first == null || first.playUrls.isEmpty) {
+      if (res case Success(response: final url)) {
+        if (url == null) {
           SmartDialog.showToast('不支持投屏');
           return;
         }
-        final url = VideoUtils.getCdnUrl(first.playUrls);
         String? title;
         if (isUgc && Get.isRegistered<UgcIntroController>(tag: heroTag)) {
           title = Get.find<UgcIntroController>(tag: heroTag)

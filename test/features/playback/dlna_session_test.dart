@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:dlna_dart/dlna.dart';
 import 'package:dlna_dart/xmlParser.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/playback/application/dlna_session.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/dlna/controller.dart';
 import 'package:pili_aurora_next/utils/permission_handler.dart';
 
 class _Manager extends DLNAManager {
@@ -81,19 +81,26 @@ class _Device extends DLNADevice {
 
 void main() {
   late _Manager manager;
-  late DlnaController controller;
+  late DlnaSession controller;
   setUp(() {
     manager = _Manager();
-    controller = DlnaController(manager: manager);
+    controller = DlnaSession(manager: manager);
   });
   tearDown(() => controller.dispose());
 
   Future<void> tick() => Future<void>.delayed(Duration.zero);
 
+  Future<void> discover(Map<String, DLNADevice> devices) async {
+    final search = controller.search();
+    await tick();
+    await (manager.current!.devices..add(devices)).close();
+    await search;
+  }
+
   test('permission denial prevents discovery and grant allows retry', () async {
     controller.dispose();
     var status = PermissionStatus.denied;
-    controller = DlnaController(
+    controller = DlnaSession(
       manager: manager,
       requestPermission: () async => status,
     );
@@ -116,7 +123,7 @@ void main() {
   test('disposing during permission prompt prevents late discovery', () async {
     controller.dispose();
     final permission = Completer<PermissionStatus>();
-    controller = DlnaController(
+    controller = DlnaSession(
       manager: manager,
       requestPermission: () => permission.future,
     );
@@ -125,7 +132,7 @@ void main() {
     permission.complete(PermissionStatus.granted);
     await search;
     expect(manager.starts, 0);
-    controller = DlnaController(manager: _Manager());
+    controller = DlnaSession(manager: _Manager());
   });
 
   test(
@@ -133,7 +140,7 @@ void main() {
     () async {
       controller.dispose();
       var fail = false;
-      controller = DlnaController(
+      controller = DlnaSession(
         manager: manager,
         requestPermission: () async {
           if (fail) throw StateError('fixture permission failure');
@@ -141,12 +148,12 @@ void main() {
         },
       );
       await controller.search();
-      expect(controller.permissionStatus, PermissionStatus.permanentlyDenied);
+      expect(controller.permissionPermanentlyDenied, isTrue);
       expect(controller.searchError, contains('系统设置'));
       fail = true;
       await controller.search();
       expect(controller.searching, isFalse);
-      expect(controller.permissionStatus, isNull);
+      expect(controller.permissionDenied, isFalse);
       expect(controller.searchError, isNotNull);
       expect(manager.starts, 0);
     },
@@ -175,7 +182,7 @@ void main() {
   test('定时停止持有异步完成和失败，finally恢复重试资格', () async {
     controller.dispose();
     manager = _Manager();
-    controller = DlnaController(
+    controller = DlnaSession(
       manager: manager,
       searchDuration: const Duration(milliseconds: 1),
     );
@@ -188,6 +195,7 @@ void main() {
     expect(controller.searching, true);
     manager.pendingStop!.complete();
     await search;
+    expect(manager.stops, 1);
     expect(controller.searching, false);
     expect(controller.searchError, '设备搜索停止失败，请重试');
     manager.failStop = false;
@@ -213,7 +221,7 @@ void main() {
     expect(manager.current!.devices.isClosed, true);
     expect(notifications, 0);
     expect(device.releases, 1);
-    controller = DlnaController(manager: _Manager());
+    controller = DlnaSession(manager: _Manager());
   });
 
   test('设备快照替换移除失效设备，重新搜索保留已确认设备', () async {
@@ -233,7 +241,7 @@ void main() {
     );
     manager.current!.devices.add({'A': a});
     await tick();
-    expect(controller.devices.keys, ['A']);
+    expect(controller.targets.map((target) => target.key), ['A']);
     await manager.current!.devices.close();
     await search;
     final retry = controller.search();
@@ -246,9 +254,7 @@ void main() {
   test('setUrl/play失败保留旧设备，重试成功后才暂停旧设备，写入互斥', () async {
     final a = _Device('A');
     final b = _Device('B');
-    addTearDown(a.dispose);
-    addTearDown(b.dispose);
-    controller.devices.addAll({'A': a, 'B': b});
+    await discover({'A': a, 'B': b});
     Future<bool> connect(String key) async => (await controller.connect(
       key: key,
       url: 'https://example.test/video',
@@ -277,9 +283,7 @@ void main() {
   test('旧设备暂停失败不撤销新设备确认，失败正文不外泄', () async {
     final a = _Device('A');
     final b = _Device('B');
-    addTearDown(a.dispose);
-    addTearDown(b.dispose);
-    controller.devices.addAll({'A': a, 'B': b});
+    await discover({'A': a, 'B': b});
     await controller.connect(
       key: 'A',
       url: 'https://example.test/video',
@@ -297,13 +301,13 @@ void main() {
     expect(controller.connecting, false);
   });
 
-  test('离页后setUrl不续发play，迟到play不发布选中设备', () async {
+  test('离页撤销投屏结果，实际命令结束后才释放设备', () async {
     final device = _Device('A')..setting = Completer<String>();
-    addTearDown(device.dispose);
-    controller.devices['A'] = device;
+    await discover({'A': device});
+    final session = controller;
     var current = true;
     Future<void> connect() async {
-      await controller.connect(
+      await session.connect(
         key: 'A',
         url: 'https://example.test/video',
         isCurrent: () => current,
@@ -322,10 +326,13 @@ void main() {
       ..playing = Completer<String>();
     final retry = connect();
     await tick();
-    current = false;
+    expect(device.calls.last, 'play');
+    session.dispose();
+    controller = DlnaSession(manager: _Manager());
+    expect(device.releases, 0);
     device.playing!.complete('accepted');
     await retry;
-    expect(controller.selectedKey, isNull);
-    expect(controller.connecting, false);
+    expect(session.selectedKey, isNull);
+    expect(device.releases, 1);
   });
 }

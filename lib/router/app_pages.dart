@@ -195,7 +195,13 @@ class Routes {
       page: () => FollowTypePage.fromArguments(FollowKind.same, Get.arguments),
     ),
     GetPage(name: '/download', page: () => const DownloadPage()),
-    GetPage(name: '/dlna', page: () => const DLNAPage()),
+    GetPage(
+      name: '/dlna',
+      page: () => DLNAPage(
+        url: Get.parameters['url'] ?? '',
+        title: Get.parameters['title'] ?? '',
+      ),
+    ),
     GetPage(name: '/myReply', page: () => const MyReply()),
     GetPage(name: '/videoWeb', page: () => const MemberVideoWeb()),
     GetPage(name: '/ssWeb', page: () => const MemberSSWeb()),

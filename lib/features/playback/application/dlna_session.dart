@@ -8,14 +8,15 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/device_utils.dart';
 import 'package:pili_aurora_next/utils/permission_handler.dart';
 
-/// 搜索资源属于页面；设备仅在两条投屏命令均确认后成为当前设备。
-class DlnaController extends ChangeNotifier {
-  DlnaController({
-    DLNAManager? manager,
+typedef DlnaTarget = ({String key, String name});
+
+/// 投屏路由持有 Session；设备仅在两条投屏命令均确认后成为当前设备。
+final class DlnaSession extends ChangeNotifier {
+  DlnaSession({
+    this._manager,
     Future<PermissionStatus> Function()? requestPermission,
     this.searchDuration = const Duration(seconds: 20),
-  }) : _manager = manager ?? DLNAManager(),
-       _requestPermission = requestPermission ?? _requestLocalNetwork;
+  }) : _requestPermission = requestPermission ?? _requestLocalNetwork;
 
   static Future<PermissionStatus> _requestLocalNetwork() async {
     if (Platform.isAndroid && DeviceUtils.sdkInt >= 37) {
@@ -24,88 +25,115 @@ class DlnaController extends ChangeNotifier {
     return PermissionStatus.granted;
   }
 
-  final DLNAManager _manager;
+  DLNAManager? _manager;
   final Future<PermissionStatus> Function() _requestPermission;
   final Duration searchDuration;
-  final Map<String, DLNADevice> devices = {};
+  Map<String, DLNADevice> _devices = {};
+  List<DlnaTarget> _targets = const [];
   final Set<DLNADevice> _ownedDevices = {};
-  final Set<DLNADevice> _releasedDevices = {};
-  DeviceManager? _deviceManager;
-  bool searching = false;
-  bool connecting = false;
-  String? searchError;
-  PermissionStatus? permissionStatus;
-  String? selectedKey;
+  bool _searching = false;
+  bool _connecting = false;
+  String? _searchError;
+  PermissionStatus? _permissionStatus;
+  String? _selectedKey;
   DLNADevice? _selected;
   bool _disposed = false;
-  Object? _search;
-  Timer? _timer;
-  // 由 _closeSearchResources 统一取消，包括定时结束和 dispose。
-  // ignore: cancel_subscriptions
-  StreamSubscription<Map<String, DLNADevice>>? _subscription;
   Completer<void>? _searchDone;
-  Future<void>? _stopping;
+
+  List<DlnaTarget> get targets => _targets;
+  bool get searching => _searching;
+  bool get connecting => _connecting;
+  String? get searchError => _searchError;
+  bool get permissionDenied =>
+      _permissionStatus != null &&
+      _permissionStatus != PermissionStatus.granted;
+  bool get permissionPermanentlyDenied =>
+      _permissionStatus == PermissionStatus.permanentlyDenied;
+  String? get selectedKey => _selectedKey;
 
   Future<void> search() async {
-    if (_disposed || searching) return;
-    final operation = _search = Object();
-    searching = true;
-    searchError = null;
-    permissionStatus = null;
-    devices.clear();
+    if (_disposed || _searching || _connecting) return;
+    _searching = true;
+    _searchError = null;
+    _permissionStatus = null;
+    _devices.clear();
+    _targets = const [];
     notifyListeners();
     try {
       final permission = await _requestPermission();
-      if (_disposed || !identical(operation, _search)) return;
-      permissionStatus = permission;
+      if (_disposed) return;
+      _permissionStatus = permission;
       if (permission != PermissionStatus.granted) {
-        searchError = permission == PermissionStatus.permanentlyDenied
+        _searchError = permissionPermanentlyDenied
             ? '局域网权限未授权，请在系统设置中允许附近的设备，返回后点击搜索'
             : '需要局域网权限才能搜索投屏设备';
         return;
       }
-      final manager = await _manager.start();
-      _deviceManager = manager;
-      if (_disposed || !identical(operation, _search)) {
-        // start 内部有多次 await，dispose 的 stop 可能早于最后一次 socket 绑定。
-        await _stopManager();
-        return;
+      await _discover();
+    } catch (error, stackTrace) {
+      logger.w('搜索投屏设备失败', error: error.runtimeType, stackTrace: stackTrace);
+      if (!_disposed) {
+        _searchError = '设备搜索失败，请检查局域网连接后重试';
       }
+    } finally {
+      _searching = false;
+      _releaseWhenIdle();
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<void> _discover() async {
+    final discovery = _manager ??= DLNAManager();
+    DeviceManager? manager;
+    StreamSubscription<Map<String, DLNADevice>>? subscription;
+    Timer? timer;
+    try {
+      manager = await discovery.start();
+      if (_disposed) return;
       final done = _searchDone = Completer<void>();
-      _subscription = manager.devices.stream.listen(
+      subscription = manager.devices.stream.listen(
         (snapshot) {
-          if (_disposed || !identical(operation, _search)) return;
-          devices
-            ..clear()
-            ..addAll(snapshot);
-          _ownedDevices.addAll(snapshot.values);
+          if (_disposed || done.isCompleted) return;
+          _devices = Map.of(snapshot);
+          _targets = List.unmodifiable([
+            for (final entry in _devices.entries)
+              (key: entry.key, name: entry.value.info.friendlyName),
+          ]);
+          _ownedDevices.addAll(_devices.values);
           notifyListeners();
         },
         onError: (Object error, StackTrace stackTrace) {
           if (!done.isCompleted) done.completeError(error, stackTrace);
         },
-        onDone: () {
-          if (!done.isCompleted) done.complete();
-        },
+        onDone: _endSearch,
       );
-      _timer = Timer(
-        searchDuration,
-        () => unawaited(_closeSearch()),
-      );
+      timer = Timer(searchDuration, _endSearch);
       await done.future;
-    } catch (error, stackTrace) {
-      logger.w('搜索投屏设备失败', error: error.runtimeType, stackTrace: stackTrace);
-      if (!_disposed && identical(operation, _search)) {
-        searchError = '设备搜索失败，请检查局域网连接后重试';
-      }
     } finally {
-      await _closeSearch();
-      if (identical(operation, _search)) {
-        _search = null;
-        searching = false;
-        if (!_disposed) notifyListeners();
+      _searchDone = null;
+      timer?.cancel();
+      try {
+        await subscription?.cancel();
+      } catch (error, stackTrace) {
+        logger.w(
+          '释放投屏搜索订阅失败',
+          error: error.runtimeType,
+          stackTrace: stackTrace,
+        );
+      }
+      if (manager != null) _ownedDevices.addAll(manager.deviceList.values);
+      try {
+        await Future<void>.sync(discovery.stop);
+      } catch (error, stackTrace) {
+        logger.w('停止投屏搜索失败', error: error.runtimeType, stackTrace: stackTrace);
+        if (!_disposed) _searchError = '设备搜索停止失败，请重试';
       }
     }
+  }
+
+  void _endSearch() {
+    final done = _searchDone;
+    if (done != null && !done.isCompleted) done.complete();
   }
 
   Future<void> openPermissionSettings() async {
@@ -116,43 +144,8 @@ class DlnaController extends ChangeNotifier {
       logger.w('打开权限设置失败', error: error.runtimeType, stackTrace: stackTrace);
     }
     if (_disposed) return;
-    searchError = '无法打开系统设置，请手动允许局域网权限';
+    _searchError = '无法打开系统设置，请手动允许局域网权限';
     notifyListeners();
-  }
-
-  Future<void> _stopManager() async {
-    final devices = _deviceManager?.deviceList.values;
-    if (devices != null) _ownedDevices.addAll(devices);
-    try {
-      // 当前版本为同步 stop；Future.sync 同时消费替代实现的异步失败。
-      await Future<void>.sync(_manager.stop);
-    } catch (error, stackTrace) {
-      logger.w('停止投屏搜索失败', error: error.runtimeType, stackTrace: stackTrace);
-      if (!_disposed) searchError = '设备搜索停止失败，请重试';
-    } finally {
-      if (_disposed) _disposeDevices();
-    }
-  }
-
-  Future<void> _closeSearch() =>
-      _stopping ??= _closeSearchResources().whenComplete(
-        () => _stopping = null,
-      );
-
-  Future<void> _closeSearchResources() async {
-    _timer?.cancel();
-    _timer = null;
-    final subscription = _subscription;
-    _subscription = null;
-    try {
-      await subscription?.cancel();
-    } catch (error, stackTrace) {
-      logger.w('释放投屏搜索订阅失败', error: error.runtimeType, stackTrace: stackTrace);
-    }
-    final done = _searchDone;
-    _searchDone = null;
-    if (done != null && !done.isCompleted) done.complete();
-    await _stopManager();
   }
 
   Future<LoadingState<void>> connect({
@@ -162,9 +155,9 @@ class DlnaController extends ChangeNotifier {
     required bool Function() isCurrent,
   }) async {
     if (_disposed || !isCurrent()) return const Error('投屏页面已关闭');
-    if (connecting) return const Error('正在连接设备，请稍候');
-    if (key == selectedKey) return const Success(null);
-    final device = devices[key];
+    if (_connecting) return const Error('正在连接设备，请稍候');
+    if (key == _selectedKey) return const Success(null);
+    final device = _devices[key];
     final uri = Uri.tryParse(url);
     if (device == null ||
         uri == null ||
@@ -172,7 +165,7 @@ class DlnaController extends ChangeNotifier {
         uri.host.isEmpty) {
       return const Error('投屏地址或设备无效，请重新打开投屏');
     }
-    connecting = true;
+    _connecting = true;
     notifyListeners();
     bool current() => !_disposed && isCurrent();
     try {
@@ -182,7 +175,7 @@ class DlnaController extends ChangeNotifier {
       if (!current()) return const Error('投屏操作已取消');
       final previous = _selected;
       _selected = device;
-      selectedKey = key;
+      _selectedKey = key;
       notifyListeners();
       if (previous != null && !identical(previous, device)) {
         try {
@@ -205,7 +198,8 @@ class DlnaController extends ChangeNotifier {
       logger.w('连接投屏设备失败', error: error.runtimeType, stackTrace: stackTrace);
       return Error('投屏未能确认，请检查设备后重试', cause: error, stackTrace: stackTrace);
     } finally {
-      connecting = false;
+      _connecting = false;
+      _releaseWhenIdle();
       if (!_disposed) notifyListeners();
     }
   }
@@ -213,14 +207,14 @@ class DlnaController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    unawaited(_closeSearch());
-    _disposeDevices();
+    _endSearch();
+    _releaseWhenIdle();
     super.dispose();
   }
 
-  void _disposeDevices() {
+  void _releaseWhenIdle() {
+    if (!_disposed || _searching || _connecting) return;
     for (final device in _ownedDevices) {
-      if (!_releasedDevices.add(device)) continue;
       try {
         device.dispose();
       } catch (error, stackTrace) {
@@ -228,5 +222,8 @@ class DlnaController extends ChangeNotifier {
       }
     }
     _ownedDevices.clear();
+    _devices.clear();
+    _targets = const [];
+    _selected = null;
   }
 }

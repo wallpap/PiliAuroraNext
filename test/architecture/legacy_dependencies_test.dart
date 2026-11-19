@@ -45,6 +45,7 @@ bool _isRestricted(String target) =>
     target.startsWith('grpc/') ||
     target.startsWith('generated/') ||
     _legacyUtilities.contains(target) ||
+    target.startsWith('package:dlna_dart/') ||
     target.startsWith('package:dio/') ||
     target.startsWith('package:grpc/') ||
     target.startsWith('package:hive_ce/') ||
