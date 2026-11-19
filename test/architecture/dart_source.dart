@@ -10,8 +10,11 @@ final _dependenciesByPath = <String, List<String>>{};
 CompilationUnit parseSource(String source) =>
     parseString(content: source, throwIfDiagnostics: false).unit;
 
-Iterable<String> sourceDependencies(String source) sync* {
-  for (final directive in parseSource(source).directives) {
+Iterable<String> sourceDependencies(String source) =>
+    unitDependencies(parseSource(source));
+
+Iterable<String> unitDependencies(CompilationUnit unit) sync* {
+  for (final directive in unit.directives) {
     if (directive is UriBasedDirective) {
       if (directive.uri.stringValue case final uri?) yield uri;
     }
@@ -19,6 +22,46 @@ Iterable<String> sourceDependencies(String source) sync* {
       for (final configuration in directive.configurations) {
         if (configuration.uri.stringValue case final uri?) yield uri;
       }
+    }
+  }
+}
+
+Iterable<({String name, String base})> typeInheritance(
+  CompilationUnit unit,
+) sync* {
+  for (final declaration in unit.declarations) {
+    final (name, bases) = switch (declaration) {
+      ClassDeclaration node => (
+        node.namePart.typeName.lexeme,
+        [
+          ?node.extendsClause?.superclass,
+          ...?node.withClause?.mixinTypes,
+          ...?node.implementsClause?.interfaces,
+        ],
+      ),
+      ClassTypeAlias node => (
+        node.name.lexeme,
+        [
+          node.superclass,
+          ...node.withClause.mixinTypes,
+          ...?node.implementsClause?.interfaces,
+        ],
+      ),
+      MixinDeclaration node => (
+        node.name.lexeme,
+        [
+          ...?node.onClause?.superclassConstraints,
+          ...?node.implementsClause?.interfaces,
+        ],
+      ),
+      GenericTypeAlias(name: final name, type: NamedType type) => (
+        name.lexeme,
+        [type],
+      ),
+      _ => ('', const <NamedType>[]),
+    };
+    for (final base in bases) {
+      yield (name: name, base: base.name.lexeme);
     }
   }
 }
