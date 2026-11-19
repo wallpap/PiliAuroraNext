@@ -50,8 +50,6 @@ pages/common/dyn/common_dyn_controller.dart -> utils/storage_pref.dart
 pages/common/dyn/common_dyn_controller.dart#CommonDynController -> GetxController
 pages/common/dyn/common_dyn_page.dart -> utils/storage.dart
 pages/common/dyn/common_dyn_page.dart -> utils/storage_pref.dart
-pages/common/member_feed.dart -> http/member.dart
-pages/common/member_feed.dart -> utils/accounts.dart
 pages/common/multi_select/base.dart#DeleteItemMixin -> CommonListController
 pages/common/multi_select/multi_select_controller.dart#MultiSelectController -> CommonListController
 pages/common/multi_select/multi_select_controller.dart#MultiSelectController -> DeleteItemMixin

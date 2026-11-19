@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space_season_series/season.dart'
     show SpaceSsModel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/pages/common/member_feed.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
 import 'package:pili_aurora_next/pages/member_season_series/widget/season_series_card.dart';
 import 'package:pili_aurora_next/pages/member_video/view.dart';

@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/member/coin_like_arc/item.dart';
 import 'package:pili_aurora_next/pages/member_coin_arc/widgets/item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/pages/common/member_feed.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/grid.dart';

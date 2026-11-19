@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/pages/common/member_feed.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
 import 'package:pili_aurora_next/pages/member_comic/widgets/item.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
