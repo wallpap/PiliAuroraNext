@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
@@ -13,11 +12,9 @@ import 'package:pili_aurora_next/pages/mine/view.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/overview.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
+import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
 import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/update.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
@@ -187,19 +184,9 @@ class MainController extends GetxController
   }
 
   void setNavBarConfig() {
-    List<int>? navBarSort =
-        (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
-    late final List<NavigationBarType> navigationBars;
-    if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
-    } else {
-      navigationBars = navBarSort
-          .map(NavigationBarType.values.elementAt)
-          .toList();
-    }
-    this.navigationBars = navigationBars;
-    final defPage = Pref.defaultHomePage;
-    selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
+    final (:tabs, :index) = NavigationPreferences.read();
+    navigationBars = tabs;
+    selectedIndex.value = index;
   }
 
   void checkDefaultSearch([bool shouldCheck = false]) {

@@ -13,7 +13,6 @@ import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/common/follow_order_type.dart';
 import 'package:pili_aurora_next/models/common/member/tab_type.dart';
 import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
@@ -247,14 +246,6 @@ abstract final class Pref {
           ?.map((index) => MsgUnReadType.values[index])
           .toSet() ??
       MsgUnReadType.values.toSet();
-
-  static NavigationBarType get defaultHomePage =>
-      NavigationBarType.values[defaultHomePageIndex];
-
-  static int get defaultHomePageIndex => _setting.get(
-    SettingBoxKey.defaultHomePage,
-    defaultValue: NavigationBarType.home.index,
-  );
 
   static int get previewQ =>
       _setting.get(SettingBoxKey.previewQuality, defaultValue: 100);

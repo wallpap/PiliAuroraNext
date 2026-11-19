@@ -31,6 +31,7 @@ import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
+import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
 import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
@@ -255,13 +256,10 @@ List<SettingsModel> get styleSettings => [
       PopupModel(
         leading: const Icon(Icons.home_outlined),
         title: '默认启动页',
-        value: () => Pref.defaultHomePage,
+        value: () => NavigationPreferences.defaultTab,
         items: NavigationBarType.values,
         onSelected: (value, setState) async {
-          await GStorage.setting.put(
-            SettingBoxKey.defaultHomePage,
-            value.index,
-          );
+          await NavigationPreferences.saveDefaultTab(value);
           setState();
           SmartDialog.showToast('重启生效');
         },

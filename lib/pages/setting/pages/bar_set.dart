@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/reorder_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/models/common/enum_with_label.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -26,12 +26,12 @@ class _BarSetPageState extends State<BarSetPage> with ReorderMixin {
     final Map<String, dynamic> args = Get.arguments;
     key = args['key'];
     title = args['title'];
-    final List? cache = GStorage.setting.get(key);
+    final cache = NavigationPreferences.orderFor(key);
     list = (args['defaultBars'] as List<EnumWithLabel>)
         .map((e) => Pair(first: e, second: cache?.contains(e.index) ?? true))
         .toList();
     if (cache != null && cache.isNotEmpty) {
-      final cacheIndex = {for (int i = 0; i < cache.length; i++) cache[i]: i};
+      final cacheIndex = {for (final (index, tab) in cache.indexed) tab: index};
       list.sort((a, b) {
         final indexA = cacheIndex[a.first.index] ?? cacheIndex.length;
         final indexB = cacheIndex[b.first.index] ?? cacheIndex.length;
@@ -48,16 +48,16 @@ class _BarSetPageState extends State<BarSetPage> with ReorderMixin {
   }
 
   void saveEdit() {
-    GStorage.setting.put(
+    NavigationPreferences.saveOrder(
       key,
-      list.where((e) => e.second).map((e) => e.first.index).toList(),
+      list.where((e) => e.second).map((e) => e.first.index),
     );
     SmartDialog.showToast('保存成功，下次启动时生效');
   }
 
   void onReset() {
     Get.back();
-    GStorage.setting.delete(key);
+    NavigationPreferences.resetOrder(key);
     SmartDialog.showToast('重置成功，下次启动时生效');
   }
 

@@ -1,5 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/animated_height.dart';
 import 'package:pili_aurora_next/common/widgets/color_palette.dart';
+import 'package:pili_aurora_next/common/widgets/main_navigation_icon.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
@@ -180,7 +181,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                 destinations: NavigationBarType.values
                     .map(
                       (item) => NavigationDestination(
-                        icon: item.icon,
+                        icon: mainNavigationIcon(item),
                         label: item.label,
                       ),
                     )

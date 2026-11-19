@@ -9,11 +9,14 @@ import 'package:pili_aurora_next/common/widgets/flutter/pop_scope.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_paint_cleanup.dart';
 import 'package:pili_aurora_next/common/widgets/main_layout.dart';
+import 'package:pili_aurora_next/common/widgets/main_navigation_icon.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
+import 'package:pili_aurora_next/pages/dynamics/view.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/pages/mine/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
@@ -598,7 +601,7 @@ class _MainAppState extends PopScopeState<MainApp>
             TabActivity(
               controller: _mainController.controller,
               index: index,
-              child: tab.page,
+              child: _navigationPage(tab),
             ),
         ],
       );
@@ -611,7 +614,7 @@ class _MainAppState extends PopScopeState<MainApp>
             Obx(
               () => TickerMode(
                 enabled: _mainController.selectedIndex.value == index,
-                child: InactivePaintCleanup(child: tab.page),
+                child: InactivePaintCleanup(child: _navigationPage(tab)),
               ),
             ),
         ],
@@ -670,8 +673,14 @@ class _MainAppState extends PopScopeState<MainApp>
     return child;
   }
 
+  Widget _navigationPage(NavigationBarType type) => switch (type) {
+    .home => const HomePage(),
+    .dynamics => const DynamicsPage(),
+    .mine => const MinePage(),
+  };
+
   Widget _buildIcon({required NavigationBarType type, bool selected = false}) {
-    final icon = selected ? type.selectIcon : type.icon;
+    final icon = mainNavigationIcon(type, selected: selected);
     return type == .dynamics
         ? ValueListenableBuilder(
             valueListenable: _mainController.dynamicBadgeModeChanges,

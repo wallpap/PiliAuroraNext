@@ -185,7 +185,6 @@ pages/live_room/widgets/desktop_sidebar.dart -> utils/accounts.dart
 pages/log_table/controller.dart -> http/user.dart
 pages/login/geetest/geetest_webview_dialog.dart -> http/browser_ua.dart
 pages/main/controller.dart -> utils/accounts.dart
-pages/main/controller.dart -> utils/storage.dart
 pages/main/controller.dart -> utils/storage_pref.dart
 pages/main/controller.dart#MainController -> GetxController
 pages/main/view.dart -> utils/storage.dart
@@ -247,7 +246,6 @@ pages/setting/models/system_settings.dart -> utils/storage_pref.dart
 pages/setting/models/video_settings.dart -> utils/storage.dart
 pages/setting/models/video_settings.dart -> utils/storage_pref.dart
 pages/setting/models/video_settings.dart -> utils/video_utils.dart
-pages/setting/pages/bar_set.dart -> utils/storage.dart
 pages/setting/pages/color_select.dart -> utils/storage.dart
 pages/setting/pages/color_select.dart -> utils/storage_pref.dart
 pages/setting/pages/color_select.dart#_ColorSelectController -> GetxController

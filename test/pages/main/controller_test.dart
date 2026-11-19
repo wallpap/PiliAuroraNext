@@ -36,6 +36,21 @@ void main() {
       ..reset();
   });
 
+  test('导航设置损坏时保留可用标签并从第一个标签启动', () async {
+    await GStorage.setting.putAll({
+      SettingBoxKey.navBarSort: [91, NavigationBarType.mine.index, 'old', 2],
+      SettingBoxKey.defaultHomePage: -1,
+    });
+    final controller = MainController()..setNavBarConfig();
+    expect(controller.navigationBars, [NavigationBarType.mine]);
+    expect(controller.selectedIndex.value, 0);
+
+    await GStorage.setting.put(SettingBoxKey.navBarSort, [91]);
+    controller.setNavBarConfig();
+    expect(controller.navigationBars, NavigationBarType.values);
+    expect(controller.selectedIndex.value, NavigationBarType.home.index);
+  });
+
   for (final mainTabBarView in [false, true]) {
     testWidgets('initial badge requests run after the first frame, '
         'with mainTabBarView=$mainTabBarView', (tester) async {
