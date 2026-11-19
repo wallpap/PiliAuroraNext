@@ -164,9 +164,6 @@ pages/member_dynamics/view.dart -> utils/global_data.dart
 pages/member_search/child/view.dart -> utils/global_data.dart
 pages/member_upower_rank/controller.dart -> http/member.dart
 pages/mine/view.dart -> utils/storage.dart
-pages/msg_feed_top/at_me/view.dart -> generated/bilibili/app/im/v1.pbenum.dart
-pages/msg_feed_top/like_me/view.dart -> generated/bilibili/app/im/v1.pbenum.dart
-pages/msg_feed_top/reply_me/view.dart -> generated/bilibili/app/im/v1.pbenum.dart
 pages/music/controller.dart -> http/music.dart
 pages/music/controller.dart -> utils/accounts.dart
 pages/music/controller.dart#MusicDetailController -> CommonDynController
@@ -322,7 +319,5 @@ pages/webview/view.dart -> http/browser_ua.dart
 pages/webview/view.dart -> utils/accounts.dart
 pages/webview/view.dart -> utils/login_utils.dart
 pages/whisper/controller.dart -> utils/storage_pref.dart
-pages/whisper_settings/controller.dart -> generated/bilibili/app/im/v1.pb.dart
 pages/whisper_settings/view.dart -> generated/bilibili/app/im/v1.pb.dart
 pages/whisper_settings/widgets/item.dart -> generated/bilibili/app/im/v1.pb.dart
-pages/whisper_settings/widgets/reminder_dialog.dart -> generated/bilibili/app/im/v1.pb.dart

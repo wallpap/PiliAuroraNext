@@ -16,7 +16,7 @@
 | 会话实体与各文件夹列表 | Session 共享，各列表保留自己的分页和快照 | [`sessions.dart`](sessions.dart)、[`session_providers.dart`](session_providers.dart) |
 | 聊天时间线 | Session 持有缓存；页面 provider 和分享操作获取租约，结束时释放租约 | [`conversation.dart`](conversation.dart)、[`conversation_providers.dart`](conversation_providers.dart) |
 | 分类消息列表 | 页面 Notifier 创建句柄；订阅释放或账号切换时销毁 | [`feed.dart`](feed.dart)、[`feed_notifier.dart`](feed_notifier.dart) |
-| 接收、屏蔽和联系设置 | 页面 provider 创建句柄并登记释放 | [`settings.dart`](settings.dart)及对应 `whisper*` 页面 controller |
+| 接收、屏蔽和联系设置 | 页面 provider 创建句柄并登记释放 | [`settings.dart`](settings.dart)、[`settings_providers.dart`](settings_providers.dart)及对应 `whisper*` 页面入口 |
 | 私信分享 | Session 绑定最近收件人查询，发送时借用同一聊天缓存 | [`sharing.dart`](sharing.dart)、[`sharing_adapter.dart`](sharing_adapter.dart) |
 
 会话、时间线与未读快照保存在内存中。聊天缓存达到容量时回收空闲会话；仍有租约的会话继续保留，释放后再参与回收。`providers.dart` 将 `ValueListenable` 快照桥接成同步订阅，聊天时间线通过 `conversationSnapshotProvider` 订阅快照流。
@@ -38,6 +38,8 @@
 点赞列表保留 latest 与 total 分组，刷新重新开放分页。聊天历史和最新页的表情映射按文本合并，同文本采用最近响应的映射。
 
 接收设置写入前复制 protobuf 对象。同一设置项的写入按顺序提交，不同项可以并发；界面立即显示最新选择，最后一次写入失败时恢复最后确认的值。刷新会等待在途写入，再读取服务器状态。账号切换或句柄释放后不再发送排队写入。
+
+回复、@ 和点赞的提醒弹窗只读取提醒选项快照；选项绑定读取时的设置句柄，换凭据后旧弹窗不能向新账号写入。
 
 未读概览合并重复刷新，查询失败保留已有数值，缺失分类保持未知。分类阅读成功后立即清除对应分类的本地未读数，使在途旧查询失效，不立即重查以免远端旧值重新点亮角标；后续正常刷新仍可读取新消息。主页与消息入口订阅同一份结果。
 
@@ -73,6 +75,7 @@ fvm flutter test --no-pub test/services/messaging/
 | `protocol_test.dart` | 发送关闭重试、分享卡片协议字段、系统通知展示与 ACK 超时重试 |
 | `preferences_test.dart` | 本地入口偏好的即时更新与订阅释放 |
 | `settings_test.dart` | 同一项接收设置串行写入；写入失败回滚，刷新等待写入，切换账号后丢弃旧结果 |
+| `reminder_dialog_test.dart` | 换凭据后旧弹窗不能写入；新弹窗维持原协议选项 |
 
 测试使用模拟响应。涉及页面或协议改动时，还需登录后在 Android、Windows 检查实际服务与界面：
 

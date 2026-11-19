@@ -6,8 +6,6 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pbenum.dart'
-    show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/remote/msg/msg_reply/item.dart';
@@ -39,7 +37,7 @@ class _ReplyMePageState extends ConsumerState<ReplyMePage> {
         title: const Text('回复我的'),
         actions: [
           MessageReminderButton(
-            type: IMSettingType.SETTING_TYPE_OLD_REPLY_ME,
+            type: .replies,
             title: '回复我的提醒',
             icon: Icon(
               size: 20,

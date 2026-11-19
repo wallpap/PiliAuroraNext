@@ -6,8 +6,6 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pbenum.dart'
-    show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/remote/msg/msg_at/item.dart';
@@ -39,7 +37,7 @@ class _AtMePageState extends ConsumerState<AtMePage> {
         title: const Text('@我的'),
         actions: [
           MessageReminderButton(
-            type: IMSettingType.SETTING_TYPE_OLD_AT_ME,
+            type: .mentions,
             title: '@我的提醒',
             icon: Icon(
               size: 20,

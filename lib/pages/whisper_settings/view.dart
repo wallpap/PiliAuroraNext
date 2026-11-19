@@ -6,8 +6,9 @@ import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
     show IMSettingType, Setting;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/whisper_block/view.dart';
-import 'package:pili_aurora_next/pages/whisper_settings/controller.dart';
 import 'package:pili_aurora_next/pages/whisper_settings/widgets/item.dart';
+import 'package:pili_aurora_next/services/messaging/providers.dart';
+import 'package:pili_aurora_next/services/messaging/settings_providers.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -37,9 +38,15 @@ class _WhisperSettingsPageState extends ConsumerState<WhisperSettingsPage> {
     final controller = ref.read(
       whisperSettingsProvider(widget.imSettingType).notifier,
     );
+    final session = ref.read(messagingSessionProvider);
     return SimpleScaffold(
       appBar: AppBar(title: Text(settings.title)),
-      body: _buildBody(theme, settings.loadingState, controller),
+      body: _buildBody(
+        theme,
+        settings.loadingState,
+        controller,
+        () => mounted && session.isActive,
+      ),
     );
   }
 
@@ -47,8 +54,11 @@ class _WhisperSettingsPageState extends ConsumerState<WhisperSettingsPage> {
     int key,
     Setting item,
     WhisperSettingsNotifier controller,
+    bool Function() isCurrent,
   ) async {
+    if (!isCurrent()) return;
     final result = await controller.setSetting(key, item);
+    if (!isCurrent()) return;
     if (result.isSuccess) {
       widget.onUpdate?.call({key: item.deepCopy()});
     } else {
@@ -61,12 +71,16 @@ class _WhisperSettingsPageState extends ConsumerState<WhisperSettingsPage> {
     int key,
     Setting item,
     WhisperSettingsNotifier controller,
+    bool Function() isCurrent,
   ) {
+    if (!isCurrent()) return;
     if (item.redirect.settingPage.hasParentSettingType()) {
       Get.to(
         WhisperSettingsPage(
           imSettingType: item.redirect.settingPage.parentSettingType,
-          onUpdate: (value) => controller.mergeSubSettings(key, value),
+          onUpdate: (value) {
+            if (isCurrent()) controller.mergeSubSettings(key, value);
+          },
         ),
         preventDuplicates: false,
       );
@@ -87,7 +101,7 @@ class _WhisperSettingsPageState extends ConsumerState<WhisperSettingsPage> {
                     candidate.selected = candidate.text == option.text;
                   }
                   updated.redirect.selectedSummary = option.text;
-                  await onSet(key, updated, controller);
+                  await onSet(key, updated, controller, isCurrent);
                 },
                 child: Text(
                   option.text,
@@ -130,6 +144,7 @@ class _WhisperSettingsPageState extends ConsumerState<WhisperSettingsPage> {
     ThemeData theme,
     LoadingState<PbMap<int, Setting>> loadingState,
     WhisperSettingsNotifier controller,
+    bool Function() isCurrent,
   ) {
     switch (loadingState) {
       case Loading():
@@ -152,8 +167,10 @@ class _WhisperSettingsPageState extends ConsumerState<WhisperSettingsPage> {
                 final item = response[key]!;
                 return ImSettingsItem(
                   item: item,
-                  onSet: (setting) => onSet(key, setting, controller),
-                  onRedirect: () => onRedirect(theme, key, item, controller),
+                  onSet: (setting) =>
+                      onSet(key, setting, controller, isCurrent),
+                  onRedirect: () =>
+                      onRedirect(theme, key, item, controller, isCurrent),
                 );
               },
               separatorBuilder: (context, index) => divider,
