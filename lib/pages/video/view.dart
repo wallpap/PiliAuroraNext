@@ -40,13 +40,14 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/season.dart';
-import 'package:pili_aurora_next/pages/video/member/controller.dart';
 import 'package:pili_aurora_next/pages/video/member/view.dart';
 import 'package:pili_aurora_next/pages/video/related/view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/related_videos.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
+import 'package:pili_aurora_next/features/member_space/application/video_author.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/pages/video/reply/view.dart';
 import 'package:pili_aurora_next/pages/video/view_point/view.dart';
@@ -177,6 +178,9 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
   );
   ProviderSubscription<RelatedVideosState>? _relatedSubscription;
   ({Object source, bool Function() isCurrent})? _pendingRelatedPlay;
+  AnchoredSpaceArchiveQuery? _authorArchiveQuery;
+  ProviderSubscription<VideoAuthorState>? _authorSubscription;
+  ProviderSubscription<SpaceArchiveState>? _authorArchiveSubscription;
 
   void _bindRelatedVideos() {
     _relatedSubscription = ref.listenManual(
@@ -471,9 +475,8 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
       ?..removeStatusLister(playerListener)
       ..removeCoarsePositionListener(positionListener);
 
-    Get.delete<HorizontalMemberPageController>(
-      tag: videoDetailController.heroTag,
-    );
+    _authorSubscription?.close();
+    _authorArchiveSubscription?.close();
 
     if (!videoDetailController.isFileSource) {
       if (videoDetailController.isUgc) {
@@ -2118,16 +2121,45 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
   }
 
   void onShowMemberPage(int? mid) {
-    videoDetailController.childKey.currentState?.showBottomSheet(
+    final host = videoDetailController.childKey.currentState;
+    if (mid == null || host == null) return;
+    final aid = videoDetailController.aid.toString();
+    final bvid = videoDetailController.bvid;
+    final AnchoredSpaceArchiveQuery query = (owner: this, mid: mid, aid: aid);
+    if (_authorArchiveQuery?.mid != mid) {
+      _authorSubscription?.close();
+      _authorSubscription = ref.listenManual(
+        videoAuthorProvider((owner: this, mid: mid)),
+        (_, _) {},
+      );
+    }
+    if (_authorArchiveQuery != query) {
+      _authorArchiveQuery = query;
+      _authorArchiveSubscription?.close();
+      _authorArchiveSubscription = ref.listenManual(
+        anchoredSpaceArchiveProvider(query),
+        (_, _) {},
+      );
+    }
+    host.showBottomSheet(
       constraints: const BoxConstraints(),
       dragHeight: 100,
-      (context) {
-        return HorizontalMemberPage(
-          mid: mid,
-          videoDetailController: videoDetailController,
-          ugcIntroController: ugcIntroController,
-        );
-      },
+      (context) => HorizontalMemberPage(
+        key: ValueKey(query),
+        query: query,
+        bvid: bvid,
+        onSelect: (video) {
+          if (!mounted || _authorArchiveQuery != query) return;
+          Get.back();
+          ugcIntroController.onChangeEpisode(
+            ugc.BaseEpisodeItem(
+              bvid: video.bvid,
+              cid: video.cid,
+              cover: video.cover,
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -205,10 +205,6 @@ pages/video/introduction/ugc/description_link_action.dart -> utils/accounts.dart
 pages/video/introduction/ugc/widgets/triple_mixin.dart -> utils/global_data.dart
 pages/video/introduction/ugc/widgets/triple_mixin.dart#TripleMixin -> GetxController
 pages/video/medialist/view.dart -> utils/accounts.dart
-pages/video/member/controller.dart -> http/member.dart
-pages/video/member/controller.dart -> utils/accounts.dart
-pages/video/member/controller.dart#HorizontalMemberPageController -> CommonListController
-pages/video/member/view.dart -> utils/accounts.dart
 pages/video/pay_coins/view.dart -> utils/global_data.dart
 pages/video/pay_coins/view.dart -> utils/storage.dart
 pages/video/pay_coins/view.dart -> utils/storage_pref.dart

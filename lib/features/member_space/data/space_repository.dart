@@ -13,6 +13,7 @@ import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_opus/data.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/member_space/domain/video_author.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/member.dart';
@@ -26,6 +27,32 @@ final spaceRepositoryProvider = Provider((ref) => const SpaceRepository());
 
 class SpaceRepository {
   const SpaceRepository();
+
+  Future<LoadingState<VideoAuthorInfo>> videoAuthor(
+    Account account,
+    int mid,
+  ) async => switch (await MemberHttp.memberInfo(account: account, mid: mid)) {
+    Success(:final response) => Success((
+      name: response.name,
+      avatar: response.face,
+      level: response.level,
+      senior: response.isSeniorMember == 1,
+      annualVip: (response.vip?.status ?? 0) > 0 && response.vip?.type == 2,
+      followed: response.isFollowed == true,
+    )),
+    Error error => error,
+    Loading() => const Error('作者资料未返回结果，请重试'),
+  };
+
+  Future<LoadingState<Map<String, dynamic>>> authorRelations(
+    Account account,
+    int mid,
+  ) => MemberHttp.memberStat(account: account, mid: mid);
+
+  Future<LoadingState<Map<String, dynamic>>> authorViews(
+    Account account,
+    int mid,
+  ) => MemberHttp.memberView(account: account, mid: mid);
 
   Future<LoadingState<SpaceData>> space(
     Account account,

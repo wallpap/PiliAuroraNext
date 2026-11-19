@@ -27,6 +27,22 @@ final spaceArchiveProvider = NotifierProvider.autoDispose
       SpaceArchive.new,
     );
 
+typedef AnchoredSpaceArchiveQuery = ({Object owner, int mid, String aid});
+
+final anchoredSpaceArchiveProvider = NotifierProvider.autoDispose
+    .family<SpaceArchive, SpaceArchiveState, AnchoredSpaceArchiveQuery>(
+      (query) => SpaceArchive(
+        (
+          owner: query.owner,
+          mid: query.mid,
+          type: .video,
+          season: null,
+          series: null,
+        ),
+        initialAnchor: query.aid,
+      ),
+    );
+
 class SpaceArchiveState {
   const SpaceArchiveState({
     required this.source,
@@ -54,8 +70,9 @@ class SpaceArchiveState {
 }
 
 class SpaceArchive extends Notifier<SpaceArchiveState> {
-  SpaceArchive(this.query);
+  SpaceArchive(this.query, {this.initialAnchor});
   final SpaceArchiveQuery query;
+  final String? initialAnchor;
   late Account _account;
   Object _source = Object();
   Object? _opening;
@@ -106,7 +123,11 @@ class SpaceArchive extends Notifier<SpaceArchiveState> {
     _source = Object();
     _page = 0;
     _cursor = null;
-    await _load(replacing: true, clear: clear, anchor: anchor);
+    await _load(
+      replacing: true,
+      clear: clear,
+      anchor: anchor ?? initialAnchor,
+    );
   }
 
   Future<void> toggleSort() async {
@@ -169,10 +190,14 @@ class SpaceArchive extends Notifier<SpaceArchiveState> {
             order: _video ? _order : null,
             sort: _video ? (previous ? .asc : null) : _sort,
             page: query.type == .charging ? _page : null,
-            cursor: _cursor,
+            cursor: initialAnchor == null ? _cursor : null,
             season: query.season,
             series: query.series,
-            includeCursor: anchor != null,
+            includeCursor: anchor != null
+                ? true
+                : initialAnchor == null
+                ? false
+                : null,
           );
     } catch (error, stack) {
       response = Error.fromException(error, stack);
@@ -209,7 +234,11 @@ class SpaceArchive extends Notifier<SpaceArchiveState> {
             ? before.hasNext
             : query.type != .season &&
                   incoming.isNotEmpty &&
-                  (_video ? response.hasNext != false : response.next != 0),
+                  (_video
+                      ? response.hasNext ??
+                            (initialAnchor == null ||
+                                (!replacing && before.hasNext))
+                      : response.next != 0),
         pageError: previous ? before.pageError : null,
       );
       return Success(incoming.length);
