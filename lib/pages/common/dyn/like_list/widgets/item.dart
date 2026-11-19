@@ -1,6 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
-    show ModuleAuthor;
+import 'package:pili_aurora_next/features/community/domain/dynamic_activity_item.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:get/route_manager.dart';
@@ -9,19 +8,19 @@ import 'package:material_ui/material_ui.dart';
 class DynLikeItem extends StatelessWidget {
   const DynLikeItem({super.key, required this.item});
 
-  final ModuleAuthor item;
+  final DynamicActivityAuthor item;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
-    final author = item.author;
-    final hasSign = author.hasSign();
+    final author = item;
+    final sign = author.sign;
     return Material(
       type: .transparency,
       child: InkWell(
         onTap: () => Get.toNamed('/member?mid=${item.mid}'),
         child: Column(
-          crossAxisAlignment: hasSign ? .center : .start,
+          crossAxisAlignment: sign != null ? .center : .start,
           children: [
             Padding(
               padding: const .symmetric(horizontal: 12, vertical: 10),
@@ -33,13 +32,9 @@ class DynLikeItem extends StatelessWidget {
                     author.face,
                     size: 34,
                     badgeSize: 14,
-                    pendantImage: author.hasPendant()
-                        ? author.pendant.image
-                        : null,
-                    vipStatus: author.hasVip() ? author.vip.status : null,
-                    officialType: author.hasOfficial()
-                        ? author.official.type
-                        : null,
+                    pendantImage: author.pendantImage,
+                    vipStatus: author.vipStatus,
+                    officialType: author.officialType,
                   ),
                   Expanded(
                     child: Column(
@@ -55,9 +50,7 @@ class DynLikeItem extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: .ellipsis,
                                 style: TextStyle(
-                                  color:
-                                      (author.vip.status > 0 &&
-                                          author.vip.type == 2)
+                                  color: author.hasAnnualVip
                                       ? colorScheme.vipColor
                                       : null,
                                   fontSize: 14,
@@ -65,15 +58,15 @@ class DynLikeItem extends StatelessWidget {
                               ),
                             ),
                             BiliUtils.levelPicture(
-                              author.level.toInt(),
-                              isSeniorMember: author.isSeniorMember == 1,
+                              author.level,
+                              isSeniorMember: author.isSeniorMember,
                               height: 11,
                             ),
                           ],
                         ),
-                        if (hasSign)
+                        if (sign != null)
                           Text(
-                            author.sign,
+                            sign,
                             maxLines: 1,
                             overflow: .ellipsis,
                             style: TextStyle(

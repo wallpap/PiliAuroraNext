@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/dynamic_activity_repository.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_activity_cursor.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamic_activity_item.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
-    show ModuleAuthor, DynamicItem;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
@@ -12,13 +11,13 @@ typedef DynamicActivityQuery = ({Object owner, String id});
 final dynamicLikesProvider = NotifierProvider.autoDispose
     .family<
       DynamicLikes,
-      DiscoveryListingState<ModuleAuthor, DynamicActivityCursor>,
+      DiscoveryListingState<DynamicActivityAuthor, DynamicActivityCursor>,
       DynamicActivityQuery
     >(DynamicLikes.new);
 final dynamicRepostsProvider = NotifierProvider.autoDispose
     .family<
       DynamicReposts,
-      DiscoveryListingState<DynamicItem, DynamicActivityCursor>,
+      DiscoveryListingState<DynamicRepostEntry, DynamicActivityCursor>,
       DynamicActivityQuery
     >(DynamicReposts.new);
 
@@ -40,26 +39,28 @@ abstract class DynamicActivity<T>
   }
 }
 
-class DynamicLikes extends DynamicActivity<ModuleAuthor> {
+class DynamicLikes extends DynamicActivity<DynamicActivityAuthor> {
   DynamicLikes(this.query);
   final DynamicActivityQuery query;
   @override
-  Object itemKey(ModuleAuthor item) => item.mid.toString();
+  Object itemKey(DynamicActivityAuthor item) => item.mid;
   @override
-  Future<LoadingState<DiscoveryPage<ModuleAuthor, DynamicActivityCursor>>>
+  Future<
+    LoadingState<DiscoveryPage<DynamicActivityAuthor, DynamicActivityCursor>>
+  >
   fetch(Account account, int page) => ref
       .read(dynamicActivityRepositoryProvider)
       .likes(account, query.id, page, queryMetadata);
 }
 
-class DynamicReposts extends DynamicActivity<DynamicItem> {
+class DynamicReposts extends DynamicActivity<DynamicRepostEntry> {
   DynamicReposts(this.query);
   final DynamicActivityQuery query;
   @override
-  Object itemKey(DynamicItem item) =>
-      item.extend.dynIdStr.isEmpty ? item : item.extend.dynIdStr;
+  Object itemKey(DynamicRepostEntry item) => item.key;
   @override
-  Future<LoadingState<DiscoveryPage<DynamicItem, DynamicActivityCursor>>> fetch(
+  Future<LoadingState<DiscoveryPage<DynamicRepostEntry, DynamicActivityCursor>>>
+  fetch(
     Account account,
     int page,
   ) => ref

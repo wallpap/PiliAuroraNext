@@ -3,14 +3,7 @@ import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.d
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
-    show
-        DynamicItem,
-        ModuleAuthor,
-        ModuleDesc,
-        Description,
-        ModuleOpusSummary,
-        TextNode;
+import 'package:pili_aurora_next/features/community/domain/dynamic_activity_item.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
@@ -25,48 +18,22 @@ class DynRepostItem extends StatelessWidget {
     required this.item,
   });
 
-  final DynamicItem item;
+  final DynamicRepostEntry item;
 
   @override
   Widget build(BuildContext context) {
-    ModuleAuthor? moduleAuthor;
-    ModuleOpusSummary? moduleOpusSummary = item.extend.hasOpusSummary()
-        ? item.extend.opusSummary
-        : null;
-    ModuleDesc? moduleDesc;
-
-    for (final module in item.modules) {
-      switch (module.moduleType) {
-        case .module_author:
-          moduleAuthor = module.moduleAuthor;
-        case .module_opus_summary:
-          moduleOpusSummary ??= module.moduleOpusSummary;
-        case .module_desc:
-          moduleDesc = module.moduleDesc;
-        default:
-      }
-    }
-
-    if (moduleAuthor == null) {
+    final author = item.author;
+    if (author == null) {
       return const SizedBox.shrink();
     }
-
+    final content = item.content;
     final colorScheme = ColorScheme.of(context);
-
-    final author = moduleAuthor.author;
-
-    // print(moduleOpusSummary.runtimeType);
-
     void pushMember() => Get.toNamed('/member?mid=${author.mid}');
 
     return Material(
       type: .transparency,
       child: InkWell(
-        onTap: () {
-          // Utils.copyJson(item.toProto3Json());
-          // return;
-          PageUtils.pushDynFromId(id: item.extend.dynIdStr);
-        },
+        onTap: () => PageUtils.pushDynFromId(id: item.id),
         child: Column(
           crossAxisAlignment: .start,
           children: [
@@ -80,13 +47,9 @@ class DynRepostItem extends StatelessWidget {
                     author.face,
                     size: 34,
                     badgeSize: 14,
-                    pendantImage: author.hasPendant()
-                        ? author.pendant.image
-                        : null,
-                    vipStatus: author.hasVip() ? author.vip.status : null,
-                    officialType: author.hasOfficial()
-                        ? author.official.type
-                        : null,
+                    pendantImage: author.pendantImage,
+                    vipStatus: author.vipStatus,
+                    officialType: author.officialType,
                     onTap: pushMember,
                   ),
                   Expanded(
@@ -106,9 +69,7 @@ class DynRepostItem extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: .ellipsis,
                                   style: TextStyle(
-                                    color:
-                                        (author.vip.status > 0 &&
-                                            author.vip.type == 2)
+                                    color: author.hasAnnualVip
                                         ? colorScheme.vipColor
                                         : colorScheme.outline,
                                     fontSize: 13,
@@ -116,40 +77,29 @@ class DynRepostItem extends StatelessWidget {
                                 ),
                               ),
                               BiliUtils.levelPicture(
-                                author.level.toInt(),
-                                isSeniorMember: author.isSeniorMember == 1,
+                                author.level,
+                                isSeniorMember: author.isSeniorMember,
                                 height: 11,
                               ),
                             ],
                           ),
                         ),
                         Text(
-                          moduleAuthor.ptimeLabelText,
+                          item.timeLabel,
                           style: TextStyle(
                             fontSize: 11,
                             color: colorScheme.outline,
                           ),
                         ),
-                        if (moduleOpusSummary != null) ...[
+                        if (content != null) ...[
                           const SizedBox(height: 6),
                           Text.rich(
                             style: const TextStyle(height: 1.75),
                             TextSpan(
-                              children: _parseSummary(
+                              children: _buildContent(
                                 context,
                                 colorScheme,
-                                moduleOpusSummary.summary.text.nodes,
-                              ),
-                            ),
-                          ),
-                        ] else if (moduleDesc != null) ...[
-                          const SizedBox(height: 6),
-                          Text.rich(
-                            style: const TextStyle(height: 1.75),
-                            TextSpan(
-                              children: _parseDesc(
-                                colorScheme,
-                                moduleDesc.desc,
+                                content,
                               ),
                             ),
                           ),
@@ -173,164 +123,79 @@ class DynRepostItem extends StatelessWidget {
   }
 }
 
-List<InlineSpan> _parseSummary(
+List<InlineSpan> _buildContent(
   BuildContext context,
   ColorScheme colorScheme,
-  List<TextNode> nodes,
-) {
-  final children = <InlineSpan>[];
-  for (final e in nodes) {
-    switch (e.nodeType) {
-      case .EMOTE when e.hasEmote():
-        final emote = e.emote;
-        final emoteSize = emote.emoteWidth;
-        final size =
-            (emoteSize.hasEmojiSize() ? emoteSize.emojiSize : 1) * 20.0;
-        children.add(
-          WidgetSpan(
-            child: emoteTooltipBuilder(
-              triggerMode: .tap,
-              url: emote.emoteUrl,
-              emote: emote.rawText.words,
-              colorScheme: colorScheme,
-              child: NetworkImgLayer(
-                src: emote.emoteUrl,
-                width: size,
-                height: size,
-                type: .emote,
-              ),
+  List<RepostContent> content,
+) => [
+  for (final entry in content)
+    ...switch (entry) {
+      RepostText(:final text) => [TextSpan(text: text)],
+      RepostEmote(:final text, :final url, :final scale) => [
+        WidgetSpan(
+          child: emoteTooltipBuilder(
+            triggerMode: .tap,
+            url: url,
+            emote: text,
+            colorScheme: colorScheme,
+            child: NetworkImgLayer(
+              src: url,
+              width: scale * 20.0,
+              height: scale * 20.0,
+              type: .emote,
             ),
           ),
-        );
-
-      default:
-        if (e.hasLink()) {
-          final link = e.link;
-          switch (link.linkTypeEnum) {
-            case .REPOST_PIC_DYN_URL || .REPOST_PIC_URL when link.hasLinkPics():
-              final pics = link.linkPics;
-              children
-                ..add(const TextSpan(text: '\n'))
-                ..add(
-                  WidgetSpan(
-                    child: ImageGridView(
-                      picArr: pics.items
-                          .map(
-                            (e) => ImageModel(
-                              url: e.src,
-                              width: e.width.toInt(),
-                              height: e.height.toInt(),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                );
-
-            case .VOTE when link.hasBizId():
-              children
-                ..add(
-                  WidgetSpan(
-                    alignment: .middle,
-                    child: Icon(
-                      size: 20,
-                      Icons.bar_chart_rounded,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                )
-                ..add(
-                  TextSpan(
-                    text: '投票：${e.rawText}',
-                    style: TextStyle(color: colorScheme.primary),
-                    recognizer: (NoDeadlineTapGestureRecognizer()
-                      ..onTap = () => showVoteDialog(
-                        context,
-                        int.tryParse(link.bizId) ?? -1,
-                      )),
-                  ),
-                );
-
-            default:
-              switch (link.linkTypeEnum) {
-                case .URL:
-                  children.add(
-                    WidgetSpan(
-                      alignment: .middle,
-                      child: Icon(
-                        Icons.link,
-                        size: 20,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                  );
-
-                case .OGV_SS || .OGV_EP:
-                  children.add(
-                    WidgetSpan(
-                      alignment: .middle,
-                      child: Icon(
-                        Icons.play_circle_outline_outlined,
-                        size: 16,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                  );
-
-                default:
-              }
-              children.add(
-                TextSpan(
-                  text: link.hasShowText() ? link.showText.words : e.rawText,
-                  style: TextStyle(color: colorScheme.primary),
-                  recognizer: (NoDeadlineTapGestureRecognizer()
-                    ..onTap = () => PiliScheme.routePushFromUrl(link.link)),
+        ),
+      ],
+      RepostImages(:final images) => [
+        const TextSpan(text: '\n'),
+        WidgetSpan(
+          child: ImageGridView(
+            picArr: [
+              for (final image in images)
+                ImageModel(
+                  url: image.url,
+                  width: image.width,
+                  height: image.height,
                 ),
-              );
-          }
-        } else {
-          children.add(TextSpan(text: e.rawText));
-        }
-    }
-  }
-  return children;
-}
-
-List<InlineSpan> _parseDesc(ColorScheme colorScheme, List<Description> desc) {
-  final children = <InlineSpan>[];
-  for (final e in desc) {
-    switch (e.type) {
-      case .desc_type_emoji:
-        final size = (e.hasEmojiSize() ? e.emojiSize : 1) * 20.0;
-        children.add(
+            ],
+          ),
+        ),
+      ],
+      RepostVote(:final title, :final id) => [
+        WidgetSpan(
+          alignment: .middle,
+          child: Icon(
+            Icons.bar_chart_rounded,
+            size: 20,
+            color: colorScheme.primary,
+          ),
+        ),
+        TextSpan(
+          text: '投票：$title',
+          style: TextStyle(color: colorScheme.primary),
+          recognizer: (NoDeadlineTapGestureRecognizer()
+            ..onTap = () => showVoteDialog(context, id)),
+        ),
+      ],
+      RepostLink(:final text, :final url, :final kind) => [
+        if (kind != .plain)
           WidgetSpan(
-            child: emoteTooltipBuilder(
-              url: e.uri,
-              emote: e.text,
-              triggerMode: .tap,
-              colorScheme: colorScheme,
-              child: NetworkImgLayer(
-                src: e.uri,
-                width: size,
-                height: size,
-                type: .emote,
-              ),
+            alignment: .middle,
+            child: Icon(
+              kind == .external
+                  ? Icons.link
+                  : Icons.play_circle_outline_outlined,
+              size: kind == .external ? 20 : 16,
+              color: colorScheme.primary,
             ),
           ),
-        );
-      default:
-        final hasUri = e.hasUri();
-        children.add(
-          TextSpan(
-            text: e.text,
-            style: hasUri ? TextStyle(color: colorScheme.primary) : null,
-            recognizer: hasUri
-                ? (NoDeadlineTapGestureRecognizer()
-                    ..onTap = () => PiliScheme.routePushFromUrl(e.uri))
-                : null,
-          ),
-        );
-    }
-  }
-  return children;
-}
+        TextSpan(
+          text: text,
+          style: TextStyle(color: colorScheme.primary),
+          recognizer: (NoDeadlineTapGestureRecognizer()
+            ..onTap = () => PiliScheme.routePushFromUrl(url)),
+        ),
+      ],
+    },
+];

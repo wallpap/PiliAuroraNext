@@ -63,8 +63,6 @@ pages/common/dyn/common_dyn_controller.dart#CommonDynController -> GetxControlle
 pages/common/dyn/common_dyn_page.dart -> generated/bilibili/main/community/reply/v1.pb.dart
 pages/common/dyn/common_dyn_page.dart -> utils/storage.dart
 pages/common/dyn/common_dyn_page.dart -> utils/storage_pref.dart
-pages/common/dyn/like_list/widgets/item.dart -> generated/bilibili/app/dynamic/v2.pb.dart
-pages/common/dyn/repost_list/widgets/item.dart -> generated/bilibili/app/dynamic/v2.pb.dart
 pages/common/member_feed.dart -> http/member.dart
 pages/common/member_feed.dart -> utils/accounts.dart
 pages/common/multi_select/base.dart#DeleteItemMixin -> CommonListController
