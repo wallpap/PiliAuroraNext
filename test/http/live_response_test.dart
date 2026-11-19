@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/features/playback/data/live_chat_repository.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
@@ -32,8 +33,8 @@ void main() {
   final queries = <String, Future<LoadingState<dynamic>> Function()>{
     '播放地址': () => LiveHttp.liveRoomInfo(roomId: 12),
     '房间详情': () => LiveHttp.liveRoomInfoH5(roomId: 12),
-    '弹幕历史': () => LiveHttp.liveRoomDmPrefetch(roomId: 12),
-    '弹幕凭据': () => LiveHttp.liveRoomGetDanmakuToken(roomId: 12),
+    '弹幕历史': () => LiveChatRepository.liveRoomDmPrefetch(roomId: 12),
+    '弹幕凭据': () => LiveChatRepository.liveRoomGetDanmakuToken(roomId: 12),
     '直播表情': () => LiveHttp.getLiveEmoticons(roomId: 12),
     '推荐': () => LiveHttp.liveFeedIndex(pn: 1),
     '关注': () => LiveHttp.liveFollow(1, account: main),
@@ -47,8 +48,8 @@ void main() {
       keyword: 'sample',
       type: LiveSearchType.room,
     ),
-    '屏蔽规则': () => LiveHttp.getLiveInfoByUser(12),
-    '醒目留言': () => LiveHttp.superChatMsg(12),
+    '屏蔽规则': () => LiveChatRepository.getLiveInfoByUser(12),
+    '醒目留言': () => LiveChatRepository.superChatMsg(12),
     '贡献榜': () => LiveHttp.liveContributionRank(
       ruid: 1,
       roomId: 12,
@@ -216,12 +217,15 @@ void main() {
 
   test('直播可选列表和屏蔽信息保留空数据语义', () async {
     body = {'code': 0, 'data': <String, dynamic>{}};
-    expect((await LiveHttp.liveRoomDmPrefetch(roomId: 12)).data, isNull);
+    expect(
+      (await LiveChatRepository.liveRoomDmPrefetch(roomId: 12)).data,
+      isNull,
+    );
     expect((await LiveHttp.getLiveEmoticons(roomId: 12)).data, isNull);
     expect((await LiveHttp.liveAreaList()).data, isNull);
     expect((await LiveHttp.getLiveFavTag(account: main)).data, isEmpty);
-    expect((await LiveHttp.getLiveInfoByUser(12)).data, isNull);
-    expect((await LiveHttp.superChatMsg(12)).data.list, isNull);
+    expect((await LiveChatRepository.getLiveInfoByUser(12)).data, isNull);
+    expect((await LiveChatRepository.superChatMsg(12)).data.list, isNull);
     body = {'code': 0, 'data': null};
     expect((await LiveHttp.liveRoomAreaList(parentid: 1)).data, isNull);
     body = {

@@ -9,16 +9,9 @@ import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/grpc/audio.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_media.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart'
-    show
-        DetailItem,
-        PlayURLResp,
-        PlaylistSource,
-        PlayInfo,
-        ThumbUpReq_ThumbType,
-        ListOrder,
-        DashItem,
-        ResponseUrl;
+    show DetailItem, PlaylistSource, ThumbUpReq_ThumbType, ListOrder;
 import 'package:pili_aurora_next/http/browser_ua.dart';
 import 'package:pili_aurora_next/http/constants.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -49,7 +42,6 @@ import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
@@ -59,7 +51,6 @@ import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -712,14 +703,19 @@ class AudioController extends GetxController
     _playbackReady = false;
     _querySponsorBlock();
     try {
-      final res = await AudioGrpc.audioPlayUrl(
+      final res = await AudioMedia.resolve(
         itemType: itemType,
         oid: oid,
-        subId: List.of(subId),
+        subIds: List.of(subId),
+        preferredQuality: () => cacheAudioQa,
       );
       if (!_ownsPlayback(generation)) return false;
       if (res case Success(:final response)) {
-        final opened = await _onPlay(response, generation);
+        final opened = await _onOpenMedia(
+          response.url,
+          generation: generation,
+          volume: response.volume,
+        );
         return opened && _ownsPlayback(generation);
       }
       res.toast();
@@ -731,44 +727,6 @@ class AudioController extends GetxController
         _pendingPlayGeneration = null;
       }
     }
-  }
-
-  Future<bool> _onPlay(PlayURLResp data, int generation) {
-    final PlayInfo? playInfo = data.playerInfo.values.firstOrNull;
-    if (playInfo == null) throw const FormatException('响应缺少音频信息');
-    http_model.Volume? volume;
-    if (playInfo.hasVolume()) {
-      final volumeInfo = playInfo.volume;
-      volume = http_model.Volume(
-        measuredI: volumeInfo.measuredI,
-        measuredLra: volumeInfo.measuredLra,
-        measuredTp: volumeInfo.measuredTp,
-        measuredThreshold: volumeInfo.measuredThreshold,
-        targetOffset: volumeInfo.targetOffset,
-        targetI: volumeInfo.targetI,
-        targetTp: volumeInfo.targetTp,
-      );
-    }
-    final Iterable<String> urls;
-    if (playInfo.hasPlayDash()) {
-      if (playInfo.playDash.audio.isEmpty) {
-        throw const FormatException('响应缺少音频来源');
-      }
-      final audio = playInfo.playDash.audio.findClosestTarget(
-        (e) => e.id <= cacheAudioQa,
-        (a, b) => a.id > b.id ? a : b,
-      );
-      urls = audio.playUrls;
-    } else if (playInfo.hasPlayUrl() && playInfo.playUrl.durl.isNotEmpty) {
-      urls = playInfo.playUrl.durl.first.playUrls;
-    } else {
-      throw const FormatException('响应缺少音频来源');
-    }
-    return _onOpenMedia(
-      VideoUtils.getCdnUrl(urls),
-      generation: generation,
-      volume: volume,
-    );
   }
 
   Future<bool> _onOpenMedia(
@@ -1617,19 +1575,5 @@ class AudioController extends GetxController
     });
     animController.dispose();
     super.onClose();
-  }
-}
-
-extension on DashItem {
-  Iterable<String> get playUrls sync* {
-    yield baseUrl;
-    yield* backupUrl;
-  }
-}
-
-extension on ResponseUrl {
-  Iterable<String> get playUrls sync* {
-    yield url;
-    yield* backupUrl;
   }
 }

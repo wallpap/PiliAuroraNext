@@ -10,9 +10,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:pili_aurora_next/grpc/dm.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
-import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -34,9 +32,9 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
     as ugc;
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/models/remote/video/video_pbp/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
 import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
+import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
 import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
@@ -75,7 +73,7 @@ import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/video_utils.dart';
 import 'package:collection/collection.dart';
-import 'package:dio/dio.dart' show Options, CancelToken;
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -1513,28 +1511,21 @@ class VideoDetailController extends GetxController
   EdgeInfoData? steinEdgeInfo;
   late final RxBool showSteinEdgeInfo = false.obs;
 
+  final _metadata = VideoMetadata();
+
   Future<void> getSteinEdgeInfo([int? edgeId]) async {
     final currentMedia = _mediaGuard();
     if (!currentMedia()) return;
     final version = graphVersion;
     steinEdgeInfo = null;
-    try {
-      final res = await Request().get(
-        '/x/stein/edgeinfo_v2',
-        queryParameters: {
-          'bvid': bvid,
-          'graph_version': graphVersion,
-          'edge_id': ?edgeId,
-        },
-      );
-      if (!currentMedia() || version != graphVersion) return;
-      if (res.data['code'] == 0) {
-        steinEdgeInfo = EdgeInfoData.fromJson(res.data['data']);
-      } else {
-        logger.w('getSteinEdgeInfo error: ${res.data['message']}');
-      }
-    } catch (e, stackTrace) {
-      logger.w('getSteinEdgeInfo failed', error: e, stackTrace: stackTrace);
+    final edge = await _metadata.interactiveEdge(
+      bvid: bvid,
+      graphVersion: version,
+      edgeId: edgeId,
+      isCurrent: () => currentMedia() && version == graphVersion,
+    );
+    if (edge != null && currentMedia() && version == graphVersion) {
+      steinEdgeInfo = edge;
     }
   }
 
@@ -1780,43 +1771,13 @@ class VideoDetailController extends GetxController
 
   Future<void> _getDmTrend({required bool Function() isCurrent}) async {
     if (!isCurrent()) return;
-    dmTrend.value = LoadingState<List<double>>.loading();
-    try {
-      final res = await Request().get(
-        'https://bvc.bilivideo.com/pbp/data',
-        queryParameters: {
-          'aid': aid,
-          'bvid': bvid,
-          'cid': cid.value,
-          'r': 'loader',
-        },
-        options: Options(
-          headers: {
-            'user-agent': BrowserUa.pc,
-            'origin': 'https://www.bilibili.com',
-            'referer': 'https://www.bilibili.com/video/$bvid',
-          },
-        ),
-      );
-      if (!isCurrent()) return;
-      dynamic json;
-      try {
-        json = (res.data['modules'] as List).first['params']['data'];
-      } catch (_) {
-        json = res.data;
-      }
-      final data = PbpData.fromJson(json);
-      final stepSec = data.stepSec ?? 0;
-      if (stepSec != 0 && data.events?.eDefault?.isNotEmpty == true) {
-        dmTrend.value = Success(data.events!.eDefault!);
-        return;
-      }
-      dmTrend.value = const Error(null);
-    } catch (e, stackTrace) {
-      if (!isCurrent()) return;
-      dmTrend.value = const Error(null);
-      logger.w('_getDmTrend: $e', error: e, stackTrace: stackTrace);
-    }
+    dmTrend.value = LoadingState.loading();
+    final result = await _metadata.danmakuTrend(
+      aid: aid,
+      bvid: bvid,
+      cid: cid.value,
+    );
+    if (isCurrent()) dmTrend.value = result;
   }
 
   void showNoteList(BuildContext context) {

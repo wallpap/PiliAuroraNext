@@ -6,6 +6,8 @@ import 'dart:math' as math;
 
 import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
+import 'package:pili_aurora_next/features/playback/application/live_chat_connection.dart';
+import 'package:pili_aurora_next/features/playback/application/live_chat_queries.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -122,7 +124,7 @@ class LiveRoomController extends GetxController {
   });
 
   // dm
-  LiveDmInfoData? dmInfo;
+  LiveDmInfoData? get dmInfo => _chatConnection.token;
   List<RichTextItem>? savedDanmaku;
   final chatBuffer = LiveChatBuffer<dynamic>();
   final messages = Rx<List<LiveChatMessage<dynamic>>>(const []);
@@ -142,14 +144,13 @@ class LiveRoomController extends GetxController {
   }
 
   bool get _followingLatest => autoScroll && !disableAutoScroll.value;
-  LiveMessageStream? _msgStream;
-  bool _wantedConnected = false;
-  int _messageGeneration = 0;
-  int? _streamGeneration;
-  int? _connectingGeneration;
-  Future<void>? _connecting;
-  int? _historyPrefetchGeneration;
-  int? _superChatPrefetchGeneration;
+  late final _chatConnection = LiveChatConnection(
+    currentRoom: () => isClosed ? null : roomId,
+    loadToken: fetchLiveMessageToken,
+    createStream: createLiveMessageStream,
+    onMessage: _danmakuListener,
+    onFailure: SmartDialog.showToast,
+  );
 
   List<String> _keywordList = const [];
   Set<int> _shieldUids = const {};
@@ -769,42 +770,23 @@ class LiveRoomController extends GetxController {
 
   void _updateRoomId(int value) {
     if (roomId == value) return;
-    final reconnect = _wantedConnected;
+    final reconnect = _chatConnection.wantsConnection;
+    _chatConnection.close(discardToken: true);
     roomId = value;
-    dmInfo = null;
-    _invalidateMessageConnection(wantedConnected: reconnect);
     if (reconnect) unawaited(startLiveMsg());
   }
 
   bool _isCurrentMessageTask(int generation, int targetRoomId) =>
-      !isClosed &&
-      _wantedConnected &&
-      _messageGeneration == generation &&
-      roomId == targetRoomId;
+      _chatConnection.isCurrent(generation, targetRoomId);
 
-  void _invalidateMessageConnection({required bool wantedConnected}) {
-    _wantedConnected = wantedConnected;
-    _messageGeneration++;
-    final stream = _msgStream;
-    _msgStream = null;
-    _streamGeneration = null;
-    _connecting = null;
-    _connectingGeneration = null;
-    _historyPrefetchGeneration = null;
-    _superChatPrefetchGeneration = null;
-    stream?.close();
-  }
-
-  void closeLiveMsg() {
-    _invalidateMessageConnection(wantedConnected: false);
-  }
+  void closeLiveMsg() => _chatConnection.close();
 
   @pragma('vm:notify-debugger-on-exception')
-  Future<void> prefetch() => _prefetchFor(_messageGeneration, roomId);
+  Future<void> prefetch() => _prefetchFor(_chatConnection.generation, roomId);
 
   @protected
   Future<LoadingState<List<DanmakuMsg>?>> fetchLiveMessageHistory(int roomId) =>
-      LiveHttp.liveRoomDmPrefetch(roomId: roomId);
+      LiveChatQueries.history(roomId);
 
   Future<void> _prefetchFor(int generation, int targetRoomId) async {
     if (!_isCurrentMessageTask(generation, targetRoomId)) return;
@@ -834,9 +816,9 @@ class LiveRoomController extends GetxController {
   Future<void> _getSuperChatMsgFor(int generation, int targetRoomId) async {
     if (!_isCurrentMessageTask(generation, targetRoomId)) return;
     try {
-      final res = await LiveHttp.superChatMsg(targetRoomId);
+      final list = await LiveChatQueries.superChat(targetRoomId);
       if (!_isCurrentMessageTask(generation, targetRoomId)) return;
-      if (res.dataOrNull?.list case final list? when list.isNotEmpty) {
+      if (list.isNotEmpty) {
         superChatMsg.addAll(list);
       }
     } catch (_) {
@@ -849,7 +831,12 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> _fetchBlockRules() async {
-    final res = await LiveHttp.getLiveInfoByUser(roomId);
+    final target = roomId;
+    final account = Accounts.main;
+    final res = await LiveChatQueries.blockRules(target, account);
+    if (isClosed || target != roomId || !identical(account, Accounts.main)) {
+      return;
+    }
     if (res case Success(:final response?)) {
       if (response.keywordList case final keywordList?) {
         _keywordList = keywordList;
@@ -869,50 +856,21 @@ class LiveRoomController extends GetxController {
     return _shieldUids.contains(uid) || _keywordList.any(text.contains);
   }
 
-  Future<void> startLiveMsg() {
-    if (isClosed) return Future<void>.value();
-    _wantedConnected = true;
-    final generation = _messageGeneration;
-    final targetRoomId = roomId;
-    if (chatBuffer.historyCount == 0 && chatBuffer.pendingCount == 0) {
-      if (_historyPrefetchGeneration != generation) {
-        _historyPrefetchGeneration = generation;
-        unawaited(_prefetchFor(generation, targetRoomId));
-      }
-      if (showSuperChat) {
-        if (_superChatPrefetchGeneration != generation) {
-          _superChatPrefetchGeneration = generation;
-          unawaited(_getSuperChatMsgFor(generation, targetRoomId));
-        }
-      }
-    }
-    if (_connecting != null && _connectingGeneration == generation) {
-      return _connecting!;
-    }
-    if (_msgStream?.isActive == true && _streamGeneration == generation) {
-      return Future<void>.value();
-    }
-    if (_msgStream?.isActive == false) {
-      _msgStream = null;
-      _streamGeneration = null;
-      dmInfo = null;
-    }
-    late final Future<void> connection;
-    connection = _establishLiveMessageConnection(generation, targetRoomId)
-        .whenComplete(() {
-          if (identical(_connecting, connection)) {
-            _connecting = null;
-            _connectingGeneration = null;
+  Future<void> startLiveMsg() => _chatConnection.open(
+    room: roomId,
+    prefetch: chatBuffer.historyCount == 0 && chatBuffer.pendingCount == 0
+        ? (generation, targetRoomId) {
+            unawaited(_prefetchFor(generation, targetRoomId));
+            if (showSuperChat) {
+              unawaited(_getSuperChatMsgFor(generation, targetRoomId));
+            }
           }
-        });
-    _connecting = connection;
-    _connectingGeneration = generation;
-    return connection;
-  }
+        : null,
+  );
 
   @protected
   Future<LoadingState<LiveDmInfoData>> fetchLiveMessageToken(int roomId) =>
-      LiveHttp.liveRoomGetDanmakuToken(roomId: roomId);
+      LiveChatQueries.token(roomId);
 
   @protected
   LiveMessageStream createLiveMessageStream({
@@ -926,39 +884,6 @@ class LiveRoomController extends GetxController {
         .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
         .toList(),
   );
-
-  Future<void> _establishLiveMessageConnection(
-    int generation,
-    int targetRoomId,
-  ) async {
-    var info = dmInfo;
-    if (info == null) {
-      final LoadingState<LiveDmInfoData> result;
-      try {
-        result = await fetchLiveMessageToken(targetRoomId);
-      } catch (_) {
-        return;
-      }
-      if (!_isCurrentMessageTask(generation, targetRoomId)) return;
-      if (result case Success(:final response)) {
-        info = dmInfo = response;
-      } else {
-        return;
-      }
-    }
-    final currentInfo = info;
-    if (_isCurrentMessageTask(generation, targetRoomId)) {
-      try {
-        await _initDm(
-          currentInfo,
-          generation: generation,
-          targetRoomId: targetRoomId,
-        );
-      } catch (_) {
-        // 页面调用方可能不等待连接建立；失败不能变成未处理异步错误。
-      }
-    }
-  }
 
   void listener() {
     final userScrollDirection = scrollController.position.userScrollDirection;
@@ -1022,50 +947,6 @@ class LiveRoomController extends GetxController {
     return _loadLiveQuery(requestedQn: qn);
   }
 
-  Future<void> _initDm(
-    LiveDmInfoData info, {
-    required int generation,
-    required int targetRoomId,
-  }) async {
-    if (!_isCurrentMessageTask(generation, targetRoomId)) {
-      return;
-    }
-    final stream = createLiveMessageStream(info: info, roomId: targetRoomId);
-    _msgStream = stream;
-    _streamGeneration = generation;
-    stream.addEventListener((obj) {
-      if (!_isCurrentMessageTask(generation, targetRoomId) ||
-          !identical(_msgStream, stream)) {
-        return;
-      }
-      _danmakuListener(obj);
-    });
-    late final LiveMessageConnectionResult result;
-    try {
-      result = await stream.init();
-    } catch (error, stack) {
-      logger.w('直播消息初始化失败', error: error.runtimeType, stackTrace: stack);
-      result = LiveMessageConnectionResult.failed(
-        '直播消息连接失败，请重试',
-        cause: error,
-        stackTrace: stack,
-      );
-    }
-    if (!_isCurrentMessageTask(generation, targetRoomId) ||
-        !identical(_msgStream, stream)) {
-      return;
-    }
-    if (result.outcome != LiveMessageConnectionOutcome.connected) {
-      stream.close();
-      _msgStream = null;
-      _streamGeneration = null;
-      if (result.outcome == LiveMessageConnectionOutcome.failed) {
-        dmInfo = null;
-        SmartDialog.showToast(result.message ?? '直播消息连接失败，请重试');
-      }
-    }
-  }
-
   void addDm(dynamic msg, [DanmakuContentItem<DanmakuExtra>? item]) {
     if (isClosed) return;
 
@@ -1099,7 +980,7 @@ class LiveRoomController extends GetxController {
       LiveDanmakuMessage(
         identity: (
           roomId,
-          _messageGeneration,
+          _chatConnection.generation,
           item.extra?.id ?? ++_liveMessageSequence,
         ),
         receivedAtUs: receivedAtUs ?? liveDanmakuNowUs(),

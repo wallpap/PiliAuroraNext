@@ -47,7 +47,6 @@ pages/audio/controller.dart -> utils/accounts.dart
 pages/audio/controller.dart -> utils/global_data.dart
 pages/audio/controller.dart -> utils/storage.dart
 pages/audio/controller.dart -> utils/storage_pref.dart
-pages/audio/controller.dart -> utils/video_utils.dart
 pages/audio/controller.dart#AudioController -> BlockMixin
 pages/audio/controller.dart#AudioController -> FavMixin
 pages/audio/controller.dart#AudioController -> GetxController
@@ -284,8 +283,6 @@ pages/sponsor_block/view.dart -> utils/storage.dart
 pages/sponsor_block/view.dart -> utils/storage_pref.dart
 pages/video/controller.dart -> generated/bilibili/app/listener/v1.pbenum.dart
 pages/video/controller.dart -> grpc/dm.dart
-pages/video/controller.dart -> http/browser_ua.dart
-pages/video/controller.dart -> http/init.dart
 pages/video/controller.dart -> http/user.dart
 pages/video/controller.dart -> http/video.dart
 pages/video/controller.dart -> package:dio/dio.dart

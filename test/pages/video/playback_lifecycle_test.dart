@@ -243,6 +243,36 @@ void main() {
     controller.closePlayback();
   });
 
+  test('互动视频先返回新节点，迟到的旧节点不覆盖可选分支', () async {
+    final controller = page()..graphVersion = 1;
+    addTearDown(controller.closePlayback);
+
+    final old = controller.getSteinEdgeInfo(1);
+    final oldRequest = await adapter.next();
+    final current = controller.getSteinEdgeInfo(2);
+    final currentRequest = await adapter.next();
+    Map<String, Object?> branch(int edge) => {
+      'edges': {
+        'questions': [
+          {
+            'choices': [
+              {'id': edge, 'cid': edge, 'option': '分支 $edge'},
+            ],
+          },
+        ],
+      },
+    };
+    currentRequest.complete(branch(2));
+    await current;
+    oldRequest.complete(branch(1));
+    await old;
+
+    expect(
+      controller.steinEdgeInfo?.edges?.questions?.single.choices?.single.id,
+      2,
+    );
+  });
+
   test('本地文件暂停且关闭预加载时，手动重试仍执行页面加载', () async {
     final controller = page()
       ..isFileSource = true

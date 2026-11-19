@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/playback/application/live_chat_queries.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_user_list.dart';
@@ -48,7 +49,7 @@ class LiveBlockNotifier extends AsyncNotifier<LiveBlockState> {
   Future<LiveBlockState> build() async {
     final account = ref.watch(mainAccountProvider);
     if (!account.isLogin) throw const Error('账号未登录');
-    final result = await LiveHttp.getLiveInfoByUser(roomId, account: account);
+    final result = await LiveChatQueries.blockRules(roomId, account);
     final rules = result.data;
     if (rules == null) throw const Error('屏蔽规则响应不完整');
     return LiveBlockState(
