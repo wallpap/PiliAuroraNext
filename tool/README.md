@@ -12,6 +12,7 @@
 | `run-native-probes.ps1` | 使用项目固定 Flutter 源码执行 Android 主机 Java 探针。 |
 | `check-tooling.ps1` | Python 语法与 Ruff、PowerShell 语法与 PSScriptAnalyzer 扫描。 |
 | `check_dependencies.dart` | 依赖版本、来源和许可证验收。 |
+| `analyze-protocol.ps1` | 单独分析 Bilibili 生成协议快照。 |
 | `export_shortcut_icons.py` | 从 Android mdpi 源图生成快捷方式图标的其他密度，保留日夜配置。 |
 | `verify_libmpv.py` | 校验 Windows libmpv 下载归档、合并通知及原文哈希。 |
 | [`packaging/`](packaging/README.md) | Windows 打包前置、程序文件清单及覆盖安装回归。 |
