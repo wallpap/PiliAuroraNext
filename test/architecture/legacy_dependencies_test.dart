@@ -31,7 +31,6 @@ const _legacyUtilities = {
   'utils/storage.dart',
   'utils/storage_pref.dart',
   'utils/storage_utils.dart',
-  'utils/subtitle_utils.dart',
   'utils/video_utils.dart',
   'utils/wbi_sign.dart',
 };

@@ -2,6 +2,9 @@ import 'dart:io' show Cookie;
 
 import 'package:pili_aurora_next/features/account/data/cookie_login_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/login.dart';
+import 'package:pili_aurora_next/models/login/model.dart';
+import 'package:pili_aurora_next/models/login/result.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -10,6 +13,111 @@ class LoginSession {
   const LoginSession();
 
   bool get mainIsLoggedIn => Accounts.main.isLogin;
+
+  Future<LoadingState<({String authCode, String url})>> requestQr() =>
+      LoginHttp.getHDcode();
+
+  Future<LoginResult> pollQr(String authCode) => LoginHttp.codePoll(authCode);
+
+  Future<LoginResult?> submitPassword({
+    required String username,
+    required String password,
+    required CaptchaDataModel captcha,
+    required bool Function() isCurrent,
+  }) async {
+    final (:challenge, :seccode, :validate, :token) = _captcha(captcha);
+    final webKey = await LoginHttp.getWebKey();
+    if (!isCurrent()) return null;
+    if (!webKey.isSuccess) return webKey;
+    final salt = webKey.data['hash'];
+    if (salt is! String) {
+      return LoginResult.failure('登录服务返回的数据不完整，请重试');
+    }
+    return LoginHttp.loginByPwd(
+      username: username,
+      password: password,
+      key: webKey.data['key'],
+      salt: salt,
+      geeChallenge: challenge,
+      geeSeccode: seccode,
+      geeValidate: validate,
+      recaptchaToken: token,
+    );
+  }
+
+  Future<LoginResult?> submitSms({
+    required String tel,
+    required String code,
+    required String captchaKey,
+    required Object cid,
+    required bool Function() isCurrent,
+  }) async {
+    final webKey = await LoginHttp.getWebKey();
+    if (!isCurrent()) return null;
+    if (!webKey.isSuccess) return webKey;
+    return LoginHttp.loginBySms(
+      tel: tel,
+      code: code,
+      captchaKey: captchaKey,
+      cid: cid,
+      key: webKey.data['key'],
+    );
+  }
+
+  Future<LoginResult> requestSms({
+    required String tel,
+    required Object cid,
+    required CaptchaDataModel captcha,
+  }) => LoginHttp.sendSmsCode(
+    tel: tel,
+    cid: cid,
+    geeChallenge: captcha.geetest?.challenge,
+    geeSeccode: captcha.seccode,
+    geeValidate: captcha.validate,
+    recaptchaToken: captcha.token,
+  );
+
+  Future<LoginResult> requestCaptcha() => LoginHttp.preCapture();
+
+  Future<LoginResult> getRiskAccount(Uri uri) =>
+      LoginHttp.safeCenterGetInfo(tmpCode: uri.queryParameters['tmp_token']!);
+
+  Future<LoginResult> requestRiskSms({
+    required Uri uri,
+    required String challenge,
+    required CaptchaDataModel captcha,
+  }) => LoginHttp.safeCenterSmsCode(
+    tmpCode: uri.queryParameters['tmp_token']!,
+    geeChallenge: challenge,
+    geeSeccode: captcha.seccode,
+    geeValidate: captcha.validate,
+    recaptchaToken: captcha.token,
+    refererUrl: uri.toString(),
+  );
+
+  Future<LoginResult> verifyRiskSms({
+    required Uri uri,
+    required String code,
+    required String captchaKey,
+  }) => LoginHttp.safeCenterSmsVerify(
+    code: code,
+    tmpCode: uri.queryParameters['tmp_token']!,
+    requestId: uri.queryParameters['request_id']!,
+    source: uri.queryParameters['source']!,
+    captchaKey: captchaKey,
+    refererUrl: uri.toString(),
+  );
+
+  Future<LoginResult> exchangeRiskCode(String code) =>
+      LoginHttp.oauth2AccessToken(code: code);
+
+  ({String? challenge, String? seccode, String? validate, String? token})
+  _captcha(CaptchaDataModel captcha) => (
+    challenge: captcha.geetest?.challenge,
+    seccode: captcha.seccode,
+    validate: captcha.validate,
+    token: captcha.token,
+  );
 
   Future<LoadingState<void>?> loginWithCookie(
     String input, {

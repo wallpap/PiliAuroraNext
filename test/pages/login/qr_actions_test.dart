@@ -17,8 +17,8 @@ import '../../support/memory_box.dart';
 class _Controller extends LoginPageController {
   int refreshCount = 0;
   @override
-  void onInit() {
-    super.onInit();
+  void attach(TickerProvider vsync) {
+    super.attach(vsync);
     tabController.index = 2;
   }
 
@@ -77,7 +77,6 @@ void main() {
       authCode: 'first',
       url: 'https://qr.test/first',
     ));
-    Get.put<LoginPageController>(controller);
     previousPicker = FilePickerPlatform.instance;
     picker = _Picker();
     FilePickerPlatform.instance = picker;
@@ -107,7 +106,7 @@ void main() {
       GetMaterialApp(
         builder: FlutterSmartDialog.init(),
         navigatorObservers: [routeObserver, FlutterSmartDialog.observer],
-        home: const LoginPage(),
+        home: LoginPage(createController: () => controller),
       ),
     );
     await tester.pumpAndSettle();

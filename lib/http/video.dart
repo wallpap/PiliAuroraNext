@@ -39,12 +39,10 @@ import 'package:pili_aurora_next/utils/recommend_filter.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/subtitle_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/services/blocked_authors.dart';
 import 'package:pili_aurora_next/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show compute;
 import 'package:protobuf/protobuf.dart';
 
 /// view层根据 status 判断渲染逻辑
@@ -1037,45 +1035,6 @@ abstract final class VideoHttp {
         decode: (body) {
           return PlayInfoData.fromJson(body['data']);
         },
-      );
-    } catch (error, stackTrace) {
-      return Error.fromException(error, stackTrace);
-    }
-  }
-
-  static Future<LoadingState<String>> getSubtitles(
-    String subtitleUrl, {
-    SubtitleFormat format = .vtt,
-  }) async {
-    final url = subtitleUrl.startsWith('//')
-        ? 'https:$subtitleUrl'
-        : subtitleUrl;
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        !['http', 'https'].contains(uri.scheme) ||
-        uri.host.isEmpty) {
-      return const Error('字幕地址无效，请重新选择');
-    }
-    Request();
-    try {
-      final response = await Request.dio.get<dynamic>(
-        url,
-        options: Options(extra: {'account': const NoAccount()}),
-      );
-      final data = response.data;
-      final body = data is Map<String, dynamic> ? data['body'] : null;
-      if (body is! List) throw const FormatException('字幕响应缺少正文列表');
-      final subtitle = switch (format) {
-        .json => jsonEncode(data),
-        .vtt => await compute<List, String>(SubtitleUtils.json2Vtt, body),
-        .srt => await compute<List, String>(SubtitleUtils.json2Srt, body),
-      };
-      return Success(subtitle);
-    } on DioException catch (error, stackTrace) {
-      return await decodeApiException(
-        error,
-        stackTrace,
-        kind: ApiCallKind.query,
       );
     } catch (error, stackTrace) {
       return Error.fromException(error, stackTrace);

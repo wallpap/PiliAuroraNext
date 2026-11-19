@@ -163,10 +163,7 @@ pages/live_room/widgets/chat_panel.dart -> utils/accounts.dart
 pages/live_room/widgets/desktop_sidebar.dart -> http/live.dart
 pages/live_room/widgets/desktop_sidebar.dart -> utils/accounts.dart
 pages/log_table/controller.dart -> http/user.dart
-pages/login/controller.dart -> http/login.dart
-pages/login/controller.dart#LoginPageController -> GetxController
 pages/login/geetest/geetest_webview_dialog.dart -> http/browser_ua.dart
-pages/login_devices/controller.dart -> http/login.dart
 pages/main/controller.dart -> utils/accounts.dart
 pages/main/controller.dart -> utils/storage.dart
 pages/main/controller.dart -> utils/storage_pref.dart
@@ -211,8 +208,6 @@ pages/setting/models/content_settings.dart -> utils/storage_pref.dart
 pages/setting/models/model.dart -> utils/storage.dart
 pages/setting/models/play_settings.dart -> utils/storage.dart
 pages/setting/models/play_settings.dart -> utils/storage_pref.dart
-pages/setting/models/privacy_settings.dart -> http/login.dart
-pages/setting/models/privacy_settings.dart -> utils/accounts.dart
 pages/setting/models/recommend_settings.dart -> http/video.dart
 pages/setting/models/recommend_settings.dart -> utils/recommend_filter.dart
 pages/setting/models/style_settings.dart -> utils/global_data.dart
@@ -345,16 +340,12 @@ pages/video/widgets/danmaku_like_control.dart -> http/danmaku.dart
 pages/video/widgets/danmaku_like_control.dart -> utils/accounts.dart
 pages/video/widgets/header_control.dart -> http/danmaku.dart
 pages/video/widgets/header_control.dart -> http/danmaku_block.dart
-pages/video/widgets/header_control.dart -> http/init.dart
 pages/video/widgets/header_control.dart -> http/live.dart
-pages/video/widgets/header_control.dart -> http/video.dart
-pages/video/widgets/header_control.dart -> package:dio/dio.dart
 pages/video/widgets/header_control.dart -> package:hive_ce/hive.dart
 pages/video/widgets/header_control.dart -> utils/accounts.dart
 pages/video/widgets/header_control.dart -> utils/storage.dart
 pages/video/widgets/header_control.dart -> utils/storage_pref.dart
 pages/video/widgets/header_control.dart -> utils/storage_utils.dart
-pages/video/widgets/header_control.dart -> utils/subtitle_utils.dart
 pages/video/widgets/header_mixin.dart -> utils/storage.dart
 pages/video/widgets/header_mixin.dart -> utils/storage_pref.dart
 pages/video/widgets/more_settings_sheet.dart -> utils/accounts.dart

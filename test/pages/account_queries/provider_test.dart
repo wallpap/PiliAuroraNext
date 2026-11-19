@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/loading_state.dart' as loading;
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/log_table/controller.dart';
 import 'package:pili_aurora_next/pages/log_table/view.dart';
-import 'package:pili_aurora_next/pages/login_devices/controller.dart';
+import 'package:pili_aurora_next/features/account/application/login_devices.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';

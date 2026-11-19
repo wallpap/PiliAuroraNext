@@ -92,6 +92,7 @@ void main() {
     'following',
     'community',
     'member_space',
+    'playback',
     'history',
     'favorites',
     'subscriptions',

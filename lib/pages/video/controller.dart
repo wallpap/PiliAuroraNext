@@ -36,6 +36,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_pbp/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
+import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
 import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
@@ -1435,7 +1436,8 @@ class VideoDetailController extends GetxController
   }
 
   RxList<Subtitle> subtitles = RxList<Subtitle>();
-  final Map<int, ({bool isData, String id})> vttSubtitles = {};
+  final subtitleSources = SubtitleSources();
+  Map<int, SubtitleSource> get vttSubtitles => subtitleSources.snapshot;
   late final vttSubtitlesIndex = (-1).obs;
   bool? inheritedSubtitleEnabled;
   late final showVP = true.obs;
@@ -1443,6 +1445,21 @@ class VideoDetailController extends GetxController
 
   // 设定字幕轨道
   int _subtitleGeneration = 0;
+  bool Function() captureSubtitleMedia() => _mediaGuard();
+
+  Future<void> addLocalSubtitle(
+    String path,
+    String name, {
+    required bool Function() isCurrent,
+  }) async {
+    final source = await SubtitleSources.importFile(path, name);
+    if (!isCurrent()) return;
+    final index = subtitles.length;
+    subtitleSources.remember(index, source);
+    subtitles.add(Subtitle(lan: '', lanDoc: name.split('.').first));
+    await setSubtitle(index + 1);
+  }
+
   Future<void> setSubtitle(int index) async {
     final generation = ++_subtitleGeneration;
     final currentMedia = _mediaGuard();
@@ -1466,18 +1483,17 @@ class VideoDetailController extends GetxController
       return;
     }
     final item = subtitles[index - 1];
-    var subtitle = vttSubtitles[index - 1];
-    if (subtitle == null) {
-      final result = await VideoHttp.getSubtitles(item.subtitleUrl ?? '');
-      if (!valid()) return;
-      if (result is! Success<String>) {
-        result.toast();
-        return;
-      }
-      subtitle = (isData: true, id: result.response);
-      vttSubtitles[index - 1] = subtitle;
+    final source = await subtitleSources.forPlayback(
+      index - 1,
+      item.subtitleUrl ?? '',
+      isCurrent: valid,
+    );
+    if (!valid() || source == null) return;
+    if (source is! Success<SubtitleSource>) {
+      unawaited(source.toast());
+      return;
     }
-    if (!valid()) return;
+    final subtitle = source.response;
     final result = await applyPlaybackSubtitleTrack(
       PlaybackSubtitleTrack.external(
         subtitle.isData ? 'memory://${subtitle.id}' : subtitle.id,
@@ -1526,7 +1542,7 @@ class VideoDetailController extends GetxController
 
   Future<void> _queryPlayInfo({required bool Function() isCurrent}) async {
     if (!isCurrent()) return;
-    vttSubtitles.clear();
+    subtitleSources.clear();
     vttSubtitlesIndex.value = 0;
     if (plPlayerController.showViewPoints) {
       viewPointList.clear();
@@ -1704,7 +1720,7 @@ class VideoDetailController extends GetxController
       ?..removeListener(_animListener)
       ..dispose();
     subtitles.clear();
-    vttSubtitles.clear();
+    subtitleSources.clear();
     super.onClose();
   }
 
@@ -1727,7 +1743,7 @@ class VideoDetailController extends GetxController
     // subtitle
     subtitles.clear();
     vttSubtitlesIndex.value = -1;
-    vttSubtitles.clear();
+    subtitleSources.clear();
 
     if (!isFileSource) {
       // language

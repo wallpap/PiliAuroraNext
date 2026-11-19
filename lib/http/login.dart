@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/login_devices/data.dart';
+import 'package:pili_aurora_next/features/account/data/login_devices_data.dart';
 import 'package:pili_aurora_next/models/login/result.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_sign.dart';

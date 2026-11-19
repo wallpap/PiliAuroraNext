@@ -1,9 +1,6 @@
 import 'dart:async' show Timer, unawaited;
-import 'dart:convert' show jsonDecode, utf8;
-import 'dart:io' show Platform, File;
-import 'dart:typed_data' show Uint8List;
+import 'dart:io' show Platform;
 
-import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
@@ -11,12 +8,10 @@ import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
 import 'package:pili_aurora_next/http/danmaku.dart';
 import 'package:pili_aurora_next/http/danmaku_block.dart';
-import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
@@ -33,23 +28,19 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dar
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_controls.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/storage_utils.dart';
-import 'package:pili_aurora_next/utils/subtitle_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:collection/collection.dart';
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show compute, kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -386,6 +377,8 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   Future<void> loadLocalSubtitle() async {
+    final currentMedia = videoDetailCtr.captureSubtitleMedia();
+    bool isCurrent() => mounted && currentMedia();
     try {
       final result = await FilePicker.pickFile(
         type: .custom,
@@ -397,48 +390,16 @@ class HeaderControlState extends State<HeaderControl>
           'bcc',
         ],
       );
-      if (result != null) {
+      if (result != null && isCurrent()) {
         final file = result.xFile;
-        final path = file.path;
-        final name = file.name;
-        final length = videoDetailCtr.subtitles.length;
-        if (name.endsWith('.json') || name.endsWith('.bcc')) {
-          final file = File(path);
-          final stream = file.openRead().transform(
-            utf8.decoder,
-          );
-          final buffer = StringBuffer();
-          await for (final chunk in stream) {
-            if (!mounted) return;
-            buffer.write(chunk);
-          }
-          if (!mounted) return;
-          String sub = buffer.toString();
-          sub = await compute<List, String>(
-            SubtitleUtils.json2Vtt,
-            jsonDecode(sub)['body'],
-          );
-          if (!mounted) return;
-          videoDetailCtr.vttSubtitles[length] = (
-            isData: true,
-            id: sub,
-          );
-        } else {
-          videoDetailCtr.vttSubtitles[length] = (
-            isData: false,
-            id: path,
-          );
-        }
-        videoDetailCtr.subtitles.add(
-          Subtitle(
-            lan: '',
-            lanDoc: name.split('.').firstOrNull ?? name,
-          ),
+        await videoDetailCtr.addLocalSubtitle(
+          file.path,
+          file.name,
+          isCurrent: isCurrent,
         );
-        await videoDetailCtr.setSubtitle(length + 1);
       }
     } catch (e) {
-      SmartDialog.showToast('加载失败: $e');
+      if (isCurrent()) SmartDialog.showToast('加载失败: $e');
     }
   }
 
@@ -455,6 +416,7 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   void onExportSubtitle() {
+    final currentMedia = videoDetailCtr.captureSubtitleMedia();
     final video = videoDetailCtr.bvid;
     final part = videoDetailCtr.cid.value;
     final videoDetail = introController.videoDetail.value;
@@ -497,49 +459,17 @@ class HeaderControlState extends State<HeaderControl>
                 final url = item.subtitleUrl;
                 if (url == null || url.isEmpty) return;
                 try {
-                  final Uint8List bytes;
-                  switch (format) {
-                    case .vtt || .srt:
-                      var subtitle = format == .vtt
-                          ? cachedSubtitles[i]?.id
-                          : null;
-                      if (subtitle == null) {
-                        final res = await VideoHttp.getSubtitles(
-                          item.subtitleUrl!,
-                          format: format,
-                        );
-                        if (res is! Success<String>) {
-                          res.toast();
-                          return;
-                        }
-                        subtitle = res.response;
-                        if (format == .vtt &&
-                            !videoDetailCtr.isClosed &&
-                            video == videoDetailCtr.bvid &&
-                            part == videoDetailCtr.cid.value) {
-                          videoDetailCtr.vttSubtitles[i] = (
-                            isData: true,
-                            id: res.response,
-                          );
-                        }
-                      }
-                      bytes = utf8.encode(subtitle);
-                    case .json:
-                      final res = await Request.dio.get<Uint8List>(
-                        url.http2https,
-                        options: Options(
-                          responseType: .bytes,
-                          headers: Constants.baseHeaders,
-                          extra: {'account': const NoAccount()},
-                        ),
-                      );
-                      if (res.statusCode != 200) return;
-                      bytes = Uint8List.fromList(
-                        Request.responseBytesDecoder(
-                          res.data!,
-                          res.headers.map,
-                        ),
-                      );
+                  final result = await videoDetailCtr.subtitleSources.forExport(
+                    url,
+                    format,
+                    index: i,
+                    cached: cachedSubtitles[i],
+                    isCurrent: currentMedia,
+                  );
+                  if (result == null) return;
+                  if (result case Error()) {
+                    unawaited(result.toast());
+                    return;
                   }
                   final name =
                       '${videoDetail.title}-${videoDetail.owner?.name}(${videoDetail.owner?.mid})-$video-$part-${item.lanDoc}.${format.name}'
@@ -550,7 +480,7 @@ class HeaderControlState extends State<HeaderControl>
                   // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
                   await StorageUtils.saveBytes2File(
                     name: name,
-                    bytes: bytes,
+                    bytes: result.data,
                     allowedExtensions: [format.name],
                   );
                 } catch (e, s) {

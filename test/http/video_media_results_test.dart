@@ -10,7 +10,8 @@ import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/subtitle_utils.dart';
+import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
+import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 
 import '../support/memory_box.dart';
 
@@ -147,20 +148,20 @@ void main() {
       ],
     };
     expect(
-      (await VideoHttp.getSubtitles('//fixture.test/a')).data,
+      (await SubtitleRepository.fetch('//fixture.test/a')).data,
       contains('WEBVTT'),
     );
     expect(requests.last.uri.toString(), 'https://fixture.test/a');
     expect(requests.last.extra['account'], isA<NoAccount>());
     expect(
-      (await VideoHttp.getSubtitles(
+      (await SubtitleRepository.fetch(
         'https://fixture.test/a',
         format: SubtitleFormat.srt,
       )).data,
       contains('00:00:00,000'),
     );
     expect(
-      (await VideoHttp.getSubtitles(
+      (await SubtitleRepository.fetch(
         'https://fixture.test/a',
         format: SubtitleFormat.json,
       )).data,
@@ -168,12 +169,12 @@ void main() {
     );
     body = {'body': <Object>[]};
     expect(
-      (await VideoHttp.getSubtitles('https://fixture.test/a')).data,
+      (await SubtitleRepository.fetch('https://fixture.test/a')).data,
       'WEBVTT\n\n',
     );
   });
   test('字幕失败不再等同无数据，非法地址不发送、转换异常和断连可诊断', () async {
-    final invalid = await VideoHttp.getSubtitles('file:///private-file');
+    final invalid = await SubtitleRepository.fetch('file:///private-file');
     expect(invalid, isA<Error>());
     expect(requests, isEmpty);
     for (final data in [
@@ -186,13 +187,13 @@ void main() {
     ]) {
       body = data;
       final result =
-          await VideoHttp.getSubtitles('https://fixture.test/a') as Error;
+          await SubtitleRepository.fetch('https://fixture.test/a') as Error;
       expect(result.cause, isNotNull);
       expect(result.stackTrace, isNotNull);
     }
     fail = true;
     final failed =
-        await VideoHttp.getSubtitles('https://fixture.test/a') as Error;
+        await SubtitleRepository.fetch('https://fixture.test/a') as Error;
     expect(failed.cause, same(lastError));
   });
   test('AI 总结保留内外业务状态，预览无数据与坏响应均有明确结果', () async {
