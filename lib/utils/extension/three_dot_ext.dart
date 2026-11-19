@@ -1,6 +1,4 @@
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
-    show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/common_whisper_controller.dart';
 import 'package:pili_aurora_next/pages/contact/view.dart';
@@ -68,9 +66,7 @@ extension SessionMenuActionExt on SessionMenuAction {
         );
       case SessionMenuAction.messageSettings:
         Get.to(
-          const WhisperSettingsPage(
-            imSettingType: IMSettingType.SETTING_TYPE_NEED_ALL,
-          ),
+          const WhisperSettingsPage(),
         );
       case SessionMenuAction.upHelper:
         final id = RegExp(r'/(\d{3,})').firstMatch(item.url)?.group(1);

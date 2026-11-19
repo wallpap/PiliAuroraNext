@@ -302,5 +302,3 @@ pages/webview/view.dart -> http/browser_ua.dart
 pages/webview/view.dart -> utils/accounts.dart
 pages/webview/view.dart -> utils/login_utils.dart
 pages/whisper/controller.dart -> utils/storage_pref.dart
-pages/whisper_settings/view.dart -> generated/bilibili/app/im/v1.pb.dart
-pages/whisper_settings/widgets/item.dart -> generated/bilibili/app/im/v1.pb.dart
