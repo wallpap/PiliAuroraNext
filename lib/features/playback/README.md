@@ -7,6 +7,8 @@
 - `application/danmaku_block.dart` 管理主账号的屏蔽规则查询和串行写入。页面将已确认规则应用到当前播放器。HTTP 映射和本地缓存归 `data/`，保留 Hive 的类型编号和字段布局。无法编译的服务端正则仍可查看和删除，其余有效规则继续生效。
 - 点播弹幕的覆盖通知、过滤缓存和离线下载共用 `features/danmaku/domain/danmaku_segment.dart` 定义的分段长度。渲染器位置映射位于弹幕展示层。
 - `application/audio_media.dart` 解析音频媒体源，传输协议、音轨与音量字段映射留在 `data/`。
+- `application/audio_preferences.dart` 区分移动端音量百分比和桌面音量比例，页面不直接写设置键。点播与直播通过共享播放器管理各自的弹幕开关，临时配置只更新当前播放器。
+- `application/offline_progress.dart` 统一主窗口和独立播放窗口的离线进度存取；已播到末尾的分 P 下次从头播放。
 - `application/live_chat_connection.dart` 持有直播消息流、连接代次和凭据缓存；房间切换释放旧连接，页面仍管理聊天列表及滚动。
 - 定时关闭由应用持有，主窗口退出和应用卸载时取消定时并释放绑定。播放路由通过 `ShutdownTimerService` 绑定当前点播、直播或独立音频实例。倒计时可随点播和直播交接，等待播完后只接收当时绑定的完成信号，换绑会取消该等待。独立音频优先接管，释放当前音频绑定时取消定时。直播到点直接执行。弹层在 `presentation/shutdown_timer_dialog.dart`。
 - 弹幕解码与合并共用[进程工作配额](../danmaku/application/work_quota.dart)。应用卸载时取消排队任务并关闭容量通知，在途任务结束时归还已有预留。

@@ -70,6 +70,7 @@ void main() {
 
   testWidgets('同一转场标识的点播路由独立持有播放与窗口交接', (tester) async {
     await GStorage.setting.put(SettingBoxKey.autoPlayEnable, false);
+    await GStorage.watchProgress.putAll({'11': 12000, '12': 59800});
     ThemeUtils.getAllTheme();
     addTearDown(() async {
       Get.reset();
@@ -118,6 +119,8 @@ void main() {
     expect(second, isNot(same(first)));
     expect(first.cid.value, 11);
     expect(second.cid.value, 12);
+    expect(first.defaultST, const Duration(seconds: 12));
+    expect(second.defaultST, Duration.zero);
     expect(second.playbackOwner.isActive, isTrue);
     int? windowCid() =>
         (first.plPlayerController.desktopPlaybackRequest?.call().arguments
@@ -134,6 +137,35 @@ void main() {
     expect(first.isClosed, isTrue);
     expect(windowCid(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('点播与直播弹幕开关分别保存，临时设置不落盘', () async {
+    final controller = page();
+    final player = controller.plPlayerController;
+    final video = player.enableShowDanmaku.value;
+    final live = player.enableShowLiveDanmaku.value;
+    try {
+      await player.toggleDanmakuVisibility(live: false);
+      expect(player.enableShowDanmaku.value, !video);
+      expect(player.enableShowLiveDanmaku.value, live);
+      expect(GStorage.setting.get(SettingBoxKey.enableShowDanmaku), !video);
+
+      await player.toggleDanmakuVisibility(live: true);
+      expect(player.enableShowLiveDanmaku.value, !live);
+      expect(GStorage.setting.get(SettingBoxKey.enableShowLiveDanmaku), !live);
+
+      await GStorage.setting.put(SettingBoxKey.tempPlayerConf, true);
+      await player.toggleDanmakuVisibility(live: true);
+      expect(player.enableShowLiveDanmaku.value, live);
+      expect(GStorage.setting.get(SettingBoxKey.enableShowLiveDanmaku), !live);
+    } finally {
+      player.enableShowDanmaku.value = video;
+      player.enableShowLiveDanmaku.value = live;
+      await GStorage.setting.delete(SettingBoxKey.enableShowDanmaku);
+      await GStorage.setting.delete(SettingBoxKey.enableShowLiveDanmaku);
+      await GStorage.setting.delete(SettingBoxKey.tempPlayerConf);
+      controller.closePlayback();
+    }
   });
 
   test('快速切集执行新请求，旧响应不能初始化新集', () async {
@@ -191,12 +223,14 @@ void main() {
     expect(next.mediaOptions['demuxer-max-bytes'], '${32 * 1024 * 1024}');
     expect(first.mediaOptions['video-sync'], 'display-resample');
     controller.closePlayback();
-    await GStorage.setting.deleteAll([
+    for (final key in [
       SettingBoxKey.videoSync,
       SettingBoxKey.autosync,
       SettingBoxKey.bufferSec,
       SettingBoxKey.bufferSize,
-    ]);
+    ]) {
+      await GStorage.setting.delete(key);
+    }
   });
 
   test('缓存策略只影响下一次点播配置，直播保留独立预算', () async {

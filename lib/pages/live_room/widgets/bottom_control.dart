@@ -12,8 +12,6 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_volume_control.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -140,16 +138,9 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
                               CustomIcons.dm_off,
                               color: Colors.white,
                             ),
-                      onTap: () {
-                        final newVal = !enableShowLiveDanmaku;
-                        plPlayerController.enableShowLiveDanmaku.value = newVal;
-                        if (!plPlayerController.tempPlayerConf) {
-                          GStorage.setting.put(
-                            SettingBoxKey.enableShowLiveDanmaku,
-                            newVal,
-                          );
-                        }
-                      },
+                      onTap: () => plPlayerController.toggleDanmakuVisibility(
+                        live: true,
+                      ),
                     );
                   },
                 ),

@@ -397,6 +397,23 @@ class PlPlayerController
   RxBool get enableShowDanmakuAdaptive =>
       isLive ? enableShowLiveDanmaku : enableShowDanmaku;
 
+  Future<void> toggleDanmakuVisibility({required bool live}) async {
+    final visibility = live ? enableShowLiveDanmaku : enableShowDanmaku;
+    final enabled = !visibility.value;
+    visibility.value = enabled;
+    if (tempPlayerConf) return;
+    try {
+      await setting.put(
+        live
+            ? SettingBoxKey.enableShowLiveDanmaku
+            : SettingBoxKey.enableShowDanmaku,
+        enabled,
+      );
+    } catch (error, stackTrace) {
+      logger.w('保存弹幕开关失败', error: error.runtimeType, stackTrace: stackTrace);
+    }
+  }
+
   late final RxBool autoPipEnabled = Pref.autoPiP.obs;
   bool get autoPiP => autoPipEnabled.value;
   late final RxBool pauseOnMinimize = WindowPreference.pauseOnMinimize

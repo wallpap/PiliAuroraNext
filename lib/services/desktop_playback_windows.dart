@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/window_coordinator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_layout.dart';
@@ -256,11 +257,10 @@ class DesktopPlaybackWindows with WindowListener {
       case 'solo':
         await _solo(window);
       case 'progress':
-        final cid = message['cid'] as int;
-        final position = message['position'] as int;
-        if (cid > 0 && position >= 0) {
-          await GStorage.watchProgress.put(cid.toString(), position);
-        }
+        await OfflineProgress.record(
+          message['cid'] as int,
+          message['position'] as int,
+        );
       case 'failed':
         if (!window.ready.isCompleted) {
           window.ready.completeError(StateError('播放窗口初始化失败'));
@@ -382,7 +382,12 @@ class DesktopPlaybackWindows with WindowListener {
       exited = true;
       if (!window.ready.isCompleted) {
         window.ready.completeError(
-          ProcessException('PiliAuroraNext Player', const [], '播放窗口就绪前退出', code),
+          ProcessException(
+            'PiliAuroraNext Player',
+            const [],
+            '播放窗口就绪前退出',
+            code,
+          ),
           StackTrace.current,
         );
       }

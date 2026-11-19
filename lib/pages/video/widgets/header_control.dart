@@ -26,8 +26,6 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_control
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/storage_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -39,7 +37,6 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
@@ -183,8 +180,6 @@ class HeaderControlState extends State<HeaderControl>
   bool get isPortrait => widget.isPortrait;
   @override
   late final horizontalScreen = videoDetailCtr.horizontalScreen;
-
-  Box setting = GStorage.setting;
 
   /// 播放前后共用同一个更多面板。
   void showSettingSheet() {
@@ -972,16 +967,8 @@ class HeaderControlState extends State<HeaderControl>
                       return IconButton(
                         tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
                         style: btnStyle,
-                        onPressed: () {
-                          final newVal = !enableShowDanmaku;
-                          plPlayerController.enableShowDanmaku.value = newVal;
-                          if (!plPlayerController.tempPlayerConf) {
-                            setting.put(
-                              SettingBoxKey.enableShowDanmaku,
-                              newVal,
-                            );
-                          }
-                        },
+                        onPressed: () => plPlayerController
+                            .toggleDanmakuVisibility(live: false),
                         icon: enableShowDanmaku
                             ? const Icon(
                                 size: 20,

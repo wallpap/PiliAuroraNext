@@ -55,8 +55,6 @@ import 'package:pili_aurora_next/utils/mobile_observer.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -825,17 +823,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                       height: 34,
                       child: IconButton(
                         style: IconButton.styleFrom(padding: .zero),
-                        onPressed: () {
-                          final newVal = !enableShowLiveDanmaku;
-                          plPlayerController.enableShowLiveDanmaku.value =
-                              newVal;
-                          if (!plPlayerController.tempPlayerConf) {
-                            GStorage.setting.put(
-                              SettingBoxKey.enableShowLiveDanmaku,
-                              newVal,
-                            );
-                          }
-                        },
+                        onPressed: () => plPlayerController
+                            .toggleDanmakuVisibility(live: true),
                         icon: enableShowLiveDanmaku
                             ? const Icon(
                                 size: 22,

@@ -13,6 +13,7 @@ import 'package:pili_aurora_next/features/favorites/application/favorite_library
 import 'package:pili_aurora_next/features/playback/application/audio_interactions.dart';
 import 'package:pili_aurora_next/features/playback/application/audio_media.dart';
 import 'package:pili_aurora_next/features/playback/application/audio_playlist.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/http/browser_ua.dart';
 import 'package:pili_aurora_next/http/constants.dart';
@@ -45,8 +46,6 @@ import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
@@ -258,14 +257,14 @@ class AudioController with AudioNormalizationMixin {
     }
   }
 
-  late final _playMode = ValueNotifier(Pref.audioPlayMode);
+  late final _playMode = ValueNotifier(AudioPreferences.playMode);
   ValueListenable<PlayRepeat> get playMode => _playMode;
 
   Future<void> changePlayMode(PlayRepeat mode) async {
     if (_audioClosed || playMode.value == mode) return;
     _playMode.value = mode;
     try {
-      await GStorage.setting.put(SettingBoxKey.audioPlayMode, mode.index);
+      await AudioPreferences.savePlayMode(mode);
     } catch (error, stack) {
       if (!_audioClosed && playMode.value == mode) {
         _reportControlFailure('播放模式设置保存失败，请重试', error, stack);
@@ -344,18 +343,19 @@ class AudioController with AudioNormalizationMixin {
   Future<void> setPlayerVolumePercent(double value) async {
     if (!await setVolume(value / 100)) return;
     await _saveVolume(
-      SettingBoxKey.playerVolume,
-      volumePercent(desktopVolume.value),
+      () => AudioPreferences.saveMobileVolumePercent(
+        volumePercent(desktopVolume.value),
+      ),
     );
   }
 
-  Future<void> _saveVolume(String key, double value) async {
+  Future<void> _saveVolume(Future<void> Function() save) async {
     final target = player;
     final generation = _playGeneration;
     final account = Accounts.main;
     final revision = _volumeRevision;
     try {
-      await GStorage.setting.put(key, value);
+      await save();
     } catch (error, stack) {
       if (_ownsControl(target, generation, account) &&
           revision == _volumeRevision) {
@@ -370,7 +370,9 @@ class AudioController with AudioNormalizationMixin {
     final generation = _playGeneration;
     final account = Accounts.main;
     final revision = _volumeRevision;
-    await _saveVolume(SettingBoxKey.desktopVolume, roundVolumeRatio(volume));
+    await _saveVolume(
+      () => AudioPreferences.saveDesktopVolumeRatio(roundVolumeRatio(volume)),
+    );
     if (!_ownsControl(target, generation, account) ||
         revision != _volumeRevision) {
       return;

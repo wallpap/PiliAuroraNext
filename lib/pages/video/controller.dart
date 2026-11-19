@@ -34,6 +34,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
 import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
 import 'package:pili_aurora_next/features/playback/application/cast_media.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
 import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
@@ -70,7 +71,6 @@ import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -80,7 +80,6 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart' hide Subtitle;
 
@@ -229,8 +228,6 @@ class VideoDetailController with BlockMixin {
   double? brightness;
 
   late final headerCtrKey = GlobalKey<TimeBatteryMixin>();
-
-  Box setting = GStorage.setting;
 
   // 预设的解码格式
   late List<VideoDecodeFormatType> preferCodecs = Pref.preferCodecs;
@@ -404,12 +401,12 @@ class VideoDetailController with BlockMixin {
 
   final isLoginVideo = Accounts.get(AccountType.video).isLogin;
 
-  late final watchProgress = GStorage.watchProgress;
   void cacheLocalProgress() {
-    if (plPlayerController.playerStatus.isCompleted) {
-      watchProgress.put(cid.value.toString(), entry.totalTimeMilli);
-    } else if (playedTime case final playedTime?) {
-      watchProgress.put(cid.value.toString(), playedTime.inMilliseconds);
+    final position = plPlayerController.playerStatus.isCompleted
+        ? entry.totalTimeMilli
+        : playedTime?.inMilliseconds;
+    if (position != null) {
+      unawaited(OfflineProgress.record(cid.value, position));
     }
   }
 
@@ -421,15 +418,7 @@ class VideoDetailController with BlockMixin {
       width: entry.ep?.width ?? entry.pageData?.width ?? 1,
       height: entry.ep?.height ?? entry.pageData?.height ?? 1,
     );
-    if (watchProgress.get(cid.value.toString()) case final int progress?) {
-      if (progress >= entry.totalTimeMilli - 400) {
-        defaultST = Duration.zero;
-      } else {
-        defaultST = Duration(milliseconds: progress);
-      }
-    } else {
-      defaultST = Duration.zero;
-    }
+    defaultST = OfflineProgress.resume(cid.value, entry.totalTimeMilli);
     data = PlayUrlModel(timeLength: entry.totalTimeMilli);
     _setVideoHeight();
   }

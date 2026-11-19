@@ -81,8 +81,6 @@ import 'package:pili_aurora_next/utils/mobile_observer.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
@@ -1521,16 +1519,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
                   final ctr = videoDetailController.plPlayerController;
                   final enableShowDanmaku = ctr.enableShowDanmaku.value;
                   return IconButton(
-                    onPressed: () {
-                      final newVal = !enableShowDanmaku;
-                      ctr.enableShowDanmaku.value = newVal;
-                      if (!ctr.tempPlayerConf) {
-                        GStorage.setting.put(
-                          SettingBoxKey.enableShowDanmaku,
-                          newVal,
-                        );
-                      }
-                    },
+                    onPressed: () => ctr.toggleDanmakuVisibility(live: false),
                     icon: Icon(
                       size: 22,
                       enableShowDanmaku
