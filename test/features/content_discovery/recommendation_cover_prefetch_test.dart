@@ -8,9 +8,7 @@ void main() {
     final requests = <String, Completer<void>>{};
     final prefetch = RecommendationCoverPrefetch((url) {
       return (requests[url] = Completer<void>()).future;
-    });
-
-    prefetch.update(['old-first', 'old-second']);
+    })..update(['old-first', 'old-second']);
     await tester.pump(const Duration(milliseconds: 120));
     expect(requests.keys, ['old-first']);
 

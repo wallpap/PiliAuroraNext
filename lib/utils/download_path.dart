@@ -43,8 +43,9 @@ Future<String> _resolveDownloadPath() async {
     }
   } else if (Platform.isAndroid) {
     final external = await getExternalStorageDirectory();
-    if (external != null)
+    if (external != null) {
       return path.join(external.path, PathUtils.downloadDir);
+    }
   }
   return defDownloadPath;
 }

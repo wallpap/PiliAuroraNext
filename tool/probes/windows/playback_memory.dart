@@ -13,11 +13,9 @@ import 'package:pili_aurora_next/common/widgets/webview_ready.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
-import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
@@ -34,6 +32,7 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
+import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
 import 'process_heap_memory.dart';
 
@@ -295,28 +294,14 @@ Future<void> main(List<String> arguments) async {
             try {
               await Future<void>.delayed(const Duration(milliseconds: 400));
               await _until(
-                () {
-                  final selected = home.controller;
-                  return switch (selected) {
-                    CommonController() => selected.loadingState.value.isSuccess,
-                    DiscoveryPageHandle() =>
-                      selected.snapshot?.loading.isSuccess ?? false,
-                    _ => false,
-                  };
-                },
+                () => feedLoading(home.registeredPage(tab))?.isSuccess ?? false,
                 'browse:${tab.name}',
                 seconds: 20,
               );
               await Future<void>.delayed(const Duration(seconds: 2));
-              final selected = home.controller;
-              final controller = selected;
-              final data = switch (controller) {
-                CommonController() => controller.loadingState.value.dataOrNull,
-                DiscoveryPageHandle() =>
-                  controller.snapshot?.loading.dataOrNull,
-                _ => null,
-              };
-              visit['items'] = data is List ? data.length : null;
+              final controller = home.registeredPage(tab);
+              if (controller == null) throw StateError('page unavailable');
+              visit['items'] = feedLoading(controller)?.dataOrNull?.length;
               final scroll = controller.scrollController;
               if (scroll.hasClients && scroll.positions.length == 1) {
                 final distance = (scroll.position.viewportDimension * .75)

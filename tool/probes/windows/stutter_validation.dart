@@ -13,8 +13,6 @@ import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
@@ -27,6 +25,7 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
+import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
 
 Future<void> _until(bool Function() ready, String stage) async {
@@ -177,16 +176,11 @@ Future<void> main(List<String> arguments) async {
         selectHome(tab);
         await pause(5000);
         final source = diagnostics.readSources(prefix: 'homePage');
-        final controller = home.controller;
-        final loaded = switch (controller) {
-          CommonController() => controller.loadingState.value.isSuccess,
-          DiscoveryPageHandle() =>
-            controller.snapshot?.loading.isSuccess ?? false,
-          _ => false,
-        };
+        final controller = home.registeredPage(tab);
+        final loaded = feedLoading(controller)?.isSuccess ?? false;
         visits.add({'tab': tab.name, 'source': source, 'loaded': loaded});
-        final scroll = home.controller.scrollController;
-        if (scroll.hasClients && scroll.positions.length == 1) {
+        final scroll = controller?.scrollController;
+        if (scroll != null && scroll.hasClients && scroll.positions.length == 1) {
           await scroll.animateTo(
             (scroll.position.viewportDimension * .8).clamp(
               0.0,

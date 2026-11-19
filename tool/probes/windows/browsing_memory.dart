@@ -12,19 +12,19 @@ import 'package:flutter/animation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_feed_sliver.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
 import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/features/account/presentation/account_dashboard.dart';
-import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 
+import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
 import 'process_heap_memory.dart';
 
@@ -272,14 +272,10 @@ Future<void> main(List<String> arguments) async {
       final controller = find();
       if (controller == null) throw StateError('controller unavailable');
       controllerIdentities[name] = identityHashCode(controller);
-      final state = switch (controller) {
-        CommonController() => controller.loadingState.value,
-        DiscoveryPageHandle() => controller.snapshot?.loading,
-        _ => null,
-      };
+      final state = feedLoading(controller);
       if (state != null) {
         final data = state.dataOrNull;
-        final items = data is List ? data.length : null;
+        final items = data?.length;
         entry.addAll({
           'state': state.isSuccess ? 'success' : state.runtimeType.toString(),
           'items': items,
@@ -367,7 +363,7 @@ Future<void> main(List<String> arguments) async {
       if (home.tabController.index != index) {
         home.tabController.animateTo(index);
       }
-      await visit(tab.name, () => home.controller, requireItems: true);
+      await visit(tab.name, () => home.registeredPage(tab), requireItems: true);
     }
     select(NavigationBarType.dynamics);
     await visit(
@@ -480,22 +476,22 @@ Future<void> main(List<String> arguments) async {
             home.tabController.animateTo(index);
           }
           await Future<void>.delayed(Duration(seconds: dwell));
-          final controller = home.controller;
-          final scroll = controller.scrollController;
+          final controller = home.registeredPage(HomeTabType.rcmd);
+          final scroll = controller?.scrollController;
           final expected = scrollOffsets[HomeTabType.rcmd.name];
-          final actual = scroll.hasClients && scroll.positions.length == 1
+          final actual =
+              scroll != null && scroll.hasClients && scroll.positions.length == 1
               ? scroll.position.pixels
               : null;
           final sameController =
+              controller != null &&
               identityHashCode(controller) ==
               controllerIdentities[HomeTabType.rcmd.name];
           final offsetPreserved =
               expected != null &&
               actual != null &&
               (expected - actual).abs() < 0.5;
-          final loaded =
-              controller is CommonController &&
-              controller.loadingState.value.isSuccess;
+          final loaded = feedLoading(controller)?.isSuccess ?? false;
           receipt = {
             'status': 'resumed',
             'sameController': sameController,
