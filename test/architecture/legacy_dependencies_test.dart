@@ -51,6 +51,15 @@ bool _isRestricted(String target) =>
     target.startsWith('package:hive_ce/') ||
     target.startsWith('package:shared_preferences/');
 
+bool _isTransport(String target) =>
+    (target.startsWith('http/') &&
+        target != 'http/loading_state.dart' &&
+        target != 'http/constants.dart' &&
+        target != 'http/browser_ua.dart') ||
+    target.startsWith('grpc/') ||
+    target.startsWith('package:dio/') ||
+    target.startsWith('package:grpc/');
+
 void main() {
   test('application code introduces no new legacy dependency', () {
     final registry = jsonDecode(
@@ -63,6 +72,7 @@ void main() {
     ];
     final baseTypes = <String, Set<String>>{};
     final violations = <String>{};
+    final directTransport = <String>{};
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       final source = path
@@ -75,6 +85,7 @@ void main() {
       if (_isPresentation(source)) {
         for (final uri in unitDependencies(unit)) {
           final target = localDependency(file, uri) ?? uri;
+          if (_isTransport(target)) directTransport.add('$source -> $target');
           if (_isRestricted(target) ||
               vendoredImplementations.any(target.startsWith)) {
             violations.add('$source -> $target');
@@ -103,6 +114,11 @@ void main() {
         .toSet();
     final added = violations.difference(baseline).toList()..sort();
     final removed = baseline.difference(violations).toList()..sort();
+    expect(
+      directTransport,
+      isEmpty,
+      reason: 'Presentation must not access transport directly',
+    );
     expect(
       added,
       isEmpty,

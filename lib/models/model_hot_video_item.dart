@@ -2,10 +2,9 @@ import 'package:pili_aurora_next/models/horizontal_video_model.dart';
 import 'package:pili_aurora_next/models/model_owner.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
-import 'package:pili_aurora_next/pages/common/multi_select/base.dart';
 
 // 稍后再看, 排行榜等网页返回也使用该类
-class HotVideoItemModel extends HorizontalVideoModel with MultiSelectData {
+class HotVideoItemModel extends HorizontalVideoModel {
   int? videos;
   int? tid;
   String? tname;

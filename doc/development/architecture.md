@@ -15,10 +15,11 @@ flowchart LR
         Root[app/app.dart<br/>根 Widget 与路由]
         Routes[router/app_pages.dart<br/>路由注册]
         Pages[pages/<br/>页面与交互]
-        Http[http/<br/>远端 API]
+        Features[features/<br/>领域状态与数据适配]
+        Http[http/ 与 grpc/<br/>远端 API]
         Services[services/<br/>跨页面与长生命周期能力]
         Player[plugin/pl_player/<br/>播放控制与输出协调]
-        Models[models/ 与 grpc/<br/>共享模型和协议数据]
+        Models[models/ 与 generated/<br/>共享模型和协议数据]
         Shared[common/ 与 utils/<br/>通用组件和基础工具]
         Local[(本地存储、缓存、下载文件)]
     end
@@ -30,11 +31,13 @@ flowchart LR
     Bootstrap --> Services
     Bootstrap --> Platform
     Bootstrap --> Local
-    Pages --> Http
+    Pages --> Features
     Pages --> Services
     Pages --> Player
     Pages --> Models
     Pages --> Shared
+    Features --> Http
+    Features --> Services
     Services --> Http
     Services --> Models
     Services --> Local
@@ -62,7 +65,7 @@ flowchart LR
 | `lib/common/`、`lib/utils/` | 通用 UI、存储、缓存、平台判断及辅助逻辑 | 全部调用方，避免把页面状态放进通用层 |
 | `android/`、`windows/`、`third_party/` | 平台工程、插件和本地维护的依赖实现 | 依赖登记、生成脚本和平台构建配置 |
 
-部分页面 controller 直接调用 `http/`，另一些经由 `services/`。`models/` 同时包含远端响应和页面间共享对象，用途比数据库实体更宽。
+展示层经由功能入口或服务发起请求，不直接访问 HTTP、gRPC 或对应的客户端。`models/` 同时包含远端响应和页面间共享对象，用途比数据库实体更宽。
 
 Riverpod 由根 ProviderScope 装配，页面查询和应用级服务按各自生命周期管理。各功能的状态所有者、账号切换和异步失效约定见[状态管理](state-management.md)。
 
