@@ -121,6 +121,7 @@ class RecommendationFeed extends Notifier<RecommendationState> {
       ref.read(cooperativeAuthorsProvider);
   _RecommendationQuery? _query;
   final _cardListeners = HashMap<Object, Set<void Function()>>.identity();
+  final _viewports = <Object, ({int itemCount, int columns, bool active})>{};
   bool _disposed = false, _active = true;
   int _viewportItems = 0, _columns = 1;
 
@@ -173,16 +174,51 @@ class RecommendationFeed extends Notifier<RecommendationState> {
   }
 
   void updateViewport({
+    Object owner = const Object(),
     required int itemCount,
     required int columns,
     required bool active,
   }) {
     if (_disposed) return;
+    _viewports[owner] = (
+      itemCount: itemCount,
+      columns: columns,
+      active: active,
+    );
+    _selectViewport();
+  }
+
+  void removeViewport(Object owner) {
+    if (!_disposed && _viewports.remove(owner) != null) {
+      _selectViewport(deferWork: true);
+    }
+  }
+
+  void _selectViewport({bool deferWork = false}) {
+    final views = _viewports.values;
+    final viewport =
+        views.where((view) => view.active).firstOrNull ?? views.firstOrNull;
+    if (viewport == null) {
+      _active = false;
+      return;
+    }
+    final (:itemCount, :columns, :active) = viewport;
     final changed = _viewportItems != itemCount || _active != active;
     _viewportItems = itemCount;
     _columns = columns;
     _active = active;
     if (!active) return;
+    if (deferWork) {
+      final owner = ref;
+      scheduleMicrotask(() {
+        if (owner.mounted && _active) _resumeViewport(changed);
+      });
+    } else {
+      _resumeViewport(changed);
+    }
+  }
+
+  void _resumeViewport(bool changed) {
     final query = _query;
     if (query == null || !_current(query)) {
       unawaited(onRefresh());

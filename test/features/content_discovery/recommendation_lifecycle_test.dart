@@ -204,6 +204,29 @@ void main() {
     expect(snapshot().historyStart, isNull);
   });
 
+  test('并存的推荐页由活动视口调度，离页后交接给仍可见的页面', () async {
+    final home = Object();
+    final preview = Object();
+    final feed = watch()
+      ..updateViewport(owner: home, itemCount: 2, columns: 1, active: true)
+      ..updateViewport(owner: preview, itemCount: 3, columns: 2, active: false);
+
+    await complete(repository.calls.single, [_Video(1)]);
+    expect(repository.calls.map((call) => call.index), [0, 1]);
+    feed.updateViewport(owner: preview, itemCount: 3, columns: 2, active: true);
+    await complete(repository.calls.last, [_Video(2)]);
+    expect(repository.calls, hasLength(2));
+
+    feed.removeViewport(home);
+    await settle();
+    expect(repository.calls.map((call) => call.index), [0, 1, 2]);
+
+    feed.removeViewport(preview);
+    await complete(repository.calls.last, []);
+    expect(repository.calls, hasLength(3));
+    expect(snapshot().loading.data.map((item) => item.aid), [1, 2]);
+  });
+
   test('Hive 来源变更取消 App 查询，从 Web 首页按视口重读', () async {
     watch().updateViewport(itemCount: 40, columns: 8, active: true);
     final old = repository.calls.single;

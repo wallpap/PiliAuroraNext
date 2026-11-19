@@ -46,6 +46,8 @@ class RecommendationPage extends ConsumerStatefulWidget {
 class _RecommendationPageState extends ConsumerState<RecommendationPage>
     with AutomaticKeepAliveClientMixin {
   final _scrollController = ScrollController();
+  final _viewportOwner = Object();
+  RecommendationFeed? _viewportFeed;
   RecommendationFeed get controller =>
       ref.read(recommendationFeedProvider.notifier);
   late final RecommendationPageHandle _handle;
@@ -65,6 +67,7 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage>
 
   @override
   void dispose() {
+    _viewportFeed?.removeViewport(_viewportOwner);
     _coverPrefetch.clear();
     _unregister?.call();
     _scrollController.dispose();
@@ -73,6 +76,20 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage>
 
   @override
   bool get wantKeepAlive => true;
+
+  void _reportViewport(int items, int columns, bool active) {
+    final feed = controller;
+    if (!identical(feed, _viewportFeed)) {
+      _viewportFeed?.removeViewport(_viewportOwner);
+      _viewportFeed = feed;
+    }
+    feed.updateViewport(
+      owner: _viewportOwner,
+      itemCount: items,
+      columns: columns,
+      active: active,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,11 +104,7 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage>
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: RecommendationViewport(
         cardWidth: ref.watch(recommendationCardWidthProvider),
-        onChanged: (items, columns, active) => controller.updateViewport(
-          itemCount: items,
-          columns: columns,
-          active: active,
-        ),
+        onChanged: _reportViewport,
         builder: (gridDelegate, items, layout) {
           void prefetch() {
             if (mounted && active && identical(controller.snapshot, state)) {
