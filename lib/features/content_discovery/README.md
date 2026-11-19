@@ -48,6 +48,8 @@ PGC 首页通过 `pgcFeedProvider`、`pgcFollowsProvider`、`pgcTimelineProvider
 
 直播分区通过 `liveDirectoryProvider` 持有推荐账号目录，`liveAreaFeedProvider` 按页面实例、资源 ID 与标签持有双账号房间列表。纯目录不订阅主账号屏蔽角色。目录快照替换会销毁旧 Widget 子树、TabController 和子页订阅；默认分区 ID 按字符串归一比较。目录失败显示重试并保留按传入 ID 加载房间的入口。标签菜单、首帧偏好和滚动句柄属于 Widget；菜单离页后不访问已释放 TabController。`live_area_feed_test.dart` 同时验证真实 HTTP 归属及活动 Ticker 释放。
 
+「全部标签」在 `application/live_area_preferences.dart` 分别订阅推荐账号目录与主账号常用标签。确认快照与草稿分离，保存沿用提交时的账号和顺序；目录、子分区与标签共用 `data/live_catalog_repository.dart` 的签名和领域模型。Tab、选择与排序草稿仍由 Widget 持有。
+
 ## 验证
 
 ```powershell

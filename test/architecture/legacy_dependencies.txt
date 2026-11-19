@@ -102,8 +102,6 @@ pages/episode_panel/view.dart -> http/video.dart
 pages/episode_panel/view.dart -> utils/accounts.dart
 pages/episode_panel/view.dart -> utils/storage_pref.dart
 pages/live/widgets/live_item_app.dart -> http/live.dart
-pages/live_area/controller.dart -> http/live.dart
-pages/live_area/controller.dart -> utils/accounts.dart
 pages/live_room/controller.dart -> package:dio/dio.dart
 pages/live_room/controller.dart -> utils/accounts.dart
 pages/live_room/controller.dart -> utils/global_data.dart

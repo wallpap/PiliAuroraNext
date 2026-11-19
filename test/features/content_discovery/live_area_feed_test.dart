@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/features/content_discovery/domain/live_catalog.
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_area_list/area_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/pages/live_area_detail/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

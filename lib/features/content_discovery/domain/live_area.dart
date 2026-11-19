@@ -1,11 +1,8 @@
-import 'package:flutter/foundation.dart' show immutable;
-
-@immutable
-class AreaItem {
-  final dynamic id;
+final class AreaItem {
+  final Object? id;
   final String? name;
   final String? pic;
-  final dynamic parentId;
+  final Object? parentId;
   final String? parentName;
 
   const AreaItem({
@@ -15,14 +12,6 @@ class AreaItem {
     this.parentId,
     this.parentName,
   });
-
-  factory AreaItem.fromJson(Map<String, dynamic> json) => AreaItem(
-    id: json['id'],
-    name: json['name'] as String?,
-    pic: json['pic'] as String?,
-    parentId: json['parent_id'],
-    parentName: json['parent_name'] as String?,
-  );
 
   @override
   bool operator ==(Object other) {
@@ -37,4 +26,12 @@ class AreaItem {
 
   @override
   int get hashCode => Object.hash(id, parentId);
+}
+
+final class AreaList {
+  AreaList({this.name, Iterable<AreaItem> areaList = const []})
+    : areaList = List.unmodifiable(areaList);
+
+  final String? name;
+  final List<AreaItem> areaList;
 }

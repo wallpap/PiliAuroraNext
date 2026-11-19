@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/live_catalog_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_area_list/area_item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_area_list/area_list.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 
@@ -10,8 +9,9 @@ final liveAreasProvider = FutureProvider.autoDispose<List<AreaList>>((
   ref,
 ) async {
   final account = ref.watch(recommendAccountProvider);
+  final repository = ref.read(liveCatalogRepositoryProvider);
   return List.unmodifiable(
-    (await LiveHttp.liveAreaList(account: account)).data ?? [],
+    (await repository.areas(account)).data ?? [],
   );
 }, retry: (_, _) => null);
 
@@ -41,8 +41,9 @@ class LiveAreaPreferencesNotifier extends AsyncNotifier<LiveAreaPreferences> {
   Future<LiveAreaPreferences> build() async {
     final account = ref.watch(mainAccountProvider);
     if (!account.isLogin) throw const Error('账号未登录');
+    final repository = ref.read(liveCatalogRepositoryProvider);
     return LiveAreaPreferences(
-      (await LiveHttp.getLiveFavTag(account: account)).data,
+      (await repository.favoriteTags(account)).data,
     );
   }
 
@@ -63,10 +64,9 @@ class LiveAreaPreferencesNotifier extends AsyncNotifier<LiveAreaPreferences> {
       LiveAreaPreferences(before.items, source: before.source, saving: true),
     );
     try {
-      final result = await LiveHttp.setLiveFavTag(
-        ids: items.map((e) => e.id).join(','),
-        account: account,
-      );
+      final result = await owner
+          .read(liveCatalogRepositoryProvider)
+          .saveFavoriteTags(account, items);
       if (!owner.mounted || !identical(account, Accounts.main)) {
         return const Error('账号已切换或页面已关闭');
       }

@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/live_catalog_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/playback/data/live_chat_repository.dart';
@@ -26,6 +28,7 @@ void main() {
   final heartbeat = account(2);
   final recommend = account(3);
   final replacement = account(4);
+  const catalog = LiveCatalogRepository();
   Object? body;
   var failTransport = false;
   var switchWhileSigning = false;
@@ -39,9 +42,9 @@ void main() {
     '推荐': () => LiveHttp.liveFeedIndex(pn: 1),
     '关注': () => LiveHttp.liveFollow(1, account: main),
     '分区推荐': () => LiveHttp.liveSecondList(pn: 1, areaId: 1, parentAreaId: 2),
-    '分区目录': LiveHttp.liveAreaList,
-    '常用标签': () => LiveHttp.getLiveFavTag(account: main),
-    '子分区': () => LiveHttp.liveRoomAreaList(parentid: 2),
+    '分区目录': () => catalog.areas(recommend),
+    '常用标签': () => catalog.favoriteTags(main),
+    '子分区': () => catalog.subareas(recommend, 2),
     '搜索': () => LiveHttp.liveSearch(
       account: recommend,
       page: 1,
@@ -61,7 +64,10 @@ void main() {
   };
   final writes = <String, Future<LoadingState<dynamic>> Function()>{
     '发送弹幕': () => LiveHttp.sendLiveMsg(roomId: 12, msg: 'sample'),
-    '常用标签': () => LiveHttp.setLiveFavTag(ids: '1,2', account: main),
+    '常用标签': () => catalog.saveFavoriteTags(main, const [
+      AreaItem(id: 1),
+      AreaItem(id: 2),
+    ]),
     '屏蔽等级': () => LiveHttp.liveSetSilent(type: 'off', level: 0),
     '添加关键词': () => LiveHttp.addShieldKeyword(keyword: 'sample', account: main),
     '移除关键词': () => LiveHttp.delShieldKeyword(keyword: 'sample', account: main),
@@ -222,17 +228,17 @@ void main() {
       isNull,
     );
     expect((await LiveHttp.getLiveEmoticons(roomId: 12)).data, isNull);
-    expect((await LiveHttp.liveAreaList()).data, isNull);
-    expect((await LiveHttp.getLiveFavTag(account: main)).data, isEmpty);
+    expect((await catalog.areas(recommend)).data, isNull);
+    expect((await catalog.favoriteTags(main)).data, isEmpty);
     expect((await LiveChatRepository.getLiveInfoByUser(12)).data, isNull);
     expect((await LiveChatRepository.superChatMsg(12)).data.list, isNull);
     body = {'code': 0, 'data': null};
-    expect((await LiveHttp.liveRoomAreaList(parentid: 1)).data, isNull);
+    expect((await catalog.subareas(recommend, 1)).data, isNull);
     body = {
       'code': 0,
       'data': <String, dynamic>{'tags': 'private body'},
     };
-    expect(await LiveHttp.getLiveFavTag(account: main), isA<Error>());
+    expect(await catalog.favoriteTags(main), isA<Error>());
   });
 
   test('签名等待期间切号仍绑定发起时账号与 CSRF', () async {

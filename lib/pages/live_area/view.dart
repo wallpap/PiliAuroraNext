@@ -3,16 +3,16 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_area_list/area_item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_area_list/area_list.dart';
-import 'package:pili_aurora_next/pages/live_area/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/live_area_preferences.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/pages/live_area_detail/view.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:flutter_sortable_wrap/sortable_wrap.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -286,7 +286,7 @@ class _LiveAreaPageState extends ConsumerState<LiveAreaPage> {
   }
 }
 
-class _AreaTabs extends StatefulWidget {
+class _AreaTabs extends StatelessWidget {
   const _AreaTabs({
     required this.areas,
     required this.bottom,
@@ -296,65 +296,35 @@ class _AreaTabs extends StatefulWidget {
   final double bottom;
   final Widget Function(AreaItem) itemBuilder;
   @override
-  State<_AreaTabs> createState() => _AreaTabsState();
-}
-
-class _AreaTabsState extends State<_AreaTabs>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabs = TabController(
-    length: widget.areas.length,
-    vsync: this,
-  );
-  @override
-  void didUpdateWidget(_AreaTabs oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.areas.length != oldWidget.areas.length) {
-      final index = _tabs.index.clamp(0, widget.areas.length - 1);
-      _tabs.dispose();
-      _tabs = TabController(
-        length: widget.areas.length,
-        initialIndex: index,
-        vsync: this,
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      TabBar(
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        controller: _tabs,
-        tabs: [for (final area in widget.areas) Tab(text: area.name)],
-      ),
-      Expanded(
-        child: tabBarView(
-          controller: _tabs,
-          children: [
-            for (final area in widget.areas)
-              GridView.builder(
-                padding: EdgeInsets.only(top: 12, bottom: widget.bottom + 100),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 100,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  mainAxisExtent: 80,
-                ),
-                itemCount: area.areaList?.length ?? 0,
-                itemBuilder: (_, index) =>
-                    widget.itemBuilder(area.areaList![index]),
-              ),
-          ],
+  Widget build(BuildContext context) => DefaultTabController(
+    length: areas.length,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: [for (final area in areas) Tab(text: area.name)],
         ),
-      ),
-    ],
+        Expanded(
+          child: tabBarView(
+            children: [
+              for (final area in areas)
+                GridView.builder(
+                  padding: EdgeInsets.only(top: 12, bottom: bottom + 100),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 100,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    mainAxisExtent: 80,
+                  ),
+                  itemCount: area.areaList.length,
+                  itemBuilder: (_, index) => itemBuilder(area.areaList[index]),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }

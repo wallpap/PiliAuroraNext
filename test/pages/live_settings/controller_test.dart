@@ -7,9 +7,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/live_area/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/live_area_preferences.dart';
 import 'package:pili_aurora_next/pages/live_area/view.dart';
-import 'package:pili_aurora_next/models/remote/live/live_area_list/area_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/application/live_block_rules.dart';
 import 'package:pili_aurora_next/pages/live_dm_block/view.dart';
@@ -290,7 +290,16 @@ void main() {
         expect(request.options.extra['account'], same(recommend));
         request.reply.complete({
           'code': 0,
-          'data': {'list': []},
+          'data': {
+            'list': [
+              {
+                'name': '分区',
+                'area_list': [
+                  {'id': '12', 'parent_id': 1, 'name': '标签'},
+                ],
+              },
+            ],
+          },
         });
       } else {
         expect(request.options.path, Api.getLiveFavTag);
@@ -298,7 +307,9 @@ void main() {
         request.reply.complete(tags([1, 2]));
       }
     }
-    await container.read(liveAreasProvider.future);
+    final areas = await container.read(liveAreasProvider.future);
+    expect(areas.single.areaList.single.id, '12');
+    expect(areas.single.areaList.single.parentId, 1);
     await container.read(liveAreaPreferencesProvider.future);
     Accounts.accountMode[AccountType.main.index] = login('next');
     await Accounts.refresh();
