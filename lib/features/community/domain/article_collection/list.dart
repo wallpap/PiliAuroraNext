@@ -1,11 +1,11 @@
 class ArticleListInfo {
-  int? id;
-  String? name;
-  String? imageUrl;
-  int? updateTime;
-  int? words;
-  int? read;
-  int? articlesCount;
+  final int? id;
+  final String? name;
+  final String? imageUrl;
+  final int? updateTime;
+  final int? words;
+  final int? read;
+  final int? articlesCount;
 
   ArticleListInfo({
     this.id,

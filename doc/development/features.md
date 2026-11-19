@@ -9,7 +9,7 @@
 | 主导航与角标 | `main/`、`home/`、`mine/` | `lib/features/app_shell/`、`lib/services/settings/navigation_preferences.dart` | `test/pages/main/` |
 | 首页、热门、排行、PGC 索引 | `home/`、`hot/`、`rank/`、`popular_*`、`pgc_index/` | [内容发现模块](../../lib/features/content_discovery/README.md) | `test/features/content_discovery/`、`test/pages/member_feed/` |
 | 搜索 | `search*`、`member_search/`、`live_search/` | [搜索模块](../../lib/features/search/README.md) | `test/pages/search/`、`test/pages/search_results/`、`test/pages/scoped_search/` |
-| 视频、文章、番剧、音频 | `video/`、`article/`、`article_list/`、`pgc/`、`audio/`、`music/` | `video.dart`、`pgc.dart`、`music.dart`、`reply.dart` | `test/pages/video/`、`test/pages/article/`、`test/pages/pgc/`、`test/pages/audio/` |
+| 视频、文章、番剧、音频 | `video/`、`article/`、`article_list/`、`pgc/`、`audio/`、`music/` | `video.dart`、`pgc.dart`、`music.dart`、`reply.dart`；文章合集归社区 `application/article_collection.dart` | `test/pages/video/`、`test/pages/article/`、`test/pages/pgc/`、`test/pages/audio/` |
 | 播放器与原生输出 | 页面通过 `PlaybackOwner` 提交计划及命令 | `lib/plugin/pl_player/playback/`；`playback_contracts.dart`、`playback_session.dart`、`native_playback_runtime.dart` | `test/plugin/pl_player/`、`tool/probes/playback/` |
 | 弹幕与评论 | `danmaku/`、`danmaku_block/`、`main_reply/`、`my_reply/`、`video/reply/` | `danmaku.dart`；[评论模块](../../lib/features/community/README.md#评论) | `test/pages/danmaku/`、`test/pages/danmaku_block/`、`test/pages/community/` |
 | 表情包 | `emote/`、`live_emote/`；管理在 `emote/manage.dart`、`preview.dart` | [社区模块](../../lib/features/community/README.md)；评论包、直播包与最近历史 | `test/pages/emote/`、`test/pages/live_emote/`、`test/pages/community/` |

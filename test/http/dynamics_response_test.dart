@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/community/data/article_repository.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/init.dart';
@@ -42,7 +43,7 @@ void main() {
     () => DynamicsHttp.topicTop(topicId: 1),
     () => DynamicsHttp.topicFeed(topicId: 1, sortBy: 0),
     () => DynamicsHttp.topicFold(topicId: 1, sortBy: 0),
-    () => DynamicsHttp.articleList(id: 1, account: main),
+    () => ArticleRepository.collection(main, '1'),
     DynamicsHttp.dynTopicRcmd,
     () => DynamicsHttp.dynPic('1'),
     DynamicsHttp.dynMention,

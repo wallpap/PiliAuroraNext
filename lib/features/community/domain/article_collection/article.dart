@@ -1,22 +1,22 @@
-import 'package:pili_aurora_next/models/remote/article/article_list/stats.dart';
+import 'package:pili_aurora_next/features/community/domain/article_collection/stats.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 
 class ArticleListItemModel {
-  int? id;
-  String? title;
-  List<String>? imageUrls;
-  String? summary;
-  String? dynIdStr;
-  Stats? stats;
+  final int? id;
+  final String? title;
+  final List<String>? imageUrls;
+  final String? summary;
+  final String? dynIdStr;
+  final Stats? stats;
 
   ArticleListItemModel({
     this.id,
     this.title,
-    this.imageUrls,
+    List<String>? imageUrls,
     this.summary,
     this.dynIdStr,
     this.stats,
-  });
+  }) : imageUrls = imageUrls == null ? null : List.unmodifiable(imageUrls);
 
   factory ArticleListItemModel.fromJson(Map<String, dynamic> json) =>
       ArticleListItemModel(

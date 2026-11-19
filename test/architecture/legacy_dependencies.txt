@@ -30,7 +30,6 @@ pages/article/controller.dart -> utils/storage_pref.dart
 pages/article/controller.dart#ArticleController -> CommonDynController
 pages/article/view.dart -> utils/accounts.dart
 pages/article/widgets/opus_content.dart -> http/constants.dart
-pages/article_list/controller.dart -> http/dynamics.dart
 pages/article_list/view.dart -> http/constants.dart
 pages/audio/controller.dart -> http/browser_ua.dart
 pages/audio/controller.dart -> http/constants.dart

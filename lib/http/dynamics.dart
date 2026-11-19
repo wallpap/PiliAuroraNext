@@ -15,7 +15,6 @@ import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/models/remote/article/article_info/data.dart';
-import 'package:pili_aurora_next/models/remote/article/article_list/data.dart';
 import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
 import 'package:pili_aurora_next/models/remote/bubble/data.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_mention/data.dart';
@@ -522,22 +521,6 @@ abstract final class DynamicsHttp {
         'sort_by': sortBy,
       },
       options: Options(extra: {'account': account}),
-    );
-  }
-
-  static Future<LoadingState<ArticleListData>> articleList({
-    required Object id,
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.articleList,
-      kind: ApiCallKind.query,
-      decode: (body) => ArticleListData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'id': id,
-        'web_location': 333.1400,
-      },
     );
   }
 

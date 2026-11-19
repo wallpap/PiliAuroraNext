@@ -1,7 +1,7 @@
 class Stats {
-  int? view;
-  int? like;
-  int? reply;
+  final int? view;
+  final int? like;
+  final int? reply;
 
   Stats({
     this.view,
