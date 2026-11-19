@@ -25,6 +25,7 @@ import 'package:material_ui/material_ui.dart';
 
 abstract class CommonIntroController with TripleMixin, FavMixin {
   bool _closed = false;
+  @override
   bool get isClosed => _closed;
   @override
   late final TickerProvider tripleVsync;

@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/playback/application/video_playlist.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
@@ -166,6 +167,73 @@ void main() {
       await GStorage.setting.delete(SettingBoxKey.tempPlayerConf);
       controller.closePlayback();
     }
+  });
+
+  test('切序与换号使在途分页失效，同向分页不重复请求', () async {
+    LoginAccount account(String csrf) => LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '42', 'bili_jct': csrf}),
+      null,
+      null,
+    );
+    final previous = Accounts.main;
+    final original = account('original');
+    Accounts.accountMode[AccountType.main.index] = original;
+    addTearDown(() => Accounts.accountMode[AccountType.main.index] = previous);
+    final playlist = VideoPlaylist(
+      source: SourceType.watchLater,
+      id: 1,
+      type: 2,
+      descending: false,
+      continueFromAnchor: true,
+      anchor: 99,
+    );
+    addTearDown(playlist.close);
+    Map<String, Object?> items(List<int> ids) => {
+      'media_list': [
+        for (final id in ids)
+          {
+            'id': id,
+            'type': 2,
+            'pages': [
+              {'id': id},
+            ],
+          },
+      ],
+    };
+    final initial = playlist.load();
+    final first = await adapter.next();
+    expect(first.options.queryParameters['oid'], 99);
+    expect(first.options.queryParameters['with_current'], isTrue);
+    expect(first.options.extra['account'], same(original));
+    first.complete(items([99, 100]));
+    await initial;
+
+    final append = playlist.load();
+    final old = await adapter.next();
+    expect(old.options.queryParameters['oid'], 100);
+    expect(await playlist.load(), isNull);
+    final reverse = playlist.load(reverse: true);
+    final newest = await adapter.next();
+    expect(newest.options.queryParameters['desc'], isTrue);
+    expect(newest.options.queryParameters['oid'], isNull);
+    expect(newest.options.queryParameters['with_current'], isFalse);
+    newest.complete(items([105, 104]));
+    expect((await reverse)?.dataOrNull?.aid, 105);
+
+    old.complete(items([101, 102]));
+    expect(await append, isNull);
+    expect(playlist.items.value.map((item) => item.aid), [105, 104]);
+
+    final tail = playlist.load();
+    (await adapter.next()).complete(items([104, 103]));
+    await tail;
+    expect(playlist.items.value.map((item) => item.aid), [105, 104, 103]);
+    final pending = playlist.load();
+    final inFlight = await adapter.next();
+    Accounts.replaceCredentials(account('replacement'));
+    inFlight.complete(items([102]));
+    expect(await pending, isNull);
+    expect(playlist.items.value, isEmpty);
   });
 
   test('快速切集执行新请求，旧响应不能初始化新集', () async {

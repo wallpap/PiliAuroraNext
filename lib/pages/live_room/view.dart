@@ -79,7 +79,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
-  late final DesktopPlaybackRequest Function() _desktopRequest = () =>
+  late final _desktopRequest = _createDesktopRequest;
+  DesktopPlaybackRequest _createDesktopRequest() =>
       DesktopPlaybackRequest.live(_liveRoomController.roomId);
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 

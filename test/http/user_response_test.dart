@@ -39,7 +39,8 @@ void main() {
     '历史搜索': () => UserHttp.searchHistory(pn: 1, keyword: 'sample'),
     '订阅': () => UserHttp.userSubFolder(mid: 1, pn: 1, ps: 20),
     '标签': () => UserHttp.videoTags(bvid: 'BV1xx411c7mD'),
-    '播放列表': () => UserHttp.getMediaList(type: 1, bizId: 1, ps: 20),
+    '播放列表': () =>
+        UserHttp.getMediaList(account: main, type: 1, bizId: 1, ps: 20),
     '余额': UserHttp.getCoin,
     '空间设置': () => const SpaceRepository().privacy(main),
     for (final type in LogType.values)

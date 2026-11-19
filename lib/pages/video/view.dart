@@ -248,7 +248,8 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
     return true;
   }
 
-  late final DesktopPlaybackRequest Function() _desktopRequest = () =>
+  late final _desktopRequest = _createDesktopRequest;
+  DesktopPlaybackRequest _createDesktopRequest() =>
       DesktopPlaybackRequest.video({
         'aid': videoDetailController.aid,
         'bvid': videoDetailController.bvid,

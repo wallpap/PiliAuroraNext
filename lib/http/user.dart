@@ -310,6 +310,7 @@ abstract final class UserHttp {
 
   // 稍后再看列表
   static Future<LoadingState<MediaListData>> getMediaList({
+    required Account account,
     required Object type,
     required Object bizId,
     required int ps,
@@ -324,6 +325,7 @@ abstract final class UserHttp {
       Api.mediaList,
       kind: ApiCallKind.query,
       decode: (body) => MediaListData.fromJson(body['data']),
+      options: Options(extra: {'account': account}),
       queryParameters: {
         'mobi_app': 'web',
         'type': type,

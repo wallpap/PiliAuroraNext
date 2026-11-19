@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' show min;
 import 'dart:ui';
 
-import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -10,7 +9,6 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
-import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
 import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
@@ -37,6 +35,7 @@ import 'package:pili_aurora_next/features/playback/application/cast_media.dart';
 import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
 import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
+import 'package:pili_aurora_next/features/playback/application/video_playlist.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
@@ -154,8 +153,8 @@ class VideoDetailController with BlockMixin {
   late SourceType sourceType;
   late BiliDownloadEntryInfo entry;
   late bool isFileSource;
-  late bool _mediaDesc = false;
-  late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
+  VideoPlaylist? _playlist;
+  List<MediaListItemModel> get mediaList => _playlist?.items.value ?? const [];
   late String watchLaterTitle;
 
   /// tabs相关配置
@@ -457,7 +456,17 @@ class VideoDetailController with BlockMixin {
       }
     } else if (isPlayAll) {
       watchLaterTitle = args['favTitle'];
-      _mediaDesc = args['desc'];
+      _playlist = VideoPlaylist(
+        source: sourceType,
+        id: args['mediaId'] ?? -1,
+        type: args['mediaType'] ?? sourceType.mediaType!,
+        count: args['count'],
+        descending: args['desc'],
+        continueFromAnchor: args['isContinuePlaying'] == true,
+        anchor: args['oid'],
+        sortField: args['sortField'],
+        ownedFavorite: args['isOwner'] == true,
+      );
       getMediaList();
     }
 
@@ -472,112 +481,45 @@ class VideoDetailController with BlockMixin {
     bool isReverse = false,
     bool isLoadPrevious = false,
   }) async {
-    final count = args['count'];
-    if (!isReverse && count != null && mediaList.length >= count) {
-      return;
-    }
-    final res = await VideoMediaRepository.playlist(
-      type: args['mediaType'] ?? sourceType.mediaType,
-      id: args['mediaId'] ?? -1,
+    final result = await _playlist?.load(
       previous: isLoadPrevious,
-      anchor: isReverse
-          ? null
-          : mediaList.isEmpty
-          ? args['isContinuePlaying'] == true
-                ? args['oid']
-                : null
-          : isLoadPrevious
-          ? mediaList.first.aid
-          : mediaList.last.aid,
-      anchorType: isReverse
-          ? null
-          : mediaList.isEmpty
-          ? null
-          : isLoadPrevious
-          ? mediaList.first.type
-          : mediaList.last.type,
-      descending: _mediaDesc,
-      sortField: args['sortField'] ?? 1,
-      includeAnchor: mediaList.isEmpty && args['isContinuePlaying'] == true,
+      reverse: isReverse,
     );
-    if (res case Success(:final response)) {
-      if (response.mediaList.isNotEmpty) {
-        if (isReverse) {
-          mediaList.value = response.mediaList;
-          for (final item in mediaList) {
-            if (item.cid != null) {
-              _ugcIntro?.onChangeEpisode(item);
-              break;
-            }
-          }
-        } else if (isLoadPrevious) {
-          mediaList.insertAll(0, response.mediaList);
-        } else {
-          mediaList.addAll(response.mediaList);
-        }
-      }
-    } else {
-      res.toast();
+    if (isClosed) return;
+    if (result case Success(response: final episode?)) {
+      _ugcIntro?.onChangeEpisode(episode);
+    } else if (result case Error()) {
+      result.toast();
     }
   }
 
   void showMediaListPanel(BuildContext context) {
+    final playlist = _playlist;
+    if (playlist == null) return;
     if (mediaList.isNotEmpty) {
       Widget panel() => MediaListPanel(
-        mediaList: mediaList,
+        mediaList: playlist.items,
         onChangeEpisode: (episode) {
           _ugcIntro?.onChangeEpisode(episode);
         },
         panelTitle: watchLaterTitle,
         bvid: bvid,
-        count: args['count'],
         loadMoreMedia: getMediaList,
-        desc: _mediaDesc,
-        onReverse: () {
-          _mediaDesc = !_mediaDesc;
-          getMediaList(isReverse: true);
-        },
-        loadPrevious: args['isContinuePlaying'] == true
+        desc: playlist.descending,
+        onReverse: () => getMediaList(isReverse: true),
+        loadPrevious: playlist.continueFromAnchor
             ? () => getMediaList(isLoadPrevious: true)
             : null,
-        onDelete:
-            sourceType == SourceType.watchLater ||
-                (sourceType == SourceType.fav && args['isOwner'] == true)
-            ? (item, index) async {
-                final account = Accounts.main;
-                if (sourceType == SourceType.watchLater) {
-                  final res = await LaterLibrary.legacy.remove(
-                    [if (item.aid != null) item.aid!],
-                    account: account,
+        onDelete: playlist.canRemove
+            ? (item) async {
+                final result = await playlist.remove(item);
+                if (isClosed || result == null) return;
+                if (result.isSuccess) {
+                  SmartDialog.showToast(
+                    sourceType == SourceType.watchLater ? '已移除稍后再看' : '取消收藏',
                   );
-                  if (isClosed ||
-                      !identical(account, Accounts.main) ||
-                      !mediaList.contains(item)) {
-                    return;
-                  }
-                  if (res.isSuccess) {
-                    mediaList.remove(item);
-                    SmartDialog.showToast('已移除稍后再看');
-                  } else {
-                    res.toast();
-                  }
                 } else {
-                  final res = await FavoriteLibrary.legacy.video(
-                    account,
-                    '${item.aid}:${item.type}',
-                    remove: '${args['mediaId']}',
-                  );
-                  if (isClosed ||
-                      !identical(account, Accounts.main) ||
-                      !mediaList.contains(item)) {
-                    return;
-                  }
-                  if (res.isSuccess) {
-                    mediaList.remove(item);
-                    SmartDialog.showToast('取消收藏');
-                  } else {
-                    res.toast();
-                  }
+                  result.toast();
                 }
               }
             : null,
@@ -1655,20 +1597,7 @@ class VideoDetailController with BlockMixin {
     await setSubtitle(idx);
   }
 
-  void updateMediaListHistory(int aid) {
-    final account = Accounts.heartbeat;
-    if (!isClosed &&
-        account.isLogin &&
-        !Pref.historyPause &&
-        args['sortField'] != null) {
-      VideoMediaRepository.recordPlaylistProgress(
-        account,
-        descending: _mediaDesc,
-        aid: aid,
-        listId: args['mediaId'],
-      );
-    }
-  }
+  void updateMediaListHistory(int aid) => _playlist?.recordProgress(aid);
 
   void makeHeartBeat() {
     if (plPlayerController.enableHeart &&
@@ -1698,6 +1627,7 @@ class VideoDetailController with BlockMixin {
   void close() {
     if (_closed) return;
     _closed = true;
+    _playlist?.close();
     _videoQueryCancel?.cancel();
     _subtitleGeneration++;
     _shutdownBinding?.dispose();

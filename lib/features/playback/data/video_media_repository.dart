@@ -70,6 +70,7 @@ abstract final class VideoMediaRepository {
       VideoHttp.playInfo(bvid: bvid, cid: cid, seasonId: seasonId, epId: epId);
 
   static Future<LoadingState<MediaListData>> playlist({
+    required Account account,
     required Object type,
     required Object id,
     required bool previous,
@@ -79,6 +80,7 @@ abstract final class VideoMediaRepository {
     required Object sortField,
     required bool includeAnchor,
   }) => UserHttp.getMediaList(
+    account: account,
     type: type,
     bizId: id,
     ps: 20,
