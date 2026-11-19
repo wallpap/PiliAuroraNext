@@ -81,13 +81,16 @@ void main() {
         await controller.onFavPugv();
         await interceptor.waitForRequests(index + 1);
       });
-      expect(controller.pugvFavBusy.value, isTrue);
+      expect(controller.collection.bookmark.value.busy, isTrue);
       expect((requests.last.options.data as Map)['csrf'], 'old');
       expect(requests.last.options.extra['account'], same(Accounts.main));
       await resolve(tester, index, response);
       await tester.runAsync(() async => await pending);
-      expect(controller.pugvFavBusy.value, isFalse);
-      expect(controller.pugvFavState.value.data, response['code'] == 0);
+      expect(controller.collection.bookmark.value.busy, isFalse);
+      expect(
+        controller.collection.bookmark.value.result.data,
+        response['code'] == 0,
+      );
     }
     await finish(tester);
   });
@@ -100,14 +103,14 @@ void main() {
     });
     await resolve(tester, 0, {'message': 'missing code'});
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value, isA<UnknownResult>());
+    expect(controller.collection.bookmark.value.result, isA<UnknownResult>());
     await tester.runAsync(() async {
       pending = controller.onFavPugv();
       await interceptor.waitForRequests(2);
     });
     await resolve(tester, 1, {'code': -403, 'message': '查询失败'});
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value, isA<Error>());
+    expect(controller.collection.bookmark.value.result, isA<Error>());
     await tester.runAsync(() async {
       pending = controller.onFavPugv();
       await interceptor.waitForRequests(3);
@@ -119,7 +122,7 @@ void main() {
       },
     });
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value.data, isTrue);
+    expect(controller.collection.bookmark.value.result.data, isTrue);
     expect(requests.last.options.queryParameters['season_id'], 1);
     await finish(tester);
   });
@@ -134,7 +137,7 @@ void main() {
     controller.seasonId = 2;
     await resolve(tester, 0, {'code': 0});
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value.data, isFalse);
+    expect(controller.collection.bookmark.value.result.data, isFalse);
     expect(find.text('收藏成功'), findsNothing);
     await finish(tester);
   });

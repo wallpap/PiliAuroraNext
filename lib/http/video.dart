@@ -966,8 +966,9 @@ abstract final class VideoHttp {
     int? aid,
     String? bvid,
     required int cid,
+    Account? account,
   }) async {
-    final account = Accounts.heartbeat;
+    account ??= Accounts.heartbeat;
 
     assert(aid != null || bvid != null);
     return await Request().requestApi(
@@ -985,9 +986,10 @@ abstract final class VideoHttp {
     required String bvid,
     required int cid,
     int? upMid,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.heartbeat;
+      account ??= Accounts.heartbeat;
       final result = await Request().requestApi<Map<String, dynamic>>(
         Api.aiConclusion,
         kind: ApiCallKind.query,

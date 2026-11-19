@@ -18,7 +18,7 @@ class LocalIntroController extends CommonIntroController {
   int get copyright => throw UnimplementedError();
 
   @override
-  void actionLikeVideo() {}
+  Future<void> actionLikeVideo() async {}
 
   @override
   void actionShareVideo(context) {}

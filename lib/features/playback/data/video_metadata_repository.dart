@@ -1,12 +1,25 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
+import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/browser_ua.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/video/video_pbp/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 abstract final class VideoMetadataRepository {
+  static Future<LoadingState<Map<String, dynamic>>> staffRelations(
+    Account account,
+    Iterable<Object?> mids,
+  ) => Request().requestApi(
+    Api.relations,
+    kind: ApiCallKind.query,
+    options: Options(extra: {'account': account}),
+    queryParameters: {'fids': mids.join(',')},
+    decode: (body) => body['data'] as Map<String, dynamic>,
+  );
+
   static Future<LoadingState<EdgeInfoData>> interactiveEdge({
     required String bvid,
     required int? graphVersion,

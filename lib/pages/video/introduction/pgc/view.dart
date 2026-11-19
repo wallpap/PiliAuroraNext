@@ -1,5 +1,4 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 
 import 'dart:math';
 
@@ -491,27 +490,29 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
           Positioned(
             right: 6,
             bottom: 6,
-            child: Obx(() {
-              final state = introController.pugvFavState.value;
-              final isFav = state.dataOrNull == true;
-              final busy =
-                  introController.pugvFavBusy.value || state is Loading;
-              return iconButton(
-                size: 28,
-                iconSize: 26,
-                tooltip: state is Error ? '重试收藏状态' : '${isFav ? '取消' : ''}收藏',
-                onPressed: busy ? null : introController.onFavPugv,
-                icon: isFav
-                    ? const Icon(Icons.star_rounded)
-                    : const Icon(Icons.star_border_rounded),
-                bgColor: isFav
-                    ? colorScheme.secondaryContainer
-                    : colorScheme.onInverseSurface,
-                iconColor: isFav
-                    ? colorScheme.onSecondaryContainer
-                    : colorScheme.onSurfaceVariant,
-              );
-            }),
+            child: ValueListenableBuilder(
+              valueListenable: introController.collection.bookmark,
+              builder: (context, snapshot, _) {
+                final state = snapshot.result;
+                final isFav = state.dataOrNull == true;
+                final busy = snapshot.busy || state is Loading;
+                return iconButton(
+                  size: 28,
+                  iconSize: 26,
+                  tooltip: state is Error ? '重试收藏状态' : '${isFav ? '取消' : ''}收藏',
+                  onPressed: busy ? null : introController.onFavPugv,
+                  icon: isFav
+                      ? const Icon(Icons.star_rounded)
+                      : const Icon(Icons.star_border_rounded),
+                  bgColor: isFav
+                      ? colorScheme.secondaryContainer
+                      : colorScheme.onInverseSurface,
+                  iconColor: isFav
+                      ? colorScheme.onSecondaryContainer
+                      : colorScheme.onSurfaceVariant,
+                );
+              },
+            ),
           ),
       ],
     );
@@ -523,12 +524,13 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
     PgcInfoModel item,
   ) {
     if (introController.isPgc) {
-      Widget subBtn() => Obx(
-        () {
-          final state = introController.followState.value;
+      Widget subBtn() => ValueListenableBuilder(
+        valueListenable: introController.collection.tracking,
+        builder: (context, snapshot, _) {
+          final state = snapshot.result;
           final isFollowed = state.dataOrNull?.followed == true;
           final followStatus = state.dataOrNull?.status ?? 0;
-          final busy = introController.followBusy.value;
+          final busy = snapshot.busy;
           return FilledButton.tonal(
             style: FilledButton.styleFrom(
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -547,18 +549,15 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                       introController.queryIsFollowed();
                       return;
                     }
-                    final account = Accounts.main;
-                    final target = introController.followSeasonId;
+                    final isCurrent = introController.collection
+                        .captureTracking();
                     if (isFollowed) {
                       showPgcFollowDialog(
                         context: context,
                         type: introController.pgcType,
                         followStatus: followStatus,
                         onUpdateStatus: (followStatus) {
-                          if (!identical(account, Accounts.main) ||
-                              target != introController.followSeasonId) {
-                            return;
-                          }
+                          if (!isCurrent()) return;
                           if (followStatus == -1) {
                             introController.pgcDel();
                           } else {

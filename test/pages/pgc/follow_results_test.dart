@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/season_follow_status.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -82,7 +81,7 @@ void main() {
     await interceptor.waitForRequests(1);
     requests[0].reply.complete({'code': -403, 'message': '拒绝查询'});
     await pending;
-    expect(controller.followState.value, isA<Error>());
+    expect(controller.collection.tracking.value.result, isA<Error>());
     pending = controller.queryIsFollowed();
     await interceptor.waitForRequests(2);
     requests[1].reply.complete({
@@ -90,8 +89,8 @@ void main() {
       'result': {'follow': 0},
     });
     await pending;
-    expect(controller.followState.value.data.followed, isFalse);
-    expect(controller.followState.value.data.status, isNull);
+    expect(controller.collection.tracking.value.result.data.followed, isFalse);
+    expect(controller.collection.tracking.value.result.data.status, isNull);
     pending = controller.queryIsFollowed();
     await interceptor.waitForRequests(3);
     controller.target = 2;
@@ -101,7 +100,7 @@ void main() {
       'result': {'follow': 1, 'follow_status': 3},
     });
     await pending;
-    expect(controller.followState.value, isA<Loading>());
+    expect(controller.collection.tracking.value.result, isA<Loading>());
     expect(requests[2].options.extra['account'], same(original));
   });
 
@@ -116,7 +115,7 @@ void main() {
       await interceptor.waitForRequests(2);
       await controller.pgcAdd();
       expect(requests, hasLength(2));
-      expect(controller.followBusy.value, isTrue);
+      expect(controller.collection.tracking.value.busy, isTrue);
       requests[1].reply.complete({'code': 0});
       await writing;
       requests[0].reply.complete({
@@ -124,32 +123,36 @@ void main() {
         'result': {'follow': 0},
       });
       await reading;
-      expect(controller.followState.value.data.followed, isTrue);
+      expect(controller.collection.tracking.value.result.data.followed, isTrue);
       final deleting = controller.pgcDel();
       await interceptor.waitForRequests(3);
       requests[2].reply.complete({'code': -403, 'message': '拒绝取消'});
       await deleting;
     });
-    expect(controller.followState.value.data.followed, isTrue);
-    expect(controller.followBusy.value, isFalse);
+    expect(controller.collection.tracking.value.result.data.followed, isTrue);
+    expect(controller.collection.tracking.value.busy, isFalse);
     await finish(tester);
   });
 
   testWidgets('追番切号后的迟到写入成功不改变当前状态', (tester) async {
     await mount(tester);
     final controller = own(_Intro());
-    controller.followState.value = const Success(
-      SeasonFollowStatus(followed: false),
-    );
     await tester.runAsync(() async {
-      final pending = controller.pgcAdd();
+      final reading = controller.queryIsFollowed();
       await interceptor.waitForRequests(1);
+      requests[0].reply.complete({
+        'code': 0,
+        'result': {'follow': 0},
+      });
+      await reading;
+      final pending = controller.pgcAdd();
+      await interceptor.waitForRequests(2);
       Accounts.accountMode[AccountType.main.index] = account(2);
-      requests[0].reply.complete({'code': 0});
+      requests[1].reply.complete({'code': 0});
       await pending;
     });
-    expect(controller.followState.value.data.followed, isFalse);
-    expect(controller.followBusy.value, isFalse);
+    expect(controller.collection.tracking.value.result.data.followed, isFalse);
+    expect(controller.collection.tracking.value.busy, isFalse);
     await finish(tester);
   });
 }

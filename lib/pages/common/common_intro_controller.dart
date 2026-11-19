@@ -1,14 +1,14 @@
 import 'dart:async' show FutureOr, Timer;
+import 'dart:math' show max;
 
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
-import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/features/playback/application/video_interaction.dart';
+import 'package:pili_aurora_next/features/playback/application/video_details.dart';
 import 'package:pili_aurora_next/services/audio_handler.dart'
     show MediaNavigation;
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
@@ -16,8 +16,6 @@ import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -52,47 +50,62 @@ abstract class CommonIntroController extends GetxController
 
   StatDetail? getStat();
 
-  Object get interactionTarget => bvid;
-  bool get interactionBusy => _interactionBusy;
-  bool _interactionBusy = false;
-  int interactionRevision = 0;
+  int? get interactionEpisode => null;
+  bool get hasDisliked => false;
+  set hasDisliked(bool value) {}
+  late final interactions = VideoInteraction(
+    target: () => isClosed ? null : (bvid: bvid, episode: interactionEpisode),
+    read: () => (
+      liked: hasLike.value,
+      disliked: hasDisliked,
+      coins: coinNum.value,
+      favored: hasFav.value,
+    ),
+    publish: _publishReactions,
+  );
+  bool get interactionBusy => interactions.busy;
 
-  bool ownsInteraction(Account account, Object target) =>
-      !isClosed &&
-      identical(account, Accounts.main) &&
-      interactionTarget == target;
-
-  /// 点赞、点踩、投币和三连会改动共同状态，串行执行并淘汰较早的状态查询。
-  Future<void> runInteraction(
-    Future<void> Function(Account account, bool Function() current) action,
-  ) async {
-    if (_interactionBusy || isClosed) return;
-    final account = Accounts.main;
-    if (!account.isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
+  void _publishReactions(VideoReactions state, {required bool fromQuery}) {
+    final stat = getStat();
+    if (stat != null) {
+      if (fromQuery) {
+        if (state.liked) stat.like = max(1, stat.like);
+        if (state.favored) stat.favorite = max(1, stat.favorite);
+      } else {
+        if (state.liked != hasLike.value) stat.like += state.liked ? 1 : -1;
+        if (state.favored != hasFav.value) {
+          stat.favorite += state.favored ? 1 : -1;
+        }
+        stat.coin += max(0, state.coins - coinNum.value);
+      }
     }
-    final target = interactionTarget;
-    bool current() => ownsInteraction(account, target);
-    _interactionBusy = true;
-    interactionRevision++;
-    try {
-      await action(account, current);
-    } catch (error, stackTrace) {
-      logger.w('视频互动未完成', error: error.runtimeType, stackTrace: stackTrace);
-      if (current()) const UnknownResult().toast();
-    } finally {
-      _interactionBusy = false;
-      interactionRevision++;
+    hasLike.value = state.liked;
+    hasDisliked = state.disliked;
+    coinNum.value = state.coins;
+    hasFav.value = state.favored;
+  }
+
+  Future<void> showInteractionResult(
+    Future<LoadingState<String?>?> pending,
+  ) async {
+    final result = await pending;
+    if (isClosed) return;
+    if (result case Success(response: final String message)) {
+      SmartDialog.showToast(message);
+    } else if (result case Error()) {
+      result.toast();
     }
   }
 
   @override
+  Future<void> actionLikeVideo() =>
+      showInteractionResult(interactions.toggleLike());
+
+  @override
   Future<void> Function(int, bool) get payCoinCallback {
-    final account = Accounts.main;
-    final target = interactionTarget;
+    final ownsPanel = interactions.captureOwner();
     return (coin, withLike) async {
-      if (!ownsInteraction(account, target)) {
+      if (!ownsPanel()) {
         if (!isClosed) SmartDialog.showToast('视频或账号已更新，请重新打开投币面板');
         return;
       }
@@ -165,30 +178,16 @@ abstract class CommonIntroController extends GetxController
     timer = null;
   }
 
-  // 查看同时在看人数
-  int _onlineQuery = 0;
+  late final details = VideoDetails(
+    video: () => isClosed ? null : bvid,
+    part: () => cid.value,
+    author: () => videoDetail.value.owner?.mid,
+  );
+
   Future<void> queryOnlineTotal() async {
-    if (!isShowOnlineTotal || isClosed) {
-      return;
-    }
-    final version = ++_onlineQuery;
-    final video = bvid;
-    final part = cid.value;
-    final account = Accounts.heartbeat;
-    final result = await VideoHttp.onlineTotal(
-      aid: IdUtils.bv2av(bvid),
-      bvid: bvid,
-      cid: cid.value,
-    );
-    if (isClosed ||
-        version != _onlineQuery ||
-        bvid != video ||
-        cid.value != part ||
-        !identical(account, Accounts.heartbeat)) {
-      return;
-    }
-    if (result case Success(:final response)) {
-      total.value = response;
+    if (!isShowOnlineTotal || isClosed) return;
+    if (await details.online() case final value? when !isClosed) {
+      total.value = value;
     }
   }
 
@@ -199,51 +198,19 @@ abstract class CommonIntroController extends GetxController
   }
 
   @override
-  Future<void> onPayCoin(int coin, bool coinWithLike) async {
-    await runInteraction((account, current) async {
-      final limit = isHasCopyright(copyright) ? 2 : 1;
-      if (coin > 0 && coinNum.value + coin > limit) {
-        SmartDialog.showToast('达到投币上限啦~');
-        return;
-      }
-      final res = await VideoHttp.coinVideo(
-        bvid: bvid,
-        multiply: coin,
-        selectLike: coinWithLike ? 1 : 0,
-        account: account,
-      );
-      // 余额属于发起账号；换视频后的已确认扣款仍然有效。
-      if (res.isSuccess && identical(account, Accounts.main)) {
-        GlobalData().afterCoin(coin);
-      }
-      if (!current()) return;
-      if (res.isSuccess) {
-        SmartDialog.showToast('投币成功');
-        coinNum.value += coin;
-        final stat = getStat();
-        stat?.coin += coin;
-        if (coinWithLike && !hasLike.value) {
-          stat?.like++;
-          hasLike.value = true;
-        }
-      } else {
-        res.toast();
-      }
-    });
-  }
+  Future<void> onPayCoin(int coin, bool coinWithLike) => showInteractionResult(
+    interactions.coin(
+      coin,
+      withLike: coinWithLike,
+      limit: isHasCopyright(copyright) ? 2 : 1,
+    ),
+  );
 
   Future<void> queryVideoTags() async {
-    final video = bvid;
-    final part = cid.value;
-    final account = Accounts.main;
-    final result = await UserHttp.videoTags(bvid: bvid, cid: cid.value);
-    if (isClosed ||
-        bvid != video ||
-        cid.value != part ||
-        !identical(account, Accounts.main)) {
-      return;
+    if (isClosed) return;
+    if (await details.tags() case Success(:final response) when !isClosed) {
+      videoTags.value = response;
     }
-    if (result case Success(:final response)) videoTags.value = response;
   }
 
   bool _savingLater = false;

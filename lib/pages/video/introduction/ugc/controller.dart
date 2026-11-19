@@ -1,23 +1,12 @@
-import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
-
 import 'dart:async';
-import 'dart:math';
-
-import 'package:dio/dio.dart' show Options;
 
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show ReloadMixin;
-import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/http/api_response.dart';
+import 'package:pili_aurora_next/features/playback/application/video_details.dart';
 import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member.dart';
-import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/remote/member_card_info/data.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
@@ -38,7 +27,6 @@ import 'package:pili_aurora_next/utils/device_utils.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -86,22 +74,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     videoDetail.value.title = Get.arguments['title'] ?? '';
   }
 
-  // 获取视频简介&分p
-  int _introQuery = 0;
   @override
   Future<void> queryVideoIntro() async {
     if (isClosed) return;
-    final version = ++_introQuery;
-    final video = bvid;
-    final account = Accounts.heartbeat;
     queryVideoTags();
-    final res = await VideoHttp.videoIntro(bvid: bvid);
-    if (isClosed ||
-        version != _introQuery ||
-        bvid != video ||
-        !identical(account, Accounts.heartbeat)) {
-      return;
-    }
+    final res = await details.introduction();
+    if (res == null || isClosed) return;
     if (res case Success(:final response)) {
       if (response.redirectUrl != null &&
           videoDetailCtr.epId == null &&
@@ -117,16 +95,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         heroTag,
         navigation: mediaNavigation,
       );
-      if (videoDetail.value.ugcSeason?.id == response.ugcSeason?.id) {
-        // keep reversed season
-        response.ugcSeason = videoDetail.value.ugcSeason;
-      }
-      if (videoDetail.value.cid == response.cid) {
-        // keep reversed pages
-        response
-          ..pages = videoDetail.value.pages
-          ..isPageReversed = videoDetail.value.isPageReversed;
-      }
+      VideoDetails.retainEpisodeOrder(videoDetail.value, response);
       videoDetail.value = response;
       status.value = true;
       try {
@@ -153,143 +122,32 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
   }
 
-  // 获取up主粉丝数
-  int _statQuery = 0;
   Future<void> queryUserStat(List<Staff>? staff) async {
-    final version = ++_statQuery;
-    final video = bvid;
-    final account = Accounts.main;
-    bool current() =>
-        !isClosed &&
-        version == _statQuery &&
-        video == bvid &&
-        identical(account, Accounts.main);
-    if (staff != null && staff.isNotEmpty) {
-      final res = await Request().requestApi<Map<String, dynamic>>(
-        Api.relations,
-        kind: ApiCallKind.query,
-        options: Options(extra: {'account': account}),
-        decode: (body) => body['data'] as Map<String, dynamic>,
-        queryParameters: {'fids': staff.map((item) => item.mid).join(',')},
-      );
-      if (res case Success(:final response) when current()) {
-        staffRelations.assignAll({'status': true, ...response});
-      }
-    } else {
-      final mid = videoDetail.value.owner?.mid;
-      if (mid == null) {
-        return;
-      }
-      final res = await MemberHttp.memberCardInfo(
-        mid: mid,
-        account: account,
-      );
-      if (res case Success(:final response) when current()) {
-        userStat.value = response;
-      }
+    final stats = await details.authorStats(staff);
+    if (stats == null || isClosed) return;
+    if (stats.staff case final relations?) {
+      staffRelations.assignAll({'status': true, ...relations});
+    } else if (stats.profile case final profile?) {
+      userStat.value = profile;
     }
   }
 
-  int _relationQuery = 0;
+  @override
+  bool get hasDisliked => hasDislike.value;
+  @override
+  set hasDisliked(bool value) => hasDislike.value = value;
 
   Future<void> queryAllStatus() async {
-    if (interactionBusy || isClosed) return;
-    final account = Accounts.main;
-    final target = interactionTarget;
-    final revision = interactionRevision;
-    final query = ++_relationQuery;
-    final result = await VideoHttp.videoRelation(bvid: bvid, account: account);
-    if (!ownsInteraction(account, target) ||
-        revision != interactionRevision ||
-        query != _relationQuery) {
-      return;
-    }
-    if (result case Success(:final response)) {
-      final stat = getStat();
-      if (response.like) stat?.like = max(1, stat.like);
-      if (response.favorite) stat?.favorite = max(1, stat.favorite);
-      hasLike.value = response.like;
-      hasDislike.value = response.dislike;
-      coinNum.value = response.coin;
-      hasFav.value = response.favorite;
-    }
+    await interactions.refresh(pgc: false);
   }
 
-  // 一键三连：逐项消费回执，部分成功不能提示完整成功。
   @override
-  Future<void> actionTriple() => runInteraction((account, current) async {
-    feedBack();
-    if (hasTriple) {
-      SmartDialog.showToast('已三连');
-      return;
-    }
-    final result = await FavoriteLibrary.legacy.write(
-      account,
-      () => VideoHttp.ugcTriple(bvid: bvid, account: account),
-    );
-    if (result case Success(:final response)) {
-      final paid = response.coin ? response.multiply : 0;
-      if (identical(account, Accounts.main)) GlobalData().afterCoin(paid);
-      if (!current()) return;
-      final stat = getStat();
-      if (response.like && !hasLike.value) {
-        stat?.like++;
-        hasLike.value = true;
-        hasDislike.value = false;
-      }
-      if (paid > 0) {
-        stat?.coin += paid;
-        coinNum.value += paid;
-      }
-      if (response.fav && !hasFav.value) {
-        stat?.favorite++;
-        hasFav.value = true;
-      }
-      SmartDialog.showToast(hasTriple ? '三连成功' : '三连未全部完成，请核对点赞、投币和收藏状态');
-    } else if (current()) {
-      result.toast();
-    }
-  });
+  Future<void> actionTriple() => showInteractionResult(
+    interactions.triple(pgc: false, onAccepted: feedBack),
+  );
 
-  // （取消）点赞
-  @override
-  Future<void> actionLikeVideo() => runInteraction((account, current) async {
-    final newVal = !hasLike.value;
-    final result = await VideoHttp.likeVideo(
-      bvid: bvid,
-      type: newVal,
-      account: account,
-    );
-    if (!current()) return;
-    if (result case Success(:final response)) {
-      SmartDialog.showToast(newVal ? response ?? '点赞成功' : '取消赞');
-      getStat()?.like += newVal ? 1 : -1;
-      hasLike.value = newVal;
-      if (newVal) hasDislike.value = false;
-    } else {
-      result.toast();
-    }
-  });
-
-  Future<void> actionDislikeVideo() => runInteraction((account, current) async {
-    final newVal = !hasDislike.value;
-    final result = await VideoHttp.dislikeVideo(
-      bvid: bvid,
-      type: newVal,
-      account: account,
-    );
-    if (!current()) return;
-    if (result.isSuccess) {
-      SmartDialog.showToast(newVal ? '点踩成功' : '取消踩');
-      hasDislike.value = newVal;
-      if (newVal && hasLike.value) {
-        getStat()?.like--;
-        hasLike.value = false;
-      }
-    } else {
-      result.toast();
-    }
-  });
+  Future<void> actionDislikeVideo() =>
+      showInteractionResult(interactions.toggleDislike());
 
   @override
   int get copyright => videoDetail.value.copyright ?? 1;
@@ -429,16 +287,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     );
   }
 
-  // 查询关注状态
   Future<void> queryFollowStatus() async {
-    final videoDetail = this.videoDetail.value;
-    if (videoDetail.owner == null || videoDetail.staff?.isNotEmpty == true) {
-      return;
-    }
-    final res = await UserHttp.userRelation(videoDetail.owner!.mid!);
-    if (res case Success(:final response)) {
-      if (response.special == 1) response.attribute = -10;
-      followStatus.value = response;
+    final detail = videoDetail.value;
+    final mid = detail.owner?.mid;
+    if (mid == null || detail.staff?.isNotEmpty == true) return;
+    if (await details.followStatus(mid) case final relation? when !isClosed) {
+      followStatus.value = relation;
     }
   }
 
@@ -452,34 +306,34 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     if (videoDetail.staff?.isNotEmpty == true) {
       return;
     }
-    int? mid = videoDetail.owner?.mid;
+    final mid = videoDetail.owner?.mid;
     if (mid == null) {
       return;
     }
-    int attr = followStatus.value.attribute ?? 0;
+    final attr = followStatus.value.attribute ?? 0;
     if (attr == 128) {
-      final res = await VideoHttp.relationMod(
-        mid: mid,
-        act: 6,
-        reSrc: 11,
-      );
-      if (res.isSuccess) {
+      if (await details.unblock(mid) && !isClosed) {
         followStatus
           ..value.attribute = 0
           ..refresh();
       }
       return;
     } else {
+      final current = details.captureAuthor(mid);
       showFollowActions(
         context: context,
         mid: mid,
         isFollow: attr != 0,
         followStatus: followStatus.value,
+        isCurrent: current,
         afterMod: (attribute) {
+          details.invalidateRelation();
           followStatus
             ..value.attribute = attribute
             ..refresh();
-          Timer(const Duration(milliseconds: 500), queryFollowStatus);
+          Timer(const Duration(milliseconds: 500), () {
+            if (current()) queryFollowStatus();
+          });
         },
       );
     }
@@ -515,11 +369,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       final String? cover = episode.cover;
       Dimension? dimension;
       if (cid == null || cid <= 0) {
-        final result = await SearchHttp.pageWithDimension(
-          account: account,
-          aid: aid,
-          bvid: bvid,
-        );
+        final result = await VideoDetails.resolvePart(account, bvid, aid);
         if (!current()) return false;
         if (result is Error) {
           result.toast();
@@ -731,12 +581,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       return null;
     }
     SmartDialog.showLoading(msg: '正在获取AI总结');
-    final account = Accounts.heartbeat;
-    final res = await VideoHttp.aiConclusion(
-      bvid: bvid,
-      cid: cid,
-      upMid: mid,
-    );
+    final res = await VideoDetails.summary(bvid, cid, mid);
     unawaited(
       SmartDialog.dismiss(status: .loading)
           .catchError((Object error, StackTrace stackTrace) {
@@ -747,9 +592,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
             );
           }),
     );
-    if (!identical(account, Accounts.heartbeat)) return null;
+    if (res == null) return null;
     if (res case Success(:final response)) {
-      return response.modelResult;
+      return response;
     } else if (res is Error && res.code == 1) {
       SmartDialog.showToast("AI处理中，请稍后再试");
     } else {

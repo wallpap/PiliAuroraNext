@@ -298,6 +298,7 @@ abstract final class UserHttp {
   static Future<LoadingState<List<VideoTagItem>?>> videoTags({
     required String bvid,
     Object? cid,
+    Account? account,
   }) async {
     return await Request().requestApi(
       Api.videoTags,
@@ -306,6 +307,7 @@ abstract final class UserHttp {
           ?.map((e) => VideoTagItem.fromJson(e))
           .toList(),
       queryParameters: {'bvid': bvid, 'cid': ?cid},
+      options: account == null ? null : Options(extra: {'account': account}),
     );
   }
 
