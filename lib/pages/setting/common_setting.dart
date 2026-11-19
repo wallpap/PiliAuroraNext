@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/models/common/setting_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
+import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';
 import 'package:material_ui/material_ui.dart';
 
 class CommonSetting extends StatefulWidget {

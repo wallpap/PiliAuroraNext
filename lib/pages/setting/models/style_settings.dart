@@ -63,9 +63,10 @@ import 'package:pili_aurora_next/utils/theme_utils.dart';
 
 List<SettingsModel> styleSettings(BuildContext context) => _styleSettings(
   ProviderScope.containerOf(context).read(badgePreferencesProvider),
+  MediaQuery.widthOf(context).toPrecision(2),
 );
 
-List<SettingsModel> _styleSettings(BadgePreferences badges) => [
+List<SettingsModel> _styleSettings(BadgePreferences badges, double width) => [
   SettingsGroup(
     title: '主题与文字',
     subtitle: '主题颜色、字体与界面缩放',
@@ -218,7 +219,7 @@ List<SettingsModel> _styleSettings(BadgePreferences badges) => [
         leading: const Icon(Icons.calendar_view_week_outlined),
         title: '列表宽度（dp）限制',
         getSubtitle: () =>
-            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
+            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${width}dp。宽度越小列数越多。',
         onTap: _showCardWidthDialog,
       ),
       const SwitchModel(

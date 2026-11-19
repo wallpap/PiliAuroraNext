@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/pages/about/diagnostics_page.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/models/common/setting_type.dart';
+import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';
 import 'package:pili_aurora_next/pages/about/view.dart';
 import 'package:pili_aurora_next/pages/setting/common_setting.dart';
 import 'package:pili_aurora_next/pages/webdav/view.dart';

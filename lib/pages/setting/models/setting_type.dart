@@ -35,6 +35,6 @@ enum SettingType {
     .contentSetting => contentSettings,
     .diagnosticSetting => diagnosticSettings,
     .about => aboutSettings,
-    _ => throw UnimplementedError(),
+    .webdavSetting => throw UnimplementedError(),
   };
 }
