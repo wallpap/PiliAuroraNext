@@ -1,24 +1,21 @@
-import 'dart:async';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_contribution_rank/item.dart';
 import 'package:pili_aurora_next/models/remote/live/live_guard_top_list/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_guard_top_list/item.dart';
-import 'package:pili_aurora_next/pages/live_room/contribution_rank/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/live_list_sheet.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/member_guard/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 
 enum _SidebarTab { audience, guard }
 
-class DesktopLiveSidebar extends StatefulWidget {
+class DesktopLiveSidebar extends ConsumerStatefulWidget {
   const DesktopLiveSidebar({
     super.key,
     required this.roomId,
@@ -39,106 +36,47 @@ class DesktopLiveSidebar extends StatefulWidget {
   final VoidCallback onShowRank;
 
   @override
-  State<DesktopLiveSidebar> createState() => _DesktopLiveSidebarState();
+  ConsumerState<DesktopLiveSidebar> createState() => _DesktopLiveSidebarState();
 }
 
-class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
+class _DesktopLiveSidebarState extends ConsumerState<DesktopLiveSidebar> {
   _SidebarTab _tab = _SidebarTab.audience;
-  ContributionRankController? _rankController;
-  LoadingState<LiveGuardTopListData>? _guardState;
-  int _guardGeneration = 0;
-
-  String get _rankTag => 'desktop-live-${widget.roomId}';
-
-  @override
-  void initState() {
-    super.initState();
-    Accounts.mainChanges.addListener(_onAccountChanged);
-    _ensureRankController();
-  }
-
-  @override
-  void didUpdateWidget(covariant DesktopLiveSidebar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.roomId != widget.roomId ||
-        oldWidget.anchorUid != widget.anchorUid) {
-      _deleteRankController(roomId: oldWidget.roomId);
-      _rankController = null;
-      _guardState = null;
-      _guardGeneration++;
-      _ensureRankController();
-    }
-  }
-
-  void _ensureRankController() {
-    final anchorUid = widget.anchorUid;
-    if (anchorUid == null) return;
-    _rankController =
-        Get.isRegistered<ContributionRankController>(
-          tag: _rankTag,
-        )
-        ? Get.find<ContributionRankController>(tag: _rankTag)
-        : Get.put<ContributionRankController>(
-            ContributionRankController(
-              ruid: anchorUid,
-              roomId: widget.roomId,
-              type: LiveContributionRankType.online_rank,
-            ),
-            tag: _rankTag,
-          );
-    if (_guardState == null) {
-      unawaited(_loadGuard());
-    }
-  }
-
-  void _deleteRankController({int? roomId}) {
-    final tag = 'desktop-live-${roomId ?? widget.roomId}';
-    if (Get.isRegistered<ContributionRankController>(tag: tag)) {
-      Get.delete<ContributionRankController>(tag: tag, force: true);
-    }
-  }
-
-  void _onAccountChanged() => unawaited(_loadGuard());
-
-  Future<void> _loadGuard() async {
-    final anchorUid = widget.anchorUid;
-    if (anchorUid == null) return;
-    final account = Accounts.main;
-    final generation = ++_guardGeneration;
-    setState(() {
-      _guardState = LoadingState<LiveGuardTopListData>.loading();
-    });
-    final state = await LiveHttp.liveGuardTopList(
-      roomId: widget.roomId,
-      ruid: anchorUid,
-    );
-    if (!mounted ||
-        generation != _guardGeneration ||
-        !identical(account, Accounts.main)) {
-      return;
-    }
-    setState(() {
-      _guardState = state;
-    });
-  }
-
-  @override
-  void dispose() {
-    Accounts.mainChanges.removeListener(_onAccountChanged);
-    _guardGeneration++;
-    _deleteRankController();
-    super.dispose();
-  }
+  final _scope = Object();
 
   @override
   Widget build(BuildContext context) {
+    final anchor = widget.anchorUid;
+    final room = anchor == null
+        ? null
+        : (scope: _scope, room: widget.roomId, anchor: anchor);
+    final contribution = room == null
+        ? null
+        : liveContributionProvider((
+            room,
+            LiveContributionRankType.online_rank,
+          ));
+    final guard = room == null ? null : liveGuardRankingProvider(room);
+    final audienceState = contribution == null
+        ? null
+        : liveRankingResult(ref.watch(contribution));
+    final guardState = guard == null
+        ? null
+        : liveRankingResult(ref.watch(guard));
+    final preview = _tab == _SidebarTab.audience
+        ? _buildAudiencePreview(
+            context,
+            audienceState,
+            () => ref.invalidate(contribution!),
+          )
+        : _buildGuardPreview(context, guardState, () => ref.invalidate(guard!));
+    final guardCount = guardState?.dataOrNull?.count;
     return Material(
       color: const Color(0xF216171A),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTabs(context),
-          _buildPreview(context),
+          _buildTabs(context, guardCount),
+          _buildPreview(context, preview, guardCount),
           _buildChatHead(context),
           Expanded(child: widget.chat),
           widget.input,
@@ -147,7 +85,7 @@ class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
     );
   }
 
-  Widget _buildTabs(BuildContext context) {
+  Widget _buildTabs(BuildContext context, int? guardCount) {
     return Obx(
       () => SizedBox(
         height: 54,
@@ -168,7 +106,7 @@ class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
             Expanded(
               child: _SidebarTabButton(
                 label: '大航海',
-                count: _guardState?.dataOrNull?.count?.toString(),
+                count: guardCount?.toString(),
                 selected: _tab == _SidebarTab.guard,
                 onTap: () {
                   if (_tab != _SidebarTab.guard) {
@@ -183,7 +121,7 @@ class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
     );
   }
 
-  Widget _buildPreview(BuildContext context) {
+  Widget _buildPreview(BuildContext context, Widget preview, int? guardCount) {
     final isAudience = _tab == _SidebarTab.audience;
     return SizedBox(
       height: 148,
@@ -216,7 +154,7 @@ class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => _openAll(isAudience),
+                    onPressed: () => _openAll(isAudience, guardCount),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF8F929A),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -236,44 +174,40 @@ class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
               ),
             ),
             const SizedBox(height: 3),
-            Expanded(
-              child: isAudience
-                  ? _buildAudiencePreview(context)
-                  : _buildGuardPreview(context),
-            ),
+            Expanded(child: preview),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAudiencePreview(BuildContext context) {
-    final controller = _rankController;
-    if (controller == null) {
-      return const _SidebarPreviewMessage(message: '等待直播间信息');
-    }
-    return Obx(() {
-      return switch (controller.loadingState.value) {
-        Loading() => const _SidebarPreviewLoading(),
-        Success(:final response) => _buildAudienceCards(
-          context,
-          response ?? const [],
-        ),
-        Error(:final errMsg) => _SidebarPreviewMessage(
-          message: errMsg ?? '在线榜加载失败',
-          onRetry: controller.onReload,
-        ),
-      };
-    });
+  Widget _buildAudiencePreview(
+    BuildContext context,
+    LoadingState<List<LiveContributionRankItem>>? state,
+    VoidCallback retry,
+  ) {
+    return switch (state) {
+      null => const _SidebarPreviewMessage(message: '等待直播间信息'),
+      Loading() => const _SidebarPreviewLoading(),
+      Success(:final response) => _buildAudienceCards(context, response),
+      Error(:final errMsg) => _SidebarPreviewMessage(
+        message: errMsg ?? '在线榜加载失败',
+        onRetry: retry,
+      ),
+    };
   }
 
-  Widget _buildGuardPreview(BuildContext context) {
-    return switch (_guardState) {
+  Widget _buildGuardPreview(
+    BuildContext context,
+    LoadingState<LiveGuardTopListData>? state,
+    VoidCallback retry,
+  ) {
+    return switch (state) {
       null || Loading() => const _SidebarPreviewLoading(),
       Success(:final response) => _buildGuardCards(context, response.tops),
       Error(:final errMsg) => _SidebarPreviewMessage(
         message: errMsg ?? '大航海加载失败',
-        onRetry: _loadGuard,
+        onRetry: retry,
       ),
     };
   }
@@ -390,14 +324,13 @@ class _DesktopLiveSidebarState extends State<DesktopLiveSidebar> {
     Get.toNamed('/member?mid=$uid');
   }
 
-  void _openAll(bool isAudience) {
+  void _openAll(bool isAudience, int? count) {
     if (isAudience) {
       widget.onShowRank();
       return;
     }
     final anchorUid = widget.anchorUid;
     if (anchorUid == null) return;
-    final count = _guardState?.dataOrNull?.count;
     showLiveListSheet(
       context: context,
       title:

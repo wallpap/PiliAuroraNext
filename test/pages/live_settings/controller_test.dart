@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/pages/live_area/controller.dart';
 import 'package:pili_aurora_next/pages/live_area/view.dart';
 import 'package:pili_aurora_next/models/remote/live/live_area_list/area_item.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/live_dm_block/controller.dart';
+import 'package:pili_aurora_next/features/playback/application/live_block_rules.dart';
 import 'package:pili_aurora_next/pages/live_dm_block/view.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

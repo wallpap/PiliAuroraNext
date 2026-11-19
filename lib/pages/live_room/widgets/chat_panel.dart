@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/popup_menu.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
 import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
 import 'package:pili_aurora_next/models/remote/live/live_danmaku/live_emote.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
@@ -13,7 +13,6 @@ import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_list.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -322,18 +321,20 @@ class LiveRoomChatPanel extends StatelessWidget {
     TapUpDetails details,
     DanmakuMsg item,
   ) {
-    final account = Accounts.main;
     final roomId = liveRoomController.roomId;
     var shielding = false;
-    bool current() =>
+    bool roomIsCurrent() =>
         context.mounted &&
         !liveRoomController.isClosed &&
-        identical(account, Accounts.main) &&
         identical(
           (context.widget as LiveRoomChatPanel).liveRoomController,
           liveRoomController,
         ) &&
         roomId == liveRoomController.roomId;
+    final interaction = LiveRoomInteractions(
+      roomId,
+      roomIsCurrent: roomIsCurrent,
+    );
     final dx = details.globalPosition.dx;
     final renderBox = itemContext.findRenderObject() as RenderBox;
     final dy =
@@ -366,25 +367,22 @@ class LiveRoomChatPanel extends StatelessWidget {
           onTap: () => Get.toNamed('/member?mid=${item.extra.mid}'),
           child: const Text('去TA的个人空间', style: TextStyle(fontSize: 13)),
         ),
-        if (account.isLogin) ...[
+        if (interaction.isLogin) ...[
           AppPopupMenuItem(
             height: 38,
-            onTap: () => liveRoomController.onAtUser(item),
+            onTap: () {
+              if (interaction.isCurrent) liveRoomController.onAtUser(item);
+            },
             child: const Text('@TA', style: TextStyle(fontSize: 13)),
           ),
           AppPopupMenuItem(
             height: 38,
             onTap: () async {
-              if (shielding || !current()) return;
+              if (shielding || !interaction.isCurrent) return;
               shielding = true;
               try {
-                final res = await LiveHttp.liveShieldUser(
-                  account: account,
-                  uid: item.extra.mid,
-                  roomid: roomId,
-                  type: 1,
-                );
-                if (!current()) return;
+                final res = await interaction.shield(item.extra.mid);
+                if (res == null || !interaction.isCurrent) return;
                 if (res.isSuccess) {
                   SmartDialog.showToast('屏蔽成功');
                 } else {
@@ -399,12 +397,13 @@ class LiveRoomChatPanel extends StatelessWidget {
           AppPopupMenuItem(
             height: 38,
             onTap: () {
-              if (!current()) return;
+              if (!interaction.isCurrent) return;
               HeaderControl.reportLiveDanmaku(
                 context,
                 roomId: roomId,
                 msg: item.text,
                 extra: item.extra,
+                roomIsCurrent: roomIsCurrent,
               );
             },
             child: const Text('举报选中弹幕', style: TextStyle(fontSize: 13)),

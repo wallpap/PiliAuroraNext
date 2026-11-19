@@ -8,10 +8,11 @@ import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/features/playback/application/live_chat_connection.dart';
 import 'package:pili_aurora_next/features/playback/application/live_chat_queries.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_queries.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_source.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/models/common/video/live_quality.dart';
 import 'package:pili_aurora_next/models/model_owner.dart';
@@ -20,12 +21,11 @@ import 'package:pili_aurora_next/models/remote/live/live_danmaku/live_emote.dart
 import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_medal_wall/uinfo_medal.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_info_h5/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_play_info/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_play_info/stream.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_queue.dart';
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
 import 'package:pili_aurora_next/pages/live_room/send_danmaku/view.dart';
@@ -38,19 +38,16 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/danmaku_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:dio/dio.dart' show CancelToken;
@@ -83,6 +80,7 @@ class LiveRoomController extends GetxController {
 
   final isLoaded = false.obs;
   final roomInfoH5 = Rxn<RoomInfoH5Data>();
+  final _roomQueries = LiveRoomQueries();
 
   final liveTime = Rxn<int>();
   Timer? liveTimeTimer;
@@ -164,8 +162,8 @@ class LiveRoomController extends GetxController {
   final RxBool isPortrait = false.obs;
   late List<({int code, String desc})> acceptQnList = [];
 
-  late final bool isLogin;
-  late final int mid;
+  bool get isLogin => Accounts.main.isLogin;
+  int get mid => Accounts.main.mid;
 
   String? videoUrl;
   late bool isFullScreen = false;
@@ -242,15 +240,9 @@ class LiveRoomController extends GetxController {
     super.onInit();
     playbackOwner = plPlayerController.attachPlaybackOwner();
     scrollController = ScrollController()..addListener(listener);
-    final account = Accounts.main;
-    isLogin = account.isLogin;
-    mid = account.mid;
     queryLiveUrl(autoFullScreenFlag: true);
     queryLiveInfoH5();
-    final heartbeat = Accounts.heartbeat;
-    if (heartbeat.isLogin && !Pref.historyPause) {
-      VideoHttp.roomEntryAction(account: heartbeat, roomId: roomId);
-    }
+    unawaited(LiveRoomQueries.recordEntry(roomId));
     if (showSuperChat) {
       pageController = PageController();
     }
@@ -302,7 +294,7 @@ class LiveRoomController extends GetxController {
         live: true,
         audioOnly: plPlayerController.onlyPlayAudio.value,
       );
-      _LiveSourceSelection? selection;
+      LiveRoomSource? selection;
       PlaybackPlan? plan;
       RoomPlayInfoData? info;
       final result = await playbackOwner.query(
@@ -310,6 +302,7 @@ class LiveRoomController extends GetxController {
           try {
             return await _queryLiveUrl(
               requestedRoomId,
+              account,
               configuration,
               cancelToken,
               query,
@@ -364,29 +357,26 @@ class LiveRoomController extends GetxController {
 
   Future<PlaybackPlan?> _queryLiveUrl(
     int requestedRoomId,
+    Account account,
     PlaybackConfiguration configuration,
     CancelToken cancelToken,
     PlaybackQuery query,
     int? qn,
     bool Function() ownsSource,
-    void Function(_LiveSourceSelection, PlaybackPlan, RoomPlayInfoData)
-    prepared, {
+    void Function(LiveRoomSource, PlaybackPlan, RoomPlayInfoData) prepared, {
     required bool showFailureDialog,
   }) async {
     query.registerCancel(cancelToken.cancel);
     bool isCurrent() => ownsSource() && query.isCurrent;
-    if (qn == null) {
-      final isWiFi = await ConnectivityUtils.isWiFi;
-      if (!isCurrent()) return null;
-      qn = isWiFi ? Pref.liveQuality : Pref.liveQualityCellular;
-    }
-    final res = await LiveHttp.liveRoomInfo(
-      roomId: requestedRoomId,
-      qn: qn,
-      onlyAudio: configuration.audioOnly,
+    final res = await LiveRoomQueries.playback(
+      room: requestedRoomId,
+      account: account,
+      quality: qn,
+      audioOnly: configuration.audioOnly,
       cancelToken: cancelToken,
+      current: isCurrent,
     );
-    if (!isCurrent()) return null;
+    if (res == null || !isCurrent()) return null;
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
         if (showFailureDialog) _showDialog('当前直播间未开播');
@@ -397,14 +387,7 @@ class LiveRoomController extends GetxController {
         if (showFailureDialog) _showDialog('无法获取播放地址');
         return null;
       }
-      final preferred = _preferredLiveStream(playurl.stream);
-      final selection = _selectLiveSource(
-        streams: playurl.stream,
-        streamIndex: preferred.stream,
-        formatIndex: preferred.format,
-        codecIndex: preferred.codec,
-        liveUrlIndex: preferred.url,
-      );
+      final selection = LiveRoomSource.preferred(playurl.stream);
       if (!isCurrent()) return null;
       final plan = plPlayerController.createPlaybackPlan(
         contentKey: 'live:${response.roomId ?? requestedRoomId}',
@@ -433,35 +416,6 @@ class LiveRoomController extends GetxController {
   int codecIndex = 0;
   int liveUrlIndex = 0;
 
-  ({int stream, int format, int codec, int url}) _preferredLiveStream(
-    List<Stream> streams,
-  ) {
-    final pref = Pref.liveStream;
-    if (pref != null && pref.length == 3) {
-      for (final (i, s) in streams.indexed) {
-        if (s.protocolName != pref[0]) continue;
-        for (final (j, f) in s.format.indexed) {
-          if (f.formatName != pref[1]) continue;
-          for (final (k, c) in f.codec.indexed) {
-            if (c.codecName == pref[2] && c.urlInfo.isNotEmpty) {
-              return (stream: i, format: j, codec: k, url: 0);
-            }
-          }
-        }
-      }
-    }
-    for (final (i, s) in streams.indexed) {
-      for (final (j, f) in s.format.indexed) {
-        for (final (k, c) in f.codec.indexed) {
-          if (c.urlInfo.isNotEmpty) {
-            return (stream: i, format: j, codec: k, url: 0);
-          }
-        }
-      }
-    }
-    throw const FormatException('直播响应缺少可用线路');
-  }
-
   Future<LoadResult> initLiveUrl({
     int streamIndex = 0,
     int formatIndex = 0,
@@ -489,8 +443,8 @@ class LiveRoomController extends GetxController {
         identical(streams, stream) &&
         (isCurrent?.call() ?? true);
     try {
-      final selection = _selectLiveSource(
-        streams: streams,
+      final selection = LiveRoomSource.select(
+        streams,
         streamIndex: streamIndex,
         formatIndex: formatIndex,
         codecIndex: codecIndex,
@@ -525,11 +479,7 @@ class LiveRoomController extends GetxController {
         _confirmLiveSource(selection, plan);
         _startSizeSub();
         try {
-          await GStorage.setting.put(SettingBoxKey.liveStream, [
-            streams[streamIndex].protocolName,
-            streams[streamIndex].format[formatIndex].formatName,
-            selection.codec.codecName,
-          ]);
+          await selection.remember();
         } catch (error, stackTrace) {
           _sourceFailure('直播线路偏好保存失败', error, stackTrace);
           if (current()) SmartDialog.showToast('线路已切换，但偏好保存失败');
@@ -546,45 +496,7 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  _LiveSourceSelection _selectLiveSource({
-    required List<Stream> streams,
-    required int streamIndex,
-    required int formatIndex,
-    required int codecIndex,
-    required int liveUrlIndex,
-  }) {
-    if (streamIndex < 0 || streamIndex >= streams.length) {
-      throw const FormatException('直播线路已失效');
-    }
-    final formats = streams[streamIndex].format;
-    if (formatIndex < 0 || formatIndex >= formats.length) {
-      throw const FormatException('直播格式已失效');
-    }
-    final codecs = formats[formatIndex].codec;
-    if (codecIndex < 0 || codecIndex >= codecs.length) {
-      throw const FormatException('直播编码已失效');
-    }
-    final item = codecs[codecIndex];
-    if (liveUrlIndex < 0 || liveUrlIndex >= item.urlInfo.length) {
-      throw const FormatException('直播地址已失效');
-    }
-    final urls = VideoUtils.getLiveCdnUrls(item, index: liveUrlIndex);
-    return _LiveSourceSelection(
-      streams: streams,
-      streamIndex: streamIndex,
-      formatIndex: formatIndex,
-      codecIndex: codecIndex,
-      liveUrlIndex: liveUrlIndex,
-      codec: item,
-      source: NetworkSource(
-        videoSource: urls.first,
-        audioSource: null,
-        videoCandidates: urls,
-      ),
-    );
-  }
-
-  void _confirmLiveSource(_LiveSourceSelection selection, PlaybackPlan plan) {
+  void _confirmLiveSource(LiveRoomSource selection, PlaybackPlan plan) {
     stream = selection.streams;
     streamIndex = selection.streamIndex;
     formatIndex = selection.formatIndex;
@@ -695,8 +607,10 @@ class LiveRoomController extends GetxController {
   Future<void> queryLiveInfoH5() async {
     final ownsPlayback = playbackOwner.guard();
     if (isClosed || !ownsPlayback()) return;
-    final res = await LiveHttp.liveRoomInfoH5(roomId: roomId);
-    if (isClosed || !ownsPlayback()) return;
+    final target = roomId;
+    bool current() => !isClosed && ownsPlayback() && target == roomId;
+    final res = await _roomQueries.details(target, current: current);
+    if (res == null || !current()) return;
     if (res case Success(:final response)) {
       roomInfoH5.value = response;
       title.value = response.roomInfo?.title ?? '';
@@ -773,6 +687,7 @@ class LiveRoomController extends GetxController {
     final reconnect = _chatConnection.wantsConnection;
     _chatConnection.close(discardToken: true);
     roomId = value;
+    if (roomInfoH5.value == null) unawaited(queryLiveInfoH5());
     if (reconnect) unawaited(startLiveMsg());
   }
 
@@ -911,7 +826,8 @@ class LiveRoomController extends GetxController {
     plPlayerController.closePlaybackOwner(playbackOwner);
     _stopSizeSub();
     closeLiveMsg();
-    cancelLikeTimer();
+    _likes.dispose();
+    _roomQueries.dispose();
     cancelLiveTimer();
     _messageRefreshTimer?.cancel();
     _messageRefreshTimer = null;
@@ -1126,40 +1042,21 @@ class LiveRoomController extends GetxController {
   }
 
   final RxInt likeClickTime = 0.obs;
-  Timer? likeClickTimer;
+  late final _likes = LiveRoomLikes(
+    room: () => isClosed ? null : roomId,
+    anchor: () => roomInfoH5.value?.roomInfo?.uid,
+    onCount: (count) => likeClickTime.value = count,
+    onReceipt: (result) {
+      if (result.isSuccess) {
+        SmartDialog.showToast('点赞成功');
+      } else {
+        result.toast();
+      }
+    },
+  );
 
-  void cancelLikeTimer() {
-    likeClickTimer?.cancel();
-    likeClickTimer = null;
-  }
-
-  void onLikeTapDown(_) {
-    cancelLikeTimer();
-    likeClickTime.value++;
-  }
-
-  void onLikeTapUp([_]) {
-    likeClickTimer ??= Timer(const Duration(milliseconds: 800), onLike);
-  }
-
-  Future<void> onLike() async {
-    if (!isLogin) {
-      likeClickTime.value = 0;
-      return;
-    }
-    final res = await LiveHttp.liveLikeReport(
-      clickTime: likeClickTime.value,
-      roomId: roomId,
-      uid: mid,
-      anchorId: roomInfoH5.value?.roomInfo?.uid,
-    );
-    if (res.isSuccess) {
-      SmartDialog.showToast('点赞成功');
-    } else {
-      res.toast();
-    }
-    likeClickTime.value = 0;
-  }
+  void onLikeTapDown(_) => _likes.tapDown();
+  void onLikeTapUp([_]) => _likes.tapUp();
 
   void toastNotLogin() {
     SmartDialog.showToast('账号未登录');
@@ -1214,47 +1111,26 @@ class LiveRoomController extends GetxController {
   }
 
   void reportSC(SuperChatItem item) {
-    if (!isLogin) {
+    final target = roomId;
+    final interaction = LiveRoomInteractions(
+      target,
+      roomIsCurrent: () => !isClosed && roomId == target,
+    );
+    if (!interaction.isLogin) {
       toastNotLogin();
       return;
     }
     autoWrapReportDialog(
       Get.context!,
       ban: false,
+      isCurrent: () => interaction.isCurrent,
       ReportOptions.liveDanmakuReport,
       withContent: ReportOptions.liveDanmakuReportCheck,
       contentRequired: ReportOptions.liveDanmakuReportCheck,
-      (reasonType, reasonDesc, banUid) {
-        return LiveHttp.superChatReport(
-          id: item.id,
-          roomId: roomId,
-          uid: item.uid,
-          msg: item.message,
-          reason: ReportOptions.liveDanmakuReport['']![reasonType]!,
-          ts: item.ts,
-          token: item.token,
-        );
-      },
+      (reasonType, reasonDesc, banUid) => interaction.reportSuperChat(
+        item,
+        ReportOptions.liveDanmakuReport['']![reasonType]!,
+      ),
     );
   }
-}
-
-class _LiveSourceSelection {
-  const _LiveSourceSelection({
-    required this.streams,
-    required this.streamIndex,
-    required this.formatIndex,
-    required this.codecIndex,
-    required this.liveUrlIndex,
-    required this.codec,
-    required this.source,
-  });
-
-  final List<Stream> streams;
-  final int streamIndex;
-  final int formatIndex;
-  final int codecIndex;
-  final int liveUrlIndex;
-  final CodecItem codec;
-  final NetworkSource source;
 }

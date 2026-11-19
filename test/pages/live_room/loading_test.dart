@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart' show LiveRoomPage;
 import 'package:pili_aurora_next/pages/live_room/widgets/bottom_control.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/header_control.dart';

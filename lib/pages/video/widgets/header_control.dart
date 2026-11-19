@@ -8,12 +8,12 @@ import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
 import 'package:pili_aurora_next/http/danmaku.dart';
 import 'package:pili_aurora_next/http/danmaku_block.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
@@ -296,27 +296,26 @@ class HeaderControl extends StatefulWidget {
     required int roomId,
     required String msg,
     required LiveDanmaku extra,
+    bool Function()? roomIsCurrent,
   }) {
-    if (Accounts.main.isLogin) {
+    final interaction = LiveRoomInteractions(
+      roomId,
+      roomIsCurrent: () => context.mounted && (roomIsCurrent?.call() ?? true),
+    );
+    if (interaction.isLogin) {
       return autoWrapReportDialog(
         context,
         ban: false,
+        isCurrent: () => interaction.isCurrent,
         ReportOptions.liveDanmakuReport,
         withContent: ReportOptions.liveDanmakuReportCheck,
         contentRequired: ReportOptions.liveDanmakuReportCheck,
-        (reasonType, reasonDesc, banUid) {
-          return LiveHttp.liveDmReport(
-            roomId: roomId,
-            mid: extra.mid,
-            msg: msg,
-            reason: ReportOptions.liveDanmakuReport['']![reasonType]!,
-            reasonId: reasonType,
-            dmType: extra.dmType,
-            idStr: extra.id,
-            ts: extra.ts,
-            sign: extra.ct,
-          );
-        },
+        (reasonType, reasonDesc, banUid) => interaction.reportMessage(
+          msg,
+          extra,
+          reason: ReportOptions.liveDanmakuReport['']![reasonType]!,
+          reasonId: reasonType,
+        ),
       );
     } else {
       return SmartDialog.showToast('请先登录');

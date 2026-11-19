@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';

@@ -1,12 +1,11 @@
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
 import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/live_emote/view.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -176,8 +175,16 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     if (!mounted || _sending.value) return;
     final owner = liveRoomController;
     if (owner.isClosed || owner.roomId != _roomId) return;
-    final account = Accounts.main;
     final route = ModalRoute.of(context);
+    final interaction = LiveRoomInteractions(
+      _roomId,
+      roomIsCurrent: () =>
+          mounted &&
+          identical(owner, liveRoomController) &&
+          !owner.isClosed &&
+          owner.roomId == _roomId &&
+          route?.isCurrent == true,
+    );
     final fromEditor = message == null;
     final draft = [
       for (final e in editController.items) (e.type, e.text, e.rawText, e.id),
@@ -199,23 +206,14 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     if (message.trim().isEmpty) return;
     _sending.value = true;
     try {
-      final res = await LiveHttp.sendLiveMsg(
-        account: account,
-        roomId: _roomId,
-        msg: message,
+      final res = await interaction.send(
+        message,
         dmType: dmType,
         emoticonOptions: emoticonOptions,
         replyMid: replyMid,
-        replayDmid: replyDmid,
+        replyId: replyDmid,
       );
-      if (!mounted ||
-          !identical(account, Accounts.main) ||
-          !identical(owner, liveRoomController) ||
-          owner.isClosed ||
-          owner.roomId != _roomId ||
-          route?.isCurrent != true) {
-        return;
-      }
+      if (!mounted || res == null || !interaction.isCurrent) return;
       if (res.isSuccess) {
         hasPub =
             (fromEditor || draft.isEmpty) &&

@@ -1,4 +1,5 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,10 +10,11 @@ import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dar
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/feedback.dart'
     as live_feedback;
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
-import 'package:pili_aurora_next/pages/live_room/contribution_rank/controller.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_panel.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/desktop_sidebar.dart';
@@ -59,7 +61,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
   late LoginAccount main;
   late LoginAccount recommend;
   LoginAccount account(int mid, [String csrf = 'fixture']) => LoginAccount(
@@ -67,11 +68,6 @@ void main() {
     null,
     null,
   )..activated = true;
-  T own<T extends GetxController>(T controller) {
-    controllers.add(controller);
-    return controller;
-  }
-
   Map<String, dynamic> rank(String name) => {
     'code': 0,
     'data': {
@@ -112,10 +108,6 @@ void main() {
     requests.clear();
   });
   tearDown(() {
-    for (final controller in controllers.reversed) {
-      if (!controller.isClosed) controller.onDelete();
-    }
-    controllers.clear();
     for (final request in requests) {
       if (!request.reply.isCompleted) {
         request.reply.complete({'code': -1, 'message': 'closed'});
@@ -165,13 +157,17 @@ void main() {
   }
 
   test('直播贡献榜固定主账号并丢弃旧凭据和关闭后的结果', () async {
-    final controller = own(
-      ContributionRankController(
-        ruid: 2,
-        roomId: 1,
-        type: .online_rank,
-      ),
-    )..onInit();
+    final container = ProviderContainer.test();
+    final provider = liveContributionProvider((
+      (scope: Object(), room: 1, anchor: 2),
+      .online_rank,
+    ));
+    final names = <String?>[];
+    final subscription = container.listen(provider, (_, next) {
+      if (next is AsyncData && !next.isLoading) {
+        names.add(next.requireValue.dataOrNull?.single.name);
+      }
+    });
     await interceptor.waitForRequests(1);
     final replacement = account(1, 'replacement');
     Accounts.replaceCredentials(replacement);
@@ -181,15 +177,65 @@ void main() {
     await flush();
     requests.first.reply.complete(rank('旧观众'));
     await flush();
-    expect(controller.loadingState.value.data!.single.name, '当前观众');
-    final query = controller.onRefresh();
+    expect(names, ['当前观众']);
+    container.invalidate(provider);
     await interceptor.waitForRequests(3);
-    controller.onDelete();
+    subscription.close();
+    await container.pump();
     requests.last.reply.complete(rank('关闭后的观众'));
-    await query;
-    expect(controller.loadingState.value.data!.single.name, '当前观众');
+    await flush();
+    expect(names, ['当前观众']);
     Accounts.replaceCredentials(account(1, 'closed'));
     expect(requests, hasLength(3));
+  });
+
+  testWidgets('直播点赞分批结算，不清空在途期间的新点击或提交已失效批次', (tester) async {
+    final previousHeartbeat = Accounts.heartbeat;
+    Accounts.accountMode[AccountType.heartbeat.index] = main;
+    addTearDown(
+      () =>
+          Accounts.accountMode[AccountType.heartbeat.index] = previousHeartbeat,
+    );
+    var count = 0;
+    final receipts = <bool>[];
+    final likes = LiveRoomLikes(
+      room: () => 1,
+      anchor: () => 9,
+      onCount: (value) => count = value,
+      onReceipt: (result) => receipts.add(result.isSuccess),
+    );
+    addTearDown(likes.dispose);
+    Future<void> click() async {
+      likes
+        ..tapDown()
+        ..tapUp();
+      await tester.pump(const Duration(milliseconds: 800));
+    }
+
+    await click();
+    await until(tester, () => requests.length == 1);
+    await click();
+    expect(requests, hasLength(1));
+    requests.first.reply.complete({'code': 0});
+    await until(tester, () => requests.length == 2);
+    expect(count, 1);
+    expect(requests.map((request) => request.options.data['click_time']), [
+      1,
+      1,
+    ]);
+    likes
+      ..tapDown()
+      ..tapUp();
+    Accounts.accountMode[AccountType.main.index] = account(
+      1,
+      'new-credentials',
+    );
+    requests.last.reply.complete({'code': 0});
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpAndSettle();
+    expect(receipts, [true]);
+    expect(count, 0);
+    expect(requests, hasLength(2));
   });
 
   testWidgets('直播侧栏切房清理旧榜单，舰长结果绑定房间和账号', (tester) async {
@@ -199,37 +245,29 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     });
-    Widget sidebar(int roomId) => MaterialApp(
-      home: Scaffold(
-        body: SizedBox(
-          width: 380,
-          height: 600,
-          child: DesktopLiveSidebar(
-            roomId: roomId,
-            anchorUid: roomId + 10,
-            anchorName: '主播',
-            liveRoomController: room,
-            chat: const SizedBox.expand(),
-            input: const SizedBox(height: 48),
-            onShowRank: () {},
+    Widget sidebar(int roomId) => ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 380,
+            height: 600,
+            child: DesktopLiveSidebar(
+              roomId: roomId,
+              anchorUid: roomId + 10,
+              anchorName: '主播',
+              liveRoomController: room,
+              chat: const SizedBox.expand(),
+              input: const SizedBox(height: 48),
+              onShowRank: () {},
+            ),
           ),
         ),
       ),
     );
     await tester.pumpWidget(sidebar(1));
     await until(tester, () => requests.length == 2);
-    expect(
-      Get.isRegistered<ContributionRankController?>(tag: 'desktop-live-1'),
-      isFalse,
-    );
-    final oldRank = Get.find<ContributionRankController>(tag: 'desktop-live-1');
     await tester.pumpWidget(sidebar(2));
     await until(tester, () => requests.length == 4);
-    expect(oldRank.isClosed, isTrue);
-    expect(
-      Get.isRegistered<ContributionRankController>(tag: 'desktop-live-1'),
-      isFalse,
-    );
     for (final request in requests) {
       if (request.options.path == Api.liveContributionRank) {
         request.reply.complete(rank('观众'));
@@ -261,10 +299,6 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     Accounts.replaceCredentials(account(1, 'closed'));
     expect(requests, hasLength(6));
-    expect(
-      Get.isRegistered<ContributionRankController>(tag: 'desktop-live-2'),
-      isFalse,
-    );
     expect(tester.takeException(), isNull);
   });
 

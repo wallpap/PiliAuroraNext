@@ -2,17 +2,19 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_contribution_rank/item.dart';
-import 'package:pili_aurora_next/pages/live_room/contribution_rank/controller.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -33,6 +35,11 @@ class ContributionRankPanel extends StatefulWidget {
 class _ContributionRankPanelState extends State<ContributionRankPanel>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final _scope = Object();
+  final _scroll = {
+    for (final type in LiveContributionRankType.values)
+      type: ScrollController(),
+  };
 
   @override
   void initState() {
@@ -46,6 +53,9 @@ class _ContributionRankPanelState extends State<ContributionRankPanel>
   @override
   void dispose() {
     _tabController.dispose();
+    for (final scroll in _scroll.values) {
+      scroll.dispose();
+    }
     super.dispose();
   }
 
@@ -65,10 +75,8 @@ class _ContributionRankPanelState extends State<ContributionRankPanel>
             ).colorScheme.outline.withValues(alpha: 0.3),
             onTap: (index) {
               if (!_tabController.indexIsChanging) {
-                Get.find<ContributionRankController>(
-                  tag:
-                      '${widget.roomId}${LiveContributionRankType.values[index].name}',
-                ).scrollController.animToTop();
+                final scroll = _scroll[LiveContributionRankType.values[index]]!;
+                if (scroll.hasClients) scroll.animToTop();
               }
             },
           ),
@@ -79,9 +87,11 @@ class _ContributionRankPanelState extends State<ContributionRankPanel>
             children: LiveContributionRankType.values
                 .map(
                   (e) => _ContributionRankType(
-                    ruid: widget.ruid,
-                    roomId: widget.roomId,
-                    type: e,
+                    query: (
+                      (scope: _scope, anchor: widget.ruid, room: widget.roomId),
+                      e,
+                    ),
+                    scroll: _scroll[e]!,
                   ),
                 )
                 .toList(),
@@ -92,54 +102,39 @@ class _ContributionRankPanelState extends State<ContributionRankPanel>
   }
 }
 
-class _ContributionRankType extends StatefulWidget {
+class _ContributionRankType extends ConsumerStatefulWidget {
   const _ContributionRankType({
-    required this.ruid,
-    required this.roomId,
-    required this.type,
+    required this.query,
+    required this.scroll,
   });
 
-  final Object ruid;
-  final Object roomId;
-  final LiveContributionRankType type;
+  final LiveContributionQuery query;
+  final ScrollController scroll;
 
   @override
-  State<_ContributionRankType> createState() => _ContributionRankTypeState();
+  ConsumerState<_ContributionRankType> createState() =>
+      _ContributionRankTypeState();
 }
 
-class _ContributionRankTypeState extends State<_ContributionRankType>
+class _ContributionRankTypeState extends ConsumerState<_ContributionRankType>
     with AutomaticKeepAliveClientMixin {
-  late final ContributionRankController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      ContributionRankController(
-        ruid: widget.ruid,
-        roomId: widget.roomId,
-        type: widget.type,
-      ),
-      tag: '${widget.roomId}${widget.type.name}',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final showScore = widget.type == .online_rank;
+    final showScore = widget.query.$2 == .online_rank;
+    final provider = liveContributionProvider(widget.query);
+    final state = liveRankingResult(ref.watch(provider));
+    void retry() => ref.invalidate(provider);
     return Material(
       type: .transparency,
       child: refreshIndicator(
-        onRefresh: _controller.onRefresh,
+        onRefresh: () => ref.refresh(provider.future),
         child: CustomScrollView(
-          controller: _controller.scrollController,
+          controller: widget.scroll,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             ViewSliverSafeArea(
-              sliver: Obx(
-                () => _buildBody(showScore, _controller.loadingState.value),
-              ),
+              sliver: _buildBody(showScore, state, retry),
             ),
           ],
         ),
@@ -149,12 +144,13 @@ class _ContributionRankTypeState extends State<_ContributionRankType>
 
   Widget _buildBody(
     bool showScore,
-    LoadingState<List<LiveContributionRankItem>?> state,
+    LoadingState<List<LiveContributionRankItem>> state,
+    VoidCallback retry,
   ) {
     return switch (state) {
       Loading() => linearLoading,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? SliverFixedExtentList.builder(
                 itemCount: response.length,
                 itemBuilder: (context, index) {
@@ -167,10 +163,10 @@ class _ContributionRankTypeState extends State<_ContributionRankType>
                 },
                 itemExtent: 60,
               )
-            : HttpError(onReload: _controller.onReload),
+            : HttpError(onReload: retry),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: retry,
       ),
     };
   }

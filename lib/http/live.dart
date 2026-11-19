@@ -38,16 +38,19 @@ abstract final class LiveHttp {
     int replyMid = 0,
     String replayDmid = '',
     Account? account,
+    bool Function()? canSend,
   }) async {
     account ??= Accounts.main;
     final csrf = account.csrf;
     try {
+      final signature = await WbiSign.makSign({'web_location': 444.8});
+      if (canSend?.call() == false) return const Error('直播间或账号已更新');
       return await Request().requestApi(
         Api.sendLiveMsg,
         kind: ApiCallKind.mutation,
         decode: (_) {},
         options: Options(extra: {'account': account}),
-        queryParameters: await WbiSign.makSign({'web_location': 444.8}),
+        queryParameters: signature,
         data: FormData.fromMap({
           'bubble': 0,
           'msg': msg,
@@ -83,8 +86,9 @@ abstract final class LiveHttp {
     Object? qn,
     bool onlyAudio = false,
     CancelToken? cancelToken,
+    Account? account,
   }) async {
-    final account = Accounts.heartbeat;
+    account ??= Accounts.heartbeat;
     try {
       return await Request().requestApi(
         Api.liveRoomInfo,
@@ -113,12 +117,16 @@ abstract final class LiveHttp {
 
   static Future<LoadingState<RoomInfoH5Data>> liveRoomInfoH5({
     required Object roomId,
+    Account? account,
+    CancelToken? cancelToken,
   }) async {
     return await Request().requestApi(
       Api.liveRoomInfoH5,
       kind: ApiCallKind.query,
       decode: (body) => RoomInfoH5Data.fromJson(body['data']),
       queryParameters: {'room_id': roomId},
+      cancelToken: cancelToken,
+      options: Options(extra: {'account': account ?? Accounts.heartbeat}),
     );
   }
 
@@ -534,21 +542,25 @@ abstract final class LiveHttp {
     required Object roomId,
     required Object uid,
     Object? anchorId,
+    Account? account,
+    bool Function()? canSend,
   }) async {
-    final account = Accounts.heartbeat;
+    account ??= Accounts.heartbeat;
     try {
+      final payload = await WbiSign.makSign({
+        'click_time': clickTime,
+        'room_id': roomId,
+        'uid': uid,
+        'anchor_id': ?anchorId,
+        'web_location': 444.8,
+        'csrf': account.csrf,
+      });
+      if (canSend?.call() == false) return const Error('直播间或账号已更新');
       return await Request().requestApi(
         Api.liveLikeReport,
         kind: ApiCallKind.mutation,
         decode: (_) {},
-        data: await WbiSign.makSign({
-          'click_time': clickTime,
-          'room_id': roomId,
-          'uid': uid,
-          'anchor_id': ?anchorId,
-          'web_location': 444.8,
-          'csrf': account.csrf,
-        }),
+        data: payload,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           extra: {'account': account},
@@ -569,8 +581,9 @@ abstract final class LiveHttp {
     required Object idStr,
     required Object ts,
     required Object sign,
+    Account? account,
   }) async {
-    final account = Accounts.main;
+    account ??= Accounts.main;
     final csrf = account.csrf;
     final data = {
       'id': 0,
@@ -605,8 +618,9 @@ abstract final class LiveHttp {
     required Object roomId,
     required int page,
     required LiveContributionRankType type,
+    Account? account,
   }) async {
-    final account = Accounts.main;
+    account ??= Accounts.main;
     try {
       return await Request().requestApi(
         Api.liveContributionRank,
@@ -632,10 +646,12 @@ abstract final class LiveHttp {
   static Future<LoadingState<LiveGuardTopListData>> liveGuardTopList({
     required Object roomId,
     required Object ruid,
+    Account? account,
   }) async {
     return await Request().requestApi(
       Api.liveGuardTopList,
       kind: ApiCallKind.query,
+      options: Options(extra: {'account': account ?? Accounts.main}),
       decode: (body) => LiveGuardTopListData.fromJson(body['data']),
       queryParameters: {
         'roomid': roomId,
@@ -654,8 +670,9 @@ abstract final class LiveHttp {
     required String reason,
     required int ts,
     required String token,
+    Account? account,
   }) async {
-    final account = Accounts.main;
+    account ??= Accounts.main;
     final csrf = account.csrf;
     return await Request().requestApi(
       Api.superChatReport,

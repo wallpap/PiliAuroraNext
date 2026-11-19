@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/models/remote/live/live_superchat/user_info.dar
 import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_panel.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_panel.dart';

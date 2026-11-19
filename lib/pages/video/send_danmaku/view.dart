@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/http/danmaku.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

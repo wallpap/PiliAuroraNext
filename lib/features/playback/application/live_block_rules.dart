@@ -84,7 +84,11 @@ class LiveBlockNotifier extends AsyncNotifier<LiveBlockState> {
         : before.users.any((e) => e.uid.toString() == value);
     if (exists != remove) return const Success(null);
     state = AsyncData(before.copy(saving: true));
-    bool current() => owner.mounted && identical(account, Accounts.main);
+    bool current() =>
+        owner.mounted &&
+        identical(account, Accounts.main) &&
+        !state.isLoading &&
+        identical(state.value?.source, source);
     try {
       late LoadingState<dynamic> result;
       if (keyword) {

@@ -187,8 +187,6 @@ class _Room extends LiveRoomController {
   void onInit() {
     playbackOwner = plPlayerController.session.attach();
     scrollController = ScrollController();
-    isLogin = false;
-    mid = 0;
   }
 
   @override

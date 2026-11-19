@@ -53,6 +53,8 @@
 
 点播重选入口在 `video/controller.dart`、`video/playback_source.dart`，直播切流在 `live_room/controller.dart`。`lib/features/playback/application/` 持有视频详情查询、视频互动与剧集收藏，以及独立音频的列表快照、排序和双向游标；音频控制与租约交接仍在 `audio/controller.dart`。选择确认、失败重试及迟到回执约定见[状态管理](state-management.md#http-与写入结果)，定向回归见[测试目录](../../test/README.md)。
 
+直播房间的线路查询与首选线路、点赞批次、弹幕互动和屏蔽规则在 `lib/features/playback/application/live_room_*.dart` 与 `live_block_rules.dart`。贡献榜和舰长榜绑定页面、房间及主账号，最后一个订阅离开时释放；未确认的线路切换不覆盖当前线路或偏好。
+
 `lib/services/desktop_playback_windows.dart` 为每个小窗启动独立进程与播放器；主窗口管理排列、声音、设置快照和离线进度。Windows 超分重载、纹理释放与原生验证见[Windows 视频输出](../maintenance/windows-video-output.md)。Android 的 Surface 预挂载、旋转和 MediaCodec 恢复须单独验收。
 
 视频全屏时 `VideoDetailOffstage` 保留面板状态并停止隐藏面板动画及解码。输出限幅只减少表面与纹理开销，源视频仍按原分辨率解码。帧率和资源测量见[维护与排障](../maintenance/troubleshooting.md#复现和测量)。

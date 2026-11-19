@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
@@ -11,19 +12,21 @@ void main() {
   testWidgets('切换榜单后查看全部调用统一入口', (tester) async {
     var opened = false;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 380,
-            height: 600,
-            child: DesktopLiveSidebar(
-              roomId: 1,
-              anchorUid: null,
-              anchorName: null,
-              liveRoomController: _SidebarController(),
-              chat: const SizedBox.expand(),
-              input: const SizedBox(height: 48),
-              onShowRank: () => opened = true,
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 380,
+              height: 600,
+              child: DesktopLiveSidebar(
+                roomId: 1,
+                anchorUid: null,
+                anchorName: null,
+                liveRoomController: _SidebarController(),
+                chat: const SizedBox.expand(),
+                input: const SizedBox(height: 48),
+                onShowRank: () => opened = true,
+              ),
             ),
           ),
         ),

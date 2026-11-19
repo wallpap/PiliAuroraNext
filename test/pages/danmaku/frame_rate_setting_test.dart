@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/pages/danmaku/view.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_screen.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_layer.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_queue.dart';

@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/player_bar.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
-import 'package:pili_aurora_next/pages/live_dm_block/controller.dart'
+import 'package:pili_aurora_next/features/playback/application/live_block_rules.dart'
     show LiveBlockRulesChanged;
 import 'package:pili_aurora_next/pages/video/widgets/header_mixin.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';

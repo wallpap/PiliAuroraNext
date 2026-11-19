@@ -7,7 +7,7 @@ import 'package:flutter/painting.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/echo_source.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 

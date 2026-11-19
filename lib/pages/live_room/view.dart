@@ -23,12 +23,10 @@ import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
-import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_info_h5/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/frame_rate_setting.dart';
-import 'package:pili_aurora_next/pages/live_room/contribution_rank/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/contribution_rank/view.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
@@ -184,11 +182,6 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
     PlPlayerController.setPlayCallBack(null, owner: this);
     plPlayerController.removeStatusLister(playerListener);
-    for (final e in LiveContributionRankType.values) {
-      Get.delete<ContributionRankController>(
-        tag: '${_liveRoomController.roomId}${e.name}',
-      );
-    }
     super.dispose();
   }
 

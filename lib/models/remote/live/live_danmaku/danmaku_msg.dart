@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/models/model_owner.dart';
 import 'package:pili_aurora_next/models/remote/live/live_danmaku/live_emote.dart';
 import 'package:pili_aurora_next/models/remote/live/live_medal_wall/uinfo_medal.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 
 class DanmakuMsg {

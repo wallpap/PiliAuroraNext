@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
 import 'package:pili_aurora_next/pages/video/widgets/danmaku_like_control.dart';
@@ -304,12 +304,16 @@ class PlayerDanmakuActions extends ChangeNotifier {
                   CustomIcons.player_dm_tip_back,
                   color: Colors.white,
                 ),
-                onTap: () => HeaderControl.reportLiveDanmaku(
-                  context,
-                  roomId: liveRoomId(),
-                  msg: item.text,
-                  extra: extra,
-                ),
+                onTap: () {
+                  final room = liveRoomId();
+                  return HeaderControl.reportLiveDanmaku(
+                    context,
+                    roomId: room,
+                    msg: item.text,
+                    extra: extra,
+                    roomIsCurrent: () => liveRoomId() == room,
+                  );
+                },
               ),
             ],
           },
