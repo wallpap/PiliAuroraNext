@@ -122,7 +122,7 @@ void main() {
     expect(await second, isTrue);
     adapter.playlist(0, [22, 11]);
     expect(await first, isFalse);
-    expect(controller.order, ListOrder.ORDER_NORMAL);
+    expect(controller.playlistState.value.order, ListOrder.ORDER_NORMAL);
     expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11, 22]);
   });
 
@@ -153,14 +153,15 @@ void main() {
   );
 
   test('failed page retains content and cursor until explicit retry', () async {
-    await initialize(next: 'next');
+    await initialize(prev: 'prev', next: 'next');
     final operation = controller.loadNext();
     await adapter.waitForRequests(2);
     adapter.malformed(1);
     expect(await operation, isFalse);
-    expect(controller.playlistPageState.value, isA<Error>());
+    expect(controller.playlistState.value.pageStatus, isA<Error>());
     expect(controller.playlist!.length, 2);
     expect(await controller.loadNext(), isFalse);
+    expect(await controller.loadPrev(), isFalse);
     expect(adapter.requests.length, 2);
     final retry = controller.retryPlaylistPage();
     await adapter.waitForRequests(3);
@@ -199,7 +200,7 @@ void main() {
     changes.value++;
     expect(controller.playlist, isNull);
     expect(controller.index, isNull);
-    expect(controller.playlistState.value, isA<Loading>());
+    expect(controller.playlistState.value.status, isA<Loading>());
     await adapter.waitForRequests(3);
     adapter.playlist(1, [33]);
     expect(await oldPage, isFalse);
@@ -215,7 +216,7 @@ void main() {
     await adapter.waitForRequests(1);
     adapter.malformed(0);
     expect(await first, isFalse);
-    expect(controller.playlistState.value, isA<Error>());
+    expect(controller.playlistState.value.status, isA<Error>());
     final retry = controller.onChangeOrder(ListOrder.ORDER_REVERSE);
     await adapter.waitForRequests(2);
     adapter.playlist(1, [22, 33]);
@@ -231,16 +232,20 @@ void main() {
     expect(controller.playlist, isEmpty);
   });
 
-  test('removed entries stay removed across overlapping pages and repeated cursor stops', () async {
+  test('removed entries stay removed across overlapping pages and cursor cycles stop', () async {
     await initialize(next: 'next');
     controller.removePlaylistItem(controller.playlist!.last);
     final operation = controller.loadNext();
     await adapter.waitForRequests(2);
-    adapter.playlist(1, [11, 22], next: 'next');
+    adapter.playlist(1, [11, 22], next: 'next2');
     expect(await operation, isTrue);
-    expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11]);
+    final secondPage = controller.loadNext();
+    await adapter.waitForRequests(3);
+    adapter.playlist(2, [22, 33], next: 'next');
+    expect(await secondPage, isTrue);
+    expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11, 33]);
     expect(await controller.loadNext(), isFalse);
-    expect(adapter.requests.length, 2);
+    expect(adapter.requests.length, 3);
   });
 
   test('selection changed during initialization is not overwritten by its old anchor', () async {

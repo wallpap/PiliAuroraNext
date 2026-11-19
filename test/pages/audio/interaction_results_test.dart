@@ -157,10 +157,15 @@ void main() {
     GlobalData().coins = 10;
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
-    controller = AudioController()
-      ..oid = Int64.ONE
-      ..subId = [Int64.ONE]
-      ..itemType = 1;
+    controller =
+        AudioController(
+            initialPlaylist: [
+              DetailItem(item: PlayItem(oid: Int64(2), itemType: 2)),
+            ],
+          )
+          ..oid = Int64.ONE
+          ..subId = [Int64.ONE]
+          ..itemType = 1;
     final item = DetailItem(item: PlayItem(oid: Int64.ONE, itemType: 1))
       ..ensureStat();
     controller.audioItem.value = item;
@@ -368,7 +373,6 @@ void main() {
     await host(tester);
     final player = _Player();
     controller
-      ..playlist = [DetailItem(item: PlayItem(oid: Int64(2), itemType: 2))]
       ..player = player
       ..cacheAudioQa = 30280;
     final operation = controller.playIndex(0);

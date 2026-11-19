@@ -36,6 +36,7 @@ abstract final class AudioGrpc {
   }
 
   static Future<LoadingState<PlaylistResp>> audioPlayList({
+    Account? account,
     PlaylistSource? from,
     required Int64 id,
     Int64? oid,
@@ -71,6 +72,7 @@ abstract final class AudioGrpc {
       ),
       PlaylistResp.fromBuffer,
       kind: .query,
+      account: account,
     );
   }
 

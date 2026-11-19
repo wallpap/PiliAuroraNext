@@ -193,24 +193,22 @@ void main() {
     creationFailure = null;
     pendingCreation = null;
     closed = false;
-    controller =
-        AudioController(
-            createPlayer: (_) async {
-              creations++;
-              if (creationFailure case final error?) throw error;
-              if (failCreation) {
-                throw StateError('https://private?token=secret');
-              }
-              return pendingCreation?.future ?? player;
-            },
-          )
-          ..cacheAudioQa = 30280
-          ..playlist = [
-            for (var id = 1; id <= 3; id++)
-              DetailItem(
-                item: PlayItem(oid: Int64(id), subId: [Int64(id)], itemType: 2),
-              ),
-          ];
+    controller = AudioController(
+      createPlayer: (_) async {
+        creations++;
+        if (creationFailure case final error?) throw error;
+        if (failCreation) {
+          throw StateError('https://private?token=secret');
+        }
+        return pendingCreation?.future ?? player;
+      },
+      initialPlaylist: [
+        for (var id = 1; id <= 3; id++)
+          DetailItem(
+            item: PlayItem(oid: Int64(id), subId: [Int64(id)], itemType: 2),
+          ),
+      ],
+    )..cacheAudioQa = 30280;
     controller.animController = AnimationController(
       vsync: controller,
       duration: const Duration(milliseconds: 200),
@@ -446,9 +444,10 @@ void main() {
     controller.onClose();
     closed = true;
     final secondPlayer = _Player();
-    final second = AudioController(createPlayer: (_) async => secondPlayer)
-      ..cacheAudioQa = 30280
-      ..playlist = controller.playlist;
+    final second = AudioController(
+      createPlayer: (_) async => secondPlayer,
+      initialPlaylist: controller.playlist,
+    )..cacheAudioQa = 30280;
     second.animController = AnimationController(
       vsync: second,
       duration: const Duration(milliseconds: 200),
@@ -646,15 +645,13 @@ void main() {
     );
     final secondPlayer = _Player();
     var secondCreations = 0;
-    final second =
-        AudioController(
-            createPlayer: (_) async {
-              secondCreations++;
-              return secondPlayer;
-            },
-          )
-          ..cacheAudioQa = 30280
-          ..playlist = controller.playlist;
+    final second = AudioController(
+      createPlayer: (_) async {
+        secondCreations++;
+        return secondPlayer;
+      },
+      initialPlaylist: controller.playlist,
+    )..cacheAudioQa = 30280;
     second.animController = AnimationController(
       vsync: second,
       duration: const Duration(milliseconds: 200),

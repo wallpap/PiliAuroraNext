@@ -113,16 +113,14 @@ class _AudioPageState extends State<AudioPage> {
               }
               return const SizedBox.shrink();
             }),
-          Builder(
-            builder: (context) {
+          ValueListenableBuilder(
+            valueListenable: _controller.playlistState,
+            builder: (context, playlist, _) {
               return PopupMenuButton<ListOrder>(
                 tooltip: '排序',
                 icon: const Icon(Icons.sort, size: 22),
-                initialValue: _controller.order,
-                onSelected: (value) {
-                  _controller.onChangeOrder(value);
-                  (context as Element).markNeedsBuild();
-                },
+                initialValue: playlist.order,
+                onSelected: _controller.onChangeOrder,
                 itemBuilder: (context) => ListOrder.values
                     .map(
                       (e) => AppPopupMenuItem(value: e, child: Text(e.title)),
@@ -211,65 +209,150 @@ class _AudioPageState extends State<AudioPage> {
       constraints: BoxConstraints(
         maxWidth: min(640, context.mediaQueryShortestSide),
       ),
-      builder: (context) => Obx(() {
-        _controller.playlistRevision.value;
-        final playlist = _controller.playlist ?? const <DetailItem>[];
-        final state = _controller.playlistState.value;
-        final pageState = _controller.playlistPageState.value;
-        final colorScheme = ColorScheme.of(context);
-        Widget child = CustomScrollView(
-          controller: scrollController,
-          physics: _controller.reachStart
-              ? null
-              : const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            if (state is Loading)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator()),
+      builder: (context) => ValueListenableBuilder(
+        valueListenable: _controller.playlistState,
+        builder: (context, snapshot, _) {
+          final playlist = snapshot.items ?? const <DetailItem>[];
+          final state = snapshot.status;
+          final pageState = snapshot.pageStatus;
+          final colorScheme = ColorScheme.of(context);
+          Widget child = CustomScrollView(
+            controller: scrollController,
+            physics: snapshot.hasPrevious
+                ? const AlwaysScrollableScrollPhysics()
+                : null,
+            slivers: [
+              if (state is Loading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
                 ),
-              ),
-            if (state case Error error)
-              SliverToBoxAdapter(
-                child: TextButton(
-                  onPressed: _controller.reloadPlaylist,
-                  child: Text('$error，点击重试'),
+              if (state case Error error)
+                SliverToBoxAdapter(
+                  child: TextButton(
+                    onPressed: _controller.reloadPlaylist,
+                    child: Text('$error，点击重试'),
+                  ),
+                )
+              else if (state.isSuccess && playlist.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: Text('暂无播放列表')),
+                  ),
                 ),
-              )
-            else if (state.isSuccess && playlist.isEmpty)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: Text('暂无播放列表')),
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.paddingOf(context).bottom + 100,
                 ),
-              ),
-            SliverPadding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.paddingOf(context).bottom + 100,
-              ),
-              sliver: SliverList.builder(
-                itemCount: playlist.length,
-                itemBuilder: (_, index) {
-                  if (index == playlist.length - 1 &&
-                      state.isSuccess &&
-                      pageState.isSuccess) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (context.mounted) _controller.loadNext();
-                    });
-                  }
-                  final isCurr = index == _controller.index;
-                  final item = playlist[index];
-                  if (item.parts.length > 1) {
-                    final subId = _controller.subId.firstOrNull;
-                    return ExpansionTile(
+                sliver: SliverList.builder(
+                  itemCount: playlist.length,
+                  itemBuilder: (_, index) {
+                    if (index == playlist.length - 1 &&
+                        snapshot.hasNext &&
+                        state.isSuccess &&
+                        pageState.isSuccess) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (context.mounted) _controller.loadNext();
+                      });
+                    }
+                    final isCurr = index == snapshot.index;
+                    final item = playlist[index];
+                    if (item.parts.length > 1) {
+                      final subId = _controller.subId.firstOrNull;
+                      return ExpansionTile(
+                        dense: true,
+                        minTileHeight: 45,
+                        initiallyExpanded: isCurr,
+                        collapsedIconColor: isCurr ? colorScheme.primary : null,
+                        iconColor: isCurr ? null : colorScheme.onSurfaceVariant,
+                        title: Text(
+                          item.arc.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: isCurr
+                              ? TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                )
+                              : const TextStyle(fontSize: 14),
+                        ),
+                        trailing: isCurr
+                            ? null
+                            : iconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _controller.removePlaylistItem(item);
+                                },
+                                iconColor: colorScheme.outline,
+                                size: 28,
+                                iconSize: 18,
+                              ),
+                        children: item.parts.map((e) {
+                          final isCurr = e.subId == subId;
+                          return ListTile(
+                            dense: true,
+                            minTileHeight: 45,
+                            contentPadding: const EdgeInsetsDirectional.only(
+                              start: 56.0,
+                              end: 24.0,
+                            ),
+                            onTap: () {
+                              Get.back();
+                              _controller.selectPlaylistItem(
+                                item,
+                                subId: [e.subId],
+                              );
+                            },
+                            title: Text.rich(
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: isCurr
+                                  ? TextStyle(
+                                      fontSize: 14,
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    )
+                                  : TextStyle(
+                                      fontSize: 14,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                              TextSpan(
+                                children: [
+                                  if (isCurr) ...[
+                                    WidgetSpan(
+                                      alignment: .bottom,
+                                      child: Image.asset(
+                                        Assets.livingChart,
+                                        width: 16,
+                                        height: 16,
+                                        cacheWidth: 16.cacheSize(
+                                          context,
+                                        ),
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                    const TextSpan(text: '  '),
+                                  ],
+                                  TextSpan(text: e.title),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    }
+                    return ListTile(
                       dense: true,
                       minTileHeight: 45,
-                      initiallyExpanded: isCurr,
-                      collapsedIconColor: isCurr ? colorScheme.primary : null,
-                      iconColor: isCurr ? null : colorScheme.onSurfaceVariant,
-                      title: Text(
-                        item.arc.title,
+                      onTap: () {
+                        Get.back();
+                        _controller.selectPlaylistItem(item);
+                      },
+                      title: Text.rich(
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: isCurr
@@ -279,6 +362,28 @@ class _AudioPageState extends State<AudioPage> {
                                 fontWeight: FontWeight.bold,
                               )
                             : const TextStyle(fontSize: 14),
+                        TextSpan(
+                          children: [
+                            if (isCurr) ...[
+                              WidgetSpan(
+                                alignment: .bottom,
+                                child: Image.asset(
+                                  Assets.livingChart,
+                                  width: 16,
+                                  height: 16,
+                                  cacheWidth: 16.cacheSize(
+                                    context,
+                                  ),
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              const TextSpan(text: '  '),
+                            ],
+                            TextSpan(
+                              text: item.arc.title,
+                            ),
+                          ],
+                        ),
                       ),
                       trailing: isCurr
                           ? null
@@ -291,206 +396,102 @@ class _AudioPageState extends State<AudioPage> {
                               size: 28,
                               iconSize: 18,
                             ),
-                      children: item.parts.map((e) {
-                        final isCurr = e.subId == subId;
-                        return ListTile(
-                          dense: true,
-                          minTileHeight: 45,
-                          contentPadding: const EdgeInsetsDirectional.only(
-                            start: 56.0,
-                            end: 24.0,
-                          ),
-                          onTap: () {
-                            Get.back();
-                            _controller.selectPlaylistItem(
-                              item,
-                              subId: [e.subId],
-                            );
-                          },
-                          title: Text.rich(
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: isCurr
-                                ? TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  )
-                                : TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                            TextSpan(
-                              children: [
-                                if (isCurr) ...[
-                                  WidgetSpan(
-                                    alignment: .bottom,
-                                    child: Image.asset(
-                                      Assets.livingChart,
-                                      width: 16,
-                                      height: 16,
-                                      cacheWidth: 16.cacheSize(
-                                        context,
-                                      ),
-                                      color: colorScheme.primary,
-                                    ),
-                                  ),
-                                  const TextSpan(text: '  '),
-                                ],
-                                TextSpan(text: e.title),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
                     );
-                  }
-                  return ListTile(
-                    dense: true,
-                    minTileHeight: 45,
-                    onTap: () {
-                      Get.back();
-                      _controller.selectPlaylistItem(item);
-                    },
-                    title: Text.rich(
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: isCurr
-                          ? TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            )
-                          : const TextStyle(fontSize: 14),
-                      TextSpan(
-                        children: [
-                          if (isCurr) ...[
-                            WidgetSpan(
-                              alignment: .bottom,
-                              child: Image.asset(
-                                Assets.livingChart,
-                                width: 16,
-                                height: 16,
-                                cacheWidth: 16.cacheSize(
-                                  context,
-                                ),
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const TextSpan(text: '  '),
-                          ],
-                          TextSpan(
-                            text: item.arc.title,
-                          ),
-                        ],
-                      ),
-                    ),
-                    trailing: isCurr
-                        ? null
-                        : iconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _controller.removePlaylistItem(item);
-                            },
-                            iconColor: colorScheme.outline,
-                            size: 28,
-                            iconSize: 18,
-                          ),
-                  );
-                },
-              ),
-            ),
-            if (state.isSuccess &&
-                playlist.isEmpty &&
-                _controller.hasNextPage &&
-                pageState.isSuccess)
-              SliverToBoxAdapter(
-                child: TextButton(
-                  onPressed: _controller.loadNext,
-                  child: const Text('加载更多'),
+                  },
                 ),
               ),
-            if (pageState is Loading)
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ),
-            if (pageState case Error error)
-              SliverToBoxAdapter(
-                child: TextButton(
-                  onPressed: _controller.retryPlaylistPage,
-                  child: Text('$error，点击重试'),
-                ),
-              ),
-          ],
-        );
-        if (!_controller.reachStart && state.isSuccess) {
-          child = refreshIndicator(
-            onRefresh: () async {
-              await _controller.loadPrev();
-            },
-            isClampingScrollPhysics: true,
-            child: child,
-          );
-        }
-        return FractionallySizedBox(
-          heightFactor:
-              PlatformUtils.isMobile && !context.mediaQuerySize.isPortrait
-              ? 1.0
-              : 0.7,
-          alignment: Alignment.bottomCenter,
-          child: Column(
-            children: [
-              InkWell(
-                onTap: Get.back,
-                borderRadius: Style.bottomSheetRadius,
-                child: SizedBox(
-                  height: 35,
-                  child: Center(
-                    child: Container(
-                      width: 32,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: colorScheme.outline,
-                        borderRadius: const .all(.circular(3)),
-                      ),
-                    ),
+              if (state.isSuccess &&
+                  playlist.isEmpty &&
+                  snapshot.hasNext &&
+                  pageState.isSuccess)
+                SliverToBoxAdapter(
+                  child: TextButton(
+                    onPressed: _controller.loadNext,
+                    child: const Text('加载更多'),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Material(
-                  type: .transparency,
-                  child: child,
-                ),
-              ),
-              Divider(
-                height: 1,
-                color: colorScheme.outline.withValues(alpha: 0.1),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.viewPaddingOf(context).bottom,
-                ),
-                child: InkWell(
-                  onTap: Get.back,
-                  child: SizedBox(
-                    height: 45,
-                    child: Center(
-                      child: Text(
-                        '关闭',
-                        style: TextStyle(color: colorScheme.outline),
-                      ),
-                    ),
+              if (pageState is Loading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
                   ),
                 ),
-              ),
+              if (pageState case Error error)
+                SliverToBoxAdapter(
+                  child: TextButton(
+                    onPressed: _controller.retryPlaylistPage,
+                    child: Text('$error，点击重试'),
+                  ),
+                ),
             ],
-          ),
-        );
-      }),
+          );
+          if (snapshot.hasPrevious && state.isSuccess) {
+            child = refreshIndicator(
+              onRefresh: () async {
+                await _controller.loadPrev();
+              },
+              isClampingScrollPhysics: true,
+              child: child,
+            );
+          }
+          return FractionallySizedBox(
+            heightFactor:
+                PlatformUtils.isMobile && !context.mediaQuerySize.isPortrait
+                ? 1.0
+                : 0.7,
+            alignment: Alignment.bottomCenter,
+            child: Column(
+              children: [
+                InkWell(
+                  onTap: Get.back,
+                  borderRadius: Style.bottomSheetRadius,
+                  child: SizedBox(
+                    height: 35,
+                    child: Center(
+                      child: Container(
+                        width: 32,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: colorScheme.outline,
+                          borderRadius: const .all(.circular(3)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Material(
+                    type: .transparency,
+                    child: child,
+                  ),
+                ),
+                Divider(
+                  height: 1,
+                  color: colorScheme.outline.withValues(alpha: 0.1),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewPaddingOf(context).bottom,
+                  ),
+                  child: InkWell(
+                    onTap: Get.back,
+                    child: SizedBox(
+                      height: 45,
+                      child: Center(
+                        child: Text(
+                          '关闭',
+                          style: TextStyle(color: colorScheme.outline),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     ).whenComplete(scrollController.dispose);
   }
 
@@ -1067,16 +1068,18 @@ class _AudioPageState extends State<AudioPage> {
           ],
         );
       }
-      final state = _controller.playlistState.value;
-      return Center(
-        child: switch (state) {
-          Loading() => const CircularProgressIndicator(),
-          Error error => TextButton(
-            onPressed: _controller.reloadPlaylist,
-            child: Text('$error，点击重试'),
-          ),
-          _ => const Text('暂无音频信息'),
-        },
+      return ValueListenableBuilder(
+        valueListenable: _controller.playlistState,
+        builder: (context, playlist, _) => Center(
+          child: switch (playlist.status) {
+            Loading() => const CircularProgressIndicator(),
+            Error error => TextButton(
+              onPressed: _controller.reloadPlaylist,
+              child: Text('$error，点击重试'),
+            ),
+            _ => const Text('暂无音频信息'),
+          },
+        ),
       );
     });
   }
