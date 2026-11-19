@@ -1,24 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/comments/saved_replies_store.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+
+const _store = SavedRepliesStore();
+
+bool get commentArchiveAvailable => _store.available;
+Future<void> saveDebugComment(CommentReply reply, {bool batch = false}) =>
+    _store.writeDebugCopy(reply, batch: batch);
+Future<void> deleteDebugComment(CommentReply reply) =>
+    _store.deleteDebugCopy(reply);
 
 final savedRepliesProvider = NotifierProvider.autoDispose(
   SavedReplies.new,
 );
 
-class SavedReplies extends Notifier<List<ReplyInfo>> {
-  final _store = const SavedRepliesStore();
-
+class SavedReplies extends Notifier<List<CommentReply>> {
   @override
-  List<ReplyInfo> build() => _read();
+  List<CommentReply> build() => _read();
 
-  List<ReplyInfo> _read() => List.unmodifiable(
+  List<CommentReply> _read() => List.unmodifiable(
     _store.read()..sort((first, second) => second.ctime.compareTo(first.ctime)),
   );
 
-  void remove(ReplyInfo reply, int? childIndex) {
+  void remove(CommentReply reply, int? childIndex) {
     final index = state.indexWhere((item) => item.id == reply.id);
     if (index < 0) return;
     if (childIndex != null) {
@@ -31,9 +35,7 @@ class SavedReplies extends Notifier<List<ReplyInfo>> {
     state = List.unmodifiable([...state]..removeAt(index));
   }
 
-  String exportReplies() => Utils.jsonEncoder.convert([
-    for (final reply in state) reply.toProto3Json(),
-  ]);
+  String exportReplies() => _store.exportReplies(state);
 
   Future<void> importReplies(List<dynamic> entries) async {
     await _store.importReplies(entries);

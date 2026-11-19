@@ -25,6 +25,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/features/community/data/comments/comments_repository.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 
 import '../../support/comment_fixture.dart';
 
@@ -46,7 +48,7 @@ class _PinFixture extends CommentFixture {
   Future<LoadingState<void>> togglePinned(
     Account account,
     CommentTarget target,
-    ReplyInfo item,
+    CommentReply item,
   ) => const CommentsRepository().togglePinned(account, target, item);
 }
 
@@ -131,11 +133,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  ReplyInfo reply(int id) => ReplyInfo(
-    id: Int64(id),
-    oid: Int64(1),
-    type: Int64.ONE,
-    like: Int64(4),
+  CommentReply reply(int id, {Int64? root}) => commentFromProtocol(
+    ReplyInfo(
+      id: Int64(id),
+      oid: Int64(1),
+      type: Int64.ONE,
+      like: Int64(4),
+      root: root,
+    ),
   );
 
   testWidgets('评论赞踩共用在途状态，待确认保留计数并允许失败后重试', (tester) async {
@@ -537,7 +542,7 @@ void main() {
     container.listen(provider, (_, _) {});
     final comments = container.read(provider.notifier);
     await tester.pump();
-    List<ReplyInfo> rows() => container.read(provider).loading.data;
+    List<CommentReply> rows() => container.read(provider).loading.data;
     final target = rows().last;
     final rejected = comments.togglePinned(target);
     await until(tester, () => requests.length == 1);
@@ -571,7 +576,7 @@ void main() {
     container.listen(provider, (_, _) {});
     final comments = container.read(provider.notifier);
     await tester.pump();
-    List<ReplyInfo> rows() => container.read(provider).loading.data;
+    List<CommentReply> rows() => container.read(provider).loading.data;
     final pending = comments.togglePinned(rows().last);
     await until(tester, () => requests.length == 1);
     fixture.responses.add(Success(page()));
@@ -622,7 +627,7 @@ void main() {
     await finish(tester);
   });
 
-  Future<void> checkReply(ReplyInfo item) => ReplyUtils.onCheckReply(
+  Future<void> checkReply(CommentReply item) => ReplyUtils.onCheckReply(
     replyInfo: item,
     biliSendCommAntifraud: false,
     sourceId: 1,
@@ -761,7 +766,7 @@ void main() {
 
   testWidgets('评论管理：可见性查询故障和重复页不会误报 shadow ban', (tester) async {
     await mount(tester, const SizedBox());
-    final item = reply(2)..root = Int64.ONE;
+    final item = reply(2, root: Int64.ONE);
     final failed = checkReply(item);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete({'code': -403, 'message': '访问被拒绝'});

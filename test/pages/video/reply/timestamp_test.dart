@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -32,9 +33,11 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ReplyItemGrpc(
-            replyItem: ReplyInfo(
-              content: Content(message: '时间是 03:12'),
-              member: Member(name: '测试用户'),
+            replyItem: commentFromProtocol(
+              ReplyInfo(
+                content: Content(message: '时间是 03:12'),
+                member: Member(name: '测试用户'),
+              ),
             ),
             replyLevel: 0,
             getTag: () => 'dynamic-comment',
@@ -66,9 +69,11 @@ void main() {
           builder: FlutterSmartDialog.init(),
           home: Scaffold(
             body: ReplyItemGrpc(
-              replyItem: ReplyInfo(
-                content: Content(message: message),
-                member: Member(name: '测试'),
+              replyItem: commentFromProtocol(
+                ReplyInfo(
+                  content: Content(message: message),
+                  member: Member(name: '测试'),
+                ),
               ),
               replyLevel: 0,
               getTag: () => 'video-tag',

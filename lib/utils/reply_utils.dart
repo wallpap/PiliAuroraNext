@@ -4,8 +4,8 @@ import 'dart:io' show Platform;
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
@@ -58,7 +58,7 @@ final class _ReplyCheck with RouteAware {
 
 abstract final class ReplyUtils {
   static Future<void> onCheckReply({
-    required ReplyInfo replyInfo,
+    required CommentReply replyInfo,
     required bool biliSendCommAntifraud,
     required sourceId,
     required bool isManual,
@@ -77,9 +77,7 @@ abstract final class ReplyUtils {
         root: replyInfo.root.toInt(),
         parent: replyInfo.parent.toInt(),
         ctime: replyInfo.ctime.toInt(),
-        pictures: replyInfo.content.pictures
-            .map((item) => item.toProto3Json())
-            .toList(),
+        pictures: commentPicturesForAntifraud(replyInfo),
         mid: replyInfo.mid.toInt(),
         //
         isManual: isManual,

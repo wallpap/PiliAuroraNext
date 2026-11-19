@@ -3,7 +3,7 @@ part of 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart
 Future<void> showDeleteReplyDialog(
   BuildContext context, {
   required Account account,
-  required ReplyInfo item,
+  required CommentReply item,
   required bool Function() isCurrent,
   required VoidCallback onDelete,
 }) {
@@ -80,7 +80,7 @@ Future<void> showDeleteReplyDialog(
 void showReplyCopyDialog(
   BuildContext context,
   String message,
-  Map<String, Emote> emotes,
+  Map<String, CommentEmote> emotes,
 ) {
   bool showEmote = false;
   showDialog(

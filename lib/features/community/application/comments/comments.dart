@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/comments/comments_repository.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_filter.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/reply_filter.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 typedef CommentTarget = ({int oid, int type});
@@ -18,6 +18,8 @@ typedef CommentsQuery = ({
   CommentTarget target,
   CommentThread? thread,
 });
+
+const commentActions = CommentsRepository();
 
 final commentsProvider = NotifierProvider.autoDispose
     .family<Comments, CommentsState, CommentsQuery>(Comments.new);
@@ -37,11 +39,11 @@ class CommentsState {
   });
 
   final Object source;
-  final LoadingState<List<ReplyInfo>> loading;
+  final LoadingState<List<CommentReply>> loading;
   final ReplySortType sort;
-  final SubjectControl? subject;
-  final VoteCard? vote;
-  final ReplyInfo? root;
+  final CommentSubject? subject;
+  final CommentVoteCard? vote;
+  final CommentReply? root;
   final int count;
   final bool hasMore;
   final bool busy;
@@ -157,11 +159,8 @@ class Comments extends Notifier<CommentsState> {
       busy: true,
     );
     final repository = ref.read(commentsRepositoryProvider);
-    final mode = _sort == ReplySortType.time
-        ? Mode.MAIN_LIST_TIME
-        : Mode.MAIN_LIST_HOT;
     final minLevel = Pref.minimumReplyUserLevel;
-    final items = <ReplyInfo>[if (!replacing) ...?before.loading.dataOrNull];
+    final items = <CommentReply>[if (!replacing) ...?before.loading.dataOrNull];
     final seen = <Int64>{for (final item in items) item.id};
     var count = before.count;
     var subject = before.subject;
@@ -179,7 +178,7 @@ class Comments extends Notifier<CommentsState> {
             ? await repository.main(
                 owner.account,
                 query.target,
-                mode,
+                _sort,
                 owner.cursor,
                 owner.offset,
               )
@@ -189,7 +188,7 @@ class Comments extends Notifier<CommentsState> {
                 thread.root,
                 thread.dialog,
                 owner.replyAnchor,
-                mode,
+                _sort,
                 owner.offset,
               );
         if (!_current(owner)) return;
@@ -197,48 +196,14 @@ class Comments extends Notifier<CommentsState> {
           error = failure;
           break;
         }
-        final page = switch (response) {
-          Success(response: MainListReply data) => (
-            cursor: data.cursor,
-            offset: data.paginationReply.nextOffset,
-            subject: data.subjectControl,
-            count: data.subjectControl.hasCount()
-                ? data.subjectControl.count.toInt()
-                : -1,
-            vote: data.hasVoteCard() ? data.voteCard : null,
-            top: data.hasUpTop() ? data.upTop : null,
-            root: null,
-            rows: data.replies,
-          ),
-          Success(response: DetailListReply data) => (
-            cursor: data.cursor,
-            offset: data.paginationReply.nextOffset,
-            subject: data.subjectControl,
-            count: data.root.count.toInt(),
-            vote: null,
-            top: null,
-            root: data.hasRoot() ? data.root : null,
-            rows: data.root.replies,
-          ),
-          Success(response: DialogListReply data) => (
-            cursor: data.cursor,
-            offset: data.paginationReply.nextOffset,
-            subject: data.subjectControl,
-            count: -1,
-            vote: null,
-            top: null,
-            root: null,
-            rows: data.replies,
-          ),
-          _ => null,
-        };
+        final page = response.dataOrNull;
         if (page != null) {
           owner.replyAnchor = null;
           final first = replacing && !applied;
           final oldCursor = owner.cursor;
           final oldOffset = owner.offset;
           owner
-            ..cursor = page.cursor.next
+            ..cursor = page.cursor
             ..offset = page.offset;
           if (first) {
             subject = page.subject;
@@ -249,11 +214,11 @@ class Comments extends Notifier<CommentsState> {
             }
           }
           count = page.count;
-          final rows = <ReplyInfo>[
+          final rows = <CommentReply>[
             if (first)
               if (page.top case final top?)
-                top.deepCopy()..ensureReplyControl().isUpTop = true,
-            ...page.rows.map((item) => item.deepCopy()),
+                top.copy()..replyControl.isUpTop = true,
+            ...page.rows.map((item) => item.copy()),
           ];
           final unique = <Int64>{...seen};
           rows.removeWhere((item) => !unique.add(item.id));
@@ -262,7 +227,7 @@ class Comments extends Notifier<CommentsState> {
           seen.addAll(rows.map((item) => item.id));
           items.addAll(rows);
           hasMore =
-              !page.cursor.isEnd &&
+              !page.isEnd &&
               (first ||
                   oldCursor != owner.cursor ||
                   oldOffset != owner.offset) &&
@@ -303,7 +268,7 @@ class Comments extends Notifier<CommentsState> {
     if (items != null) _replace(items, state.count);
   }
 
-  void published(ReplyInfo? item, {ReplyInfo? parent}) {
+  void published(CommentReply? item, {CommentReply? parent}) {
     if (!_current(_owner)) return;
     final current = state.loading.dataOrNull;
     if (item == null || current == null || state.busy) {
@@ -333,14 +298,14 @@ class Comments extends Notifier<CommentsState> {
       }
       final match = items[index];
       if (match.replies.any((row) => row.id == item.id)) return;
-      items[index] = match.deepCopy()
+      items[index] = match.copy()
         ..count += Int64.ONE
         ..replies.add(item);
     }
     _replace(items, state.count < 0 ? -1 : state.count + 1);
   }
 
-  void remove(ReplyInfo item, int? childIndex) {
+  void remove(CommentReply item, int? childIndex) {
     if (!_current(_owner)) return;
     final current = state.loading.dataOrNull;
     if (state.busy) {
@@ -359,7 +324,7 @@ class Comments extends Notifier<CommentsState> {
           childIndex >= item.replies.length) {
         return;
       }
-      final updated = item.deepCopy()..replies.removeAt(childIndex);
+      final updated = item.copy()..replies.removeAt(childIndex);
       if (updated.count > Int64.ZERO) updated.count -= Int64.ONE;
       items[index] = updated;
     }
@@ -367,7 +332,7 @@ class Comments extends Notifier<CommentsState> {
   }
 
   Future<LoadingState<void>?> togglePinned(
-    ReplyInfo item, {
+    CommentReply item, {
     CommentTarget? target,
   }) async {
     final owner = _owner;
@@ -392,14 +357,12 @@ class Comments extends Notifier<CommentsState> {
         return result;
       }
       if (result.isSuccess) {
-        final updated = items[index].deepCopy()
-          ..ensureReplyControl().isUpTop = !isPinned;
+        final updated = items[index].copy()..replyControl.isUpTop = !isPinned;
         items[index] = updated;
         if (!isPinned) {
           for (var i = 0; i < items.length; i++) {
             if (i != index && items[i].replyControl.isUpTop) {
-              items[i] = items[i].deepCopy()
-                ..ensureReplyControl().isUpTop = false;
+              items[i] = items[i].copy()..replyControl.isUpTop = false;
             }
           }
           if (index != 0) items.insert(0, items.removeAt(index));
@@ -412,7 +375,7 @@ class Comments extends Notifier<CommentsState> {
     }
   }
 
-  void _replace(List<ReplyInfo> items, int count) {
+  void _replace(List<CommentReply> items, int count) {
     final before = state;
     state = CommentsState(
       source: before.source,

@@ -1,5 +1,4 @@
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show VoteCard;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,7 +6,7 @@ import 'package:material_ui/material_ui.dart';
 Widget buildVoteCard(
   BuildContext context,
   ColorScheme colorScheme,
-  VoteCard voteCard,
+  CommentVoteCard voteCard,
 ) {
   return InkWell(
     onTap: () => showVoteDialog(context, voteCard.voteId.toInt()),

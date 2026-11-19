@@ -6,8 +6,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +61,7 @@ class _MainReplyPageState extends ConsumerState<MainReplyPage>
     );
   }
 
-  void _compose(ReplyInfo? item, {int? oid, int? replyType, int? index}) =>
+  void _compose(CommentReply? item, {int? oid, int? replyType, int? index}) =>
       _interactions.compose(
         context,
         _comments,
@@ -240,7 +239,7 @@ class _MainReplyPageState extends ConsumerState<MainReplyPage>
 
   void replyReply(
     BuildContext context,
-    ReplyInfo replyItem,
+    CommentReply replyItem,
     int? id,
     ColorScheme colorScheme,
   ) {

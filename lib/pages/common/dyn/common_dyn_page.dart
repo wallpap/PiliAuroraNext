@@ -12,8 +12,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/enum_with_label.dart';
 import 'package:pili_aurora_next/pages/article/widgets/sliver_list.dart';
@@ -217,12 +216,12 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
     Comments? comments,
     CommentsState? snapshot,
   ) {
-    final LoadingState<List<ReplyInfo>> loading =
+    final LoadingState<List<CommentReply>> loading =
         snapshot?.loading ??
         switch (source) {
           Error error => error,
-          Success() => const Success(<ReplyInfo>[]),
-          _ => LoadingState<List<ReplyInfo>>.loading(),
+          Success() => const Success(<CommentReply>[]),
+          _ => LoadingState<List<CommentReply>>.loading(),
         };
     switch (loading) {
       case Loading():
@@ -345,7 +344,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
         onReload: onReload,
       );
 
-  void replyReply(BuildContext context, ReplyInfo replyItem, int? id) {
+  void replyReply(BuildContext context, CommentReply replyItem, int? id) {
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
@@ -418,7 +417,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
 
   void _compose(
     BuildContext context,
-    ReplyInfo? item, {
+    CommentReply? item, {
     int? oid,
     int? replyType,
   }) {

@@ -9,8 +9,7 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
@@ -90,7 +89,7 @@ class _SavePanelState extends State<SavePanel> {
   @override
   void initState() {
     super.initState();
-    if (_item case final ReplyInfo i) {
+    if (_item case final CommentReply i) {
       _parseReply(i);
     } else if (_item case final DynamicItemModel i) {
       uri = _parseDyn(i);
@@ -98,10 +97,10 @@ class _SavePanelState extends State<SavePanel> {
     }
   }
 
-  void _parseReply(ReplyInfo reply) {
+  void _parseReply(CommentReply reply) {
     itemType = '评论';
     final currentRoute = Get.currentRoute;
-    late final hasRoot = reply.hasRoot();
+    late final hasRoot = reply.rootId != null;
 
     if (currentRoute == '/videoV') {
       final rootId = hasRoot ? reply.root : reply.id;
@@ -422,7 +421,7 @@ class _SavePanelState extends State<SavePanel> {
                     children: [
                       IgnorePointer(
                         child: switch (_item) {
-                          ReplyInfo reply => ReplyItemGrpc(
+                          CommentReply reply => ReplyItemGrpc(
                             replyItem: reply,
                             replyLevel: 0,
                             needDivider: false,

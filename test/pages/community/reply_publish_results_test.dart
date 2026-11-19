@@ -19,6 +19,8 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, CursorReply;
@@ -170,7 +172,7 @@ void main() {
     return owner;
   }
 
-  ReplyPage page({ValueChanged<ReplyInfo?>? onSuccess}) => ReplyPage(
+  ReplyPage page({ValueChanged<CommentReply?>? onSuccess}) => ReplyPage(
     oid: 1,
     root: 2,
     parent: 3,
@@ -250,7 +252,7 @@ void main() {
       comments,
       container.read(provider),
       1,
-      item,
+      commentFromProtocol(item),
     );
     final parent = ReplyInfo(
       id: Int64(3),
@@ -380,10 +382,12 @@ void main() {
     await finish(tester);
   });
 
-  ReplyInfo item() => ReplyInfo(
-    id: Int64(2),
-    oid: Int64.ONE,
-    type: Int64.ONE,
+  CommentReply item() => commentFromProtocol(
+    ReplyInfo(
+      id: Int64(2),
+      oid: Int64.ONE,
+      type: Int64.ONE,
+    ),
   );
 
   testWidgets('删除评论防重复，失败保留弹窗，成功回调失败仍显示成功', (tester) async {

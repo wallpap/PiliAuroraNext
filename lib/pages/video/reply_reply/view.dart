@@ -9,8 +9,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/simple_colored_box.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
@@ -51,7 +50,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
   final int oid;
   final int rpid;
   final int? dialog;
-  final ReplyInfo? firstFloor;
+  final CommentReply? firstFloor;
   final bool isVideoDetail;
   final int replyType;
   final bool isNested;
@@ -178,7 +177,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     super.dispose();
   }
 
-  bool _jump(Int64 id, List<ReplyInfo> rows) {
+  bool _jump(Int64 id, List<CommentReply> rows) {
     final index = rows.indexWhere((row) => row.id == id);
     if (index < 0) return false;
     _highlight = id;
@@ -296,7 +295,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
 
   Widget _header(
     ThemeData theme,
-    ReplyInfo firstFloor,
+    CommentReply firstFloor,
     Comments comments,
     CommentsState snapshot,
   ) {
@@ -447,7 +446,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
 
   Widget _replyItem(
     BuildContext context,
-    ReplyInfo replyItem,
+    CommentReply replyItem,
     Comments comments,
     CommentsState snapshot,
   ) {

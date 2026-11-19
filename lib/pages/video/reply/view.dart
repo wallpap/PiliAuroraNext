@@ -6,8 +6,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,7 +57,7 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
   final _interactions = CommentInteractions();
   Comments get _comments => ref.read(commentsProvider(widget.query).notifier);
   CommentsState get _snapshot => ref.read(commentsProvider(widget.query));
-  void _compose(ReplyInfo? item, {int? oid, int? replyType, int? index}) =>
+  void _compose(CommentReply? item, {int? oid, int? replyType, int? index}) =>
       _interactions.compose(
         context,
         _comments,
@@ -262,7 +261,7 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
   }
 
   // 展示二级回复
-  void replyReply(ReplyInfo replyItem, int? id) {
+  void replyReply(CommentReply replyItem, int? id) {
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
       final comments = _comments;
       final current = comments.capture();

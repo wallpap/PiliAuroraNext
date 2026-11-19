@@ -1,5 +1,4 @@
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/reply.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
@@ -16,7 +15,7 @@ class ZanButtonGrpc extends StatefulWidget {
     this.onUpdate,
   });
 
-  final ReplyInfo replyItem;
+  final CommentReply replyItem;
   final VoidCallback? onUpdate;
 
   @override
@@ -60,7 +59,7 @@ class _ZanButtonGrpcState extends State<ZanButtonGrpc> {
         setState(() {
           if (previous == $fixnum.Int64.ONE) item.like -= $fixnum.Int64.ONE;
           if (action == $fixnum.Int64.ONE) item.like += $fixnum.Int64.ONE;
-          item.ensureReplyControl().action = action;
+          item.replyControl.action = action;
         });
         SmartDialog.showToast(
           action == $fixnum.Int64.ZERO

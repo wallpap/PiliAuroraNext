@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
@@ -57,15 +59,15 @@ void main() {
     container.listen(provider, (_, _) {});
     final comments = container.read(provider.notifier);
     await flushComments();
-    List<ReplyInfo> rows() => container.read(provider).loading.data;
+    List<CommentReply> rows() => container.read(provider).loading.data;
     final old = rows().last;
     comments
-      ..published(reply(4))
-      ..published(reply(4));
+      ..published(commentFromProtocol(reply(4)))
+      ..published(commentFromProtocol(reply(4)));
     expect(rows().map((item) => item.id.toInt()), [1, 4, 2]);
     comments
-      ..published(reply(5), parent: old)
-      ..published(reply(5), parent: old);
+      ..published(commentFromProtocol(reply(5)), parent: old)
+      ..published(commentFromProtocol(reply(5)), parent: old);
     expect(rows().last.replies.map((item) => item.id.toInt()), [3, 5]);
     expect(rows().last.count, Int64(2));
     comments.remove(old, 0);
@@ -125,12 +127,23 @@ void main() {
     final comments = container.read(provider.notifier);
     await flushComments();
     expect(fixture.reads.single.anchor, 3);
-    expect(container.read(provider).root, same(root));
+    final displayedRoot = container.read(provider).root!;
+    expect(displayedRoot.id, root.id);
+    expect(displayedRoot.replies.map((item) => item.id.toInt()), [4, 3]);
     expect(container.read(provider).loading.data.single.id.toInt(), 3);
     comments
-      ..published(reply(5), parent: reply(3))
-      ..published(reply(5), parent: reply(3))
-      ..published(reply(6), parent: root);
+      ..published(
+        commentFromProtocol(reply(5)),
+        parent: commentFromProtocol(reply(3)),
+      )
+      ..published(
+        commentFromProtocol(reply(5)),
+        parent: commentFromProtocol(reply(3)),
+      )
+      ..published(
+        commentFromProtocol(reply(6)),
+        parent: commentFromProtocol(root),
+      );
     expect(
       container.read(provider).loading.data.map((item) => item.id.toInt()),
       [6, 3, 5],

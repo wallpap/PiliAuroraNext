@@ -13,10 +13,9 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart' show FilePicModel;
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
@@ -40,10 +39,10 @@ class ReplyPage extends CommonRichTextPubPage {
   final int root;
   final int parent;
   final int replyType;
-  final ReplyInfo? replyItem;
+  final CommentReply? replyItem;
   final String? hint;
   final bool canUploadPic;
-  final ValueChanged<ReplyInfo?>? onSuccess;
+  final ValueChanged<CommentReply?>? onSuccess;
 
   const ReplyPage({
     super.key,
@@ -457,7 +456,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
       }
       pictures ??= await uploadPictures(account: account);
       if (!isCurrent()) return;
-      final result = await VideoHttp.replyAdd(
+      final result = await commentActions.publish(
         account: account,
         type: target.replyType,
         oid: target.oid,

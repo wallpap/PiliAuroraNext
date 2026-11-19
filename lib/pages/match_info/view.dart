@@ -3,8 +3,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/models/remote/match/match_info/contest.dart';
@@ -212,7 +211,7 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
   }
 
   @override
-  void replyReply(BuildContext context, ReplyInfo replyItem, int? id) {
+  void replyReply(BuildContext context, CommentReply replyItem, int? id) {
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
