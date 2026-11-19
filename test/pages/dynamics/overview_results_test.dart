@@ -4,6 +4,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamic_activity_item.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show LikeListReply, ModuleAuthor, RepostListRsp, DynamicItem, Extend;
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
@@ -463,9 +464,9 @@ void main() {
       await more;
       final state = container.read(provider);
       if (likes) {
-        expect((state.loading.data.single as ModuleAuthor).mid, Int64(2));
+        expect((state.loading.data.single as DynamicActivityAuthor).mid, '2');
       } else {
-        expect((state.loading.data.single as DynamicItem).extend.dynIdStr, '2');
+        expect((state.loading.data.single as DynamicRepostEntry).id, '2');
       }
       expect(state.hasMore, isFalse);
       await notifier.onLoadMore();
