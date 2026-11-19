@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 abstract final class DmGrpc {
   static Future<LoadingState<DmSegMobileReply>> dmSegMobile({

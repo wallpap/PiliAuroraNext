@@ -4,7 +4,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 Future<File> _fixture(List<int> bytes) async {
   final directory = await Directory.systemTemp.createTemp(

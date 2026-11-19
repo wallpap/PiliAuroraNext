@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
 

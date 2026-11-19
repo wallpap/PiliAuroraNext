@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.d
 import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_store.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 void main() {
   test('source store reuses ordered run after cancellation and replaces changed input', () async {

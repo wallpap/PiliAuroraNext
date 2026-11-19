@@ -4,7 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/grpc/decode_policy.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/features/danmaku/data/danmaku_protobuf.dart';
 import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';

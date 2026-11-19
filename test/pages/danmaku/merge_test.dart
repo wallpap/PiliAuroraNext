@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 DanmakuElement _dm(
   String text,

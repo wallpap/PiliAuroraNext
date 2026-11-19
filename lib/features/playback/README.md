@@ -9,5 +9,6 @@
 - `application/audio_media.dart` 解析音频媒体源，传输协议、音轨与音量字段映射留在 `data/`。
 - `application/live_chat_connection.dart` 持有直播消息流、连接代次和凭据缓存；房间切换释放旧连接，页面仍管理聊天列表及滚动。
 - 定时关闭由应用持有，主窗口退出和应用卸载时取消定时并释放绑定。播放路由通过 `ShutdownTimerService` 绑定当前点播、直播或独立音频实例。倒计时可随点播和直播交接，等待播完后只接收当时绑定的完成信号，换绑会取消该等待。独立音频优先接管，释放当前音频绑定时取消定时。直播到点直接执行。弹层在 `presentation/shutdown_timer_dialog.dart`。
+- 弹幕解码与合并共用[进程工作配额](../danmaku/application/work_quota.dart)。应用卸载时取消排队任务并关闭容量通知，在途任务结束时归还已有预留。
 
 这里不持有原生播放器。视频和直播继续使用 `PlaybackOwner`，独立音频沿用原生释放屏障，详见[播放状态模型](../../../doc/development/playback-model.md)。实际媒体输出、聊天室连接和设备交互仍需在目标设备验收。

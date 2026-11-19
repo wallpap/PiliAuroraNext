@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 /// 两路读取的编码/解码批次、排序索引、写出编码及文件缓冲。
 const orderedDanmakuFileWorkBytes =

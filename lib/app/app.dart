@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:pili_aurora_next/features/download/application/download_progress.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -45,6 +46,7 @@ class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
 
   @override
   void dispose() {
+    DanmakuWorkQuota.disposeProcessQuota();
     closeApplicationShutdownTimer();
     unawaited(
       closePlatformAudioSession().catchError((Object error, StackTrace stack) {

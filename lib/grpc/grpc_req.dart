@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';

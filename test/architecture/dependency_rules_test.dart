@@ -401,6 +401,7 @@ void main() {
       'models/remote/dynamic/dyn_topic_feed/',
       'models/remote/dynamic/dyn_topic_pub_search/',
       'models/remote/dynamic/dyn_mention/',
+      'services/danmaku/work_quota.dart',
       'utils/danmaku_utils.dart',
       'utils/reply_filter.dart',
     ];

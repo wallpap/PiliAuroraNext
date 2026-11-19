@@ -78,11 +78,15 @@ class DanmakuWorkQuota {
        assert(maxWaitingTasks > 0),
        assert(maxWaitingBytes > 0);
 
-  static final instance = _createProcessQuota();
+  static DanmakuWorkQuota? _processQuota;
+
+  static DanmakuWorkQuota get instance => _processQuota ??= _createProcessQuota();
+
+  static void disposeProcessQuota() => _processQuota?.dispose();
 
   static DanmakuWorkQuota _createProcessQuota() {
     final quota = DanmakuWorkQuota();
-    Diagnostics.instance.register(
+    quota._unregisterDiagnostics = Diagnostics.instance.register(
       'danmaku.processWorkQuota',
       () => quota.snapshot,
     );
@@ -97,12 +101,27 @@ class DanmakuWorkQuota {
   Stream<void> get available => _available.stream;
   final _waiting =
       Queue<({int bytes, int waitingBytes, Completer<void> ready})>();
+  void Function()? _unregisterDiagnostics;
   int _waitingBytes = 0;
+  bool _disposed = false;
   final _running = <DanmakuWorkLease, ({DanmakuWorkToken? token, int bytes})>{};
 
   bool get hasWaitingCapacity =>
+      !_disposed &&
       _waiting.length < maxWaitingTasks &&
       _waitingBytes + 256 <= maxWaitingBytes;
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    while (_waiting.isNotEmpty) {
+      _waiting.removeFirst().ready.completeError(const DanmakuWorkCancelled());
+    }
+    _waitingBytes = 0;
+    _unregisterDiagnostics?.call();
+    _unregisterDiagnostics = null;
+    unawaited(_available.close());
+  }
 
   Map<String, int> get snapshot {
     var obsoleteTasks = 0;
@@ -148,7 +167,9 @@ class DanmakuWorkQuota {
     int waitingBytes = 256,
   }) async {
     if (estimatedBytes < 0) throw ArgumentError.value(estimatedBytes);
-    if (token?.isCancelled ?? false) throw const DanmakuWorkCancelled();
+    if (_disposed || token?.isCancelled == true) {
+      throw const DanmakuWorkCancelled();
+    }
     if (estimatedBytes > maxBytes) {
       throw DanmakuWorkTooLarge(estimatedBytes, maxBytes);
     }
@@ -188,15 +209,19 @@ class DanmakuWorkQuota {
     final lease = DanmakuWorkLease._(ticket.bytes);
     _running[lease] = (token: token, bytes: ticket.bytes);
     try {
-      if (token?.isCancelled ?? false) throw const DanmakuWorkCancelled();
+      if (_disposed || token?.isCancelled == true) {
+        throw const DanmakuWorkCancelled();
+      }
       return await work(lease);
     } finally {
       lease._active = false;
       _running.remove(lease);
       _tasks--;
       _bytes -= ticket.bytes;
-      _drain();
-      _available.add(null);
+      if (!_disposed) {
+        _drain();
+        _available.add(null);
+      }
     }
   }
 
