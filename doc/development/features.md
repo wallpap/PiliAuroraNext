@@ -33,7 +33,7 @@
 
 ## 首页与内容发现
 
-主壳持有主导航和滚动栏，首页实例持有自己的子 Tab 与刷新意图；子页通过构造回调连接。独立首页和主题预览使用自己的滚动栏，不注册到主壳。角标由 `shellBadgesProvider` 调度，消息未读快照仍归账号 Session；搜索词由 `searchHintProvider` 共享并在最后一个订阅释放后销毁。
+主壳持有主导航和滚动栏，首页实例持有自己的子 Tab 与刷新意图；子页通过构造回调连接。独立首页和主题预览使用自己的滚动栏，不注册到主壳。`shellBadgesProvider` 调度角标，消息未读快照归账号 Session。外观设置、设置搜索和主壳共用应用作用域的 `badgePreferencesProvider`，保存确认后才通知主壳，作用域释放时关闭广播。搜索词由 `searchHintProvider` 共享并在最后一个订阅释放后销毁。
 
 推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的 Riverpod 调度与共享过滤入口见[内容发现模块](../../lib/features/content_discovery/README.md)。动态作者与分类由[社区模块](../../lib/features/community/README.md)协调，发布与删除通过领域失效信号同步列表。
 

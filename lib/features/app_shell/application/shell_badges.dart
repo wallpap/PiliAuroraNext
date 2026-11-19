@@ -12,6 +12,7 @@ final shellBadgesProvider = Provider.autoDispose<ShellBadges>((ref) {
   final badges = ShellBadges._(
     () => ref.read(mainAccountProvider).isLogin,
     () => ref.read(overviewHandleProvider).refresh(),
+    ref.watch(badgePreferencesProvider),
   );
   ref
     ..listen(mainAccountProvider, (_, account) {
@@ -22,18 +23,23 @@ final shellBadgesProvider = Provider.autoDispose<ShellBadges>((ref) {
 });
 
 class ShellBadges {
-  ShellBadges._(this._isLoggedIn, this._refreshMessages) {
-    _preferences = BadgePreferences.changes.listen(_onPreference);
+  ShellBadges._(
+    this._isLoggedIn,
+    this._refreshMessages,
+    BadgePreferences preferences,
+  ) : _dynamicMode = ValueNotifier(preferences.dynamicMode),
+      _message = ValueNotifier((
+        mode: preferences.messageMode,
+        types: preferences.messageTypes,
+      )) {
+    _preferences = preferences.changes.listen(_onPreference);
   }
 
   final bool Function() _isLoggedIn;
   final Future<void> Function() _refreshMessages;
   final _dynamic = DynamicUnread();
-  final _dynamicMode = ValueNotifier(BadgePreferences.dynamicMode);
-  final _message = ValueNotifier<MessageBadgePreferences>((
-    mode: BadgePreferences.messageMode,
-    types: BadgePreferences.messageTypes,
-  ));
+  final ValueNotifier<DynamicBadgeMode> _dynamicMode;
+  final ValueNotifier<MessageBadgePreferences> _message;
   late final StreamSubscription<BadgePreferenceChange> _preferences;
 
   Object? _owner;

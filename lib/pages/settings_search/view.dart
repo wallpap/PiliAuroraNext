@@ -24,11 +24,17 @@ class _SettingsSearchPageState
     extends DebounceStreamState<SettingsSearchPage, String> {
   final _textEditingController = TextEditingController();
   final RxList<SettingsModel> _list = <SettingsModel>[].obs;
-  late final _settings = [
-    for (final type in SettingType.values)
-      if (type != SettingType.webdavSetting)
-        for (final item in type.settings) ...item.searchableItems,
-  ];
+  late List<SettingsModel> _settings;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _settings = [
+      for (final type in SettingType.values)
+        if (type != SettingType.webdavSetting)
+          for (final item in type.settings(context)) ...item.searchableItems,
+    ];
+  }
 
   @override
   void onValueChanged(String value) {

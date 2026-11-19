@@ -81,6 +81,7 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    final preferences = container.read(badgePreferencesProvider);
     final subscription = container.listen(shellBadgesProvider, (_, _) {});
     final badges = subscription.read();
     final detach = badges.attach(hasHome: true, hasDynamics: false);
@@ -94,28 +95,40 @@ void main() {
     expect(queries, 1);
 
     final pending = store.pendingMode = Completer<void>();
-    final hide = BadgePreferences.saveMessageMode(DynamicBadgeMode.hidden);
+    final hide = preferences.saveMessageMode(DynamicBadgeMode.hidden);
     await flush();
     expect(badges.message.value.mode, DynamicBadgeMode.number);
     pending.complete();
     await hide;
-    await BadgePreferences.saveMessageTypes({MsgUnReadType.reply});
+    await preferences.saveMessageTypes({MsgUnReadType.reply});
     await flush();
     expect(badges.message.value.mode, DynamicBadgeMode.hidden);
     expect(badges.message.value.types, {MsgUnReadType.reply});
     expect(queries, 1);
 
-    await BadgePreferences.saveMessageMode(DynamicBadgeMode.point);
+    await preferences.saveMessageMode(DynamicBadgeMode.point);
     await flush();
     expect(badges.message.value.mode, DynamicBadgeMode.point);
     expect(queries, 2);
     detach();
-    await BadgePreferences.saveMessageMode(DynamicBadgeMode.number);
+    final savingAfterDetach = store.pendingMode = Completer<void>();
+    final save = preferences.saveMessageMode(DynamicBadgeMode.number);
+    final changes = preferences.changes.listen(
+      (_) => fail('释放时仍有未完成写入，不应继续发出角标事件'),
+    );
+    addTearDown(changes.cancel);
+    final completed = changes.asFuture<void>();
     await flush();
     expect(queries, 2);
     subscription.close();
     await container.pump();
     expect(container.exists(shellBadgesProvider), isFalse);
+    container.dispose();
+    savingAfterDetach.complete();
+    await save;
+    await completed;
+    expect(preferences.messageMode, DynamicBadgeMode.number);
+    expect(queries, 2);
   });
 }
 

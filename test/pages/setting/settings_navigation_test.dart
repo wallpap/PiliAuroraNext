@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -114,7 +115,9 @@ void main() {
     tester.view.physicalSize = const Size(1200, 900);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(home: SettingPage()));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: SettingPage())),
+    );
     expect(find.text('切换账号'), findsNothing);
     expect(find.text('退出登录'), findsNothing);
 

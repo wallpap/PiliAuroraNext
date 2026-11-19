@@ -22,13 +22,7 @@ class _CommonSettingState extends State<CommonSetting> {
   late List<SettingsModel> settings;
 
   void _initSetting() {
-    settings = widget.settingType.settings;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _initSetting();
+    settings = widget.settingType.settings(context);
   }
 
   @override
@@ -42,6 +36,7 @@ class _CommonSettingState extends State<CommonSetting> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _initSetting();
     padding = MediaQuery.viewPaddingOf(context);
   }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -32,9 +33,15 @@ class MessageBadgeTypesChanged extends BadgePreferenceChange {
   final Set<MsgUnReadType> types;
 }
 
-abstract final class BadgePreferences {
-  static final _changes = StreamController<BadgePreferenceChange>.broadcast();
-  static Stream<BadgePreferenceChange> get changes => _changes.stream;
+final badgePreferencesProvider = Provider((ref) {
+  final preferences = BadgePreferences();
+  ref.onDispose(() => unawaited(preferences.close()));
+  return preferences;
+});
+
+final class BadgePreferences {
+  final _changes = StreamController<BadgePreferenceChange>.broadcast();
+  Stream<BadgePreferenceChange> get changes => _changes.stream;
 
   static DynamicBadgeMode _readMode(String key) =>
       switch (GStorage.setting.get(key)) {
@@ -43,12 +50,10 @@ abstract final class BadgePreferences {
         _ => DynamicBadgeMode.number,
       };
 
-  static DynamicBadgeMode get dynamicMode =>
-      _readMode(SettingBoxKey.dynamicBadgeMode);
-  static DynamicBadgeMode get messageMode =>
-      _readMode(SettingBoxKey.msgBadgeMode);
+  DynamicBadgeMode get dynamicMode => _readMode(SettingBoxKey.dynamicBadgeMode);
+  DynamicBadgeMode get messageMode => _readMode(SettingBoxKey.msgBadgeMode);
 
-  static Set<MsgUnReadType> get messageTypes {
+  Set<MsgUnReadType> get messageTypes {
     final saved = GStorage.setting.get(SettingBoxKey.msgUnReadTypeV2);
     return Set.unmodifiable(
       saved is List
@@ -62,17 +67,17 @@ abstract final class BadgePreferences {
     );
   }
 
-  static Future<void> saveDynamicMode(DynamicBadgeMode mode) async {
+  Future<void> saveDynamicMode(DynamicBadgeMode mode) async {
     await GStorage.setting.put(SettingBoxKey.dynamicBadgeMode, mode.index);
-    _changes.add(DynamicBadgeModeChanged(mode));
+    _emit(DynamicBadgeModeChanged(mode));
   }
 
-  static Future<void> saveMessageMode(DynamicBadgeMode mode) async {
+  Future<void> saveMessageMode(DynamicBadgeMode mode) async {
     await GStorage.setting.put(SettingBoxKey.msgBadgeMode, mode.index);
-    _changes.add(MessageBadgeModeChanged(mode));
+    _emit(MessageBadgeModeChanged(mode));
   }
 
-  static Future<void> saveMessageTypes(Set<MsgUnReadType> types) async {
+  Future<void> saveMessageTypes(Set<MsgUnReadType> types) async {
     final selection = Set<MsgUnReadType>.unmodifiable(
       types.toList()
         ..sort((first, second) => first.index.compareTo(second.index)),
@@ -81,6 +86,12 @@ abstract final class BadgePreferences {
       SettingBoxKey.msgUnReadTypeV2,
       selection.map((type) => type.index).toList(),
     );
-    _changes.add(MessageBadgeTypesChanged(selection));
+    _emit(MessageBadgeTypesChanged(selection));
   }
+
+  void _emit(BadgePreferenceChange change) {
+    if (!_changes.isClosed) _changes.add(change);
+  }
+
+  Future<void> close() => _changes.close();
 }

@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -60,7 +61,11 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 
-List<SettingsModel> get styleSettings => [
+List<SettingsModel> styleSettings(BuildContext context) => _styleSettings(
+  ProviderScope.containerOf(context).read(badgePreferencesProvider),
+);
+
+List<SettingsModel> _styleSettings(BadgePreferences badges) => [
   SettingsGroup(
     title: '主题与文字',
     subtitle: '主题颜色、字体与界面缩放',
@@ -338,23 +343,24 @@ List<SettingsModel> get styleSettings => [
       PopupModel(
         title: '动态未读标记',
         leading: const Icon(Icons.motion_photos_on_outlined),
-        value: () => BadgePreferences.dynamicMode,
+        value: () => badges.dynamicMode,
         items: DynamicBadgeMode.values,
-        onSelected: _setDynBadge,
+        onSelected: (value, refresh) => _setDynBadge(badges, value, refresh),
       ),
       PopupModel(
         title: '消息未读标记',
         leading: const Icon(MdiIcons.bellBadgeOutline),
-        value: () => BadgePreferences.messageMode,
+        value: () => badges.messageMode,
         items: DynamicBadgeMode.values,
-        onSelected: _setMsgBadge,
+        onSelected: (value, refresh) => _setMsgBadge(badges, value, refresh),
       ),
       NormalModel(
-        onTap: _showMsgUnReadDialog,
+        onTap: (context, refresh) =>
+            _showMsgUnReadDialog(context, badges, refresh),
         title: '消息未读类型',
         leading: const Icon(MdiIcons.bellCogOutline),
         getSubtitle: () =>
-            '当前消息类型：${BadgePreferences.messageTypes.map((item) => item.title).join('、')}',
+            '当前消息类型：${badges.messageTypes.map((item) => item.title).join('、')}',
       ),
     ],
   ),
@@ -858,19 +864,27 @@ Future<void> _showCardWidthDialog(
   }
 }
 
-Future<void> _setDynBadge(DynamicBadgeMode value, VoidCallback setState) async {
+Future<void> _setDynBadge(
+  BadgePreferences badges,
+  DynamicBadgeMode value,
+  VoidCallback setState,
+) async {
   await saveSetting(
     key: SettingBoxKey.dynamicBadgeMode,
-    write: () => BadgePreferences.saveDynamicMode(value),
+    write: () => badges.saveDynamicMode(value),
     apply: setState,
     canPresent: () => true,
   );
 }
 
-Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {
+Future<void> _setMsgBadge(
+  BadgePreferences badges,
+  DynamicBadgeMode value,
+  VoidCallback setState,
+) async {
   await saveSetting(
     key: SettingBoxKey.msgBadgeMode,
-    write: () => BadgePreferences.saveMessageMode(value),
+    write: () => badges.saveMessageMode(value),
     apply: setState,
     canPresent: () => true,
   );
@@ -878,20 +892,21 @@ Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {
 
 Future<void> _showMsgUnReadDialog(
   BuildContext context,
+  BadgePreferences badges,
   VoidCallback setState,
 ) async {
   final res = await showDialog<Set<MsgUnReadType>>(
     context: context,
     builder: (context) => MultiSelectDialog<MsgUnReadType>(
       title: '消息未读类型',
-      initValues: BadgePreferences.messageTypes,
+      initValues: badges.messageTypes,
       values: {for (final i in MsgUnReadType.values) i: i.title},
     ),
   );
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.msgUnReadTypeV2,
-      write: () => BadgePreferences.saveMessageTypes(res),
+      write: () => badges.saveMessageTypes(res),
       apply: setState,
       canPresent: () => context.mounted,
       successMessage: '设置成功',

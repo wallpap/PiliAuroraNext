@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/pages/setting/models/about_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/content_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/system_settings.dart';
@@ -24,12 +25,12 @@ enum SettingType {
   final String title;
   const SettingType(this.title);
 
-  List<SettingsModel> get settings => switch (this) {
+  List<SettingsModel> settings(BuildContext context) => switch (this) {
     .privacySetting => privacySettings,
     .recommendSetting => recommendSettings,
     .videoSetting => videoSettings,
     .playSetting => playSettings,
-    .styleSetting => styleSettings,
+    .styleSetting => styleSettings(context),
     .extraSetting => systemSettings,
     .contentSetting => contentSettings,
     .diagnosticSetting => diagnosticSettings,
