@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/black.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/blocked_author_repository.dart';
 import 'package:pili_aurora_next/features/playback/data/danmaku_block_repository.dart';
 import 'package:pili_aurora_next/http/fan.dart';
 import 'package:pili_aurora_next/http/follow.dart';
@@ -61,7 +61,7 @@ void main() {
   final queries = <String, Future<LoadingState<Object?>> Function()>{
     '关注': () => FollowHttp.followings(account: account, vmid: 1, pn: 1),
     '粉丝': () => FanHttp.fans(account: account, vmid: 1, pn: 1),
-    '黑名单': () => BlackHttp.blackList(account: account, pn: 1),
+    '黑名单': () => const BlockedAuthorRepository().load(account, 1),
     '屏蔽规则': () => DanmakuBlockRepository.danmakuFilter(account: account),
   };
   for (final entry in queries.entries) {

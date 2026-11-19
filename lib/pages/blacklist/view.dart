@@ -7,13 +7,13 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blacklist.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/blocked_author.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/blacklist/list.dart';
-import 'package:pili_aurora_next/pages/blacklist/controller.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
 class BlackListPage extends ConsumerStatefulWidget {
@@ -42,7 +42,7 @@ class _BlackListPageState extends ConsumerState<BlackListPage> {
     await AsyncValue.guard(() => ref.refresh(blackListProvider.future));
   }
 
-  Future<void> _remove(BlackListItem item) async {
+  Future<void> _remove(BlockedAuthor item) async {
     final before = ref.read(blackListProvider).value;
     final confirmed = await showConfirmDialog(
       context: context,

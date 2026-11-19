@@ -78,13 +78,21 @@ class BlockedAuthors {
     final mids = <int>{};
     try {
       for (var page = 1; ; page++) {
-        final response = await _repository.load(_account, page);
+        final response = (await _repository.load(_account, page)).dataOrNull;
         if (!_isCurrent || response == null) return;
+        final (:items, :total) = response;
         final previousLength = mids.length;
-        mids.addAll(response.mids.whereType<int>().where((mid) => mid > 0));
-        if (response.total case final total? when mids.length >= total) break;
-        if (response.mids.isEmpty || mids.length == previousLength) return;
-        if (response.total == null && response.mids.length < 50) break;
+        mids.addAll(
+          items
+              .map((item) => item.mid)
+              .whereType<int>()
+              .where(
+                (mid) => mid > 0,
+              ),
+        );
+        if (total != null && mids.length >= total) break;
+        if (items.isEmpty || mids.length == previousLength) return;
+        if (total == null && items.length < blockedAuthorPageSize) break;
       }
       for (final entry in _changes.entries) {
         if (entry.value) {

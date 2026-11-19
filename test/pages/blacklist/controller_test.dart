@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/blacklist/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blacklist.dart';
 import 'package:pili_aurora_next/pages/blacklist/view.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';

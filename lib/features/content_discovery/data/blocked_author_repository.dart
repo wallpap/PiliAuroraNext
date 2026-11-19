@@ -1,24 +1,50 @@
-import 'package:pili_aurora_next/http/black.dart';
+import 'package:dio/dio.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/blocked_author.dart';
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/api_response.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
-typedef BlockedAuthorPage = ({List<int?> mids, int? total});
+const blockedAuthorPageSize = 50;
 
 class BlockedAuthorRepository {
   const BlockedAuthorRepository();
 
-  Future<BlockedAuthorPage?> load(Account account, int page) async {
-    final result = await BlackHttp.blackList(pn: page, account: account);
-    return switch (result) {
-      Success(:final response) => (
-        mids: response.list?.map((entry) => entry.mid).toList() ?? const [],
-        total: response.total,
-      ),
-      _ => null,
-    };
-  }
+  Future<LoadingState<BlockedAuthorPage>> load(Account account, int page) =>
+      Request().requestApi(
+        Api.blackLst,
+        kind: ApiCallKind.query,
+        decode: (body) {
+          final data = body['data'] as Map<String, dynamic>;
+          final entries = data['list'] as List<dynamic>? ?? const [];
+          return (
+            items: [for (final entry in entries) _decodeAuthor(entry)],
+            total: data['total'] as int?,
+          );
+        },
+        queryParameters: {
+          'pn': page,
+          'ps': blockedAuthorPageSize,
+          're_version': 0,
+          'jsonp': 'jsonp',
+          'csrf': account.csrf,
+        },
+        options: Options(extra: {'account': account}),
+      );
+
+  BlockedAuthor _decodeAuthor(Map<String, dynamic> data) => BlockedAuthor(
+    mid: data['mid'] as int?,
+    mtime: data['mtime'] as int?,
+    uname: data['uname'] as String?,
+    face: data['face'] as String?,
+  );
+
+  Future<LoadingState<void>> remove(Account account, int mid) =>
+      VideoHttp.relationMod(account: account, mid: mid, act: 6, reSrc: 11);
 
   Map<dynamic, dynamic> get _saved =>
       switch (GStorage.localCache.get(LocalCacheKey.blackMidsByAccount)) {

@@ -38,9 +38,6 @@ pages/audio/controller.dart -> utils/accounts.dart
 pages/audio/controller.dart -> utils/storage.dart
 pages/audio/controller.dart -> utils/storage_pref.dart
 pages/audio/volume_button.dart -> utils/storage_pref.dart
-pages/blacklist/controller.dart -> http/black.dart
-pages/blacklist/controller.dart -> http/video.dart
-pages/blacklist/controller.dart -> utils/accounts.dart
 pages/common/common_controller.dart#CommonController -> GetxController
 pages/common/common_data_controller.dart#CommonDataController -> CommonController
 pages/common/common_intro_controller.dart -> utils/accounts.dart

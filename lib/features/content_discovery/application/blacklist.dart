@@ -1,11 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/http/black.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/blocked_author_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/blocked_author.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/remote/blacklist/data.dart';
-import 'package:pili_aurora_next/models/remote/blacklist/list.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -18,18 +16,18 @@ final blackListProvider =
     );
 
 class BlackListState {
-  BlackListState({
+  const BlackListState._({
     required this.source,
-    required Iterable<BlackListItem> items,
+    required this.items,
     required this.total,
     required this.nextPage,
     required this.hasMore,
     this.isLoadingMore = false,
     this.removingMid,
     this.pageError,
-  }) : items = List.unmodifiable(items);
+  });
 
-  final List<BlackListItem> items;
+  final List<BlockedAuthor> items;
   final Object source;
   final int? total;
   final int nextPage;
@@ -41,11 +39,11 @@ class BlackListState {
   bool get canLoadMore =>
       hasMore && !isLoadingMore && removingMid == null && pageError == null;
 
-  BlackListState withOperation({
+  BlackListState _withOperation({
     bool isLoadingMore = false,
     int? removingMid,
     String? pageError,
-  }) => BlackListState(
+  }) => BlackListState._(
     source: source,
     items: items,
     total: total,
@@ -58,7 +56,7 @@ class BlackListState {
 }
 
 class BlackListNotifier extends AsyncNotifier<BlackListState> {
-  static const pageSize = 50;
+  static const _repository = BlockedAuthorRepository();
 
   @override
   Future<BlackListState> build() async {
@@ -68,12 +66,8 @@ class BlackListNotifier extends AsyncNotifier<BlackListState> {
     return _merge(null, response, 1);
   }
 
-  Future<BlackListData> _page(Account account, int page) async {
-    final result = await BlackHttp.blackList(
-      account: account,
-      pn: page,
-      ps: pageSize,
-    );
+  Future<BlockedAuthorPage> _page(Account account, int page) async {
+    final result = await _repository.load(account, page);
     return switch (result) {
       Success(:final response) => response,
       _ => throw result,
@@ -82,27 +76,31 @@ class BlackListNotifier extends AsyncNotifier<BlackListState> {
 
   BlackListState _merge(
     BlackListState? current,
-    BlackListData response,
+    BlockedAuthorPage response,
     int page,
   ) {
-    final source = response.list ?? const <BlackListItem>[];
+    final source = response.items;
     final seen = <int>{};
     final items = [
-      for (final item in [...?current?.items, ...source])
+      if (current != null)
+        for (final item in current.items)
+          if (item.mid == null || seen.add(item.mid!)) item,
+      for (final item in source)
         if (item.mid == null || seen.add(item.mid!)) item,
     ];
     final total = response.total ?? current?.total;
     // 移除后重读末页时允许一次无增长；普通重复页则停止，避免循环请求。
     final replay =
-        current != null && page <= (current.items.length / pageSize).ceil();
-    return BlackListState(
+        current != null &&
+        page <= (current.items.length / blockedAuthorPageSize).ceil();
+    return BlackListState._(
       source: current?.source ?? Object(),
-      items: items,
+      items: List.unmodifiable(items),
       total: total,
       nextPage: page + 1,
       hasMore:
-          source.length >= pageSize &&
-          (total == null || page * pageSize < total) &&
+          source.length >= blockedAuthorPageSize &&
+          (total == null || page * blockedAuthorPageSize < total) &&
           (current == null || items.length > current.items.length || replay),
     );
   }
@@ -120,14 +118,14 @@ class BlackListNotifier extends AsyncNotifier<BlackListState> {
     }
     final requestRef = ref;
     final account = requestRef.read(mainAccountProvider);
-    state = AsyncData(current.withOperation(isLoadingMore: true));
+    state = AsyncData(current._withOperation(isLoadingMore: true));
     try {
       final response = await _page(account, current.nextPage);
       if (!requestRef.mounted || !identical(account, Accounts.main)) return;
       state = AsyncData(_merge(current, response, current.nextPage));
     } catch (_) {
       if (requestRef.mounted && identical(account, Accounts.main)) {
-        state = AsyncData(current.withOperation(pageError: '加载失败，点击重试'));
+        state = AsyncData(current._withOperation(pageError: '加载失败，点击重试'));
       }
     }
   }
@@ -147,14 +145,9 @@ class BlackListNotifier extends AsyncNotifier<BlackListState> {
     final requestRef = ref;
     final account = requestRef.read(mainAccountProvider);
     if (!identical(account, Accounts.main)) return const Error('账号已切换');
-    state = AsyncData(current.withOperation(removingMid: mid));
+    state = AsyncData(current._withOperation(removingMid: mid));
     try {
-      final result = await VideoHttp.relationMod(
-        account: account,
-        mid: mid,
-        act: 6,
-        reSrc: 11,
-      );
+      final result = await _repository.remove(account, mid);
       if (!requestRef.mounted || !identical(account, Accounts.main)) {
         return const Error('账号已切换或页面已关闭');
       }
@@ -167,12 +160,15 @@ class BlackListNotifier extends AsyncNotifier<BlackListState> {
                 current.total! - (current.items.length - items.length),
               );
         state = AsyncData(
-          BlackListState(
+          BlackListState._(
             source: current.source,
-            items: items,
+            items: List.unmodifiable(items),
             total: total,
             // 页码按远端偏移计算；删除会使后续内容前移，重读边界页后按 UID 合并。
-            nextPage: math.min(current.nextPage, items.length ~/ pageSize + 1),
+            nextPage: math.min(
+              current.nextPage,
+              items.length ~/ blockedAuthorPageSize + 1,
+            ),
             hasMore: current.hasMore && (total == null || items.length < total),
           ),
         );

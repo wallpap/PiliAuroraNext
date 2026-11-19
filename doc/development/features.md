@@ -40,6 +40,7 @@
 - `lib/features/content_discovery/presentation/recommendation_viewport.dart` 与卡片共用网格几何，按实际高度、列数和字体缩放补足可视区及一行预取，页脚留白不计入容量。App 推荐按 `idx/pull` 顺序请求；Web 首包按容量取 20～50 项，之后最多并行两页，有序合并并去重。刷新保留历史内容及位置提示。
 - `lib/common/widgets/feed_pagination.dart` 以实际滚动范围触发分页；首页首屏补足由推荐 Notifier 负责。连续五页无增长时停止，失败保留内容，刷新、切号或退出使旧查询失效。所有者与快照修订的规则见[状态管理](state-management.md#查询与分页)。
 - 内容发现的 `application/blocked_authors.dart` 按主账号同步完整黑名单。同步与首页下载并行，发布前完成过滤；管理页的局部名单不覆盖完整缓存，同步失败沿用该账号缓存，应用内拉黑或解除即时更新。
+- 黑名单管理由内容发现的 `application/blacklist.dart` 持有分页和移除操作，与全量过滤共用 `data/blocked_author_repository.dart` 的查询。移除后重读偏移边界页，补齐前移的条目。
 - `application/cooperative_authors.dart` 处理合作作者；`rights.is_cooperation`、`is_union_video` 等明确标志触发补查，已知名单直接复用，否则查询详情的 `staff`。请求合并，共用两个并发名额，成功缓存一小时、最多 256 条，失败缓存一分钟；黑名单同步缓存五分钟。
 - 首页普通卡片先显示，合作卡片按检查结果局部更新；增删时才更新列表，卡片对象身份保留图片子树。过滤入口在内容发现的 `application/discovery_filter.dart`，领域列表通过 `application/discovery_listing.dart` 统一调度，相关推荐通过 `pages/common/discovery_list_controller.dart` 适配。用户范围见[黑名单屏蔽](../guides/content.md#黑名单屏蔽)。
 - `TabActivity`/`TickerMode` 标记活动标签，隐藏页卸载 `CachedImage` 并保留数据和滚动位置。`CachedImageCache` 在动图最后一个监听退出后释放缓存句柄；静态帧沿用 LRU，显式保活句柄可以保留暂停动画。离页后才完成的文件加载，会在首帧完成后回收无人监听的动图。`NetworkImgLayer` 为 B 站质量型缩略图补充卡片尺寸，已有裁剪参数及原图查看/下载沿用原构图或地址。缓存字节不等于全部原生纹理占用，内存与耗时需实测。
