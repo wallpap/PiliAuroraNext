@@ -32,7 +32,8 @@ import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -51,9 +52,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   // 是否点踩
   final RxBool hasDislike = false.obs;
 
-  late final showArgueMsg = Pref.showArgueMsg;
-  late final enableAi = Pref.enableAi;
-  late final horizontalMemberPage = Pref.horizontalMemberPage;
+  late final showArgueMsg = DisplayPreferences.showVideoDispute;
+  late final enableAi = VideoPreferences.showAiSummary;
+  late final horizontalMemberPage = DisplayPreferences.landscapeMemberPage;
 
   AiConclusionResult? aiConclusionResult;
 
@@ -62,9 +63,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   @override
   void open(VideoDetailController video, TickerProvider vsync) {
     super.open(video, vsync);
-    final alwaysExpandIntroPanel = Pref.alwaysExpandIntroPanel;
+    final alwaysExpandIntroPanel = DisplayPreferences.expandVideoIntro;
     expand = RxBool(alwaysExpandIntroPanel);
-    if (!alwaysExpandIntroPanel && Pref.expandIntroPanelH) {
+    if (!alwaysExpandIntroPanel &&
+        DisplayPreferences.expandLandscapeVideoIntro) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isClosed && !expand.value && !DeviceUtils.size.isPortrait) {
           expand.toggle();
@@ -410,7 +412,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
       videoDetailCtr
         ..inheritedSubtitleEnabled =
-            Pref.inheritSubtitleState && bvid == this.bvid
+            VideoPreferences.inheritSubtitle && bvid == this.bvid
             ? videoDetailCtr.vttSubtitlesIndex.value > 0
             : null
         ..plPlayerController.pause()

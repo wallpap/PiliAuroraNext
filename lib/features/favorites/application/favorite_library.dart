@@ -54,6 +54,7 @@ class FavoriteLibrary extends LibraryModule {
   }
 
   int? get quickFolder => _repository.quickFolder;
+  bool get quickEnabled => _repository.quickEnabled;
 
   Future<void> setQuickFolder(Account account, int? id) async {
     if (!owns(account) || !account.isLogin) throw const Error('账号已切换或未登录');

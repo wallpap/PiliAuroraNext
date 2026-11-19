@@ -45,7 +45,6 @@ import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -275,7 +274,7 @@ class AudioController with AudioNormalizationMixin {
   void Function(Duration)? _updateVideoPosition;
 
   double? _lastVolume;
-  late final _desktopVolume = ValueNotifier(Pref.desktopVolume);
+  late final _desktopVolume = ValueNotifier(AudioPreferences.desktopVolume);
   ValueListenable<double> get desktopVolume => _desktopVolume;
 
   Timer? _statusTimer;
@@ -305,12 +304,16 @@ class AudioController with AudioNormalizationMixin {
   }
 
   void previewVolume(double value) {
-    _volumeDraft.value = roundVolumeRatio(value.clamp(0.0, Pref.maxVolume));
+    _volumeDraft.value = roundVolumeRatio(
+      value.clamp(0.0, AudioPreferences.maxDesktopVolume),
+    );
     setVolume(volumeDraft.value);
   }
 
   Future<bool> setVolume(double volume, {bool clearLastVolme = true}) async {
-    volume = roundVolumeRatio(volume.clamp(0.0, Pref.maxVolume));
+    volume = roundVolumeRatio(
+      volume.clamp(0.0, AudioPreferences.maxDesktopVolume),
+    );
     final target = player;
     final generation = _playGeneration;
     final accountOwner = AccountScope.capture();
@@ -433,7 +436,7 @@ class AudioController with AudioNormalizationMixin {
     }
     ConnectivityUtils.isWiFi.then((isWiFi) {
       if (_audioClosed) return;
-      cacheAudioQa = isWiFi ? Pref.defaultAudioQa : Pref.defaultAudioQaCellular;
+      cacheAudioQa = AudioPreferences.qualityCode(wifi: isWiFi);
       if (!hasAudioUrl) {
         _queryPlayUrl();
       }
@@ -723,13 +726,12 @@ class AudioController with AudioNormalizationMixin {
     try {
       initializedPlayer = await _createPlayer(
         PlayerConfiguration(
-          options: {
-            if (Platform.isAndroid) 'ao': Pref.audioOutput,
-            'volume': PlatformUtils.isDesktop
-                ? volumePercent(desktopVolume.value).toStringAsFixed(0)
-                : Pref.playerVolume.toString(),
-            ...Pref.initBuffer(),
-          },
+          options: AudioPreferences.playerOptions(
+            android: Platform.isAndroid,
+            desktopVolumePercent: PlatformUtils.isDesktop
+                ? volumePercent(desktopVolume.value)
+                : null,
+          ),
         ),
       );
     } catch (error) {
@@ -913,7 +915,7 @@ class AudioController with AudioNormalizationMixin {
     }
   }
 
-  late final _enableQuickFav = Pref.enableQuickFav;
+  late final _enableQuickFav = FavoriteLibrary.legacy.quickEnabled;
 
   void showFavBottomSheet(BuildContext context, {bool isLongPress = false}) {
     if (_interactions.unavailable() case final error?) {

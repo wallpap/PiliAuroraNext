@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 
 typedef CommentTarget = ({int oid, int type});
 typedef CommentThread = ({int root, int? reply, int? dialog});
@@ -75,7 +75,9 @@ class Comments extends Notifier<CommentsState> {
   CommentsState build() {
     final account = ref.watch(mainAccountProvider);
     _accountGeneration = Object();
-    _sort = query.thread == null ? Pref.replySortType : Pref.reply2SortType;
+    _sort = query.thread == null
+        ? CommentPreferences.defaultSort
+        : CommentPreferences.threadSort;
     final owner = _owner = _Owner(account)..replyAnchor = query.thread?.reply;
     ref.onDispose(() => owner.disposed = true);
     scheduleMicrotask(() {
@@ -95,8 +97,8 @@ class Comments extends Notifier<CommentsState> {
       identical(owner.account, ref.read(mainAccountProvider));
 
   bool get checkCommentVisibility =>
-      Pref.enableCommAntifraud || sendVisibilityCheck;
-  bool get sendVisibilityCheck => Pref.biliSendCommAntifraud;
+      CommentPreferences.checkSendCriteria || sendVisibilityCheck;
+  bool get sendVisibilityCheck => CommentPreferences.checkSendVisibility;
 
   Account get accountIdentity => _owner.account;
 
@@ -159,7 +161,7 @@ class Comments extends Notifier<CommentsState> {
       busy: true,
     );
     final repository = ref.read(commentsRepositoryProvider);
-    final minLevel = Pref.minimumReplyUserLevel;
+    final minLevel = CommentPreferences.minimumUserLevel;
     final items = <CommentReply>[if (!replacing) ...?before.loading.dataOrNull];
     final seen = <Int64>{for (final item in items) item.id};
     var count = before.count;

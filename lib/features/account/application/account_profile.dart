@@ -38,6 +38,8 @@ class AccountProfile {
   Future<void>? _cacheTail;
 
   bool owns(Account account) => identical(account, _currentAccount());
+  UserInfoData? get currentInfo => cached(_currentAccount());
+
   UserInfoData? cached(Account account) => !account.isLogin
       ? null
       : identical(_confirmed?.$1, account)

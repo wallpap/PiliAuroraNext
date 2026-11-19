@@ -30,7 +30,9 @@ import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -74,8 +76,10 @@ class _DownloadPanelState extends ConsumerState<DownloadPanel> {
 
   late final cidSet = widget.cidSet;
   final _creating = <int>{};
-  VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
-  AudioQuality _audioQuality = AudioQuality.fromCode(Pref.defaultAudioQa);
+  VideoQuality _quality = VideoQuality.fromCode(VideoPreferences.qualityCode());
+  AudioQuality _audioQuality = AudioQuality.fromCode(
+    AudioPreferences.qualityCode(),
+  );
 
   @override
   void initState() {
@@ -243,7 +247,7 @@ class _DownloadPanelState extends ConsumerState<DownloadPanel> {
     );
   }
 
-  late final int? vipStatus = Pref.userInfoCache?.vipStatus;
+  late final int? vipStatus = AccountProfile.legacy.currentInfo?.vipStatus;
   @pragma('vm:notify-debugger-on-exception')
   Future<bool> _onDownload({
     required int index,

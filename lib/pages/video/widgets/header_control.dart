@@ -26,7 +26,7 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_control
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/storage_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
@@ -98,7 +98,7 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
 
   late final _battery = Battery();
   late final RxnInt _batteryLevel = RxnInt();
-  late final _showBatteryLevel = Pref.showBatteryLevel;
+  late final _showBatteryLevel = DisplayPreferences.showBatteryLevel;
   void getBatteryLevelIfNeeded() {
     if (!_showCurrTime || !_showBatteryLevel) return;
     ActionThrottle.run(

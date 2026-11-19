@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/latex_to_unicode.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -78,7 +78,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   }
 
   late final darkVideoPage =
-      Get.currentRoute == '/videoV' && Pref.darkVideoPage;
+      Get.currentRoute == '/videoV' && DisplayPreferences.darkVideoPage;
 
   @override
   Widget build(BuildContext context) {

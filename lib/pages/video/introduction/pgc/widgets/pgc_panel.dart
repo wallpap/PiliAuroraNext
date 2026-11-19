@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:material_ui/material_ui.dart';
@@ -117,7 +117,7 @@ class _PgcPanelState extends State<PgcPanel> {
       initialScrollOffset: currentIndex > 0 ? currentIndex * 164.0 : 0,
     );
 
-    vipStatus = Pref.userInfoCache?.vipStatus != 1;
+    vipStatus = AccountProfile.legacy.currentInfo?.vipStatus != 1;
     widget.onChangeEpisodeList?.call(visiblePages);
 
     _listener = videoDetailCtr.cid.listen((int value) {

@@ -305,6 +305,7 @@ class FavoriteRepository {
           )).data['location']
           as String;
   int? get quickFolder => Pref.quickFavId;
+  bool get quickEnabled => Pref.enableQuickFav;
 
   Future<void> setQuickFolder(int? id) =>
       GStorage.setting.put(SettingBoxKey.quickFavId, id);

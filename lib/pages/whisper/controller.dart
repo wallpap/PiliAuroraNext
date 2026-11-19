@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/pages/common/common_whisper_controller.dart';
 import 'package:pili_aurora_next/services/messaging/session_models.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/messaging/preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
 typedef MsgFeedTopItem = ({
@@ -13,7 +13,7 @@ typedef MsgFeedTopItem = ({
 class WhisperController extends CommonWhisperController {
   WhisperController({required super.sessions})
     : super(folder: SessionFolder.home) {
-    final disableLikeMsg = Pref.disableLikeMsg;
+    final disableLikeMsg = MessagingPreferences.hideLikes;
     msgFeedTopItems = [
       const (
         name: '回复我的',

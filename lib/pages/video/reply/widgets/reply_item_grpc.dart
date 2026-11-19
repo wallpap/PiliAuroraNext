@@ -47,7 +47,7 @@ import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/url_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -343,7 +343,7 @@ class ReplyItemGrpc extends StatelessWidget {
           child: TextMore.rich(
             primary: colorScheme.primary,
             style: const TextStyle(height: 1.75, fontSize: 14),
-            maxLines: replyLevel == 1 ? Pref.replyLengthLimit : null,
+            maxLines: replyLevel == 1 ? CommentPreferences.lineLimit : null,
             TextSpan(
               children: [
                 if (replyControl.isUpTop) ...[
@@ -758,7 +758,7 @@ class ReplyItemGrpc extends StatelessWidget {
     }
 
     void addUrl(String matchStr, CommentUrl url, {bool addPlainText = false}) {
-      if (url.isWordSearch && !Pref.enableWordRe) {
+      if (url.isWordSearch && !CommentPreferences.openSearchLinks) {
         if (addPlainText) {
           addPlainTextSpan(matchStr);
         }

@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -193,7 +193,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
                     : () => toggleCommentSort(comments, snapshot),
                 icon: Icon(Icons.sort, size: 16, color: secondary),
                 label: Text(
-                  (snapshot?.sort ?? Pref.replySortType).descShort,
+                  (snapshot?.sort ?? CommentPreferences.defaultSort).descShort,
                   style: TextStyle(fontSize: 13, color: secondary),
                 ),
               ),
@@ -308,7 +308,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
               snapshot?.pageError?.errMsg ??
               (snapshot == null
                   ? '该音乐暂不支持评论'
-                  : Pref.minimumReplyUserLevel > 0
+                  : CommentPreferences.minimumUserLevel > 0
                   ? '暂无符合等级条件的评论'
                   : '还没有评论'),
           btnText: snapshot?.hasMore == true ? '继续加载' : null,

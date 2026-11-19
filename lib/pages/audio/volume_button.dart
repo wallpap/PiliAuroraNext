@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/vertical_slider.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
 import 'package:flutter/rendering.dart' show RenderProxyBox, BoxHitTestResult;
 import 'package:material_ui/material_ui.dart';
 
@@ -143,8 +143,10 @@ class _VolumeButtonState extends State<VolumeButton> {
                       child: VerticalSlider(
                         year2023: true,
                         min: 0.0,
-                        max: Pref.maxVolume,
-                        divisions: volumePercent(Pref.maxVolume).toInt(),
+                        max: AudioPreferences.maxDesktopVolume,
+                        divisions: volumePercent(
+                          AudioPreferences.maxDesktopVolume,
+                        ).toInt(),
                         value: volume,
                         showValueIndicator: .never,
                         onChanged: widget.controller.previewVolume,

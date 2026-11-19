@@ -1,7 +1,7 @@
 import 'dart:math' show max;
 
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:flutter/gestures.dart' show HorizontalDragGestureRecognizer;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -22,7 +22,7 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
   late final AnimationController _animController;
   SlideDragGestureRecognizer? _slideDragGestureRecognizer;
 
-  static bool slideDismissReplyPage = Pref.slideDismissReplyPage;
+  static bool slideDismissReplyPage = DisplayPreferences.slideDismissReplyPage;
 
   bool isDxAllowed(double dx) {
     return enableSlide

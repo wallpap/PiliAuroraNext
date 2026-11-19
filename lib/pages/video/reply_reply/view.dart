@@ -21,7 +21,7 @@ import 'package:pili_aurora_next/features/community/application/comments/comment
 import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
@@ -394,7 +394,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       Success(:final response) when response.isEmpty => HttpError(
         errMsg:
             snapshot.pageError?.errMsg ??
-            (Pref.minimumReplyUserLevel > 0 ? '暂无符合等级条件的评论' : '还没有评论'),
+            (CommentPreferences.minimumUserLevel > 0 ? '暂无符合等级条件的评论' : '还没有评论'),
         btnText: snapshot.hasMore ? '继续加载' : null,
         onReload: snapshot.hasMore
             ? () => comments.loadMore(retry: true)

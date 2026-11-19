@@ -4,7 +4,7 @@ import 'dart:math' show max;
 
 import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -30,7 +30,7 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   late bool _paused = false;
   late final FocusNode focusNode;
   late final controller = ChatBottomPanelContainerController<PanelType>(
-    uiScale: Pref.uiScale,
+    uiScale: DisplayPreferences.uiScale,
   );
   TextEditingController get editController;
 

@@ -6,6 +6,22 @@ import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 abstract final class AudioPreferences {
   static PlayRepeat get playMode => Pref.audioPlayMode;
+  static double get desktopVolume => Pref.desktopVolume;
+  static double get mobileVolumePercent => Pref.playerVolume;
+  static double get maxDesktopVolume => Pref.maxVolume;
+  static int qualityCode({bool wifi = true}) =>
+      wifi ? Pref.defaultAudioQa : Pref.defaultAudioQaCellular;
+
+  static Map<String, String> playerOptions({
+    required bool android,
+    double? desktopVolumePercent,
+  }) => {
+    if (android) 'ao': Pref.audioOutput,
+    'volume':
+        desktopVolumePercent?.toStringAsFixed(0) ??
+        mobileVolumePercent.toString(),
+    ...Pref.initBuffer(),
+  };
 
   static Future<void> savePlayMode(PlayRepeat mode) =>
       GStorage.setting.put(SettingBoxKey.audioPlayMode, mode.index);

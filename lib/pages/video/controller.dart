@@ -69,7 +69,8 @@ import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:collection/collection.dart';
@@ -170,7 +171,7 @@ class VideoDetailController with BlockMixin {
   late VideoDecodeFormatType currentDecodeFormats;
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
-  final RxBool _autoPlay = Pref.autoPlayEnable.obs;
+  final RxBool _autoPlay = VideoPreferences.autoplay.obs;
 
   final videoPlayerKey = GlobalKey();
   final moreSettingsAnchorKey = GlobalKey();
@@ -228,7 +229,7 @@ class VideoDetailController with BlockMixin {
   late final headerCtrKey = GlobalKey<TimeBatteryMixin>();
 
   // 预设的解码格式
-  late List<VideoDecodeFormatType> preferCodecs = Pref.preferCodecs;
+  late List<VideoDecodeFormatType> preferCodecs = VideoPreferences.codecs();
 
   bool get showReply => isFileSource
       ? false
@@ -472,7 +473,7 @@ class VideoDetailController with BlockMixin {
     tabCtr = TabController(
       length: 2,
       vsync: _vsync,
-      initialIndex: Pref.defaultShowComment ? 1 : 0,
+      initialIndex: VideoPreferences.openCommentsFirst ? 1 : 0,
     );
   }
 
@@ -1241,13 +1242,9 @@ class VideoDetailController with BlockMixin {
       final isWiFi = await network;
       if (!isCurrent()) return null;
       plPlayerController
-        ..cacheVideoQa = isWiFi
-            ? Pref.defaultVideoQa
-            : Pref.defaultVideoQaCellular
-        ..cacheAudioQa = isWiFi
-            ? Pref.defaultAudioQa
-            : Pref.defaultAudioQaCellular;
-      preferCodecs = isWiFi ? Pref.preferCodecs : Pref.preferCodecsCellular;
+        ..cacheVideoQa = VideoPreferences.qualityCode(wifi: isWiFi)
+        ..cacheAudioQa = AudioPreferences.qualityCode(wifi: isWiFi);
+      preferCodecs = VideoPreferences.codecs(wifi: isWiFi);
     }
 
     if (!isCurrent()) return null;
@@ -1491,7 +1488,7 @@ class VideoDetailController with BlockMixin {
     }
   }
 
-  late bool continuePlayingPart = Pref.continuePlayingPart;
+  late bool continuePlayingPart = VideoPreferences.resumeLastPart;
 
   Future<void> _queryPlayInfo({required bool Function() isCurrent}) async {
     if (!isCurrent()) return;
@@ -1575,7 +1572,7 @@ class VideoDetailController with BlockMixin {
     if (!isCurrent()) return;
     subtitles.value = sub;
     final selectionGeneration = _subtitleGeneration;
-    final preferredIndex = switch (Pref.subtitlePreferenceV2) {
+    final preferredIndex = switch (VideoPreferences.subtitle) {
       .off => 0,
       .on => 1,
       .withoutAi => sub.first.lan.startsWith('ai') ? 0 : 1,

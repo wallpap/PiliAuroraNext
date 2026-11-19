@@ -45,7 +45,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 
 const Set<TargetPlatform> _kDesktopPlatforms = <TargetPlatform>{
   TargetPlatform.windows,
@@ -697,7 +697,7 @@ class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
     final child = Padding(
       padding: const .fromLTRB(12, 2.5, 6, 2.5),
       child: commentBuilder((comments, snapshot) {
-        final sortType = snapshot?.sort ?? Pref.replySortType;
+        final sortType = snapshot?.sort ?? CommentPreferences.defaultSort;
         return Row(
           mainAxisAlignment: .spaceBetween,
           children: [

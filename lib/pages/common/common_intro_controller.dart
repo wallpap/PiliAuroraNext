@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/triple_mix
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -145,7 +145,7 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
   void actionShareVideo(BuildContext context);
 
   // 同时观看
-  final bool isShowOnlineTotal = Pref.enableOnlineTotal;
+  final bool isShowOnlineTotal = DisplayPreferences.showOnlineViewers;
   late final RxString total = '1'.obs;
   Timer? timer;
 
@@ -254,7 +254,7 @@ abstract class CommonIntroController with TripleMixin, FavMixin {
 
 mixin FavMixin on TripleMixin {
   bool get isClosed;
-  late final enableQuickFav = Pref.enableQuickFav;
+  late final enableQuickFav = FavoriteLibrary.legacy.quickEnabled;
   bool _savingFav = false;
   (Object, int) get getFavRidType;
   Object get favoriteOwner => this;

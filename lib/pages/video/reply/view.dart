@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
@@ -235,7 +235,9 @@ class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
         }
 
         final child = HttpError(
-          errMsg: Pref.minimumReplyUserLevel > 0 ? '暂无符合等级条件的评论' : '还没有评论',
+          errMsg: CommentPreferences.minimumUserLevel > 0
+              ? '暂无符合等级条件的评论'
+              : '还没有评论',
           btnText: state.hasMore ? '继续加载' : null,
           onReload: state.hasMore
               ? () => _comments.loadMore(retry: true)

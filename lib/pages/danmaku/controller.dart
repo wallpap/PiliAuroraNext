@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/danmaku/application/danmaku_preferences.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:path/path.dart' as path;
@@ -59,7 +59,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
         'buckets': _cache.bucketCount,
         'pendingSegments': _requestedSeg.length,
         'localFile': _isFileSource,
-        'frameRate': Pref.danmakuFrameRate,
+        'frameRate': DanmakuPreferences.frameRate,
         'enabled': _plPlayerController.enableShowDanmaku.value,
       },
     );
