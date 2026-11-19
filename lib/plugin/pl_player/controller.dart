@@ -982,6 +982,7 @@ class PlPlayerController
   void _disposeFacadeAfterRelease() {
     if (_facadeDisposed) return;
     _facadeDisposed = true;
+    audioSessionHandler?.detachPlaybackController(this);
     _progressProjection.cancelPendingSeek();
     if (_listensToWindowEvents) {
       windowManager.removeListener(this);

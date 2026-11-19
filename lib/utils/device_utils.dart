@@ -1,6 +1,7 @@
 import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
+import 'package:pili_aurora_next/services/service_locator.dart';
 
 import 'dart:io' show OSError, Platform, exit;
 
@@ -14,6 +15,10 @@ abstract final class DeviceUtils {
     cleanup: [
       if (Platform.isWindows)
         ('windows', DesktopPlaybackWindows.instance.closeAll),
+      (
+        'audio',
+        () => closePlatformAudioSession().timeout(const Duration(seconds: 3)),
+      ),
     ],
     flushDiagnostics: Diagnostics.instance.flush,
     terminate: _terminate,
