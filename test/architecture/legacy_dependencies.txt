@@ -189,13 +189,6 @@ pages/setting/widgets/select_dialog.dart -> utils/video_utils.dart
 pages/setting/widgets/switch_item.dart -> utils/storage.dart
 pages/space_setting/controller.dart -> http/user.dart
 pages/space_setting/controller.dart -> utils/accounts.dart
-pages/sponsor_block/block_mixin.dart -> http/sponsor_block.dart
-pages/sponsor_block/block_mixin.dart -> utils/storage_pref.dart
-pages/sponsor_block/view.dart -> http/constants.dart
-pages/sponsor_block/view.dart -> http/sponsor_block.dart
-pages/sponsor_block/view.dart -> package:hive_ce/hive.dart
-pages/sponsor_block/view.dart -> utils/storage.dart
-pages/sponsor_block/view.dart -> utils/storage_pref.dart
 pages/video/controller.dart -> grpc/dm.dart
 pages/video/controller.dart -> http/user.dart
 pages/video/controller.dart -> http/video.dart
@@ -218,9 +211,7 @@ pages/video/introduction/ugc/controller.dart -> http/constants.dart
 pages/video/introduction/ugc/controller.dart -> utils/accounts.dart
 pages/video/introduction/ugc/controller.dart -> utils/storage_pref.dart
 pages/video/introduction/ugc/controller.dart#UgcIntroController -> CommonIntroController
-pages/video/introduction/ugc/description_link_action.dart -> http/sponsor_block.dart
 pages/video/introduction/ugc/description_link_action.dart -> utils/accounts.dart
-pages/video/introduction/ugc/description_link_action.dart -> utils/storage_pref.dart
 pages/video/introduction/ugc/widgets/triple_mixin.dart -> utils/global_data.dart
 pages/video/introduction/ugc/widgets/triple_mixin.dart#TripleMixin -> GetxController
 pages/video/medialist/view.dart -> utils/accounts.dart
@@ -235,7 +226,6 @@ pages/video/pay_coins/view.dart -> utils/global_data.dart
 pages/video/pay_coins/view.dart -> utils/storage.dart
 pages/video/pay_coins/view.dart -> utils/storage_pref.dart
 pages/video/playback_source.dart -> utils/video_utils.dart
-pages/video/post_panel/view.dart -> http/sponsor_block.dart
 pages/video/related/controller.dart -> http/video.dart
 pages/video/related/controller.dart -> utils/accounts.dart
 pages/video/related/controller.dart#RelatedController -> DiscoveryListController

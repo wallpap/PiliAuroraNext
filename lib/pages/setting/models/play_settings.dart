@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
@@ -461,7 +462,7 @@ List<SettingsModel> get playEnhancementSettings => [
   PopupModel<SkipType>(
     title: '番剧片头/片尾跳过类型',
     leading: const Icon(MdiIcons.debugStepOver),
-    value: () => Pref.pgcSkipType,
+    value: () => BlockConfigMixin.defaultPgcSkipType,
     items: SkipType.values,
     onSelected: (value, setState) => GStorage.setting
         .put(SettingBoxKey.pgcSkipType, value.index)

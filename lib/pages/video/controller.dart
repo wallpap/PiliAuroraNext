@@ -34,6 +34,7 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
 import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
 import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';

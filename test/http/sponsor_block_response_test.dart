@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/sponsor_block.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';

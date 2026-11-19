@@ -13,7 +13,6 @@ import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/accounts/api_type.dart';
 import 'package:pili_aurora_next/utils/app_sign.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
@@ -30,8 +29,6 @@ class AccountCookiePersistenceException implements Exception {
 
 class AccountManager extends Interceptor {
   AccountManager();
-
-  static String blockServer = Pref.blockServer;
 
   static String getCookies(List<Cookie> cookies) {
     // Sort cookies by path (longer path first).
@@ -215,9 +212,7 @@ class AccountManager extends Interceptor {
   }
 
   static bool _skipCookie(String path) {
-    return path.startsWith(blockServer) ||
-        path.contains('hdslb.com') ||
-        path.contains('biliimg.com');
+    return path.contains('hdslb.com') || path.contains('biliimg.com');
   }
 
   /// 在发起操作时固定账号，避免等待拦截器期间切号导致 CSRF 与 Cookie 不一致。

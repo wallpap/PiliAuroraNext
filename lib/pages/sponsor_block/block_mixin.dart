@@ -4,15 +4,15 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/sponsor_block.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -20,22 +20,6 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
-
-mixin BlockConfigMixin {
-  late final pgcSkipType = Pref.pgcSkipType;
-  late final enablePgcSkip = pgcSkipType != SkipType.disable;
-  late final enableSponsorBlock = Pref.enableSponsorBlock;
-  late final enableBlock = enableSponsorBlock || enablePgcSkip;
-  late final blockColor = Pref.blockColor;
-  late final blockLimit = Pref.blockLimit * 1000;
-  late final blockSettings = Pref.blockSettings;
-  late final enableList = blockSettings
-      .where((item) => item.second != SkipType.disable)
-      .map((item) => item.first.name)
-      .toSet();
-
-  Color _getColor(SegmentType segment) => blockColor[segment.index];
-}
 
 mixin BlockMixin {
   int? _lastBlockPos;
@@ -115,10 +99,16 @@ mixin BlockMixin {
     if (_blockClosed || !(isCurrent?.call() ?? true)) return;
     resetBlock();
     final generation = _blockGeneration;
+    final server = SponsorBlock.server;
 
-    final result = await SponsorBlock.getSkipSegments(bvid: bvid, cid: cid);
+    final result = await SponsorBlock.getSkipSegments(
+      bvid: bvid,
+      cid: cid,
+      server: server,
+    );
     if (_blockClosed ||
         generation != _blockGeneration ||
+        server != SponsorBlock.server ||
         !(isCurrent?.call() ?? true)) {
       return;
     }
@@ -227,14 +217,14 @@ mixin BlockMixin {
         );
 
         // _segmentProgressList
-        segmentProgressList.addAll(
+        segmentProgressList.assignAll(
           _segmentList.map((e) {
             double start = (e.segment.$1 / duration).clamp(0.0, 1.0);
             double end = (e.segment.$2 / duration).clamp(0.0, 1.0);
             return Segment(
               start: start,
               end: end,
-              color: blockConfig._getColor(e.segmentType),
+              color: blockConfig.segmentColor(e.segmentType),
             );
           }),
         );
@@ -295,10 +285,10 @@ mixin BlockMixin {
   Future<void>? seekTo(Duration duration, {required bool isSeek});
 
   void _skipToast(SegmentModel item) {
-    if (autoPlay && Pref.blockToast) {
+    if (autoPlay && SponsorBlock.showSkipToast) {
       _showBlockToast('已跳过${item.segmentType.shortTitle}片段');
     }
-    if (isBlock && Pref.blockTrack) {
+    if (isBlock && SponsorBlock.trackSkips) {
       SponsorBlock.viewedVideoSponsorTime(item.uuid);
     }
   }
@@ -379,18 +369,17 @@ mixin BlockMixin {
   }) async {
     if (_blockClosed || !_pendingBlockVotes.add(uuid)) return;
     final generation = _blockGeneration;
-    final server = Pref.blockServer;
-    final userId = Pref.blockUserID;
+    final identity = SponsorBlock.identity;
     try {
       final result = await SponsorBlock.voteOnSponsorTime(
         uuid: uuid,
         type: type,
         category: category,
+        identity: identity,
       );
       if (_blockClosed ||
           generation != _blockGeneration ||
-          server != Pref.blockServer ||
-          userId != Pref.blockUserID) {
+          identity != SponsorBlock.identity) {
         return;
       }
       if (result.isSuccess) {
@@ -430,7 +419,7 @@ mixin BlockMixin {
                           width: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: blockConfig._getColor(item),
+                            color: blockConfig.segmentColor(item),
                           ),
                         ),
                         style: const TextStyle(fontSize: 14, height: 1),
@@ -475,7 +464,7 @@ mixin BlockMixin {
                           width: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: blockConfig._getColor(item.segmentType),
+                            color: blockConfig.segmentColor(item.segmentType),
                           ),
                         ),
                         style: const TextStyle(fontSize: 14, height: 1),

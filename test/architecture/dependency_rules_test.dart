@@ -105,6 +105,7 @@ void main() {
     'danmaku',
     'member_space',
     'playback',
+    'sponsor_block',
     'history',
     'favorites',
     'subscriptions',

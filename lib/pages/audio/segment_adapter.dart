@@ -1,4 +1,5 @@
 import 'package:media_kit/media_kit.dart' show Player;
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
 
 class AudioSegmentAdapter with BlockConfigMixin, BlockMixin {

@@ -2,12 +2,11 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/sponsor_block.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 描述链接的查询、确认和写入由同一次页面操作持有。
 class UgcDescriptionLinkAction {
@@ -43,16 +42,16 @@ class UgcDescriptionLinkAction {
     try {
       final ytbId = youtubeRegExp.firstMatch(url)?.group(1);
       if (enableSponsorBlock && duration > 0 && ytbId != null) {
-        final server = Pref.blockServer;
-        final userId = Pref.blockUserID;
-        bool bindingCurrent() =>
-            current() &&
-            Pref.blockServer == server &&
-            Pref.blockUserID == userId;
+        final identity = SponsorBlock.identity;
+        bool bindingCurrent() => current() && SponsorBlock.identity == identity;
         final LoadingState<String> port;
         request.showLoading();
         try {
-          port = await SponsorBlock.getPortVideo(bvid: bvid, cid: cid);
+          port = await SponsorBlock.getPortVideo(
+            bvid: bvid,
+            cid: cid,
+            server: identity.server,
+          );
         } finally {
           await request.closeLoading();
         }
@@ -78,6 +77,7 @@ class UgcDescriptionLinkAction {
             cid: cid,
             ytbId: ytbId,
             videoDuration: (duration / 1000).round(),
+            identity: identity,
           );
           if (!bindingCurrent()) return;
           if (result.isSuccess) {

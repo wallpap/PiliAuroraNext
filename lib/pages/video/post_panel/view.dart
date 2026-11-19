@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/sponsor_block.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
@@ -399,6 +399,8 @@ class _PostPanelState extends State<PostPanel>
       return;
     }
     final route = ModalRoute.of(context);
+    final identity = SponsorBlock.identity;
+    bool currentSource() => currentVideo() && SponsorBlock.identity == identity;
     final submitted = List<PostSegmentModel>.of(list);
     setState(() => _posting = true);
     try {
@@ -407,17 +409,18 @@ class _PostPanelState extends State<PostPanel>
         cid: _cid,
         videoDuration: videoDuration,
         segments: submitted,
+        identity: identity,
       );
       if (res case Success(:final response)) {
         SmartDialog.showToast('提交成功');
-        if (!mounted || !currentVideo()) return;
+        if (!mounted || !currentSource()) return;
         list.removeWhere(submitted.contains);
         await videoDetailController.handleSBData(response);
-        if (!mounted || !currentVideo()) return;
+        if (!mounted || !currentSource()) return;
         if (videoDetailController.blockListener == null) {
           videoDetailController.initSkip();
         }
-        if (mounted && currentVideo() && route?.isCurrent == true) {
+        if (mounted && currentSource() && route?.isCurrent == true) {
           Navigator.of(context).pop();
         }
       } else {

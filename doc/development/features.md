@@ -82,4 +82,6 @@
 
 接口适配依据 [BilibiliSponsorBlock 0.17.1](https://github.com/hanydd/BilibiliSponsorBlock/releases/tag/0.17.1) 及其[官方 API](https://github.com/hanydd/BilibiliSponsorBlock/wiki/API)。`skip` 跳过、`mute` 静音，整片标记与精彩时刻只展示；分类按名称保存并兼容旧数组，新增分类保留已有选择。网页 DOM、画中画和灰度分组不属于客户端播放协议。
 
+`lib/features/sponsor_block/` 持有设置快照、持久化和第三方请求。设置页通过 Riverpod 读取确认值；服务器与用户 ID 变化时，旧查询不得覆盖新身份的状态。请求显式不使用 B 站账号，写入不自动重试。
+
 静音通过 owner 独立配置提交，保留用户音量。`test/pages/sponsor_block/block_mixin_test.dart` 与 `test/utils/sponsor_block_settings_test.dart` 验证片段及配置，播放会话测试补充独立音量、配置合并和旧 owner 失效；真实服务和两端声音需设备验证。

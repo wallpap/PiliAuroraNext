@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
@@ -33,6 +34,21 @@ void main() {
     uuid: 'fixture',
     videoDuration: 600000,
   );
+
+  test('追加片段时进度条保留每个片段且不重复旧标记', () async {
+    await controller.handleSBData([intro]);
+    await controller.handleSBData([
+      SegmentItemModel(
+        category: 'outro',
+        segment: [540000, 600000],
+        uuid: 'end',
+      ),
+    ]);
+    expect(
+      controller.segmentProgressList.map((segment) => segment.start),
+      [0.0, 0.9],
+    );
+  });
 
   test('片段响应早于原生媒体就绪时等待真实进度，保留 109 秒续播位置', () async {
     controller.player.state.playing = true;

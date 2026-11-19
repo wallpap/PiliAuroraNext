@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart' show Player;
 import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
@@ -147,23 +149,25 @@ void main() {
     final scroll = ScrollController();
     addTearDown(scroll.dispose);
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: Scaffold(
-          body: TextButton(
-            onPressed: () => Get.to(
-              () => settings
-                  ? const SponsorBlockPage()
-                  : PrimaryScrollController(
-                      controller: scroll,
-                      child: PostPanel(
-                        enableSlide: false,
-                        videoDetailController: video,
-                        plPlayerController: _Player(),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: Scaffold(
+            body: TextButton(
+              onPressed: () => Get.to(
+                () => settings
+                    ? const SponsorBlockPage()
+                    : PrimaryScrollController(
+                        controller: scroll,
+                        child: PostPanel(
+                          enableSlide: false,
+                          videoDetailController: video,
+                          plPlayerController: _Player(),
+                        ),
                       ),
-                    ),
+              ),
+              child: const Text('打开'),
             ),
-            child: const Text('打开'),
           ),
         ),
       ),

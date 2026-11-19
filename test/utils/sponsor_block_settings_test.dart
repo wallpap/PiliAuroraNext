@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_preferences.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 void main() {
   setUpAll(() async {
@@ -29,7 +29,8 @@ void main() {
       List.generate(11, (i) => (0x101010 + i).toRadixString(16)),
     );
     final settings = {
-      for (final entry in Pref.blockSettings) entry.first.name: entry.second,
+      for (final entry in SponsorBlockPreferences.behaviors.entries)
+        entry.key.name: entry.value,
     };
     expect(settings['sponsor'], SkipType.alwaysSkip);
     expect(settings['music_offtopic'], SkipType.alwaysSkip);
@@ -37,7 +38,10 @@ void main() {
     final music = SegmentType.values.singleWhere(
       (v) => v.name == 'music_offtopic',
     );
-    expect(Pref.blockColor[music.index], const Color(0xff10101a));
+    expect(
+      SponsorBlockPreferences.colors[music.index],
+      const Color(0xff10101a),
+    );
   });
 
   test('按名称保存的选择不依赖分类位置，非法值单项回退', () async {
@@ -53,21 +57,28 @@ void main() {
       'intro': 'bad-color',
     });
     final settings = {
-      for (final entry in Pref.blockSettings) entry.first.name: entry.second,
+      for (final entry in SponsorBlockPreferences.behaviors.entries)
+        entry.key.name: entry.value,
     };
     expect(settings['sponsor'], SkipType.disable);
     expect(settings['music_offtopic'], SkipType.showOnly);
     expect(settings['jumpscare'], SkipType.skipManually);
     expect(settings['intro'], SkipType.skipOnce);
-    expect(Pref.blockColor[SegmentType.sponsor.index], const Color(0xff123456));
-    expect(Pref.blockColor[SegmentType.intro.index], SegmentType.intro.color);
+    expect(
+      SponsorBlockPreferences.colors[SegmentType.sponsor.index],
+      const Color(0xff123456),
+    );
+    expect(
+      SponsorBlockPreferences.colors[SegmentType.intro.index],
+      SegmentType.intro.color,
+    );
   });
 
   test('新安装启用惊吓自动处理，分类支持静音和手动跳过', () {
     final category = SegmentType.values.singleWhere(
       (v) => v.name == 'jumpscare',
     );
-    expect(Pref.blockSettings[category.index].second, SkipType.alwaysSkip);
+    expect(SponsorBlockPreferences.behaviors[category], SkipType.alwaysSkip);
     expect(category.toActionType.map((a) => a.name), ['mute', 'skip']);
   });
 }

@@ -4,16 +4,12 @@ import 'package:pili_aurora_next/utils/credential_cipher.dart';
 import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop;
-import 'package:pili_aurora_next/common/widgets/pair.dart';
-import 'package:pili_aurora_next/http/constants.dart';
 import 'package:pili_aurora_next/models/common/bar_hide_type.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/common/follow_order_type.dart';
 import 'package:pili_aurora_next/models/common/member/tab_type.dart';
 import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
 import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
@@ -39,10 +35,7 @@ import 'package:pili_aurora_next/utils/login_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
-import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
@@ -111,63 +104,6 @@ abstract final class Pref {
       defaultValue: const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0],
     ),
   );
-
-  // 旧版本按位置保存；固定旧名称，新增分类不能改变已有用户的选择。
-  static const _legacyBlockCategories = [
-    'sponsor',
-    'selfpromo',
-    'exclusive_access',
-    'interaction',
-    'poi_highlight',
-    'intro',
-    'outro',
-    'preview',
-    'padding',
-    'filler',
-    'music_offtopic',
-  ];
-
-  static Object? _blockCategoryValue(Object? stored, SegmentType category) {
-    if (stored is Map) return stored[category.name];
-    if (stored is List) {
-      final index = stored.length == SegmentType.values.length
-          ? category.index
-          : _legacyBlockCategories.indexOf(category.name);
-      if (index >= 0 && index < stored.length) return stored[index];
-    }
-    return null;
-  }
-
-  static List<Pair<SegmentType, SkipType>> get blockSettings {
-    final stored = _setting.get(SettingBoxKey.blockSettings);
-    return SegmentType.values.map((category) {
-      final value = _blockCategoryValue(stored, category);
-      final fallback = category == SegmentType.jumpscare
-          ? stored == null
-                ? SkipType.alwaysSkip
-                : SkipType.disable
-          : SkipType.skipOnce;
-      return Pair(
-        first: category,
-        second: value is int && value >= 0 && value < SkipType.values.length
-            ? SkipType.values[value]
-            : fallback,
-      );
-    }).toList();
-  }
-
-  static List<Color> get blockColor {
-    final stored = _setting.get(SettingBoxKey.blockColor);
-    return SegmentType.values.map(
-      (item) {
-        final value = _blockCategoryValue(stored, item);
-        final color = value is String && value.length == 6
-            ? int.tryParse('FF$value', radix: 16)
-            : null;
-        return color != null ? Color(color) : item.color;
-      },
-    ).toList();
-  }
 
   static bool get feedBackEnable =>
       _setting.get(SettingBoxKey.feedBackEnable, defaultValue: false);
@@ -322,35 +258,10 @@ abstract final class Pref {
   static bool get showDynInteraction =>
       _setting.get(SettingBoxKey.showDynInteraction, defaultValue: true);
 
-  static double get blockLimit =>
-      _setting.get(SettingBoxKey.blockLimit, defaultValue: 0.0);
-
   static double get refreshDisplacement => _setting.get(
     SettingBoxKey.refreshDisplacement,
     defaultValue: PlatformUtils.isMobile ? 20.0 : 40.0,
   );
-
-  static String get blockUserID {
-    String? blockUserID = _setting.get(SettingBoxKey.blockUserID);
-    if (blockUserID == null || blockUserID.isEmpty) {
-      blockUserID = Digest(
-        List.generate(16, (_) => Utils.random.nextInt(256)),
-      ).toString();
-      _setting.put(SettingBoxKey.blockUserID, blockUserID);
-    }
-    return blockUserID;
-  }
-
-  static bool get blockToast =>
-      _setting.get(SettingBoxKey.blockToast, defaultValue: true);
-
-  static String get blockServer => _setting.get(
-    SettingBoxKey.blockServer,
-    defaultValue: HttpString.sponsorBlockBaseUrl,
-  );
-
-  static bool get blockTrack =>
-      _setting.get(SettingBoxKey.blockTrack, defaultValue: !kDebugMode);
 
   static bool get checkDynamic =>
       _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
@@ -811,9 +722,6 @@ abstract final class Pref {
   static bool get autoPiP =>
       _setting.get(SettingBoxKey.autoPiP, defaultValue: false);
 
-  static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
-
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
 
@@ -987,10 +895,6 @@ abstract final class Pref {
     SettingBoxKey.desktopVolume,
     defaultValue: 1.0,
   );
-
-  static SkipType get pgcSkipType =>
-      SkipType.values[_setting.get(SettingBoxKey.pgcSkipType) ??
-          SkipType.skipOnce.index];
 
   static PlayRepeat get audioPlayMode =>
       PlayRepeat.values[_setting.get(SettingBoxKey.audioPlayMode) ??

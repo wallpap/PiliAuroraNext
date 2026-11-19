@@ -24,7 +24,7 @@ import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart'
 import 'package:pili_aurora_next/features/playback/domain/seek_preview.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
-import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/double_tap_type.dart';

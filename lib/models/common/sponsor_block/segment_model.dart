@@ -2,8 +2,7 @@ import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
-import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 
 class SegmentModel implements Comparable<SegmentModel> {
   SegmentModel({
@@ -37,14 +36,14 @@ class SegmentModel implements Comparable<SegmentModel> {
     final actionType = model.effectiveActionType!;
     SkipType skipType;
     if (config != null) {
-      skipType = config.blockSettings[segmentType.index].second;
+      skipType = config.blockSettings[segmentType]!;
       if (skipType != SkipType.showOnly) {
         if (segment.isEq || segment.length < config.blockLimit) {
           skipType = SkipType.showOnly;
         }
       }
     } else {
-      skipType = Pref.pgcSkipType;
+      skipType = BlockConfigMixin.defaultPgcSkipType;
     }
 
     if (actionType == ActionType.full || actionType == ActionType.poi) {
