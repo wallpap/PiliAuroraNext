@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
@@ -75,9 +74,11 @@ void main() {
 
 class _SidebarController implements LiveRoomController {
   @override
-  final onlineCount = RxnString('191');
+  final onlineCount = ValueNotifier<String?>('191');
   @override
-  final messages = Rx<List<LiveChatMessage<dynamic>>>([]);
+  final chatHistory = ValueNotifier<
+    ({List<LiveChatMessage<dynamic>> messages, bool truncated})
+  >((messages: const [], truncated: false));
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

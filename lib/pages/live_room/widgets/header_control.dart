@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
+import 'package:pili_aurora_next/pages/live_room/widgets/info_label.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/live_stream_panel.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -68,10 +69,11 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
     Widget child;
-    child = Obx(
+    child = ValueListenableBuilder(
       key: titleKey,
-      () => MarqueeText(
-        liveController.title.value,
+      valueListenable: liveController.title,
+      builder: (context, title, child) => MarqueeText(
+        title,
         spacing: 30,
         velocity: 30,
         strutStyle: const StrutStyle(fontSize: 15, leading: 0),
@@ -96,9 +98,9 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                     color: Colors.white,
                   ),
                 ),
-              liveController.watchedWidget,
+              LiveInfoLabel(text: liveController.watchedShow),
               widget.onlineWidget,
-              liveController.timeWidget,
+              LiveInfoLabel(text: liveController.liveDuration),
             ],
           ),
         ],

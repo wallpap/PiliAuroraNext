@@ -120,7 +120,7 @@ void main() {
       ..addDm(_message(2001))
       ..refreshMsgIfNeeded();
     await tester.pump(const Duration(seconds: 1));
-    expect(controller.messages.value, isEmpty);
+    expect(controller.chatHistory.value.messages, isEmpty);
     expect(tester.takeException(), isNull);
   });
 }

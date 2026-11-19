@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
@@ -86,15 +86,16 @@ class _DesktopLiveSidebarState extends ConsumerState<DesktopLiveSidebar> {
   }
 
   Widget _buildTabs(BuildContext context, int? guardCount) {
-    return Obx(
-      () => SizedBox(
+    return ValueListenableBuilder(
+      valueListenable: widget.liveRoomController.onlineCount,
+      builder: (context, count, child) => SizedBox(
         height: 54,
         child: Row(
           children: [
             Expanded(
               child: _SidebarTabButton(
                 label: '房间观众',
-                count: widget.liveRoomController.onlineCount.value,
+                count: count,
                 selected: _tab == _SidebarTab.audience,
                 onTap: () {
                   if (_tab != _SidebarTab.audience) {
@@ -300,9 +301,10 @@ class _DesktopLiveSidebarState extends ConsumerState<DesktopLiveSidebar> {
             ),
           ),
           const SizedBox(width: 7),
-          Obx(
-            () => Text(
-              '${widget.liveRoomController.messages.value.length} 条',
+          ValueListenableBuilder(
+            valueListenable: widget.liveRoomController.chatHistory,
+            builder: (context, history, child) => Text(
+              '${history.messages.length} 条',
               style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF72757D),

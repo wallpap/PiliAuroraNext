@@ -35,6 +35,7 @@ import 'package:pili_aurora_next/pages/live_room/widgets/bottom_control.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_panel.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/desktop_sidebar.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/header_control.dart';
+import 'package:pili_aurora_next/pages/live_room/widgets/info_label.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/live_list_sheet.dart';
 import 'package:pili_aurora_next/pages/video/widgets/player_focus.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -55,7 +56,7 @@ import 'package:pili_aurora_next/utils/mobile_observer.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -75,7 +76,7 @@ class LiveRoomPage extends StatefulWidget {
 
 class _LiveRoomPageState extends State<LiveRoomPage>
     with WidgetsBindingObserver, RouteAware, RouteAwareMixin {
-  late final fullScreenSCWidth = Pref.fullScreenSCWidth;
+  late final fullScreenSCWidth = LivePreferences.fullScreenSuperChatWidth;
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
@@ -255,59 +256,64 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       key: playerKey,
       () {
         if (!plPlayerController.isLive) return const SizedBox.shrink();
-        final roomInfoH5 = _liveRoomController.roomInfoH5.value;
-        final header = LiveHeaderControl(
-          key: _liveRoomController.headerKey,
-          title: roomInfoH5?.roomInfo?.title,
-          upName: roomInfoH5?.anchorInfo?.baseInfo?.uname,
-          plPlayerController: plPlayerController,
-          onSendDanmaku: _liveRoomController.onSendDanmaku,
-          onPlayAudio: _liveRoomController.queryLiveUrl,
-          isPortrait: isPortrait,
-          liveController: _liveRoomController,
-          onlineWidget: onlineWidget,
-        );
-        final bottom = BottomControl(
-          plPlayerController: plPlayerController,
-          liveRoomCtr: _liveRoomController,
-          onRefresh: _liveRoomController.queryLiveUrl,
-        );
         return ValueListenableBuilder(
-          valueListenable: plPlayerController.videoControllerListenable,
-          builder: (context, videoController, _) {
-            if (videoController == null) {
-              return SizedBox(
-                width: width,
-                height: height,
-                child: Obx(
-                  () => PlayerLoadingPanel(
-                    headerControl: header,
-                    bottomControl: bottom,
-                    failed: plPlayerController.dataStatus.error,
-                    onRetry: _liveRoomController.retryPlayback,
-                    fill: fill,
-                  ),
-                ),
-              );
-            }
-            return PLVideoPlayer(
-              maxWidth: width,
-              maxHeight: height,
-              fill: fill,
-              alignment: alignment,
+          valueListenable: _liveRoomController.roomInfoH5,
+          builder: (context, roomInfoH5, child) {
+            final header = LiveHeaderControl(
+              key: _liveRoomController.headerKey,
+              title: roomInfoH5?.roomInfo?.title,
+              upName: roomInfoH5?.anchorInfo?.baseInfo?.uname,
               plPlayerController: plPlayerController,
-              onRetry: _liveRoomController.retryPlayback,
-              headerControl: header,
-              bottomControl: bottom,
-              danmuWidget: !needDm
-                  ? null
-                  : LiveDanmaku(
-                      liveRoomController: _liveRoomController,
-                      plPlayerController: plPlayerController,
-                      isFullScreen: isFullScreen,
-                      isPipMode: plPlayerController.isDesktopPip || isPipMode,
-                      size: Size(width, height),
+              onSendDanmaku: _liveRoomController.onSendDanmaku,
+              onPlayAudio: _liveRoomController.queryLiveUrl,
+              isPortrait: isPortrait,
+              liveController: _liveRoomController,
+              onlineWidget: onlineWidget,
+            );
+            final bottom = BottomControl(
+              plPlayerController: plPlayerController,
+              liveRoomCtr: _liveRoomController,
+              onRefresh: _liveRoomController.queryLiveUrl,
+            );
+            return ValueListenableBuilder(
+              valueListenable: plPlayerController.videoControllerListenable,
+              builder: (context, videoController, _) {
+                if (videoController == null) {
+                  return SizedBox(
+                    width: width,
+                    height: height,
+                    child: Obx(
+                      () => PlayerLoadingPanel(
+                        headerControl: header,
+                        bottomControl: bottom,
+                        failed: plPlayerController.dataStatus.error,
+                        onRetry: _liveRoomController.retryPlayback,
+                        fill: fill,
+                      ),
                     ),
+                  );
+                }
+                return PLVideoPlayer(
+                  maxWidth: width,
+                  maxHeight: height,
+                  fill: fill,
+                  alignment: alignment,
+                  plPlayerController: plPlayerController,
+                  onRetry: _liveRoomController.retryPlayback,
+                  headerControl: header,
+                  bottomControl: bottom,
+                  danmuWidget: !needDm
+                      ? null
+                      : LiveDanmaku(
+                          liveRoomController: _liveRoomController,
+                          plPlayerController: plPlayerController,
+                          isFullScreen: isFullScreen,
+                          isPipMode:
+                              plPlayerController.isDesktopPip || isPipMode,
+                          size: Size(width, height),
+                        ),
+                );
+              },
             );
           },
         );
@@ -348,40 +354,43 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             left: padding.left + 25,
             bottom: 25,
             width: fullScreenSCWidth,
-            child: Obx(() {
-              final item = _liveRoomController.fsSC.value;
-              if (item == null) {
-                return const SizedBox.shrink();
-              }
-              try {
-                return ExtraHitTestStack(
-                  key: ValueKey(item.id),
-                  clipBehavior: Clip.none,
-                  children: [
-                    SuperChatCard(
-                      item: item,
-                      onRemove: () => _liveRoomController.fsSC.value = null,
-                      onReport: () => _liveRoomController.reportSC(item),
-                    ),
-                    Positioned(
-                      right: -6,
-                      top: -6,
-                      child: iconButton(
-                        size: 24,
-                        iconSize: 14,
-                        bgColor: const Color(0xEEFFFFFF),
-                        iconColor: Colors.black54,
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => _liveRoomController.fsSC.value = null,
+            child: ValueListenableBuilder(
+              valueListenable: _liveRoomController.fsSC,
+              builder: (context, item, child) {
+                if (item == null) {
+                  return const SizedBox.shrink();
+                }
+                try {
+                  return ExtraHitTestStack(
+                    key: ValueKey(item.id),
+                    clipBehavior: Clip.none,
+                    children: [
+                      SuperChatCard(
+                        item: item,
+                        onRemove: () => _liveRoomController.fsSC.value = null,
+                        onReport: () => _liveRoomController.reportSC(item),
                       ),
-                    ),
-                  ],
-                );
-              } catch (_) {
-                if (kDebugMode) rethrow;
-                return const SizedBox.shrink();
-              }
-            }),
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: iconButton(
+                          size: 24,
+                          iconSize: 14,
+                          bgColor: const Color(0xEEFFFFFF),
+                          iconColor: Colors.black54,
+                          icon: const Icon(Icons.clear),
+                          onPressed: () =>
+                              _liveRoomController.fsSC.value = null,
+                        ),
+                      ),
+                    ],
+                  );
+                } catch (_) {
+                  if (kDebugMode) rethrow;
+                  return const SizedBox.shrink();
+                }
+              },
+            ),
           ),
         ],
       );
@@ -401,13 +410,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         children: [
           const SizedBox.expand(child: ColoredBox(color: Colors.black)),
           if (!isFullScreen)
-            Obx(
-              () {
-                final appBackground = _liveRoomController
-                    .roomInfoH5
-                    .value
-                    ?.roomInfo
-                    ?.appBackground;
+            ValueListenableBuilder(
+              valueListenable: _liveRoomController.roomInfoH5,
+              builder: (context, roomInfo, _) {
+                final appBackground = roomInfo?.roomInfo?.appBackground;
                 Widget child;
                 if (appBackground != null && appBackground.isNotEmpty) {
                   child = CachedImage(
@@ -437,9 +443,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                 ? null
                 : _buildAppBar(isFullScreen),
             body: isPortrait
-                ? Obx(
-                    () {
-                      if (_liveRoomController.isPortrait.value) {
+                ? ValueListenableBuilder(
+                    valueListenable: _liveRoomController.isPortrait,
+                    builder: (context, portraitRoom, child) {
+                      if (portraitRoom) {
                         return _buildPP(isFullScreen);
                       }
                       return _buildPH(isFullScreen);
@@ -525,15 +532,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Widget get onlineWidget => GestureDetector(
     onTap: _showRank,
-    child: Obx(() {
-      if (_liveRoomController.onlineCount.value case final onlineCount?) {
-        return Text(
-          '高能观众($onlineCount)',
-          style: const TextStyle(fontSize: 12, color: Colors.white),
-        );
-      }
-      return const SizedBox.shrink();
-    }),
+    child: ValueListenableBuilder(
+      valueListenable: _liveRoomController.onlineCount,
+      builder: (context, onlineCount, child) {
+        if (onlineCount != null) {
+          return Text(
+            '高能观众($onlineCount)',
+            style: const TextStyle(fontSize: 12, color: Colors.white),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    ),
   );
 
   void _showRank() {
@@ -560,10 +570,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       titleTextStyle: const TextStyle(color: Colors.white),
       title: isFullScreen || plPlayerController.isDesktopPip
           ? null
-          : Obx(
-              () {
-                RoomInfoH5Data? roomInfoH5 =
-                    _liveRoomController.roomInfoH5.value;
+          : ValueListenableBuilder(
+              valueListenable: _liveRoomController.roomInfoH5,
+              builder: (context, roomInfoH5, child) {
                 if (roomInfoH5 == null) {
                   return const SizedBox.shrink();
                 }
@@ -607,8 +616,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                               spacing: 10,
                               mainAxisSize: .min,
                               children: [
-                                _liveRoomController.watchedWidget,
-                                _liveRoomController.timeWidget,
+                                LiveInfoLabel(
+                                  text: _liveRoomController.watchedShow,
+                                ),
+                                LiveInfoLabel(
+                                  text: _liveRoomController.liveDuration,
+                                ),
                               ],
                             ),
                           ],
@@ -738,20 +751,19 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             child: SizedBox(
               width: rightWidth,
               height: videoHeight,
-              child: DesktopLiveSidebar(
-                key: desktopSidebarKey,
-                roomId: _liveRoomController.roomId,
-                anchorUid: _liveRoomController.roomInfoH5.value?.roomInfo?.uid,
-                onShowRank: _showRank,
-                anchorName: _liveRoomController
-                    .roomInfoH5
-                    .value
-                    ?.anchorInfo
-                    ?.baseInfo
-                    ?.uname,
-                liveRoomController: _liveRoomController,
-                chat: _buildChatWidget(),
-                input: _buildInputWidget,
+              child: ValueListenableBuilder(
+                valueListenable: _liveRoomController.roomInfoH5,
+                builder: (context, roomInfo, child) => DesktopLiveSidebar(
+                  key: desktopSidebarKey,
+                  roomId: _liveRoomController.roomId,
+                  anchorUid: roomInfo?.roomInfo?.uid,
+                  onShowRank: _showRank,
+                  anchorName: roomInfo?.anchorInfo?.baseInfo?.uname,
+                  liveRoomController: _liveRoomController,
+                  chat: child!,
+                  input: _buildInputWidget,
+                ),
+                child: _buildChatWidget(),
               ),
             ),
           ),
@@ -781,7 +793,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               key: pageKey,
               controller: _liveRoomController.pageController,
               physics: tabBarScrollPhysics,
-              onPageChanged: _liveRoomController.pageIndex.call,
+              onPageChanged: _liveRoomController.selectPage,
               horizontalDragGestureRecognizer:
                   CustomHorizontalDragGestureRecognizer.new,
               children: [
@@ -880,32 +892,34 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                           Positioned(
                             left: 30,
                             top: -12,
-                            child: Obx(() {
-                              final likeClickTime =
-                                  _liveRoomController.likeClickTime.value;
-                              if (likeClickTime == 0) {
-                                return const SizedBox.shrink();
-                              }
-                              return AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 160),
-                                transitionBuilder: (child, animation) {
-                                  return ScaleTransition(
-                                    scale: animation,
-                                    child: child,
-                                  );
-                                },
-                                child: Text(
-                                  key: ValueKey(likeClickTime),
-                                  'x$likeClickTime',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: colorScheme.isDark
-                                        ? colorScheme.primary
-                                        : colorScheme.inversePrimary,
+                            child: ValueListenableBuilder(
+                              valueListenable:
+                                  _liveRoomController.likeClickTime,
+                              builder: (context, likeClickTime, child) {
+                                if (likeClickTime == 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 160),
+                                  transitionBuilder: (child, animation) {
+                                    return ScaleTransition(
+                                      scale: animation,
+                                      child: child,
+                                    );
+                                  },
+                                  child: Text(
+                                    key: ValueKey(likeClickTime),
+                                    'x$likeClickTime',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: colorScheme.isDark
+                                          ? colorScheme.primary
+                                          : colorScheme.inversePrimary,
+                                    ),
                                   ),
-                                ),
-                              );
-                            }),
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -939,10 +953,11 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             left: 0,
             top: 0,
             right: 0,
-            child: Obx(
-              () => _BorderIndicator(
+            child: ValueListenableBuilder(
+              valueListenable: _liveRoomController.pageIndex,
+              builder: (context, pageIndex, child) => _BorderIndicator(
                 radius: const Radius.circular(20),
-                isLeft: _liveRoomController.pageIndex.value == 0,
+                isLeft: pageIndex == 0,
               ),
             ),
           ),

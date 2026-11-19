@@ -4,7 +4,6 @@ import 'package:pili_aurora_next/models/common/super_chat_type.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/common/widgets/debounced_state.dart';
-import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SuperChatPanel extends StatefulWidget {
@@ -50,37 +49,40 @@ class _SuperChatPanelState extends DebounceStreamState<SuperChatPanel, bool>
           ),
         ),
         Expanded(
-          child: Obx(() {
-            if (widget.controller.superChatMsg.isEmpty) {
-              return const Center(
-                child: Text('暂无 SC', style: TextStyle(color: Colors.white60)),
+          child: ValueListenableBuilder(
+            valueListenable: widget.controller.superChat,
+            builder: (context, items, child) {
+              if (items.isEmpty) {
+                return const Center(
+                  child: Text('暂无 SC', style: TextStyle(color: Colors.white60)),
+                );
+              }
+              return ListView.separated(
+                key: const PageStorageKey(_SuperChatPanelState),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                physics: platformClampingPhysics,
+                itemCount: items.length,
+                findItemIndexCallback: (key) {
+                  final index = items.indexWhere(
+                    (i) => i.id == (key as ValueKey<int>).value,
+                  );
+                  // Return item index directly - no need to multiply by 2.
+                  return index == -1 ? null : index;
+                },
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return SuperChatCard(
+                    key: ValueKey(item.id),
+                    item: item,
+                    onRemove: () => ctr?.add(true),
+                    persistentSC: persistentSC,
+                    onReport: () => widget.controller.reportSC(item),
+                  );
+                },
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
               );
-            }
-            return ListView.separated(
-              key: const PageStorageKey(_SuperChatPanelState),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              physics: platformClampingPhysics,
-              itemCount: widget.controller.superChatMsg.length,
-              findItemIndexCallback: (key) {
-                final index = widget.controller.superChatMsg.indexWhere(
-                  (i) => i.id == (key as ValueKey<int>).value,
-                );
-                // Return item index directly - no need to multiply by 2.
-                return index == -1 ? null : index;
-              },
-              itemBuilder: (context, index) {
-                final item = widget.controller.superChatMsg[index];
-                return SuperChatCard(
-                  key: ValueKey(item.id),
-                  item: item,
-                  onRemove: () => ctr?.add(true),
-                  persistentSC: persistentSC,
-                  onReport: () => widget.controller.reportSC(item),
-                );
-              },
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-            );
-          }),
+            },
+          ),
         ),
       ],
     );

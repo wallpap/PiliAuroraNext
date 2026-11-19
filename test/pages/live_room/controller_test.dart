@@ -150,7 +150,7 @@ void main() {
     );
     final controller = createController()..addDm(_message(1));
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    controller.superChatMsg.add(
+    controller.addSuperChat(
       SuperChatItem(
         id: 1,
         uid: 1,
@@ -182,7 +182,7 @@ void main() {
             child: PageView(
               controller: controller.pageController,
               physics: tabBarScrollPhysics,
-              onPageChanged: controller.pageIndex.call,
+              onPageChanged: controller.selectPage,
               horizontalDragGestureRecognizer:
                   CustomHorizontalDragGestureRecognizer.new,
               children: [
@@ -208,7 +208,7 @@ void main() {
     await tester.pump(const Duration(seconds: 31));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
-    expect(controller.superChatMsg, isEmpty);
+    expect(controller.superChat.value, isEmpty);
     expect(find.text('即将过期的 SC'), findsNothing);
     expect(find.text('暂无 SC'), findsOneWidget);
     await tester.drag(find.byType(PageView), const Offset(300, 0));
@@ -238,9 +238,9 @@ void main() {
       expect(find.textContaining('消息 499', findRichText: true), findsOneWidget);
       controller.addDm(_message(500));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.messages.value.length, 500);
+      expect(controller.chatHistory.value.messages.length, 500);
       expect(find.textContaining('消息 500', findRichText: true), findsOneWidget);
-      expect(controller.shouldRefresh, isFalse);
+      expect(controller.chatHistory.value.truncated, isTrue);
       controller.close();
     },
   );
@@ -258,12 +258,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.disableAutoScroll.value, isTrue);
       final offset = controller.scrollController.offset;
-      final frozen = controller.messages.value;
+      final frozen = controller.chatHistory.value.messages;
       for (var i = 500; i < 2500; i++) {
         controller.addDm(_message(i));
       }
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.messages.value, same(frozen));
+      expect(controller.chatHistory.value.messages, same(frozen));
       expect(controller.scrollController.offset, offset);
       expect(controller.unreadMessages.value, (500, 1500));
       expect(find.text('回到底部 · 500 条新消息\n已略过 1500 条'), findsOneWidget);
@@ -272,8 +272,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.disableAutoScroll.value, isFalse);
       expect(controller.unreadMessages.value, (0, 0));
-      expect(controller.messages.value.length, 500);
-      expect(controller.messages.value.last.content.text, '消息 2499');
+      expect(controller.chatHistory.value.messages.length, 500);
+      expect(
+        controller.chatHistory.value.messages.last.content.text,
+        '消息 2499',
+      );
       expect(controller.scrollController.offset, 0);
       controller.close();
     },
@@ -290,22 +293,22 @@ void main() {
         controller.addDm(_message(i));
       }
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.messages.value.single.content.text, '消息 0');
+      expect(controller.chatHistory.value.messages.single.content.text, '消息 0');
       controller.refreshMsgIfNeeded();
       controller.plPlayerController.showDanmaku = true;
       await tester.pumpAndSettle();
-      expect(controller.messages.value.last.content.text, '消息 600');
+      expect(controller.chatHistory.value.messages.last.content.text, '消息 600');
       expect(controller.unreadMessages.value, (0, 0));
 
       controller.disableAutoScroll.value = true;
-      final frozen = controller.messages.value;
+      final frozen = controller.chatHistory.value.messages;
       controller.plPlayerController.showDanmaku = false;
       controller
         ..addDm(_message(601))
         ..refreshMsgIfNeeded();
       controller.plPlayerController.showDanmaku = true;
       await tester.pumpAndSettle();
-      expect(controller.messages.value, same(frozen));
+      expect(controller.chatHistory.value.messages, same(frozen));
       expect(controller.unreadMessages.value, (1, 0));
       controller.close();
     },
@@ -321,13 +324,13 @@ void main() {
       ..autoScroll = false
       ..addDm(_message(1));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(controller.messages.value.length, 1);
+    expect(controller.chatHistory.value.messages.length, 1);
     controller
       ..autoScroll = true
       ..refreshMsgIfNeeded();
     await tester.pumpAndSettle();
-    expect(controller.messages.value.length, 2);
-    expect(controller.messages.value.last.content.text, '消息 1');
+    expect(controller.chatHistory.value.messages.length, 2);
+    expect(controller.chatHistory.value.messages.last.content.text, '消息 1');
     expect(controller.unreadMessages.value, (0, 0));
     controller.close();
   });
@@ -350,7 +353,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.disableAutoScroll.value, isFalse);
     expect(controller.unreadMessages.value, (0, 0));
-    expect(controller.messages.value.last.content.text, '消息 500');
+    expect(controller.chatHistory.value.messages.last.content.text, '消息 500');
     expect(controller.scrollController.offset, 0);
     controller.close();
   });
@@ -365,7 +368,7 @@ void main() {
         ..addDm(_message(1))
         ..refreshMsgIfNeeded();
       await tester.pump(const Duration(seconds: 1));
-      expect(controller.messages.value, isEmpty);
+      expect(controller.chatHistory.value.messages, isEmpty);
       expect(controller.chatBuffer.historyCount, 0);
       expect(controller.chatBuffer.pendingCount, 0);
       expect(tester.takeException(), isNull);

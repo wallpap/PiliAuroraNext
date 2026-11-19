@@ -64,10 +64,11 @@ class LiveRoomChatPanel extends StatelessWidget {
         : colorScheme.inversePrimary;
     return Stack(
       children: [
-        Obx(
-          () => LiveChatList<dynamic>(
-            messages: liveRoomController.messages.value,
-            historyTruncated: liveRoomController.historyTruncated.value,
+        ValueListenableBuilder(
+          valueListenable: liveRoomController.chatHistory,
+          builder: (context, history, child) => LiveChatList<dynamic>(
+            messages: history.messages,
+            historyTruncated: history.truncated,
             maxHistory: liveRoomController.chatBuffer.maxHistory,
             controller: liveRoomController.scrollController,
             itemBuilder: (_, item) {
@@ -159,7 +160,7 @@ class LiveRoomChatPanel extends StatelessWidget {
               onPressed: () {
                 final item = SuperChatItem.random;
                 liveRoomController
-                  ..superChatMsg.insert(0, item)
+                  ..addSuperChat(item)
                   ..addDm(item);
               },
               child: const Text('add superchat'),
@@ -169,11 +170,7 @@ class LiveRoomChatPanel extends StatelessWidget {
             right: 0,
             top: 90,
             child: TextButton(
-              onPressed: () {
-                if (liveRoomController.superChatMsg.isNotEmpty) {
-                  liveRoomController.superChatMsg.removeLast();
-                }
-              },
+              onPressed: liveRoomController.removeOldestSuperChat,
               child: const Text('remove superchat'),
             ),
           ),
@@ -182,53 +179,63 @@ class LiveRoomChatPanel extends StatelessWidget {
           Positioned(
             top: 12,
             right: 12,
-            child: Obx(() {
-              final isEmpty = liveRoomController.superChatMsg.isEmpty;
-              return AnimatedOpacity(
-                opacity: isEmpty ? 0 : 1,
-                duration: const Duration(milliseconds: 120),
-                child: GestureDetector(
-                  onTap: isEmpty
-                      ? null
-                      : () => liveRoomController.pageController?.animateToPage(
-                          1,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeInOut,
+            child: ValueListenableBuilder(
+              valueListenable: liveRoomController.superChat,
+              builder: (context, items, child) {
+                final isEmpty = items.isEmpty;
+                return AnimatedOpacity(
+                  opacity: isEmpty ? 0 : 1,
+                  duration: const Duration(milliseconds: 120),
+                  child: GestureDetector(
+                    onTap: isEmpty
+                        ? null
+                        : () =>
+                              liveRoomController.pageController?.animateToPage(
+                                1,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeInOut,
+                              ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(8),
                         ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.all(Radius.circular(8)),
-                      color: const Color(0x2FFFFFFF),
-                      border: Border.all(color: Colors.white24, width: 0.7),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
-                    child: Text.rich(
-                      style: const TextStyle(color: Colors.white, height: 1),
-                      strutStyle: const StrutStyle(height: 1, leading: 0),
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text:
-                                'SC(${liveRoomController.superChatMsg.length})',
-                          ),
-                          const WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: Icon(
-                              size: 18,
-                              Icons.keyboard_arrow_right,
-                              color: Colors.white,
+                        color: const Color(0x2FFFFFFF),
+                        border: Border.all(color: Colors.white24, width: 0.7),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+                      child: Text.rich(
+                        style: const TextStyle(color: Colors.white, height: 1),
+                        strutStyle: const StrutStyle(height: 1, leading: 0),
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'SC(${items.length})',
                             ),
-                          ),
-                        ],
+                            const WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(
+                                size: 18,
+                                Icons.keyboard_arrow_right,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              },
+            ),
           ),
-        Obx(
-          () => liveRoomController.disableAutoScroll.value
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            liveRoomController.disableAutoScroll,
+            liveRoomController.unreadMessages,
+          ]),
+          builder: (context, child) =>
+              liveRoomController.disableAutoScroll.value
               ? Positioned(
                   left: 12,
                   right: 12,

@@ -188,38 +188,40 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
                     ),
                   ),
                 ),
-                Obx(
-                  () => PopupMenuButton<int>(
-                    tooltip: '画质',
-                    padding: EdgeInsets.zero,
-                    initialValue: liveRoomCtr.currentQn,
-                    itemBuilder: (context) {
-                      return liveRoomCtr.acceptQnList
-                          .map(
-                            (e) => AppPopupMenuItem<int>(
-                              height: 35,
-                              value: e.code,
-                              selected: e.code == liveRoomCtr.currentQn,
-                              onTap: () => liveRoomCtr.changeQn(e.code),
-                              child: Text(
-                                e.desc,
-                                style: const TextStyle(fontSize: 13),
-                              ),
+                ValueListenableBuilder(
+                  valueListenable: liveRoomCtr.currentQnDesc,
+                  builder: (context, description, child) =>
+                      PopupMenuButton<int>(
+                        tooltip: '画质',
+                        padding: EdgeInsets.zero,
+                        initialValue: liveRoomCtr.currentQn,
+                        itemBuilder: (context) {
+                          return liveRoomCtr.acceptQnList
+                              .map(
+                                (e) => AppPopupMenuItem<int>(
+                                  height: 35,
+                                  value: e.code,
+                                  selected: e.code == liveRoomCtr.currentQn,
+                                  onTap: () => liveRoomCtr.changeQn(e.code),
+                                  child: Text(
+                                    e.desc,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            description,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
                             ),
-                          )
-                          .toList();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
-                        liveRoomCtr.currentQnDesc.value,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
                 ),
                 if (!plPlayerController.isDesktopPip)
                   ComBtn(

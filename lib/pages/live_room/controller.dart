@@ -8,6 +8,7 @@ import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/features/playback/application/live_chat_connection.dart';
 import 'package:pili_aurora_next/features/playback/application/live_chat_queries.dart';
+import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_queries.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_source.dart';
@@ -47,15 +48,14 @@ import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart'
-    show kDebugMode, kReleaseMode, listEquals, protected;
+    show kDebugMode, kReleaseMode, listEquals, protected, ValueListenable;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:material_ui/material_ui.dart';
 
 class LiveRoomController {
@@ -93,62 +93,63 @@ class LiveRoomController {
   PlaybackInhibitorToken? _routeInhibitor;
   int _sourceGeneration = 0;
 
-  final isLoaded = false.obs;
-  final roomInfoH5 = Rxn<RoomInfoH5Data>();
+  final isLoaded = ValueNotifier(false);
+  final roomInfoH5 = ValueNotifier<RoomInfoH5Data?>(null);
   final _roomQueries = LiveRoomQueries();
 
-  final liveTime = Rxn<int>();
-  Timer? liveTimeTimer;
+  int? _liveTime;
+  final _liveDuration = ValueNotifier<String?>(null);
+  ValueListenable<String?> get liveDuration => _liveDuration;
+  Timer? _liveTimeTimer;
 
   void startLiveTimer() {
-    if (liveTime.value != null) {
-      liveTimeTimer ??= Timer.periodic(
-        const Duration(minutes: 5),
-        (_) => liveTime.refresh(),
-      );
+    if (isClosed) return;
+    _refreshLiveDuration();
+    if (_liveTime == null) {
+      cancelLiveTimer();
+      return;
     }
+    _liveTimeTimer ??= Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => _refreshLiveDuration(),
+    );
   }
 
   void cancelLiveTimer() {
-    liveTimeTimer?.cancel();
-    liveTimeTimer = null;
+    _liveTimeTimer?.cancel();
+    _liveTimeTimer = null;
   }
 
-  Widget get timeWidget => Obx(() {
-    final liveTime = this.liveTime.value;
-    String text = '';
-    if (liveTime != null) {
-      final duration = DurationUtils.formatDurationBetween(
-        liveTime * 1000,
-        DateTime.now().millisecondsSinceEpoch,
-      );
-      text += duration.isEmpty ? '刚刚开播' : '开播$duration';
+  void _refreshLiveDuration() {
+    final liveTime = _liveTime;
+    if (liveTime == null) {
+      _liveDuration.value = null;
+      return;
     }
-    if (text.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 12,
-        color: Colors.white,
-      ),
+    final duration = DurationUtils.formatDurationBetween(
+      liveTime * 1000,
+      DateTime.now().millisecondsSinceEpoch,
     );
-  });
+    _liveDuration.value = duration.isEmpty ? '刚刚开播' : '开播$duration';
+  }
 
   // dm
   LiveDmInfoData? get dmInfo => _chatConnection.token;
   List<RichTextItem>? savedDanmaku;
   final chatBuffer = LiveChatBuffer<dynamic>();
-  final messages = Rx<List<LiveChatMessage<dynamic>>>(const []);
-  final unreadMessages = (0, 0).obs;
-  final historyTruncated = false.obs;
-  int _publishedMessageRevision = 0;
+  final _chatHistory =
+      ValueNotifier<
+        ({List<LiveChatMessage<dynamic>> messages, bool truncated})
+      >((messages: const [], truncated: false));
+  ValueListenable<({List<LiveChatMessage<dynamic>> messages, bool truncated})>
+  get chatHistory => _chatHistory;
+  final _unreadMessages = ValueNotifier((0, 0));
+  ValueListenable<(int, int)> get unreadMessages => _unreadMessages;
   Timer? _messageRefreshTimer;
-  bool get shouldRefresh => _publishedMessageRevision != chatBuffer.revision;
-  late final fsSC = Rxn<SuperChatItem>();
-  late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
-  final disableAutoScroll = false.obs;
+  final fsSC = ValueNotifier<SuperChatItem?>(null);
+  final _superChat = ValueNotifier<List<SuperChatItem>>(const []);
+  ValueListenable<List<SuperChatItem>> get superChat => _superChat;
+  final disableAutoScroll = ValueNotifier(false);
   bool _autoScroll = true;
   bool get autoScroll => _autoScroll;
   set autoScroll(bool value) {
@@ -169,12 +170,15 @@ class LiveRoomController {
   Set<int> _shieldUids = const {};
 
   late final ScrollController scrollController;
-  late final RxInt pageIndex = 0.obs;
+  final pageIndex = ValueNotifier(0);
+  void selectPage(int index) => pageIndex.value = index;
   PageController? pageController;
 
-  int? currentQn = PlatformUtils.isMobile ? null : Pref.liveQuality;
-  final currentQnDesc = ''.obs;
-  final RxBool isPortrait = false.obs;
+  int? currentQn = PlatformUtils.isMobile
+      ? null
+      : LivePreferences.desktopQuality;
+  final currentQnDesc = ValueNotifier('');
+  final isPortrait = ValueNotifier(false);
   late List<({int code, String desc})> acceptQnList = [];
 
   bool get isLogin => AccountScope.signedIn;
@@ -183,36 +187,24 @@ class LiveRoomController {
   String? videoUrl;
   late bool isFullScreen = false;
 
-  final superChatType = Pref.superChatType;
+  final superChatType = LivePreferences.superChat;
   late final showSuperChat = superChatType != SuperChatType.disable;
 
   final headerKey = GlobalKey<TimeBatteryMixin>();
 
-  final RxString title = ''.obs;
-
-  final RxnString onlineCount = RxnString();
-
-  final RxnString watchedShow = RxnString();
-  Widget get watchedWidget => Obx(() {
-    if (watchedShow.value case final watchedShow?) {
-      return Text(
-        watchedShow,
-        style: const TextStyle(
-          fontSize: 12,
-          color: Colors.white,
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  });
+  final title = ValueNotifier('');
+  final onlineCount = ValueNotifier<String?>(null);
+  final watchedShow = ValueNotifier<String?>(null);
 
   void _publishMessages() {
-    if (shouldRefresh) {
-      messages.value = chatBuffer.history;
-      _publishedMessageRevision = chatBuffer.revision;
-    }
-    unreadMessages.value = (chatBuffer.pendingCount, chatBuffer.droppedPending);
-    historyTruncated.value = chatBuffer.historyTruncated;
+    _chatHistory.value = (
+      messages: chatBuffer.history,
+      truncated: chatBuffer.historyTruncated,
+    );
+    _unreadMessages.value = (
+      chatBuffer.pendingCount,
+      chatBuffer.droppedPending,
+    );
   }
 
   void _scheduleMessageRefresh() {
@@ -348,7 +340,7 @@ class LiveRoomController {
         _confirmLiveSource(selection!, plan!);
         ruid = info!.uid;
         _updateRoomId(info!.roomId ?? requestedRoomId);
-        liveTime.value = info!.liveTime;
+        _liveTime = info!.liveTime;
         startLiveTimer();
         isPortrait.value = info!.isPortrait ?? false;
         isLoaded.value = true;
@@ -746,7 +738,7 @@ class LiveRoomController {
       final list = await LiveChatQueries.superChat(targetRoomId);
       if (!_isCurrentMessageTask(generation, targetRoomId)) return;
       if (list.isNotEmpty) {
-        superChatMsg.addAll(list);
+        _superChat.value = List.unmodifiable([..._superChat.value, ...list]);
       }
     } catch (_) {
       return;
@@ -754,7 +746,21 @@ class LiveRoomController {
   }
 
   void clearSC() {
-    superChatMsg.removeWhere((e) => e.expired);
+    final active = _superChat.value.where((item) => !item.expired).toList();
+    if (active.length != _superChat.value.length) {
+      _superChat.value = List.unmodifiable(active);
+    }
+  }
+
+  void addSuperChat(SuperChatItem item) {
+    _superChat.value = List.unmodifiable([item, ..._superChat.value]);
+  }
+
+  void removeOldestSuperChat() {
+    final items = _superChat.value;
+    if (items.isNotEmpty) {
+      _superChat.value = List.unmodifiable(items.take(items.length - 1));
+    }
   }
 
   Future<void> _fetchBlockRules() async {
@@ -849,10 +855,27 @@ class LiveRoomController {
     savedDanmaku?.clear();
     savedDanmaku = null;
     chatBuffer.clear();
-    messages.value = const [];
-    if (showSuperChat) {
-      superChatMsg.clear();
-      fsSC.value = null;
+    _publishMessages();
+    _superChat.value = const [];
+    fsSC.value = null;
+    for (final state in <ChangeNotifier>[
+      isLoaded,
+      roomInfoH5,
+      _liveDuration,
+      _chatHistory,
+      _unreadMessages,
+      _superChat,
+      disableAutoScroll,
+      fsSC,
+      pageIndex,
+      currentQnDesc,
+      isPortrait,
+      title,
+      onlineCount,
+      watchedShow,
+      likeClickTime,
+    ]) {
+      state.dispose();
     }
     scrollController
       ..removeListener(listener)
@@ -1025,7 +1048,7 @@ class LiveRoomController {
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
           final item = SuperChatItem.fromJson(obj['data'], roomId);
-          superChatMsg.insert(0, item);
+          addSuperChat(item);
           addDm(item);
           if (Platform.isAndroid && AndroidHelper.isPipMode) return;
           if (plPlayerController.showDanmaku &&
@@ -1055,7 +1078,7 @@ class LiveRoomController {
     }
   }
 
-  final RxInt likeClickTime = 0.obs;
+  final likeClickTime = ValueNotifier(0);
   late final _likes = LiveRoomLikes(
     room: () => isClosed ? null : roomId,
     anchor: () => roomInfoH5.value?.roomInfo?.uid,

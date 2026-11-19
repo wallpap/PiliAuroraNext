@@ -33,8 +33,6 @@ pages/dynamics_detail/view.dart -> http/constants.dart
 pages/dynamics_detail/view.dart -> utils/storage_pref.dart
 pages/dynamics_repost/view.dart -> utils/request_utils.dart
 pages/episode_panel/view.dart -> utils/storage_pref.dart
-pages/live_room/controller.dart -> utils/storage_pref.dart
-pages/live_room/view.dart -> utils/storage_pref.dart
 pages/login/geetest/geetest_webview_dialog.dart -> http/browser_ua.dart
 pages/main_reply/view.dart -> utils/storage_pref.dart
 pages/my_reply/view.dart -> utils/reply_utils.dart
