@@ -25,6 +25,7 @@ import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/services/webview_environment.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
@@ -50,6 +51,11 @@ class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
     Messaging.closeApplicationSession();
     DanmakuWorkQuota.disposeProcessQuota();
     closeApplicationShutdownTimer();
+    unawaited(
+      AppWebViewEnvironment.close().catchError((Object error, StackTrace stack) {
+        logger.w('关闭网页环境失败', error: error.runtimeType, stackTrace: stack);
+      }),
+    );
     unawaited(
       closePlatformAudioSession().catchError((Object error, StackTrace stack) {
         logger.w('关闭系统音频会话失败', error: error.runtimeType, stackTrace: stack);

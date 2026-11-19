@@ -108,12 +108,36 @@ void main() {
       await tester.pump();
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 6));
+      final reopen = AppWebViewEnvironment.retain();
+      reopen();
       environment.versionPending!.complete();
       await tester.pumpAndSettle();
       expect(environment.creations, 3);
+      expect(environment.disposals, 2);
+      await tester.pump(const Duration(seconds: 6));
       expect(environment.disposals, 3);
       expect(AppWebViewEnvironment.instance, isNull);
       expect(find.text('late native content'), findsNothing);
+
+      final lease = Completer<void>();
+      final cookieDuringShutdown = AppWebViewEnvironment.using(
+        () => lease.future,
+      );
+      await tester.pump();
+      expect(environment.creations, 4);
+      final closed = AppWebViewEnvironment.close();
+      await tester.pump();
+      expect(environment.disposals, 3);
+      lease.complete();
+      await tester.pump();
+      await cookieDuringShutdown;
+      await closed;
+      expect(environment.disposals, 4);
+      expect(AppWebViewEnvironment.instance, isNull);
+      await expectLater(
+        AppWebViewEnvironment.ensureInitialized(),
+        throwsStateError,
+      );
     },
   );
 }
