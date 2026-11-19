@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_toast.dart' as toast;
-import 'package:pili_aurora_next/common/widgets/dialog/report_member.dart';
+import 'package:pili_aurora_next/features/member_space/presentation/member_report_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';

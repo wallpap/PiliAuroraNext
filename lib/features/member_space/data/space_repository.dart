@@ -125,6 +125,18 @@ class SpaceRepository {
   Future<LoadingState<void>> relation(Account account, int mid, int action) =>
       VideoHttp.relationMod(account: account, mid: mid, act: action, reSrc: 11);
 
+  Future<LoadingState<void>> reportMember(
+    Account account,
+    int mid,
+    String reason,
+    int? reasonV2,
+  ) => MemberHttp.reportMember(
+    mid,
+    account: account,
+    reason: reason,
+    reasonV2: reasonV2,
+  );
+
   Future<LoadingState<void>> claimExperience(Account account) =>
       UserHttp.vipExpAdd(account: account);
 

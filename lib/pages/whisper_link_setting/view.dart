@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/report_member.dart';
+import 'package:pili_aurora_next/features/member_space/presentation/member_report_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

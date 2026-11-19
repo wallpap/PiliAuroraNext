@@ -1,12 +1,12 @@
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/home/rcmd/result.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
 import 'package:pili_aurora_next/features/account/presentation/incognito_action.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/video_feedback.dart';
 import 'package:pili_aurora_next/pages/video/ai_conclusion/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
@@ -44,6 +44,57 @@ class VideoPopupMenu extends StatefulWidget {
 }
 
 class _VideoPopupMenuState extends State<VideoPopupMenu> {
+  Future<void> _confirmBlock(
+    BaseSimpleVideoItemModel item,
+    VoidCallback? onRemove,
+  ) async {
+    final memberId = item.owner.mid;
+    if (!mounted || !identical(item, widget.videoItem) || memberId == null) {
+      return;
+    }
+    final moderation = MemberModeration.capture();
+    final route = ModalRoute.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('提示'),
+        content: Text(
+          '确定拉黑:${item.owner.name}($memberId)?'
+          '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              '点错了',
+              style: TextStyle(color: ColorScheme.of(dialogContext).outline),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    bool sourceIsCurrent() =>
+        mounted &&
+        identical(item, widget.videoItem) &&
+        route?.isCurrent != false;
+    if (confirm != true || !sourceIsCurrent()) return;
+    if (!moderation.isCurrent) {
+      SmartDialog.showToast('账号已切换，请重试');
+      return;
+    }
+    final result = await moderation.block(memberId);
+    if (!sourceIsCurrent() || !moderation.isCurrent) return;
+    if (result.isSuccess) {
+      onRemove?.call();
+    } else {
+      result.toast();
+    }
+  }
+
   void _showFeedback(BaseSimpleVideoItemModel item, VoidCallback? onRemove) {
     if (!mounted || !identical(item, widget.videoItem)) return;
     final account = item is RcmdVideoItemAppModel
@@ -142,45 +193,7 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                   _VideoCustomAction(
                     '拉黑：${videoItem.owner.name}',
                     const Icon(MdiIcons.cancel, size: 16),
-                    () => showDialog(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
-                          title: const Text('提示'),
-                          content: Text(
-                            '确定拉黑:${videoItem.owner.name}(${videoItem.owner.mid})?'
-                            '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: Get.back,
-                              child: Text(
-                                '点错了',
-                                style: TextStyle(
-                                  color: ColorScheme.of(context).outline,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                Get.back();
-                                final res = await VideoHttp.relationMod(
-                                  mid: videoItem.owner.mid!,
-                                  act: 5,
-                                  reSrc: 11,
-                                );
-                                if (res.isSuccess) {
-                                  onRemove?.call();
-                                } else {
-                                  res.toast();
-                                }
-                              },
-                              child: const Text('确认'),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                    () => _confirmBlock(videoItem, onRemove),
                   ),
                 ],
                 _VideoCustomAction(

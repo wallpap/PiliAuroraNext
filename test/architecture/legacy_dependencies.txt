@@ -2,8 +2,6 @@
 # Paths are relative to lib; a hash identifies a type declaration.
 common/widgets/custom_toast.dart -> utils/storage_pref.dart
 common/widgets/dialog/export_import.dart -> utils/storage_utils.dart
-common/widgets/dialog/report_member.dart -> http/member.dart
-common/widgets/dialog/report_member.dart -> utils/accounts.dart
 common/widgets/dialog/video_feedback.dart -> http/video.dart
 common/widgets/dialog/video_feedback.dart -> utils/accounts.dart
 common/widgets/emote_tooltip.dart -> utils/storage_pref.dart
@@ -16,7 +14,6 @@ common/widgets/image_grid/image_grid_view.dart -> utils/storage_pref.dart
 common/widgets/image_viewer/gallery_viewer.dart -> utils/storage_pref.dart
 common/widgets/pendant_avatar.dart -> utils/storage_pref.dart
 common/widgets/scroll_physics.dart -> utils/storage_pref.dart
-common/widgets/video_popup_menu.dart -> http/video.dart
 common/widgets/video_popup_menu.dart -> utils/accounts.dart
 common/widgets/video_popup_menu.dart -> utils/request_utils.dart
 common/widgets/video_popup_menu.dart -> utils/storage_pref.dart

@@ -1,11 +1,10 @@
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -16,13 +15,13 @@ const _reasonV2 = ['色情低俗', '不实信息', '违禁', '人身攻击', '�
 Future<void> showMemberReportDialog(
   BuildContext context, {
   required Object? name,
-  required Object mid,
+  required int mid,
 }) {
   final Set<int> reason = {};
   int? reasonV2;
   var submitting = false;
-  final account = Accounts.main;
-  bool current() => context.mounted && identical(account, Accounts.main);
+  final moderation = MemberModeration.capture();
+  bool current() => context.mounted && moderation.isCurrent;
 
   return showDialog<void>(
     context: context,
@@ -194,11 +193,12 @@ Future<void> showMemberReportDialog(
                       final route = ModalRoute.of(dialogContext);
                       setState(() => submitting = true);
                       try {
-                        final result = await MemberHttp.reportMember(
+                        final result = await moderation.report(
                           mid,
-                          account: account,
-                          reason: reason.join(','),
-                          reasonV2: reasonV2 != null ? reasonV2! + 1 : null,
+                          reasons: reason,
+                          additionalReason: reasonV2 != null
+                              ? reasonV2! + 1
+                              : null,
                         );
                         if (!current() ||
                             !dialogContext.mounted ||
