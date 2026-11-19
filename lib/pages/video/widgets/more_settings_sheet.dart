@@ -21,6 +21,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/playback/super_resolution_policy.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
+import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_dialog.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
@@ -258,10 +259,7 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
         onSelected: (value) {
           if (value == -1) {
             _run(
-              () => service.showScheduleExitDialog(
-                widget.sourceContext,
-                isFullScreen: controller.plPlayerController.isFullScreen.value,
-              ),
+              () => showScheduleExitDialog(widget.sourceContext),
             );
           } else {
             service.startShutdownTimer(value);

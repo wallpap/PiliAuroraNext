@@ -28,7 +28,7 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_ite
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart'
     show HeaderControlState;
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
-import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
+import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_dialog.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
@@ -235,13 +235,7 @@ class _AudioPageState extends ConsumerState<AudioPage>
           ),
           IconButton(
             tooltip: '定时关闭',
-            onPressed: () => shutdownTimerService
-              ..onPause ??= _controller.onPause
-              ..isPlaying ??= _controller.isPlaying
-              ..showScheduleExitDialog(
-                context,
-                isFullScreen: false,
-              ),
+            onPressed: () => showScheduleExitDialog(context),
             icon: const Icon(Icons.schedule, size: 22),
           ),
           if (_controller.isUgc)

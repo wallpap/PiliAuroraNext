@@ -36,6 +36,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
+import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -74,6 +75,18 @@ class LiveRoomController extends GetxController {
   );
 
   late final PlaybackOwner playbackOwner;
+  ShutdownPlaybackBinding? _shutdownBinding;
+
+  void _bindShutdownTimer() {
+    if (!playbackOwner.isActive || _shutdownBinding?.isBound == true) return;
+    _shutdownBinding = shutdownTimerService.bindPlayer(
+      pause: plPlayerController.pause,
+      isPlaying: () =>
+          playbackOwner.isActive && plPlayerController.playerStatus.isPlaying,
+      supportsCompletion: false,
+    );
+  }
+
   NetworkSource? _networkSource;
   PlaybackPlan? _playbackPlan;
   PlaybackInhibitorToken? _routeInhibitor;
@@ -240,6 +253,7 @@ class LiveRoomController extends GetxController {
   void onInit() {
     super.onInit();
     playbackOwner = plPlayerController.attachPlaybackOwner();
+    _bindShutdownTimer();
     scrollController = ScrollController()..addListener(listener);
     queryLiveUrl(autoFullScreenFlag: true);
     queryLiveInfoH5();
@@ -572,6 +586,7 @@ class LiveRoomController extends GetxController {
 
   Future<void> restorePlaybackAfterRoute() async {
     plPlayerController.activatePlaybackOwner(playbackOwner);
+    _bindShutdownTimer();
     final plan = _playbackPlan;
     final token = _routeInhibitor;
     if (plan != null && !isClosed) {
@@ -824,6 +839,7 @@ class LiveRoomController extends GetxController {
 
   @override
   void onClose() {
+    _shutdownBinding?.dispose();
     plPlayerController.closePlaybackOwner(playbackOwner);
     _stopSizeSub();
     closeLiveMsg();

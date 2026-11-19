@@ -11,8 +11,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_controls.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/common_btn.dart';
-import 'package:pili_aurora_next/services/shutdown_timer_service.dart'
-    show shutdownTimerService;
+import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_dialog.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
@@ -236,9 +235,8 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               ComBtn(
                 height: btnHeight,
                 tooltip: '定时关闭',
-                onTap: () => shutdownTimerService.showScheduleExitDialog(
+                onTap: () => showScheduleExitDialog(
                   context,
-                  isFullScreen: isFullScreen,
                   isLive: true,
                 ),
                 icon: const Icon(

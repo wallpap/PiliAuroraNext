@@ -67,8 +67,6 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_control
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/services/shutdown_timer_service.dart'
-    show shutdownTimerService;
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
@@ -271,6 +269,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   // 播放器状态监听
   Future<void> playerListener(PlayerStatus status) async {
+    if (!videoDetailController.playbackOwner.isActive) return;
     final isPlaying = status.isPlaying;
     try {
       if (videoDetailController.scrollCtr.hasClients) {
@@ -314,9 +313,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       bool exitFlag = true;
 
       /// 顺序播放 列表循环
-      if (shutdownTimerService.isWaiting) {
-        shutdownTimerService.handleWaiting();
-      } else {
+      if (!videoDetailController.completeShutdownTimer()) {
         switch (plPlayerController!.playRepeat) {
           case PlayRepeat.singleCycle:
             exitFlag = false;

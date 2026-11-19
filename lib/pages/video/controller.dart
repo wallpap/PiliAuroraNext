@@ -45,6 +45,7 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/medialist/view.dart';
 import 'package:pili_aurora_next/pages/video/playback_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
+import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/pages/video/note/view.dart';
 import 'package:pili_aurora_next/pages/video/post_panel/view.dart';
@@ -144,6 +145,19 @@ class VideoDetailController extends GetxController
   String? get audioUrl =>
       _networkSource == null ? null : _networkSource!.audioSource ?? '';
   late final PlaybackOwner playbackOwner;
+  ShutdownPlaybackBinding? _shutdownBinding;
+
+  void _bindShutdownTimer() {
+    if (!playbackOwner.isActive || _shutdownBinding?.isBound == true) return;
+    _shutdownBinding = shutdownTimerService.bindPlayer(
+      pause: plPlayerController.pause,
+      isPlaying: () =>
+          playbackOwner.isActive && plPlayerController.playerStatus.isPlaying,
+    );
+  }
+
+  bool completeShutdownTimer() =>
+      playbackOwner.isActive && (_shutdownBinding?.complete() ?? false);
   PlaybackPlan? _playbackPlan;
   int _sourceSelectionGeneration = 0;
   CancelToken? _videoQueryCancel;
@@ -379,6 +393,7 @@ class VideoDetailController extends GetxController
   void onInit() {
     super.onInit();
     playbackOwner = plPlayerController.attachPlaybackOwner();
+    _bindShutdownTimer();
     args = Get.arguments;
     videoType = args['videoType'];
     if (videoType == VideoType.pgc) {
@@ -1040,6 +1055,7 @@ class VideoDetailController extends GetxController
 
   Future<void> restorePlaybackAfterRoute() async {
     plPlayerController.activatePlaybackOwner(playbackOwner);
+    _bindShutdownTimer();
     final plan = _playbackPlan;
     final token = _routeInhibitor;
     if (plan != null && !isClosed) {
@@ -1697,6 +1713,7 @@ class VideoDetailController extends GetxController
   void onClose() {
     _videoQueryCancel?.cancel();
     _subtitleGeneration++;
+    _shutdownBinding?.dispose();
     plPlayerController.closePlaybackOwner(playbackOwner);
     cid.close();
     if (isFileSource) {

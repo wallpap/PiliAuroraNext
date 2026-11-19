@@ -125,10 +125,7 @@ void main() {
   tearDown(() {
     if (!closed) controller.dispose();
     videoPlayerServiceHandler = null;
-    shutdownTimerService
-      ..onPause = null
-      ..isPlaying = null
-      ..reset();
+    shutdownTimerService.reset();
   });
 
   _check('speed waits for native success and failure permits retry', (
@@ -269,10 +266,12 @@ void main() {
       ..onPlay = newer.onPlay
       ..onPause = newer.onPause
       ..onSeek = newer.onSeek;
-    shutdownTimerService
-      ..onPause = newer.onPause
-      ..isPlaying = newer.isPlaying
-      ..reset(5);
+    final timerBinding = shutdownTimerService.bindPlayer(
+      pause: newer.onPause,
+      isPlaying: () => false,
+      independentAudio: true,
+    );
+    shutdownTimerService.startShutdownTimer(5);
     player.disposeError = StateError('https://private?token=secret');
     try {
       controller.dispose();
@@ -282,12 +281,12 @@ void main() {
       expect(handler.onPlay, newer.onPlay);
       expect(handler.onPause, newer.onPause);
       expect(handler.onSeek, newer.onSeek);
-      expect(shutdownTimerService.onPause, newer.onPause);
-      expect(shutdownTimerService.isPlaying, newer.isPlaying);
+      expect(shutdownTimerService.isActive, isTrue);
       expect(shutdownTimerService.durationInMinutes, 5);
       expect(tester.takeException(), isNull);
       expect(find.textContaining('secret'), findsNothing);
     } finally {
+      timerBinding.dispose();
       newer.dispose();
       handler.clear();
     }

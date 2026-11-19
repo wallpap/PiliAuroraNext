@@ -156,6 +156,7 @@ class AudioController with AudioNormalizationMixin {
   ValueListenable<bool> get hasPlayer => _hasPlayer;
   Player? _closingPlayer;
   IndependentAudioLease? _audioLease;
+  ShutdownPlaybackBinding? _shutdownBinding;
 
   void _audioEvent(
     String action, {
@@ -395,6 +396,11 @@ class AudioController with AudioNormalizationMixin {
 
   void start(AudioPageArguments args) {
     _ensureAudioLease();
+    _shutdownBinding ??= shutdownTimerService.bindPlayer(
+      pause: onPause,
+      isPlaying: () => player?.state.playing ?? false,
+      independentAudio: true,
+    );
     oid = Int64(args.oid);
     final id = args.id;
     this.id = id != null ? Int64(id) : oid;
@@ -435,16 +441,6 @@ class AudioController with AudioNormalizationMixin {
       ?..onPlay = onPlay
       ..onPause = onPause
       ..onSeek = onSeek;
-
-    if (shutdownTimerService.isActive) {
-      shutdownTimerService
-        ..onPause = onPause
-        ..isPlaying = isPlaying;
-    }
-  }
-
-  bool isPlaying() {
-    return player?.state.playing ?? false;
   }
 
   Future<void> onPlay() => Future<void>.sync(() {
@@ -831,9 +827,7 @@ class AudioController with AudioNormalizationMixin {
         if (completed) {
           _playerStatus = .completed;
           _startStatusTimer();
-          if (shutdownTimerService.isWaiting) {
-            shutdownTimerService.handleWaiting();
-          } else {
+          if (_shutdownBinding?.complete() != true) {
             switch (playMode.value) {
               case PlayRepeat.pause:
                 break;
@@ -1195,15 +1189,8 @@ class AudioController with AudioNormalizationMixin {
     _playlist.dispose();
     _playGeneration++;
     _stopStatusTimer();
-    final ownsTimerPause = shutdownTimerService.onPause == onPause;
-    final ownsTimerPlaying = shutdownTimerService.isPlaying == isPlaying;
-    if (ownsTimerPause) shutdownTimerService.onPause = null;
-    if (ownsTimerPlaying) shutdownTimerService.isPlaying = null;
-    if ((ownsTimerPause || ownsTimerPlaying) &&
-        shutdownTimerService.onPause == null &&
-        shutdownTimerService.isPlaying == null) {
-      shutdownTimerService.reset();
-    }
+    _shutdownBinding?.dispose();
+    _shutdownBinding = null;
     final handler = videoPlayerServiceHandler;
     if (handler != null) {
       final ownsPlay = handler.onPlay == onPlay;
