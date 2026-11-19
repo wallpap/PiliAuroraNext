@@ -17,8 +17,6 @@ import 'package:pili_aurora_next/features/content_discovery/application/live_fee
 import 'package:pili_aurora_next/features/content_discovery/domain/live_catalog.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
 import 'package:pili_aurora_next/pages/live_area/view.dart';
 import 'package:pili_aurora_next/pages/live_follow/view.dart';
@@ -33,7 +31,9 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart';
 
 class LivePage extends ConsumerStatefulWidget {
-  const LivePage({super.key});
+  const LivePage({super.key, this.register});
+
+  final VoidCallback Function(DiscoveryPageHandle)? register;
 
   @override
   ConsumerState<LivePage> createState() => _LivePageState();
@@ -74,16 +74,13 @@ class _LivePageState extends ConsumerState<LivePage>
   @override
   void initState() {
     super.initState();
-    if (Get.isRegistered<HomeController>()) {
-      _unregister = Get.find<HomeController>().registerPage(
-        HomeTabType.live,
-        DiscoveryPageHandle(
-          () => _scroll,
-          _refresh,
-          readSnapshot: () => ref.read(liveFeedProvider(_query)),
-        ),
-      );
-    }
+    _unregister = widget.register?.call(
+      DiscoveryPageHandle(
+        () => _scroll,
+        _refresh,
+        readSnapshot: () => ref.read(liveFeedProvider(_query)),
+      ),
+    );
   }
 
   Future<void> _refresh() async {

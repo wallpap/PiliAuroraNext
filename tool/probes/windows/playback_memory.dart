@@ -11,10 +11,9 @@ import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/common/widgets/webview_ready.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/pages/home/view.dart';
+import 'package:pili_aurora_next/pages/main/view.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -34,6 +33,7 @@ import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
+import 'mounted_state.dart';
 import 'process_heap_memory.dart';
 
 const _native = MethodChannel('com.alexmercerind/media_kit_video');
@@ -242,9 +242,7 @@ Future<void> main(List<String> arguments) async {
     };
     await _until(
       () =>
-          Get.isRegistered<MainController>() &&
-          Get.isRegistered<HomeController>() &&
-          !SmartDialog.checkExist(),
+          findMountedState<MainAppState>() != null && !SmartDialog.checkExist(),
       'startup',
     );
     await record('baseline');
@@ -264,14 +262,23 @@ Future<void> main(List<String> arguments) async {
             'returnFromSettings',
           );
         }
-        final main = Get.find<MainController>();
-        final home = Get.find<HomeController>();
-        final homeIndex = main.navigationBars.indexOf(NavigationBarType.home);
-        final rcmdIndex = home.tabs.indexOf(HomeTabType.rcmd);
-        if (homeIndex < 0 || rcmdIndex < 0) {
+        final main = findMountedState<MainAppState>()!;
+        if (!main.showDestination(.home)) {
+          throw StateError('home tab unavailable');
+        }
+        HomePageState? mountedHome;
+        await _until(
+          () =>
+              (mountedHome = findMountedState<HomePageState>(
+                main.context as Element,
+              )) !=
+              null,
+          'homePage',
+        );
+        final home = mountedHome!;
+        if (!home.showTab(.rcmd)) {
           throw StateError('recommendation tab unavailable');
         }
-        if (main.selectedIndex.value != homeIndex) main.setIndex(homeIndex);
         if (browseExercise) {
           final visits = <Map<String, Object?>>[];
           result['browseVisits'] = visits;
@@ -283,11 +290,7 @@ Future<void> main(List<String> arguments) async {
             HomeTabType.cinema,
             HomeTabType.live,
           ]) {
-            final index = home.tabs.indexOf(tab);
-            if (index < 0) continue;
-            if (home.tabController.index != index) {
-              home.tabController.animateTo(index);
-            }
+            if (!home.showTab(tab)) continue;
             final visit = <String, Object?>{'tab': tab.name};
             frames.clear();
             measuringFrames = true;
@@ -328,9 +331,7 @@ Future<void> main(List<String> arguments) async {
               visits.length >= 4 &&
               visits.every((visit) => visit['loaded'] == true);
         }
-        if (home.tabController.index != rcmdIndex) {
-          home.tabController.animateTo(rcmdIndex);
-        }
+        home.showTab(.rcmd);
         await _until(
           () =>
               (home.registeredPage(HomeTabType.rcmd)

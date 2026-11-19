@@ -5,6 +5,8 @@ import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
+import 'package:pili_aurora_next/features/app_shell/application/shell_badges.dart';
+import 'package:pili_aurora_next/features/app_shell/presentation/scroll_bars.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_authors.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,13 +15,15 @@ import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/up_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_tab/view.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
 
 class DynamicsPage extends StatefulWidget {
-  const DynamicsPage({super.key});
+  const DynamicsPage({super.key, this.bars, this.isSelected, this.register});
+
+  final ShellScrollBars? bars;
+  final bool Function()? isSelected;
+  final VoidCallback Function(DiscoveryPageHandle)? register;
 
   @override
   State<DynamicsPage> createState() => _DynamicsPageState();
@@ -32,8 +36,11 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
   late TabController _tabs;
   late UpPanelPosition upPanelPosition;
   final _children = <DynamicsTabType, DiscoveryPageHandle>{};
-  final _mainController = Get.find<MainController>();
   VoidCallback? _unregister;
+  @override
+  ShellScrollBars? get scrollBars => widget.bars;
+  @override
+  bool get respondsToScroll => widget.isSelected?.call() ?? true;
   ProviderContainer get _container =>
       ProviderScope.containerOf(context, listen: false);
   DynamicsAuthors get _authors =>
@@ -53,7 +60,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
         DynamicsTabType.values.length - 1,
       ),
     );
-    _unregister = _mainController.registerDynamicsPage(
+    _unregister = widget.register?.call(
       DiscoveryPageHandle(
         () => _active?.scrollController ?? _scroll,
         _refresh,
@@ -174,26 +181,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     };
   }
 
-  bool get checkPage =>
-      _mainController.navigationBars[0] != .dynamics &&
-      _mainController.selectedIndex.value == 0;
-
-  @override
-  bool onNotificationType1(UserScrollNotification notification) {
-    if (checkPage) {
-      return false;
-    }
-    return super.onNotificationType1(notification);
-  }
-
-  @override
-  bool onNotificationType2(ScrollNotification notification) {
-    if (checkPage) {
-      return false;
-    }
-    return super.onNotificationType2(notification);
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -221,9 +208,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
               dynamicsType: e,
               onRegister: (handle) => _register(e, handle),
               onRefreshAuthors: _authors.onRefresh,
-              onRefreshFeed: e == DynamicsTabType.all
-                  ? _mainController.setDynCount
-                  : null,
+              onRefreshFeed: e == DynamicsTabType.all ? _clearUnread : null,
             ),
           )
           .toList(),
@@ -307,4 +292,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       body: onBuild(child),
     );
   }
+
+  void _clearUnread() => _container.read(shellBadgesProvider).clearDynamics();
 }

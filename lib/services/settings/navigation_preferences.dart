@@ -2,6 +2,24 @@ import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/utils/storage_pref.dart';
+
+class NavigationLayoutPreferences {
+  NavigationLayoutPreferences()
+    : forceSideBar = Pref.useSideBar,
+      floatingNavBar = Pref.floatingNavBar,
+      materialNavBar = Pref.enableMYBar,
+      tabletDrawer = Pref.optTabletNav,
+      animatePages = Pref.mainTabBarView,
+      hideBottomBar = Pref.hideBottomBar,
+      hideTopBar = Pref.hideTopBar,
+      hideInstantly = Pref.barHideType == .instant,
+      checkUpdates = Pref.autoUpdate;
+
+  final bool forceSideBar, floatingNavBar, materialNavBar, tabletDrawer;
+  final bool animatePages, hideBottomBar, hideTopBar, hideInstantly;
+  final bool checkUpdates;
+}
 
 abstract final class NavigationPreferences {
   static NavigationBarType? _tab(Object? value) => switch (value) {

@@ -20,7 +20,6 @@ import 'package:pili_aurora_next/features/content_discovery/application/discover
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/widgets/pgc_card_v.dart';
 import 'package:pili_aurora_next/pages/pgc/widgets/pgc_card_v_timeline.dart';
 import 'package:pili_aurora_next/pages/pgc_index/view.dart';
@@ -33,9 +32,11 @@ class PgcPage extends ConsumerStatefulWidget {
   const PgcPage({
     super.key,
     required this.tabType,
+    this.register,
   });
 
   final HomeTabType tabType;
+  final VoidCallback Function(DiscoveryPageHandle)? register;
 
   @override
   ConsumerState<PgcPage> createState() => _PgcPageState();
@@ -62,16 +63,13 @@ class _PgcPageState extends ConsumerState<PgcPage>
   @override
   void initState() {
     super.initState();
-    if (Get.isRegistered<HomeController>()) {
-      _unregister = Get.find<HomeController>().registerPage(
-        widget.tabType,
-        DiscoveryPageHandle(
-          () => _scroll,
-          _refresh,
-          readSnapshot: () => ref.read(pgcFeedProvider(_query)),
-        ),
-      );
-    }
+    _unregister = widget.register?.call(
+      DiscoveryPageHandle(
+        () => _scroll,
+        _refresh,
+        readSnapshot: () => ref.read(pgcFeedProvider(_query)),
+      ),
+    );
   }
 
   @override

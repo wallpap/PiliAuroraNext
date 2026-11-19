@@ -7,12 +7,9 @@
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole, lerpDouble;
 
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
 import 'package:material_ui/material_ui.dart' hide TabBar;
 
 const double _kTabWidth = 51.0;
@@ -907,6 +904,7 @@ class VerticalTabBar extends StatefulWidget {
     this.tabAlignment,
     this.textScaler,
     this.indicatorAnimation,
+    this.scrollCenterOffset,
   }) : _isPrimary = true,
        assert(indicator != null || (indicatorWeight > 0.0));
 
@@ -962,6 +960,7 @@ class VerticalTabBar extends StatefulWidget {
     this.tabAlignment,
     this.textScaler,
     this.indicatorAnimation,
+    this.scrollCenterOffset,
   }) : _isPrimary = false,
        assert(indicator != null || (indicatorWeight > 0.0));
 
@@ -970,6 +969,8 @@ class VerticalTabBar extends StatefulWidget {
   /// The length of this list must match the [controller]'s [TabController.length]
   /// and the length of the [TabBarView.children] list.
   final List<Widget> tabs;
+
+  final double Function()? scrollCenterOffset;
 
   /// This widget's selection and animation state.
   ///
@@ -1627,8 +1628,6 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
 
   int get maxTabIndex => _indicatorPainter!.maxTabIndex;
 
-  final _mainCtr = Get.find<MainController>();
-
   double _tabScrollOffset(
     int index,
     double viewportWidth,
@@ -1654,13 +1653,7 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
       tabCenter +
           paddingTop -
           viewportWidth / 2.0 +
-          (_mainCtr.useBottomNav &&
-                  switch (_mainCtr.barHideType) {
-                    .instant => _mainCtr.showBottomBar?.value ?? true,
-                    .sync => (_mainCtr.barOffset?.value ?? 0) == 0,
-                  }
-              ? 80.0
-              : 0.0),
+          (widget.scrollCenterOffset?.call() ?? 0.0),
       minExtent,
       maxExtent,
     );

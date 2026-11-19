@@ -1,8 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/search/data/search_local_store.dart';
 import 'package:pili_aurora_next/features/search/data/search_repository.dart';
+
+final searchHintProvider = Provider.autoDispose<SearchHint>((ref) {
+  final hint = SearchHint();
+  ref.onDispose(hint.dispose);
+  return hint;
+});
 
 class SearchHint {
   SearchHint() {

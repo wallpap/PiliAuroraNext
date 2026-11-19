@@ -90,6 +90,7 @@ void main() {
   );
   for (final feature in [
     'account',
+    'app_shell',
     'watch_later',
     'content_library',
     'content_discovery',
@@ -149,7 +150,10 @@ void main() {
   }
   test('recommendation state has no legacy controller or settings-to-page dependency', () {
     const removed = [
+      'pages/main/controller.dart',
+      'pages/home/controller.dart',
       'pages/rcmd/controller.dart',
+      'pages/rcmd/view.dart',
       'pages/rcmd/viewport.dart',
       'pages/hot/controller.dart',
       'pages/live/controller.dart',
@@ -206,6 +210,7 @@ void main() {
   test('migrated discovery pages keep business state behind Riverpod', () {
     final violations = <String>[];
     for (final entry in [
+      'home/view.dart',
       'hot/view.dart',
       'rank/view.dart',
       'rank/zone/view.dart',
@@ -244,10 +249,8 @@ void main() {
         }
       }
       final source = file.readAsStringSync();
-      for (final match in RegExp(r'Get\.find<([^>]+)>').allMatches(source)) {
-        if (!['HomeController', 'MainController'].contains(match.group(1))) {
-          violations.add('$entry finds a business controller');
-        }
+      if (RegExp(r'Get\.find<').hasMatch(source)) {
+        violations.add('$entry finds a business controller');
       }
       if (RegExp(r'Get\.(put|putOrFind|lazyPut)|Obx\(|\.obs\b|Rx[nA-Z]')
           .hasMatch(source)) {

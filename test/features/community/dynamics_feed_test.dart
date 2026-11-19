@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/dynamics/view.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -292,25 +292,30 @@ void main() {
   });
   testWidgets('父刷新保持可见内容并等待作者与分类，离页释放活动资源', (tester) async {
     final repository = _Repository();
-    await GStorage.setting.put(SettingBoxKey.navBarSort, [1]);
-    await GStorage.setting.put(SettingBoxKey.autoUpdate, false);
-    final main = Get.put<MainController>(MainController());
+    DiscoveryPageHandle? handle;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [dynamicsRepositoryProvider.overrideWithValue(repository)],
-        child: const GetMaterialApp(home: DynamicsPage()),
+        child: GetMaterialApp(
+          home: DynamicsPage(
+            register: (actions) {
+              handle = actions;
+              return () => handle = null;
+            },
+          ),
+        ),
       ),
     );
     await tester.pump();
     await tester.pump();
-    expect(main.dynamicController, isNotNull);
+    expect(handle, isNotNull);
     expect(find.text('卡片作者'), findsOneWidget);
     expect(find.text('关注作者'), findsOneWidget);
     repository
       ..author = Completer()
       ..listing = Completer();
     var finished = false;
-    final refresh = main.dynamicController!.onRefresh().then(
+    final refresh = handle!.onRefresh().then(
       (_) => finished = true,
     );
     await tester.pump();
@@ -335,19 +340,24 @@ void main() {
     tester.widget<TabBar>(find.byType(TabBar).first).controller!.animateTo(1);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
-    expect(main.dynamicController, isNull);
+    expect(handle, isNull);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('重复选择作者刷新并回顶，切换作者的列表从顶部打开', (tester) async {
     final repository = _Repository()..authorFeedLength = 30;
-    await GStorage.setting.put(SettingBoxKey.navBarSort, [1]);
-    await GStorage.setting.put(SettingBoxKey.autoUpdate, false);
-    final main = Get.put<MainController>(MainController());
+    late DiscoveryPageHandle handle;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [dynamicsRepositoryProvider.overrideWithValue(repository)],
-        child: const GetMaterialApp(home: DynamicsPage()),
+        child: GetMaterialApp(
+          home: DynamicsPage(
+            register: (actions) {
+              handle = actions;
+              return () {};
+            },
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -357,7 +367,6 @@ void main() {
     }
 
     await select('关注作者');
-    final handle = main.dynamicController!;
     final first = find.text('2 的动态 0');
     expect(first, findsOneWidget);
     handle.scrollController.jumpTo(360);

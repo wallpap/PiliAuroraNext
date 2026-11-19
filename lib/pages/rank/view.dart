@@ -3,14 +3,14 @@ import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
 import 'package:pili_aurora_next/models/common/rank_type.dart';
 import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/rank/zone/view.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class RankPage extends StatefulWidget {
-  const RankPage({super.key});
+  const RankPage({super.key, this.register, this.bottomBarVisible});
+
+  final VoidCallback Function(DiscoveryPageHandle)? register;
+  final bool Function()? bottomBarVisible;
 
   @override
   State<RankPage> createState() => _RankPageState();
@@ -27,16 +27,13 @@ class _RankPageState extends State<RankPage>
   void initState() {
     super.initState();
     _tabs = TabController(length: RankType.values.length, vsync: this);
-    if (Get.isRegistered<HomeController>()) {
-      _unregister = Get.find<HomeController>().registerPage(
-        HomeTabType.rank,
-        DiscoveryPageHandle(
-          () => _current?.scrollController ?? _fallbackScroll,
-          () => _current?.onRefresh() ?? Future.value(),
-          readSnapshot: () => (_current as DiscoveryPageHandle?)?.snapshot,
-        ),
-      );
-    }
+    _unregister = widget.register?.call(
+      DiscoveryPageHandle(
+        () => _current?.scrollController ?? _fallbackScroll,
+        () => _current?.onRefresh() ?? Future.value(),
+        readSnapshot: () => (_current as DiscoveryPageHandle?)?.snapshot,
+      ),
+    );
   }
 
   VoidCallback _register(int index, ScrollOrRefreshMixin handle) {
@@ -95,6 +92,7 @@ class _RankPageState extends State<RankPage>
       indicatorSize: .tab,
       controller: _tabs,
       padding: .only(bottom: MediaQuery.paddingOf(context).bottom + 105),
+      scrollCenterOffset: _scrollCenterOffset,
       tabs: RankType.values.map((e) => VerticalTab(text: e.label)).toList(),
       onTap: (index) {
         if (!_tabs.indexIsChanging) {
@@ -105,4 +103,7 @@ class _RankPageState extends State<RankPage>
       },
     );
   }
+
+  double _scrollCenterOffset() =>
+      widget.bottomBarVisible?.call() == true ? 80 : 0;
 }

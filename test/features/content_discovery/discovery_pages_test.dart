@@ -15,6 +15,7 @@ import 'package:pili_aurora_next/features/content_discovery/data/pgc_repository.
 import 'package:pili_aurora_next/features/content_discovery/data/rank_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
@@ -22,9 +23,8 @@ import 'package:pili_aurora_next/models/model_hot_video_item.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
 import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
+import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';
 import 'package:pili_aurora_next/pages/popular_series/view.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
@@ -35,11 +35,6 @@ import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../../support/memory_box.dart';
-
-class _Main extends MainController {
-  @override
-  void onReady() {}
-}
 
 class _Hot extends HotRepository {
   int requests = 0;
@@ -164,16 +159,25 @@ void main() {
       overrides: [hotRepositoryProvider.overrideWithValue(repository)],
     );
     addTearDown(container.dispose);
-    final home = Get.put(HomeController());
+    DiscoveryPageHandle? registered;
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const GetMaterialApp(home: Scaffold(body: HotPage())),
+        child: GetMaterialApp(
+          home: Scaffold(
+            body: HotPage(
+              register: (handle) {
+                registered = handle;
+                return () => registered = null;
+              },
+            ),
+          ),
+        ),
       ),
     );
     await tester.pump();
     await tester.pump();
-    final handle = home.registeredPage(HomeTabType.hot)!;
+    final handle = registered!;
     final scroll = handle.scrollController;
     expect(repository.requests, 1);
     await handle.onRefresh();
@@ -181,14 +185,13 @@ void main() {
     expect(repository.requests, 2);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
-    expect(home.registeredPage(HomeTabType.hot), isNull);
+    expect(registered, isNull);
     expect(scroll.hasClients, isFalse);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('独立热门页的排行榜入口打开榜单', (tester) async {
     await GStorage.setting.put(SettingBoxKey.showHotRcmd, true);
-    Get.put<MainController>(_Main());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -205,6 +208,60 @@ void main() {
     await tester.tap(find.text('排行榜'));
     await tester.pumpAndSettle();
     expect(find.byType(RankPage), findsOneWidget);
+  });
+
+  testWidgets('独立首页切换排行不夺取主首页的刷新目标', (tester) async {
+    await GStorage.setting.putAll({
+      SettingBoxKey.tabBarSort: [HomeTabType.hot.index, HomeTabType.rank.index],
+      SettingBoxKey.showHotRcmd: true,
+    });
+    addTearDown(() => GStorage.setting.delete(SettingBoxKey.tabBarSort));
+    final hot = _Hot();
+    HomePageActions? primary;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          hotRepositoryProvider.overrideWithValue(hot),
+          rankRepositoryProvider.overrideWithValue(_Rank()),
+        ],
+        child: ImageLoadingScope(
+          enabled: false,
+          child: GetMaterialApp(
+            home: Scaffold(
+              appBar: AppBar(
+                actions: [
+                  TextButton(
+                    onPressed: () => Get.to(const Scaffold(body: HomePage())),
+                    child: const Text('预览'),
+                  ),
+                ],
+              ),
+              body: HomePage(
+                register: (actions) {
+                  primary = actions;
+                  return () => primary = null;
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('预览'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('排行榜').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(RankPage), findsOneWidget);
+    final hotRequests = hot.requests;
+    await primary!.refresh();
+    await tester.pumpAndSettle();
+    expect(hot.requests, hotRequests + 1);
+    Get.back<void>();
+    await tester.pumpAndSettle();
+    expect(find.byType(HotPage), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    expect(primary, isNull);
   });
 
   for (final page in ['排行榜', '每周必看', '追番时间表']) {

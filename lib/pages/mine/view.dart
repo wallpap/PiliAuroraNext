@@ -1,17 +1,37 @@
 import 'package:pili_aurora_next/features/account/presentation/account_dashboard.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
+import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
+import 'package:pili_aurora_next/features/app_shell/presentation/scroll_bars.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
-import 'package:pili_aurora_next/pages/home/view.dart';
+import 'package:pili_aurora_next/features/app_shell/presentation/shell_actions.dart';
 import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+void openMinePage({bool showShellActions = false}) {
+  Get.to(
+    Material(
+      child: ViewSafeArea(
+        top: true,
+        child: MinePage(showBackBtn: true, showShellActions: showShellActions),
+      ),
+    ),
+  );
+}
+
 class MinePage extends StatefulWidget {
-  const MinePage({super.key, this.showBackBtn = false});
+  const MinePage({
+    super.key,
+    this.showBackBtn = false,
+    this.bars,
+    this.isSelected,
+    this.showShellActions = false,
+  });
 
   final bool showBackBtn;
+  final ShellScrollBars? bars;
+  final bool Function()? isSelected;
+  final bool showShellActions;
 
   @override
   State<MinePage> createState() => _MediaPageState();
@@ -19,30 +39,14 @@ class MinePage extends StatefulWidget {
 
 class _MediaPageState extends CommonPageState<MinePage>
     with AutomaticKeepAliveClientMixin {
-  late final MainController _mainController = Get.find<MainController>();
-
   @override
   bool get wantKeepAlive => true;
 
-  bool get checkPage =>
-      _mainController.navigationBars[0] != NavigationBarType.mine &&
-      _mainController.selectedIndex.value == 0;
+  @override
+  ShellScrollBars? get scrollBars => widget.bars;
 
   @override
-  bool onNotificationType1(UserScrollNotification notification) {
-    if (checkPage) {
-      return false;
-    }
-    return super.onNotificationType1(notification);
-  }
-
-  @override
-  bool onNotificationType2(ScrollNotification notification) {
-    if (checkPage) {
-      return false;
-    }
-    return super.onNotificationType2(notification);
-  }
+  bool get respondsToScroll => widget.isSelected?.call() ?? true;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +56,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       showReply: GStorage.reply != null,
       wrapScroll: onBuild,
       onSwitchAccount: () => showAccountSwitchDialog(context),
-      shellActions: !_mainController.hasHome
+      shellActions: widget.showShellActions
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -61,7 +65,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                   icon: const Icon(Icons.search),
                   onPressed: () => Get.toNamed('/search'),
                 ),
-                msgBadge(_mainController),
+                const MessageBadge(),
               ],
             )
           : null,

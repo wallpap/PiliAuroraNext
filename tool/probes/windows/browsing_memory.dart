@@ -16,8 +16,8 @@ import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_feed_sliver.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/pages/home/view.dart';
+import 'package:pili_aurora_next/pages/main/view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/features/account/presentation/account_dashboard.dart';
@@ -26,6 +26,7 @@ import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 
 import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
+import 'mounted_state.dart';
 import 'process_heap_memory.dart';
 
 const _channel = MethodChannel(
@@ -323,8 +324,8 @@ Future<void> main(List<String> arguments) async {
         )
         .timeout(const Duration(seconds: 90));
     final ready = Stopwatch()..start();
-    while (!Get.isRegistered<MainController>() ||
-        !Get.isRegistered<HomeController>() ||
+    MainAppState? shell;
+    while ((shell = findMountedState<MainAppState>()) == null ||
         SmartDialog.checkExist()) {
       if (ready.elapsed > const Duration(seconds: 45)) {
         throw TimeoutException(
@@ -333,16 +334,22 @@ Future<void> main(List<String> arguments) async {
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    final main = Get.find<MainController>();
-    final home = Get.find<HomeController>();
+    final main = shell!;
     void select(NavigationBarType tab) {
-      final index = main.navigationBars.indexOf(tab);
-      if (index < 0) throw StateError('navigation tab unavailable');
-      // 再次选择当前tab会触发刷新；探针只做页面切换。
-      if (main.selectedIndex.value != index) main.setIndex(index);
+      if (!main.showDestination(tab)) {
+        throw StateError('navigation tab unavailable');
+      }
     }
 
     select(NavigationBarType.home);
+    HomePageState? mountedHome;
+    while ((mountedHome = findMountedDescendant<HomePageState>(main)) == null) {
+      if (ready.elapsed > const Duration(seconds: 45)) {
+        throw TimeoutException('home page not ready');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    final home = mountedHome!;
     for (final tab in const [
       HomeTabType.rcmd,
       HomeTabType.hot,
@@ -351,8 +358,7 @@ Future<void> main(List<String> arguments) async {
       HomeTabType.cinema,
       HomeTabType.live,
     ]) {
-      final index = home.tabs.indexOf(tab);
-      if (index < 0) {
+      if (!home.showTab(tab)) {
         visits.add({
           'tab': tab.name,
           'loaded': false,
@@ -360,15 +366,12 @@ Future<void> main(List<String> arguments) async {
         });
         continue;
       }
-      if (home.tabController.index != index) {
-        home.tabController.animateTo(index);
-      }
       await visit(tab.name, () => home.registeredPage(tab), requireItems: true);
     }
     select(NavigationBarType.dynamics);
     await visit(
       'dynamics',
-      () => Get.find<MainController>().dynamicController,
+      () => main.dynamicsHandle,
       requireItems: true,
     );
     select(NavigationBarType.mine);
@@ -470,23 +473,23 @@ Future<void> main(List<String> arguments) async {
           }
           Get.back<void>();
           select(NavigationBarType.home);
-          final index = home.tabs.indexOf(HomeTabType.rcmd);
-          if (index < 0) throw StateError('recommend tab unavailable');
-          if (home.tabController.index != index) {
-            home.tabController.animateTo(index);
+          if (!home.showTab(HomeTabType.rcmd)) {
+            throw StateError('recommend tab unavailable');
           }
           await Future<void>.delayed(Duration(seconds: dwell));
           final controller = home.registeredPage(HomeTabType.rcmd);
           final scroll = controller?.scrollController;
           final expected = scrollOffsets[HomeTabType.rcmd.name];
           final actual =
-              scroll != null && scroll.hasClients && scroll.positions.length == 1
+              scroll != null &&
+                  scroll.hasClients &&
+                  scroll.positions.length == 1
               ? scroll.position.pixels
               : null;
           final sameController =
               controller != null &&
               identityHashCode(controller) ==
-              controllerIdentities[HomeTabType.rcmd.name];
+                  controllerIdentities[HomeTabType.rcmd.name];
           final offsetPreserved =
               expected != null &&
               actual != null &&

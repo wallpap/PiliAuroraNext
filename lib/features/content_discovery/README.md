@@ -1,6 +1,6 @@
 # 内容发现模块
 
-首页推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的业务状态由本模块持有。入口 `pages/rcmd/view.dart` 只适配旧首页壳的滚动与刷新注册；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。动态话题与相关推荐等列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
+首页推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的业务状态由本模块持有。首页直接装配 `RecommendationPage`；热门由页面实例 family 的 `hotFeedProvider` 持有，Widget 只持有滚动句柄。动态话题与相关推荐等列表通过 `DiscoveryListController` 复用作者过滤，业务状态继续由各自页面持有。
 
 ## 状态与依赖
 
@@ -9,7 +9,7 @@
 - `application/discovery_filter.dart`：推荐、搜索与历史发现列表共用作者判定和去重规则。`BlockedAuthors` 按主账号对象及角色代次同步完整名单，沿用按 UID 保存的缓存；在途名单不会覆盖同期确认的拉黑或解除，也不能在凭据替换后回写。`CooperativeAuthors.shared` 只缓存作者身份，共用两个并发名额；屏蔽结论按当前黑名单重算。
 - `application/recommendation_preferences.dart`：观察 Hive 的 App/Web、保留上次内容与历史提示开关。来源切换取消旧查询并从第一页重读；历史开关更新当前提示与下一次刷新，不要求设置页找到已挂载的推荐页。
 - `data/video_filter_preferences.dart`：每页解码读取一份已保存的标题、分区和阈值快照，按入口保留原过滤范围；损坏的正则只禁用对应关键词规则，不阻断列表。
-- `presentation/`：Widget 持有滚动控制器和保活；视口仅上报容量、列数与活动状态。`RecommendationPageHandle` 供旧首页壳刷新、滚动和诊断读取；卸载按句柄身份注销，旧页面不能移除新页面注册。
+- `presentation/`：Widget 持有滚动控制器和保活；视口仅上报容量、列数与活动状态。首页通过构造回调接收 `RecommendationPageHandle` 执行刷新、滚动和诊断读取；卸载按句柄身份注销，旧页面不能移除新页面注册。
 
 没有独立领域对象时直接沿用共享的视频模型；不为目录对称增加转发模型。列表快照不可修改，合作作者集合沿共享模型保留原有补查语义。
 
@@ -48,7 +48,7 @@ PGC 首页通过 `pgcFeedProvider`、`pgcFollowsProvider`、`pgcTimelineProvider
 ## 验证
 
 ```powershell
-fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/discovery_list_controller_test.dart test/pages/common/discovery_account_results_test.dart test/pages/home/controller_lifecycle_test.dart test/architecture/dependency_rules_test.dart
+fvm flutter test --no-pub test/features/content_discovery/ test/pages/common/discovery_list_controller_test.dart test/pages/common/discovery_account_results_test.dart test/pages/main/ test/architecture/dependency_rules_test.dart
 ```
 
 测试覆盖模拟时序、真实角色通知与 Hive 偏好、页面释放、历史位置、有序并发和卡片子树保留。HTTP 显式账号与签名等待回归见 `test/http/video_query_results_test.dart`。封面下载/解码由图片模块独立验证；真实推荐服务、Android/Windows 滚动与探针性能仍需设备验收。

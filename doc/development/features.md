@@ -6,7 +6,8 @@
 
 | 领域 | 页面 | API/服务/模型 | 回归入口 |
 | --- | --- | --- | --- |
-| 首页、热门、排行、PGC 索引 | `main/`、`home/`、`rcmd/`、`hot/`、`rank/`、`popular_*`、`pgc_index/` | [内容发现模块](../../lib/features/content_discovery/README.md) | `test/features/content_discovery/`、`test/pages/member_feed/` |
+| 主导航与角标 | `main/`、`home/`、`mine/` | `lib/features/app_shell/`、`lib/services/settings/navigation_preferences.dart` | `test/pages/main/` |
+| 首页、热门、排行、PGC 索引 | `home/`、`hot/`、`rank/`、`popular_*`、`pgc_index/` | [内容发现模块](../../lib/features/content_discovery/README.md) | `test/features/content_discovery/`、`test/pages/member_feed/` |
 | 搜索 | `search*`、`member_search/`、`live_search/` | [搜索模块](../../lib/features/search/README.md) | `test/pages/search/`、`test/pages/search_results/`、`test/pages/scoped_search/` |
 | 视频、文章、番剧、音频 | `video/`、`article/`、`article_list/`、`pgc/`、`audio/`、`music/` | `video.dart`、`pgc.dart`、`music.dart`、`reply.dart` | `test/pages/video/`、`test/pages/article/`、`test/pages/pgc/`、`test/pages/audio/` |
 | 播放器与原生输出 | 页面通过 `PlaybackOwner` 提交计划及命令 | `lib/plugin/pl_player/playback/`；`playback_contracts.dart`、`playback_session.dart`、`native_playback_runtime.dart` | `test/plugin/pl_player/`、`tool/probes/playback/` |
@@ -32,7 +33,9 @@
 
 ## 首页与内容发现
 
-推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的 Riverpod 调度与共享过滤入口见[内容发现模块](../../lib/features/content_discovery/README.md)。这些首页只向旧首页壳注册滚动/刷新句柄，分类页通过构造回调连接；设置页通过 Hive 偏好通知协作。动态作者与分类由[社区模块](../../lib/features/community/README.md)协调，发布与删除通过领域失效信号同步列表。
+主壳和每个首页实例各自持有 Tab、滚动栏状态和刷新意图；子页通过构造回调连接。独立页面和主题预览不注册到主壳。角标由 `shellBadgesProvider` 调度，消息未读快照仍归账号 Session；搜索词由 `searchHintProvider` 共享并在最后一个订阅释放后销毁。
+
+推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的 Riverpod 调度与共享过滤入口见[内容发现模块](../../lib/features/content_discovery/README.md)。动态作者与分类由[社区模块](../../lib/features/community/README.md)协调，发布与删除通过领域失效信号同步列表。
 
 - `lib/features/content_discovery/presentation/recommendation_viewport.dart` 与卡片共用网格几何，按实际高度、列数和字体缩放补足可视区及一行预取，页脚留白不计入容量。App 推荐按 `idx/pull` 顺序请求；Web 首包按容量取 20～50 项，之后最多并行两页，有序合并并去重。刷新保留历史内容及位置提示。
 - `lib/common/widgets/feed_pagination.dart` 以实际滚动范围触发分页；首页首屏补足由推荐 Notifier 负责。连续五页无增长时停止，失败保留内容，刷新、切号或退出使旧查询失效。所有者与快照修订的规则见[状态管理](state-management.md#查询与分页)。

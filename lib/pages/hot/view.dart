@@ -7,9 +7,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/hot_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
@@ -22,7 +20,16 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class HotPage extends ConsumerStatefulWidget {
-  const HotPage({super.key});
+  const HotPage({
+    super.key,
+    this.register,
+    this.onOpenRank,
+    this.bottomBarVisible,
+  });
+
+  final VoidCallback Function(DiscoveryPageHandle)? register;
+  final bool Function()? onOpenRank;
+  final bool Function()? bottomBarVisible;
 
   @override
   ConsumerState<HotPage> createState() => _HotPageState();
@@ -38,16 +45,13 @@ class _HotPageState extends ConsumerState<HotPage>
   @override
   void initState() {
     super.initState();
-    if (Get.isRegistered<HomeController>()) {
-      _unregister = Get.find<HomeController>().registerPage(
-        HomeTabType.hot,
-        DiscoveryPageHandle(
-          () => _scrollController,
-          () => controller.onRefresh(),
-          readSnapshot: () => ref.read(hotFeedProvider(_owner)),
-        ),
-      );
-    }
+    _unregister = widget.register?.call(
+      DiscoveryPageHandle(
+        () => _scrollController,
+        () => controller.onRefresh(),
+        readSnapshot: () => ref.read(hotFeedProvider(_owner)),
+      ),
+    );
   }
 
   @override
@@ -61,18 +65,13 @@ class _HotPageState extends ConsumerState<HotPage>
   bool get wantKeepAlive => true;
 
   void _openRank() {
-    if (Get.isRegistered<HomeController>()) {
-      final home = Get.find<HomeController>();
-      final index = home.tabs.indexOf(HomeTabType.rank);
-      if (index != -1) {
-        home.tabController.animateTo(index);
-        return;
-      }
-    }
+    if (widget.onOpenRank?.call() == true) return;
     Get.to(
       SimpleScaffold(
         appBar: AppBar(title: const Text('排行榜')),
-        body: const ViewSafeArea(child: RankPage()),
+        body: ViewSafeArea(
+          child: RankPage(bottomBarVisible: widget.bottomBarVisible),
+        ),
       ),
     );
   }

@@ -16,12 +16,9 @@ import 'package:pili_aurora_next/features/content_discovery/data/recommendation_
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/models/model_owner.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/view.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -291,18 +288,25 @@ void main() {
   });
 
   testWidgets('首页壳通过页面句柄刷新，卸载释放注册、滚动与查询', (tester) async {
-    Get.testMode = true;
-    final home = Get.put(HomeController());
+    RecommendationPageHandle? registered;
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: Scaffold(body: RcmdPage())),
+        child: MaterialApp(
+          home: Scaffold(
+            body: RecommendationPage(
+              register: (handle) {
+                registered = handle;
+                return () => registered = null;
+              },
+            ),
+          ),
+        ),
       ),
     );
-    final handle =
-        home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle;
+    final handle = registered!;
     expect(handle.scrollController.hasClients, isTrue);
-    final refresh = home.onRefresh();
+    final refresh = handle.onRefresh();
     expect(repository.calls.first.token.isCancelled, isTrue);
     final target = container
         .read(recommendationFeedProvider.notifier)
@@ -320,7 +324,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(home.registeredPage(HomeTabType.rcmd), isNull);
+    expect(registered, isNull);
     await tester.pump();
     expect(container.exists(recommendationFeedProvider), isFalse);
     expect(

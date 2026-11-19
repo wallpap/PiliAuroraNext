@@ -1,69 +1,193 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/services/messaging/overview.dart';
-import 'package:pili_aurora_next/services/messaging/preferences.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
+import 'package:pili_aurora_next/features/app_shell/presentation/shell_actions.dart';
+import 'package:pili_aurora_next/features/app_shell/presentation/scroll_bars.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
+import 'package:pili_aurora_next/features/search/application/search_hint.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/pages/mine/view.dart';
+import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
+import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/custom_height_widget.dart';
-import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
 import 'package:pili_aurora_next/pages/live/view.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
-import 'package:pili_aurora_next/pages/rcmd/view.dart';
-import 'package:pili_aurora_next/features/account/application/account_profile.dart';
-import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:get/get.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
+typedef HomePageActions = ({
+  VoidCallback toTopOrRefresh,
+  Future<void> Function() refresh,
+});
+
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.bars,
+    this.onOpenMine,
+    this.register,
+  });
+
+  final ShellScrollBars? bars;
+  final VoidCallback? onOpenMine;
+  final VoidCallback Function(HomePageActions)? register;
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends CommonPageState<HomePage>
-    with AutomaticKeepAliveClientMixin {
+class HomePageState extends CommonPageState<HomePage>
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   late ColorScheme _colorScheme;
-  final _homeController = Get.putOrFind(HomeController.new);
-  final _mainController = Get.find<MainController>();
+  late final List<HomeTabType> _tabs;
+  late final TabController _tabController;
+  late final _layout = NavigationLayoutPreferences();
+  ShellScrollBars? _localBars;
+  final _pages = <HomeTabType, ScrollOrRefreshMixin>{};
+  VoidCallback? _unregister, _unregisterDiagnostics;
+  int? _lastDiagnosticTab;
+  ScrollOrRefreshMixin? get _active => _pages[_tabs[_tabController.index]];
 
   @override
-  bool get needsCorrection => _homeController.hideTopBar;
+  ShellScrollBars get scrollBars => widget.bars ?? _localBars!;
+
+  @override
+  bool get needsCorrection => scrollBars.hideTopBar;
 
   @override
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.bars == null) {
+      _localBars = ShellScrollBars(
+        hideInstantly: _layout.hideInstantly,
+        hideTopBar: !_layout.forceSideBar && _layout.hideTopBar,
+        hideBottomBar: false,
+      );
+    }
+    final (:tabs, :index) = NavigationPreferences.readHome();
+    _tabs = tabs;
+    _tabController = TabController(
+      initialIndex: index,
+      length: tabs.length,
+      vsync: this,
+    );
+    if (widget.register case final register?) {
+      _unregister = register((
+        toTopOrRefresh: () => _active?.toTopOrRefresh(),
+        refresh: () async => _active?.onRefresh(),
+      ));
+      _unregisterDiagnostics = Diagnostics.instance.register(
+        'homePage',
+        _capturePage,
+      );
+      _tabController.addListener(_recordTabChange);
+    }
+  }
+
+  VoidCallback _register(HomeTabType type, ScrollOrRefreshMixin handle) {
+    _pages[type] = handle;
+    return () {
+      if (identical(_pages[type], handle)) _pages.remove(type);
+    };
+  }
+
+  Map<String, Object?> _capturePage() {
+    final active = _active;
+    final status = switch (active) {
+      RecommendationPageHandle(:final snapshot) => (
+        snapshot.loading,
+        snapshot.loadingMore,
+      ),
+      DiscoveryPageHandle(snapshot: final snapshot?) => (
+        snapshot.loading,
+        snapshot.loadingMore,
+      ),
+      _ => null,
+    };
+    return {
+      'tab': _tabs[_tabController.index].name,
+      'transitioning': _tabController.indexIsChanging,
+      if (active == null) 'controllerReady': false,
+      if (status case (final loading, final pending)) ...{
+        'requestPending': pending,
+        'state': switch (loading) {
+          Loading() => 'loading',
+          Success() => 'success',
+          Error() => 'error',
+        },
+        'items': loading.dataOrNull?.length ?? 0,
+      },
+    };
+  }
+
+  void _recordTabChange() {
+    final index = _tabController.index;
+    if (_lastDiagnosticTab == index) return;
+    _lastDiagnosticTab = index;
+    Diagnostics.instance.log(
+      DiagnosticLogLevel.debug,
+      'pageSwitch',
+      '切换首页标签',
+      details: {'tab': _tabs[index].name},
+    );
+  }
+
+  ScrollOrRefreshMixin? registeredPage(HomeTabType tab) => _pages[tab];
+
+  bool showTab(HomeTabType tab) {
+    if (!mounted) return false;
+    final index = _tabs.indexOf(tab);
+    if (index < 0) return false;
+    if (_tabController.index != index) _tabController.animateTo(index);
+    return true;
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _colorScheme = ColorScheme.of(context);
+    if (_localBars case final bars?) {
+      bars.useBottomNavigation =
+          !_layout.forceSideBar && MediaQuery.sizeOf(context).isPortrait;
+    }
+  }
+
+  @override
+  void dispose() {
+    _unregister?.call();
+    _unregisterDiagnostics?.call();
+    _pages.clear();
+    _tabController.dispose();
+    _localBars?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     Widget tabBar;
-    if (_homeController.tabs.length > 1) {
+    if (_tabs.length > 1) {
       tabBar = Padding(
         padding: const EdgeInsets.only(top: 4),
         child: SizedBox(
           height: 42,
           width: double.infinity,
           child: TabBar(
-            controller: _homeController.tabController,
-            tabs: _homeController.tabs.map((e) => Tab(text: e.label)).toList(),
+            controller: _tabController,
+            tabs: _tabs.map((e) => Tab(text: e.label)).toList(),
             isScrollable: true,
             dividerColor: Colors.transparent,
             dividerHeight: 0,
@@ -71,15 +195,14 @@ class _HomePageState extends CommonPageState<HomePage>
             tabAlignment: TabAlignment.center,
             onTap: (_) {
               feedBack();
-              if (!_homeController.tabController.indexIsChanging) {
-                _homeController.animateToTop();
+              if (!_tabController.indexIsChanging) {
+                _active?.animateToTop();
               }
             },
           ),
         ),
       );
-      if (_homeController.hideTopBar &&
-          _mainController.barHideType == .instant) {
+      if (scrollBars.showTop != null) {
         tabBar = Material(
           color: _colorScheme.surface,
           child: tabBar,
@@ -90,26 +213,38 @@ class _HomePageState extends CommonPageState<HomePage>
     }
     return Column(
       children: [
-        if (!_mainController.useSideBar &&
-            MediaQuery.sizeOf(context).isPortrait)
-          customAppBar(),
+        if (scrollBars.useBottomNavigation) customAppBar(),
         tabBar,
         Expanded(
           child: onBuild(
             tabBarView(
-              controller: _homeController.tabController,
+              controller: _tabController,
               children: [
-                for (final (index, tab) in _homeController.tabs.indexed)
+                for (final (index, tab) in _tabs.indexed)
                   TabActivity(
-                    controller: _homeController.tabController,
+                    controller: _tabController,
                     index: index,
                     child: switch (tab) {
-                      .live => const LivePage(),
-                      .rcmd => const RcmdPage(),
-                      .hot => const HotPage(),
-                      .rank => const RankPage(),
-                      .bangumi => const PgcPage(tabType: HomeTabType.bangumi),
-                      .cinema => const PgcPage(tabType: HomeTabType.cinema),
+                      .live => LivePage(
+                        register: (handle) => _register(tab, handle),
+                      ),
+                      .rcmd => RecommendationPage(
+                        register: (handle) => _register(tab, handle),
+                      ),
+                      .hot => HotPage(
+                        register: (handle) => _register(tab, handle),
+                        onOpenRank: () => showTab(.rank),
+                        bottomBarVisible: () => scrollBars.bottomVisible,
+                      ),
+                      .rank => RankPage(
+                        register: (handle) => _register(tab, handle),
+                        bottomBarVisible: () => scrollBars.bottomVisible,
+                      ),
+                      .bangumi || .cinema => PgcPage(
+                        key: ValueKey(tab),
+                        tabType: tab,
+                        register: (handle) => _register(tab, handle),
+                      ),
                     },
                   ),
               ],
@@ -126,31 +261,33 @@ class _HomePageState extends CommonPageState<HomePage>
       children: [
         searchBar(),
         const SizedBox(width: 4),
-        msgBadge(_mainController),
+        const MessageBadge(),
         const SizedBox(width: 8),
-        userAvatar(colorScheme: _colorScheme, mainController: _mainController),
+        userAvatar(
+          colorScheme: _colorScheme,
+          onOpenMine: widget.onOpenMine ?? openMinePage,
+        ),
       ],
     );
-    if (_homeController.hideTopBar) {
-      if (_mainController.barOffset case final barOffset?) {
-        return Obx(
-          () {
-            final offset = barOffset.value;
-            return CustomHeightWidget(
-              offset: Offset(0, -offset),
-              height: Style.topBarHeight - offset,
-              child: Padding(
-                padding: padding,
-                child: child,
-              ),
-            );
-          },
+    if (scrollBars.hideTopBar) {
+      if (scrollBars.offset case final barOffset?) {
+        return ValueListenableBuilder(
+          valueListenable: barOffset,
+          builder: (context, offset, child) => CustomHeightWidget(
+            offset: Offset(0, -offset),
+            height: Style.topBarHeight - offset,
+            child: Padding(
+              padding: padding,
+              child: child,
+            ),
+          ),
+          child: child,
         );
       }
-      if (_homeController.showTopBar case final showTopBar?) {
-        return Obx(() {
-          final showSearchBar = showTopBar.value;
-          return AnimatedOpacity(
+      if (scrollBars.showTop case final showTopBar?) {
+        return ValueListenableBuilder(
+          valueListenable: showTopBar,
+          builder: (context, showSearchBar, child) => AnimatedOpacity(
             opacity: showSearchBar ? 1 : 0,
             duration: const Duration(milliseconds: 300),
             child: AnimatedContainer(
@@ -160,8 +297,9 @@ class _HomePageState extends CommonPageState<HomePage>
               padding: padding,
               child: child,
             ),
-          );
-        });
+          ),
+          child: child,
+        );
       }
     }
     return Container(
@@ -174,169 +312,53 @@ class _HomePageState extends CommonPageState<HomePage>
   Widget searchBar() {
     const borderRadius = BorderRadius.all(Radius.circular(25));
     return Expanded(
-      child: SizedBox(
-        height: 44,
-        child: Material(
-          borderRadius: borderRadius,
-          color: _colorScheme.onSecondaryContainer.withValues(alpha: 0.05),
-          child: InkWell(
-            borderRadius: borderRadius,
-            splashColor: _colorScheme.primaryContainer.withValues(
-              alpha: 0.3,
-            ),
-            onTap: () => Get.toNamed(
-              '/search',
-              parameters: _homeController.searchHint.enabled
-                  ? {'hintText': _homeController.searchHint.text.value}
-                  : null,
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 14),
-                Icon(
-                  Icons.search_outlined,
-                  color: _colorScheme.onSecondaryContainer,
-                  semanticLabel: '搜索',
+      child: Consumer(
+        builder: (context, ref, _) {
+          final hint = ref.watch(searchHintProvider);
+          return SizedBox(
+            height: 44,
+            child: Material(
+              borderRadius: borderRadius,
+              color: _colorScheme.onSecondaryContainer.withValues(alpha: 0.05),
+              child: InkWell(
+                borderRadius: borderRadius,
+                splashColor: _colorScheme.primaryContainer.withValues(
+                  alpha: 0.3,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ValueListenableBuilder(
-                    valueListenable: _homeController.searchHint.text,
-                    builder: (context, text, _) => Text(
-                      text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: _colorScheme.outline),
+                onTap: () => Get.toNamed(
+                  '/search',
+                  parameters: hint.enabled
+                      ? {'hintText': hint.text.value}
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 14),
+                    Icon(
+                      Icons.search_outlined,
+                      color: _colorScheme.onSecondaryContainer,
+                      semanticLabel: '搜索',
                     ),
-                  ),
-                ),
-                const SizedBox(width: 5),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Widget userAvatar({
-  required ColorScheme colorScheme,
-  required MainController mainController,
-}) {
-  return Semantics(
-    label: "我的",
-    child: Consumer(
-      builder: (context, ref, child) {
-        final info = ref.watch(accountProfileProvider).info;
-        final incognito = ref.watch(incognitoProvider);
-        if (ref.watch(mainAccountProvider).isLogin) {
-          return Stack(
-            clipBehavior: .none,
-            children: [
-              NetworkImgLayer(
-                type: .avatar,
-                width: 34,
-                height: 34,
-                src: info?.face ?? '',
-              ),
-              Positioned.fill(
-                child: Material(
-                  type: .transparency,
-                  child: InkWell(
-                    onTap: mainController.toMinePage,
-                    splashColor: colorScheme.primaryContainer.withValues(
-                      alpha: 0.3,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ValueListenableBuilder(
+                        valueListenable: hint.text,
+                        builder: (context, text, _) => Text(
+                          text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: _colorScheme.outline),
+                        ),
+                      ),
                     ),
-                    customBorder: const CircleBorder(),
-                  ),
+                    const SizedBox(width: 5),
+                  ],
                 ),
               ),
-              Positioned(
-                right: -4,
-                bottom: -4,
-                child: Builder(
-                  builder: (context) => incognito
-                      ? IgnorePointer(
-                          child: Container(
-                            padding: const .all(2),
-                            decoration: BoxDecoration(
-                              shape: .circle,
-                              color: colorScheme.secondaryContainer,
-                            ),
-                            child: Icon(
-                              size: 14,
-                              MdiIcons.incognito,
-                              color: colorScheme.onSecondaryContainer,
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ),
-            ],
-          );
-        }
-        return SizedBox(
-          width: 38,
-          height: 38,
-          child: IconButton(
-            tooltip: '点击登录',
-            style: IconButton.styleFrom(
-              padding: .zero,
-              backgroundColor: colorScheme.onInverseSurface,
-            ),
-            onPressed: mainController.toMinePage,
-            icon: Icon(
-              Icons.person_rounded,
-              size: 22,
-              color: colorScheme.primary,
-            ),
-          ),
-        );
-      },
-    ),
-  );
-}
-
-Widget msgBadge(MainController mainController) {
-  return Consumer(
-    builder: (context, ref, child) {
-      final unread = ref.watch(overviewProvider);
-      final disableLike = ref.watch(disableLikeMessagesProvider);
-      final isLogin = ref.watch(mainAccountProvider).isLogin;
-      if (!isLogin) return const SizedBox.shrink();
-      return ValueListenableBuilder(
-        valueListenable: mainController.messageBadge,
-        builder: (context, preferences, _) {
-          final total = unread.total(
-            preferences.types,
-            disableLike: disableLike,
-          );
-          final count = total == null || total == 0
-              ? null
-              : total > 99
-              ? '99+'
-              : '$total';
-          final isNumBadge = preferences.mode == .number;
-          return IconButton(
-            tooltip: '消息',
-            onPressed: () {
-              mainController.lastCheckUnreadAt =
-                  DateTime.now().millisecondsSinceEpoch;
-              Get.toNamed('/whisper');
-            },
-            icon: Badge(
-              isLabelVisible: preferences.mode != .hidden && count != null,
-              alignment: isNumBadge
-                  ? const Alignment(0.0, -0.85)
-                  : const Alignment(1.0, -0.85),
-              label: isNumBadge && count != null ? Text(count) : null,
-              child: const Icon(Icons.notifications_none),
             ),
           );
         },
-      );
-    },
-  );
+      ),
+    );
+  }
 }

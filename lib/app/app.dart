@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:pili_aurora_next/features/download/application/download_progress.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -38,6 +40,25 @@ class PiliAuroraNextApp extends StatefulWidget {
 
 class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
   late final _showTitleBar = WindowPreference.showTitleBar.read();
+
+  @override
+  void dispose() {
+    if (widget.playbackRequest == null) {
+      unawaited(
+        GStorage.close().then<void>((_) {}).catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          logger.w(
+            '关闭应用存储失败',
+            error: error.runtimeType,
+            stackTrace: stackTrace,
+          );
+        }),
+      );
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
