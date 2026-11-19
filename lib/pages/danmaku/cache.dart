@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
@@ -164,7 +164,7 @@ class DanmakuCache {
   }
 
   List<DanmakuElement>? getAt(int progress) {
-    final segment = DmUtils.calcSegment(progress);
+    final segment = DanmakuSegment.indexAtMillis(progress);
     if (_loadedSegments.contains(segment) && _segmentOrder.last != segment) {
       // 实际播放中的分段优先保留，旧分段先淘汰。
       _segmentOrder
@@ -184,7 +184,7 @@ class DanmakuCache {
     );
     var index = 0;
     for (final entry in buckets.entries) {
-      if (DmUtils.calcSegment(entry.key * 100) != segment) continue;
+      if (DanmakuSegment.indexAtMillis(entry.key * 100) != segment) continue;
       for (final item in entry.value) {
         retained.add(index++, item);
       }
@@ -217,7 +217,7 @@ class DanmakuCache {
     _fileComplete = true;
     final changed = <int>{};
     for (final element in elements) {
-      final segment = DmUtils.calcSegment(element.progress);
+      final segment = DanmakuSegment.indexAtMillis(element.progress);
       if (_loadedSegments.add(segment)) {
         _segmentOrder.addLast(segment);
         _segmentBytes[segment] = segmentIndexBytes;
@@ -256,7 +256,7 @@ class DanmakuCache {
         segment: segmentIndexBytes,
     };
     for (final entry in buckets.entries) {
-      final segment = DmUtils.calcSegment(entry.key * 100);
+      final segment = DanmakuSegment.indexAtMillis(entry.key * 100);
       if (segment < first || segment > last) continue;
       segmentBytes[segment] =
           segmentBytes[segment]! +
@@ -276,7 +276,7 @@ class DanmakuCache {
       _segmentBuckets[segment] = {};
     }
     for (final entry in buckets.entries) {
-      final segment = DmUtils.calcSegment(entry.key * 100);
+      final segment = DanmakuSegment.indexAtMillis(entry.key * 100);
       if (segment < first || segment > last) continue;
       _buckets[entry.key] = _ordered(entry.value);
       _segmentBuckets[segment]!.add(entry.key);

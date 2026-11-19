@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -227,11 +227,11 @@ class PlDanmakuController implements DanmakuTimelineSource {
         kind: DanmakuSourceChangeKind.coverage,
         ruleRevision: _ruleRevision,
         startUs: segment == null
-            ? _fileDesired.first * 360000000
-            : segment * 360000000,
+            ? _fileDesired.first * DanmakuSegment.durationMicros
+            : segment * DanmakuSegment.durationMicros,
         endUs: segment == null
-            ? (_fileDesired.last + 1) * 360000000
-            : (segment + 1) * 360000000,
+            ? (_fileDesired.last + 1) * DanmakuSegment.durationMicros
+            : (segment + 1) * DanmakuSegment.durationMicros,
       ),
     );
   }
@@ -342,8 +342,12 @@ class PlDanmakuController implements DanmakuTimelineSource {
       DanmakuSourceChange(
         kind: DanmakuSourceChangeKind.ready,
         ruleRevision: revision,
-        startUs: segmentIndex == null ? 0 : segmentIndex * 360000000,
-        endUs: segmentIndex == null ? null : (segmentIndex + 1) * 360000000,
+        startUs: segmentIndex == null
+            ? 0
+            : segmentIndex * DanmakuSegment.durationMicros,
+        endUs: segmentIndex == null
+            ? null
+            : (segmentIndex + 1) * DanmakuSegment.durationMicros,
       ),
     );
   }
@@ -352,7 +356,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
     if (_isFileSource) {
       unawaited(ensureRange(progress * 1000, (progress + 100) * 1000));
     } else {
-      final int segmentIndex = DmUtils.calcSegment(progress);
+      final segmentIndex = DanmakuSegment.indexAtMillis(progress);
       if (!_requestedSeg.contains(segmentIndex) &&
           !_cache.containsSegment(segmentIndex)) {
         queryDanmaku(segmentIndex);
@@ -367,7 +371,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
     if (startUs < 0 || endUs < startUs) throw ArgumentError('弹幕请求范围无效');
     if (_disposed || startUs == endUs) return;
     if (_isFileSource) {
-      const segmentUs = DmUtils.segLength * 1000;
+      const segmentUs = DanmakuSegment.durationMicros;
       final first = startUs ~/ segmentUs;
       final last = ((endUs - 1) ~/ segmentUs).clamp(
         first,
@@ -382,7 +386,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
       await _scheduleFileRange();
       return;
     }
-    const segmentUs = DmUtils.segLength * 1000;
+    const segmentUs = DanmakuSegment.durationMicros;
     final first = startUs ~/ segmentUs;
     final last = ((endUs - 1) ~/ segmentUs).clamp(
       first,
@@ -555,8 +559,8 @@ class PlDanmakuController implements DanmakuTimelineSource {
       selfHash: _isLogin ? _plPlayerController.midHash : null,
       filter: _plPlayerController.filters,
     );
-    final start = first * DmUtils.segLength;
-    final end = (last + 1) * DmUtils.segLength;
+    final start = first * DanmakuSegment.durationMillis;
+    final end = (last + 1) * DanmakuSegment.durationMillis;
     final retained = DanmakuPriorityRetention(
       maxElements: _cache.maxElements,
       maxPerBucket: DanmakuDisplayLimits.maxPerBatch,

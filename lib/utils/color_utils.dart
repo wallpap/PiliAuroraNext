@@ -6,6 +6,8 @@ abstract final class ColourUtils {
 
   static Color parseColor(String color) => Color(parse2Int(color));
 
+  static Color opaqueRgb(int rgb) => Color(rgb | 0xFF000000);
+
   static Color parseMedalColor(String color) {
     final rgba = int.parse(color.substring(1), radix: 16);
     return Color.fromARGB(rgba, rgba >> 24, rgba >> 16, rgba >> 8);

@@ -40,7 +40,8 @@ import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
+import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
@@ -969,8 +970,8 @@ class LiveRoomController extends GetxController {
             msg,
             color: DanmakuOptions.blockColorful
                 ? Colors.white
-                : DmUtils.decimalToColor(extra['color']),
-            type: DmUtils.getPosition(extra['mode']),
+                : ColourUtils.opaqueRgb(extra['color']),
+            type: danmakuPosition(extra['mode']),
             // extra['send_from_me'] is invalid
             selfSend: isLogin && uid == mid,
             extra: liveExtra,

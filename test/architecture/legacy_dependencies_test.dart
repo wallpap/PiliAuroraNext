@@ -21,7 +21,6 @@ const _legacyUtilities = {
   'utils/accounts.dart',
   'utils/app_sign.dart',
   'utils/credential_cipher.dart',
-  'utils/danmaku_utils.dart',
   'utils/global_data.dart',
   'utils/login_utils.dart',
   'utils/media_author_filter.dart',

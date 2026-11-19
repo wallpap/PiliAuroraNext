@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
 import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
 
@@ -71,7 +71,7 @@ class DanmakuProcessingRules {
   bool retain(DanmakuElement element) {
     if (!fileSource &&
         (segmentIndex == null ||
-            DmUtils.calcSegment(element.progress) != segmentIndex)) {
+            DanmakuSegment.indexAtMillis(element.progress) != segmentIndex)) {
       return false;
     }
     if (selfHash != null) element.isSelf = element.midHash == selfHash;

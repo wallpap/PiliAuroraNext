@@ -18,7 +18,8 @@ import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_screen.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
+import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -144,7 +145,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
     );
     final color = DanmakuOptions.blockColorful
         ? Colors.white
-        : DmUtils.decimalToColor(element.color);
+        : ColourUtils.opaqueRgb(element.color);
     if (element.mode == 7) {
       try {
         return SpecialDanmakuContentItem<DanmakuExtra>.fromList(
@@ -160,7 +161,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
     return DanmakuContentItem<DanmakuExtra>(
       element.content,
       color: color,
-      type: DmUtils.getPosition(element.mode),
+      type: danmakuPosition(element.mode),
       isColorful:
           player.showVipDanmaku &&
           !DanmakuOptions.blockColorful &&

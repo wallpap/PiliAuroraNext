@@ -73,16 +73,12 @@ pages/common/publish/common_rich_text_pub_page.dart -> package:dio/dio.dart
 pages/common/publish/common_rich_text_pub_page.dart -> utils/accounts.dart
 pages/common/search/common_search_controller.dart#CommonSearchController -> CommonListController
 pages/common/slide/common_slide_page.dart -> utils/storage_pref.dart
-pages/danmaku/cache.dart -> utils/danmaku_utils.dart
 pages/danmaku/controller.dart -> utils/accounts.dart
-pages/danmaku/controller.dart -> utils/danmaku_utils.dart
 pages/danmaku/controller.dart -> utils/storage_pref.dart
 pages/danmaku/frame_rate_setting.dart -> package:hive_ce/hive.dart
 pages/danmaku/frame_rate_setting.dart -> utils/storage.dart
 pages/danmaku/frame_rate_setting.dart -> utils/storage_pref.dart
-pages/danmaku/processing_rules.dart -> utils/danmaku_utils.dart
 pages/danmaku/view.dart -> package:hive_ce/hive.dart
-pages/danmaku/view.dart -> utils/danmaku_utils.dart
 pages/danmaku/view.dart -> utils/storage.dart
 pages/danmaku/view.dart -> utils/storage_pref.dart
 pages/dynamics/widgets/additional_panel.dart -> http/dynamics.dart
@@ -120,7 +116,6 @@ pages/live_area/controller.dart -> http/live.dart
 pages/live_area/controller.dart -> utils/accounts.dart
 pages/live_room/controller.dart -> package:dio/dio.dart
 pages/live_room/controller.dart -> utils/accounts.dart
-pages/live_room/controller.dart -> utils/danmaku_utils.dart
 pages/live_room/controller.dart -> utils/global_data.dart
 pages/live_room/controller.dart -> utils/storage_pref.dart
 pages/live_room/controller.dart#LiveRoomController -> GetxController
@@ -184,7 +179,6 @@ pages/setting/pages/fullscreen_sc_size.dart -> utils/storage_pref.dart
 pages/setting/pages/play_speed_set.dart -> package:hive_ce/hive.dart
 pages/setting/pages/play_speed_set.dart -> utils/storage.dart
 pages/setting/pages/play_speed_set.dart -> utils/storage_pref.dart
-pages/setting/slide_color_picker.dart -> utils/danmaku_utils.dart
 pages/setting/widgets/decoder_test_dialog.dart -> http/video.dart
 pages/setting/widgets/decoder_test_dialog.dart -> utils/storage_pref.dart
 pages/setting/widgets/doc_provider_item.dart -> utils/storage.dart
@@ -252,7 +246,6 @@ pages/video/reply/view.dart -> utils/storage_pref.dart
 pages/video/reply/widgets/reply_item_grpc.dart -> http/reply.dart
 pages/video/reply/widgets/reply_item_grpc.dart -> http/video.dart
 pages/video/reply/widgets/reply_item_grpc.dart -> utils/accounts.dart
-pages/video/reply/widgets/reply_item_grpc.dart -> utils/danmaku_utils.dart
 pages/video/reply/widgets/reply_item_grpc.dart -> utils/global_data.dart
 pages/video/reply/widgets/reply_item_grpc.dart -> utils/storage_pref.dart
 pages/video/reply/widgets/zan_grpc.dart -> http/reply.dart

@@ -20,7 +20,7 @@ import 'package:pili_aurora_next/features/download/data/download_manager.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
@@ -460,7 +460,7 @@ class DownloadService extends ChangeNotifier {
     bool Function() isActive,
   ) async {
     if (_prepareDanmakuOverride case final prepare?) return prepare(entry);
-    final seg = (entry.totalTimeMilli / DmUtils.segLength).ceil();
+    final seg = (entry.totalTimeMilli / DanmakuSegment.durationMillis).ceil();
     if (seg <= 0) throw StateError('Invalid danmaku segment count: $seg');
     final danmaku = (await DmGrpc.dmSegMobile(
       cid: entry.cid,

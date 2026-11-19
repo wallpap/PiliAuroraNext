@@ -34,7 +34,6 @@ import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
@@ -204,10 +203,10 @@ class ReplyItemGrpc extends StatelessWidget {
                       MedalWidget(
                         medalName: member.medalName,
                         level: member.medalLevel!,
-                        backgroundColor: DmUtils.decimalToColor(
+                        backgroundColor: ColourUtils.opaqueRgb(
                           member.medalColor,
                         ),
-                        nameColor: DmUtils.decimalToColor(
+                        nameColor: ColourUtils.opaqueRgb(
                           member.medalNameColor,
                         ),
                         padding: const .symmetric(horizontal: 6, vertical: 1.5),

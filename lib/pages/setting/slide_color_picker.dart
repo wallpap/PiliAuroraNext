@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
+import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:flutter/services.dart'
     show LengthLimitingTextInputFormatter, FilteringTextInputFormatter;
 import 'package:get/get.dart';
@@ -88,7 +88,7 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
         children: [
           Container(
             height: 100,
-            color: DmUtils.decimalToColor(_rgb),
+            color: ColourUtils.opaqueRgb(_rgb),
           ),
           const SizedBox(height: 10),
           IntrinsicWidth(
@@ -168,7 +168,7 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
               TextButton(
                 onPressed: () {
                   Get.back();
-                  widget.onChanged(DmUtils.decimalToColor(_rgb));
+                  widget.onChanged(ColourUtils.opaqueRgb(_rgb));
                 },
                 child: const Text('确定'),
               ),
