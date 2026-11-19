@@ -4,6 +4,8 @@
 
 统一行尾后，PiliPlus `a30fcc31043e10cd38c198f47ddd7b23fd6e6163` 与 PiliAurora `767e5f50d604156fab6ad329a062fc873491f50e` 中的 99 个生成文件均与此快照一致。这两份归档都缺少对应 `.proto` 输入、生成命令和生成器锁定版本。更新时先核对源定义、上游修订和发布许可，再固定生成器并运行协议与调用方回归。
 
+PiliPalaX `2da94140c2b49402dac2597aa6553bfc65b8663a` 的 `lib/models/danmaku/dm.proto` 属于较早的协议定义。其 `DmViewReply` 字段 9 是 `string`，当前快照为 `bool`；该定义也缺少当前 `DmSegMobileReq` 的字段 10 和 11。不要用它覆盖现有弹幕协议快照。
+
 从仓库根目录可按用途限定搜索范围。
 
 ```powershell
