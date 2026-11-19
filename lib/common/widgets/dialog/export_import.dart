@@ -1,12 +1,14 @@
 import 'dart:async' show FutureOr;
 import 'dart:convert' show utf8, jsonDecode;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/storage_utils.dart';
+import 'package:pili_aurora_next/services/file_export.dart';
+import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart' show Clipboard;
@@ -30,13 +32,31 @@ void exportToLocalFile({
   required ValueGetter<String> localFileName,
 }) {
   final res = utf8.encode(onExport());
-  StorageUtils.saveBytes2File(
+  saveExport(
     name:
         '${Constants.dartPackageName}_${localFileName()}_'
         '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
     bytes: res,
     allowedExtensions: const ['json'],
   );
+}
+
+Future<void> saveExport({
+  required String name,
+  required Uint8List bytes,
+  required List<String> allowedExtensions,
+}) async {
+  try {
+    final saved = await exportFile(
+      name: name,
+      bytes: bytes,
+      allowedExtensions: allowedExtensions,
+    );
+    SmartDialog.showToast(saved ? '已保存' : '取消保存');
+  } catch (error, stackTrace) {
+    logger.w('保存失败', error: error.runtimeType, stackTrace: stackTrace);
+    SmartDialog.showToast('保存失败，请检查保存位置后重试');
+  }
 }
 
 Future<void> importFromClipBoard<T>(

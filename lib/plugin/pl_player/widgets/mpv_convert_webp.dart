@@ -4,9 +4,9 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:isolate';
 
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/webp_capture_operation.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;

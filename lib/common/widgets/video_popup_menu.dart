@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/common/widgets/dialog/video_feedback.dart';
 import 'package:pili_aurora_next/pages/video/ai_conclusion/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -141,7 +141,7 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                       const Icon(MdiIcons.clockTimeEightOutline, size: 16),
                       () => addToWatchLater(bvid: videoItem.bvid),
                     ),
-                  if (videoItem.cid != null && Pref.enableAi)
+                  if (videoItem.cid != null && VideoPreferences.showAiSummary)
                     _VideoCustomAction(
                       'AI总结',
                       const Icon(CustomIcons.ai_circle, size: 16),

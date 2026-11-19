@@ -15,8 +15,8 @@ import 'package:pili_aurora_next/features/playback/application/audio_media.dart'
 import 'package:pili_aurora_next/features/playback/application/audio_playlist.dart';
 import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/audio_normalization.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart'

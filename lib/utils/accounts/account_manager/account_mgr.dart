@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/request_failure_policy.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';

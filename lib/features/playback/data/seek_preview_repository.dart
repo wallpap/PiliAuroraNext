@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/features/playback/domain/seek_preview.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';

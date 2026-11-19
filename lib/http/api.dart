@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 
 abstract final class Api {
   // 推荐视频

@@ -31,7 +31,6 @@ import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
@@ -60,7 +59,7 @@ class ImageModel {
   bool get isLivePhoto =>
       _isLivePhoto ??= enableLivePhoto && liveUrl?.isNotEmpty == true;
 
-  static bool enableLivePhoto = Pref.enableLivePhoto;
+  static bool enableLivePhoto = DisplayPreferences.playLivePhotos;
 }
 
 class ImageGridView extends StatelessWidget {
@@ -75,7 +74,7 @@ class ImageGridView extends StatelessWidget {
   final VoidCallback? onViewImage;
   final bool fullScreen;
 
-  static bool horizontalPreview = Pref.horizontalPreview;
+  static bool horizontalPreview = DisplayPreferences.landscapeImagePreview;
   static final _regex = RegExp(r'/videoV|/dynamicDetail$|/articlePage');
 
   void _onTap(BuildContext context, int index) {
@@ -140,7 +139,7 @@ class ImageGridView extends StatelessWidget {
     );
   }
 
-  static bool enableImgMenu = Pref.enableImgMenu;
+  static bool enableImgMenu = DisplayPreferences.showImageMenu;
 
   void _showMenu(BuildContext context, int index, Offset offset) {
     HapticFeedback.mediumImpact();

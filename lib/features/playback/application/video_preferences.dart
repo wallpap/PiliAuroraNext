@@ -25,6 +25,9 @@ abstract final class VideoPreferences {
       GStorage.setting.put(SettingBoxKey.coinWithLike, value);
 
   static CDNService get cdn => Pref.defaultCDNService;
+  static bool get bypassAudioCdnRewrite => Pref.disableAudioCDN;
+  static bool get enableCdnFallback => Pref.enableMultiCdn;
+  static List<CDNService> get cdnFallbackOrder => Pref.cdnFallbackOrder;
 
   static Future<void> saveCdn(CDNService value) =>
       GStorage.setting.put(SettingBoxKey.CDNService, value.name);

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/features/playback/application/video_details.dart';
 import 'package:pili_aurora_next/features/playback/application/season_collection.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

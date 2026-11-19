@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/models/horizontal_video_model.dart';
 import 'package:pili_aurora_next/models/model_avatar.dart';
 import 'package:pili_aurora_next/models/model_owner.dart';

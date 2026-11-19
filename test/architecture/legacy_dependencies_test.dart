@@ -74,85 +74,79 @@ bool _isRestricted(String target) =>
     target.startsWith('package:shared_preferences/');
 
 bool _isTransport(String target) =>
-    (target.startsWith('http/') &&
-        target != 'http/loading_state.dart' &&
-        target != 'http/constants.dart' &&
-        target != 'http/browser_ua.dart') ||
+    (target.startsWith('http/') && target != 'http/loading_state.dart') ||
     target.startsWith('grpc/') ||
     target.startsWith('package:dio/') ||
     target.startsWith('package:grpc/');
 
 void main() {
-  test('application code introduces no new legacy dependency', () {
-    final registry = jsonDecode(
-      File('third_party/dependencies.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
-    final vendoredImplementations = <String>[
-      for (final entry in registry['packages'] as List<dynamic>)
-        'package:${entry['name']}/src/',
-      '../third_party/',
-    ];
-    final baseTypes = <String, Set<String>>{};
-    final violations = <String>{};
-    final directTransport = <String>{};
-    for (final file in Directory('lib').listSync(recursive: true)) {
-      if (file is! File || !file.path.endsWith('.dart')) continue;
-      final source = path
-          .relative(file.path, from: 'lib')
-          .replaceAll('\\', '/');
-      if (source.startsWith('generated/') || source.endsWith('.g.dart')) {
-        continue;
-      }
-      final unit = parseSource(file.readAsStringSync());
-      for (final call in matchingUnitStaticCalls(unit, _getxRegistryCalls)) {
-        violations.add('$source -> $call');
-      }
-      if (_isPresentation(source)) {
-        for (final uri in unitDependencies(unit)) {
-          final target = localDependency(file, uri) ?? uri;
-          if (_isTransport(target)) directTransport.add('$source -> $target');
-          if (_isRestricted(target) ||
-              vendoredImplementations.any(target.startsWith)) {
-            violations.add('$source -> $target');
+  test(
+    'presentation has no transport, storage or GetX business dependencies',
+    () {
+      final registry = jsonDecode(
+        File('third_party/dependencies.json').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      final vendoredImplementations = <String>[
+        for (final entry in registry['packages'] as List<dynamic>)
+          'package:${entry['name']}/src/',
+        '../third_party/',
+      ];
+      final baseTypes = <String, Set<String>>{};
+      final violations = <String>{};
+      final directTransport = <String>{};
+      for (final file in Directory('lib').listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        final source = path
+            .relative(file.path, from: 'lib')
+            .replaceAll('\\', '/');
+        if (source.startsWith('generated/') || source.endsWith('.g.dart')) {
+          continue;
+        }
+        final unit = parseSource(file.readAsStringSync());
+        for (final call in matchingUnitStaticCalls(unit, _getxRegistryCalls)) {
+          violations.add('$source -> $call');
+        }
+        if (_isPresentation(source)) {
+          for (final uri in unitDependencies(unit)) {
+            final target = localDependency(file, uri) ?? uri;
+            if (_isTransport(target)) directTransport.add('$source -> $target');
+            final readsSettingsCatalog =
+                target == 'services/settings/stored_preferences.dart' &&
+                !source.startsWith('pages/setting/');
+            if (_isRestricted(target) ||
+                readsSettingsCatalog ||
+                vendoredImplementations.any(target.startsWith)) {
+              violations.add('$source -> $target');
+            }
           }
         }
+        for (final (:name, :base) in typeInheritance(unit)) {
+          baseTypes.putIfAbsent(base, () => {}).add('$source#$name');
+        }
       }
-      for (final (:name, :base) in typeInheritance(unit)) {
-        baseTypes.putIfAbsent(base, () => {}).add('$source#$name');
-      }
-    }
 
-    final pending = _getxTypes.toList();
-    final visited = <String>{};
-    while (pending.isNotEmpty) {
-      final base = pending.removeLast();
-      if (!visited.add(base)) continue;
-      for (final subtype in baseTypes[base] ?? const <String>{}) {
-        violations.add('$subtype -> $base');
-        pending.add(subtype.split('#').last);
+      final pending = _getxTypes.toList();
+      final visited = <String>{};
+      while (pending.isNotEmpty) {
+        final base = pending.removeLast();
+        if (!visited.add(base)) continue;
+        for (final subtype in baseTypes[base] ?? const <String>{}) {
+          violations.add('$subtype -> $base');
+          pending.add(subtype.split('#').last);
+        }
       }
-    }
 
-    final baseline = File('test/architecture/legacy_dependencies.txt')
-        .readAsLinesSync()
-        .where((line) => line.isNotEmpty && !line.startsWith('#'))
-        .toSet();
-    final added = violations.difference(baseline).toList()..sort();
-    final removed = baseline.difference(violations).toList()..sort();
-    expect(
-      directTransport,
-      isEmpty,
-      reason: 'Presentation must not access transport directly',
-    );
-    expect(
-      added,
-      isEmpty,
-      reason: 'New legacy dependencies:\n${added.join('\n')}',
-    );
-    expect(
-      removed,
-      isEmpty,
-      reason: 'Remove obsolete baseline entries:\n${removed.join('\n')}',
-    );
-  });
+      final forbidden = violations.toList()..sort();
+      expect(
+        directTransport,
+        isEmpty,
+        reason: 'Presentation must not access transport directly',
+      );
+      expect(
+        forbidden,
+        isEmpty,
+        reason: 'Forbidden dependencies:\n${forbidden.join('\n')}',
+      );
+    },
+  );
 }

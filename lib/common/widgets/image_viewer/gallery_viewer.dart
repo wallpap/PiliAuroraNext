@@ -38,7 +38,7 @@ import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/max_screen_size.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:flutter/gestures.dart';
@@ -133,7 +133,7 @@ class _GalleryViewerState extends State<GalleryViewer>
   @override
   void initState() {
     super.initState();
-    _quality = Pref.previewQ;
+    _quality = DisplayPreferences.galleryQuality;
     _currIndex = widget.initIndex.obs;
     final item = widget.sources[widget.initIndex];
     _playIfNeeded(item);

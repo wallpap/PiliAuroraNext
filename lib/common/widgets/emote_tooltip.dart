@@ -3,10 +3,10 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
-bool enableEmoteTooltip = Pref.enableEmoteTooltip;
+bool enableEmoteTooltip = DisplayPreferences.showEmoteTooltips;
 
 final TriggerMode_ kTriggerMode = PlatformUtils.isDesktop ? .mouse : .longPress;
 

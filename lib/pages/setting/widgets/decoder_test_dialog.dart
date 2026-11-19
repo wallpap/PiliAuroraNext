@@ -7,7 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
 import 'package:pili_aurora_next/pages/setting/decoder_test.dart';

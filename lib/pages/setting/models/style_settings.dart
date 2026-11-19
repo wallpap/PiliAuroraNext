@@ -17,7 +17,8 @@ import 'package:pili_aurora_next/common/widgets/emote_tooltip.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
     show RefreshIndicator, displacement, refreshDragExtent;
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
-    show deviceTouchSlop, touchSlopH;
+    show touchSlopH;
+import 'package:pili_aurora_next/services/settings/gesture_defaults.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart'
     show ImageGridView, ImageModel;
@@ -58,7 +59,7 @@ import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 
 List<SettingsModel> styleSettings(BuildContext context) => _styleSettings(

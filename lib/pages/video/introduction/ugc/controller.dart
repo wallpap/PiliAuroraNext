@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show ReloadMixin;
 import 'package:pili_aurora_next/features/playback/application/video_details.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/remote/member_card_info/data.dart';

@@ -31,7 +31,7 @@ import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -413,7 +413,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
   }
 
-  late final int? vipStatus = Pref.userInfoCache?.vipStatus;
+  late final int? vipStatus = AccountProfile.legacy.currentInfo?.vipStatus;
   Widget _buildEpisodeItem({
     required ThemeData theme,
     required ugc.BaseEpisodeItem episode,

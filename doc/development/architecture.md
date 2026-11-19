@@ -71,7 +71,7 @@ Riverpod 由根 ProviderScope 装配，页面查询和应用级服务按各自�
 
 新增业务状态使用 Riverpod，GetX 保留路由及存量适配。页面通过功能的应用层读取状态和提交意图；传输、全局存储和跨领域业务工具由数据层或明确的服务所有者访问。
 
-[全库依赖检查](../../test/architecture/legacy_dependencies_test.dart)拒绝新增 GetX 业务类型和展示层依赖越界。迁移时删除[对应基线条目](../../test/architecture/legacy_dependencies.txt)，不为新入口添加例外。`LoadingState` 目前仍是共享结果类型，生成文件不纳入业务源码检查。
+[全库依赖检查](../../test/architecture/legacy_dependencies_test.dart)拒绝 GetX 业务类型、展示层直接访问传输或存储，以及在设置区之外直接读取完整设置目录。展示层通过所属模块的配置接口读写偏好；设置区可读取类型化设置目录，但不直接访问存储。`LoadingState` 仍是共享结果类型，生成文件不纳入业务源码检查。
 
 ## 桌面窗口与标题栏
 

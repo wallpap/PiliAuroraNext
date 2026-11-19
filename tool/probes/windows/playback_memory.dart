@@ -23,7 +23,7 @@ import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/services/web_account_cookies.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -204,7 +204,7 @@ Future<void> main(List<String> arguments) async {
     if (retainWebView) releaseWebControl = AppWebViewEnvironment.retain();
     if (eagerWebView) {
       await AppWebViewEnvironment.ensureInitialized();
-      await LoginUtils.setWebCookie();
+      await WebAccountCookies.sync();
     }
     if (cacheMiB != null) {
       if (cacheMiB < 1) throw ArgumentError('Positive cache size required');
@@ -594,7 +594,7 @@ Future<void> main(List<String> arguments) async {
           () => Scaffold(
             body: WebViewReady(
               prepare: () async {
-                if (!await LoginUtils.setWebCookie()) {
+                if (!await WebAccountCookies.sync()) {
                   throw StateError('Web account changed');
                 }
               },
@@ -622,7 +622,7 @@ Future<void> main(List<String> arguments) async {
         await loaded.future.timeout(const Duration(seconds: 30));
         final expectedCookies = Accounts.main.cookieJar.toList();
         // 浏览响应仍可能更新匿名设备 Cookie；先同步本次快照再读取，不比较过期时点。
-        await LoginUtils.setWebCookie();
+        await WebAccountCookies.sync();
         final webCookies = web.CookieManager.instance(
           webViewEnvironment: AppWebViewEnvironment.instance,
         );

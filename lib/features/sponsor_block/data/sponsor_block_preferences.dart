@@ -3,7 +3,7 @@ import 'dart:ui' show Color;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
 import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';

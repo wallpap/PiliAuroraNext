@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 
 class LiveRoomSource {
   const LiveRoomSource._({
@@ -85,7 +85,7 @@ class LiveRoomSource {
     if (liveUrlIndex < 0 || liveUrlIndex >= item.urlInfo.length) {
       throw const FormatException('直播地址已失效');
     }
-    final urls = VideoUtils.getLiveCdnUrls(item, index: liveUrlIndex);
+    final urls = MediaSourceSelection.getLiveCdnUrls(item, index: liveUrlIndex);
     return LiveRoomSource._(
       streams: streams,
       streamIndex: streamIndex,

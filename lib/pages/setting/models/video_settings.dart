@@ -19,8 +19,8 @@ import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/video_buffer_policy.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 
 List<SettingsModel> get videoSettings => [
@@ -143,13 +143,12 @@ List<SettingsModel> get videoSettings => [
         setKey: SettingBoxKey.cdnSpeedTest,
         defaultVal: true,
       ),
-      SwitchModel(
+      const SwitchModel(
         title: '音频不跟随 CDN 设置',
         subtitle: '直接采用备用 URL，可解决部分视频无声',
-        leading: const Icon(MdiIcons.musicNotePlus),
+        leading: Icon(MdiIcons.musicNotePlus),
         setKey: SettingBoxKey.disableAudioCDN,
         defaultVal: false,
-        onChanged: (value) => VideoUtils.disableAudioCDN = value,
       ),
     ],
   ),
@@ -323,12 +322,7 @@ Future<void> _showLiveCDNDialog(BuildContext context, VoidCallback setState) =>
               : value.startsWith('http')
               ? value
               : 'https://$value';
-          if (host == null) {
-            await SettingsValues.general.reset(SettingBoxKey.liveCdnUrl);
-          } else {
-            await SettingsValues.general.save(SettingBoxKey.liveCdnUrl, host);
-          }
-          VideoUtils.liveCdnUrl = host;
+          await LivePreferences.saveCdnHost(host);
           setState();
         },
       ),

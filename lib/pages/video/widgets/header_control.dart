@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
-import 'package:pili_aurora_next/utils/storage_utils.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:battery_plus/battery_plus.dart';
@@ -302,7 +302,7 @@ class HeaderControlState extends State<HeaderControl>
                             '_',
                           );
                   // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
-                  await StorageUtils.saveBytes2File(
+                  await saveExport(
                     name: name,
                     bytes: result.data,
                     allowedExtensions: [format.name],

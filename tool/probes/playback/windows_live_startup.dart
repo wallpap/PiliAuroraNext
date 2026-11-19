@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/shader_updates.dart';
 
 /// 用真实 mpv/ANGLE 检查首次播放及刷新后的纹理像素，音频输出为 null。

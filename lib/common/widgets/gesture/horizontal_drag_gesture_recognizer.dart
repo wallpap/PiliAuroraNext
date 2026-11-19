@@ -1,5 +1,4 @@
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:flutter/foundation.dart' show PlatformDispatcher;
+import 'package:pili_aurora_next/services/settings/input_preferences.dart';
 import 'package:flutter/gestures.dart';
 
 mixin InitialPositionMixin on GestureRecognizer {
@@ -50,7 +49,7 @@ class CustomHorizontalDragGestureRecognizer
   Type get runtimeType => HorizontalDragGestureRecognizer;
 }
 
-double touchSlopH = Pref.touchSlopH;
+double touchSlopH = InputPreferences.horizontalTouchSlop;
 
 bool _computeHitSlop(
   double globalDistanceMoved,
@@ -77,14 +76,4 @@ bool _computeHitSlop(
 bool _calcAngle(Offset initialPosition, Offset lastPosition) {
   final offset = lastPosition - initialPosition;
   return offset.dx.abs() > offset.dy.abs() * 3;
-}
-
-final deviceTouchSlop = _calcDeviceTouchSlop();
-
-double _calcDeviceTouchSlop() {
-  final view = PlatformDispatcher.instance.views.first;
-  final physicalTouchSlop = view.gestureSettings.physicalTouchSlop;
-  return physicalTouchSlop == null
-      ? kTouchSlop
-      : physicalTouchSlop / view.devicePixelRatio;
 }

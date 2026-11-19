@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 
 final class CdnSpeedProbe {
   CdnSpeedProbe({Dio? client}) : _client = client ?? Dio() {
@@ -53,7 +53,7 @@ final class CdnSpeedProbe {
     }
 
     try {
-      final url = VideoUtils.getCdnUrl(
+      final url = MediaSourceSelection.getCdnUrl(
         video.playUrls,
         defaultCDNService: service,
       );

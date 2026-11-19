@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -7,7 +7,7 @@ class CustomToast extends StatelessWidget {
 
   final String msg;
 
-  static double toastOpacity = Pref.defaultToastOp;
+  static double toastOpacity = DisplayPreferences.toastOpacity;
 
   @override
   Widget build(BuildContext context) {

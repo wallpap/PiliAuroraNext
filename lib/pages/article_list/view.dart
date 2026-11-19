@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/features/community/application/article_collecti
 import 'package:pili_aurora_next/features/community/domain/article_collection/article.dart';
 import 'package:pili_aurora_next/features/community/domain/article_collection/data.dart';
 import 'package:pili_aurora_next/features/community/domain/article_collection/list.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/pages/article_list/widgets/item.dart';

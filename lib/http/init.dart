@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
 import 'package:pili_aurora_next/http/response_decoder.dart';
@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/http/response_transformer.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/services/web_account_cookies.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:dio/dio.dart';
@@ -47,7 +47,7 @@ class Request {
     );
     if (syncWebView) {
       unawaited(
-        LoginUtils.setWebCookie().catchError((
+        WebAccountCookies.sync().catchError((
           Object error,
           StackTrace stackTrace,
         ) {

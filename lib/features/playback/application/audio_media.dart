@@ -2,7 +2,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:pili_aurora_next/features/playback/data/audio_media_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart' show Volume;
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 
 abstract final class AudioMedia {
   static Future<LoadingState<({String url, Volume? volume})>> resolve({
@@ -19,7 +19,7 @@ abstract final class AudioMedia {
     );
     return switch (source) {
       Success(:final response) => Success((
-        url: VideoUtils.getCdnUrl(response.urls),
+        url: MediaSourceSelection.getCdnUrl(response.urls),
         volume: response.volume,
       )),
       Error() => source,

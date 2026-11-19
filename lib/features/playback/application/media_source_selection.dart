@@ -1,10 +1,10 @@
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 /// 对外只交付安全文案，原始解析异常留给操作所有者诊断。
 class VideoSelectionException extends FormatException {
@@ -18,10 +18,7 @@ class VideoSelectionException extends FormatException {
   final StackTrace stackTrace;
 }
 
-abstract final class VideoUtils {
-  static String? liveCdnUrl = Pref.liveCdnUrl;
-  static bool disableAudioCDN = Pref.disableAudioCDN;
-
+abstract final class MediaSourceSelection {
   /// 必须提供来源；缺少地址或解析失败抛出不含签名 URL 的 [FormatException]。
   static String getCdnUrl(
     Iterable<String> urls, {
@@ -29,7 +26,7 @@ abstract final class VideoUtils {
     bool isAudio = false,
   }) => _CdnSources(urls).select(
     defaultCDNService ?? VideoPreferences.cdn,
-    rewriteHosts: !isAudio || !disableAudioCDN,
+    rewriteHosts: !isAudio || !VideoPreferences.bypassAudioCdnRewrite,
   );
 
   /// 首选 CDN 优先，启用回退时按偏好尝试其它 CDN，再保留接口原始备用地址。
@@ -40,16 +37,16 @@ abstract final class VideoUtils {
   }) {
     final sources = _CdnSources(urls);
     if (sources.originals.isEmpty) return const [];
-    final rewriteHosts = !isAudio || !disableAudioCDN;
+    final rewriteHosts = !isAudio || !VideoPreferences.bypassAudioCdnRewrite;
     final result = <String>{
       sources.select(
         defaultCDNService ?? VideoPreferences.cdn,
         rewriteHosts: rewriteHosts,
       ),
     };
-    if (!Pref.enableMultiCdn) return result.toList();
+    if (!VideoPreferences.enableCdnFallback) return result.toList();
     if (rewriteHosts) {
-      final order = Pref.cdnFallbackOrder;
+      final order = VideoPreferences.cdnFallbackOrder;
       for (final service in order.isEmpty ? CDNService.values : order) {
         result.add(sources.select(service, reportUnknown: false));
       }
@@ -61,13 +58,15 @@ abstract final class VideoUtils {
   static String getLiveCdnUrl(CodecItem e, {int index = 0}) {
     if (e.urlInfo.isEmpty) throw const FormatException('直播响应缺少播放来源');
     final urlInfo = e.urlInfo.getOrFirst(index);
-    return (liveCdnUrl ?? urlInfo.host) + e.baseUrl + urlInfo.extra;
+    return (LivePreferences.cdnHost ?? urlInfo.host) +
+        e.baseUrl +
+        urlInfo.extra;
   }
 
   static List<String> getLiveCdnUrls(CodecItem item, {int index = 0}) {
     final primary = getLiveCdnUrl(item, index: index);
     final urls = <String>[primary];
-    if (Pref.enableMultiCdn) {
+    if (VideoPreferences.enableCdnFallback) {
       // 备用源使用接口原始 host，避免自定义 CDN 把所有候选改成同一地址。
       for (final info in item.urlInfo) {
         final url = info.host + item.baseUrl + info.extra;

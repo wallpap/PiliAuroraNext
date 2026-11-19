@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/models/common/avatar_badge_type.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -35,7 +35,7 @@ class PendantAvatar extends StatelessWidget {
            ? .institution
            : .none;
 
-  static bool showDecorate = Pref.showDecorate;
+  static bool showDecorate = DisplayPreferences.showAvatarDecoration;
 
   final BadgeType badgeType;
   final String? url;

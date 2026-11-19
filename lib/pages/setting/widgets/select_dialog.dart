@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/features/playback/data/cdn_speed_probe.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 

@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/input_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
 Widget tabBarView({
@@ -17,7 +17,7 @@ Widget tabBarView({
 SpringDescription kSpringDescription = _customSpringDescription();
 
 SpringDescription _customSpringDescription() {
-  final List<double> springDescription = Pref.springDescription;
+  final List<double> springDescription = InputPreferences.scrollSpring;
   return SpringDescription(
     mass: springDescription[0],
     stiffness: springDescription[1],

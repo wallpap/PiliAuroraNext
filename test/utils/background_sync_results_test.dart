@@ -12,6 +12,7 @@ import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/services/web_account_cookies.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -125,7 +126,7 @@ void main() {
   test('Cookie 原生拒绝与异常沿 Future 返回，失败后队列仍可继续', () async {
     cookies.onSet = () async => false;
     await expectLater(
-      LoginUtils.setWebCookie(),
+      WebAccountCookies.sync(),
       throwsA(
         isA<result.Error>().having(
           (error) => error.errMsg,
@@ -136,9 +137,9 @@ void main() {
     );
     final failure = StateError('fixture native failure');
     cookies.onSet = () async => throw failure;
-    await expectLater(LoginUtils.setWebCookie(), throwsA(same(failure)));
+    await expectLater(WebAccountCookies.sync(), throwsA(same(failure)));
     cookies.onSet = () async => true;
-    expect(await LoginUtils.setWebCookie(), isTrue);
+    expect(await WebAccountCookies.sync(), isTrue);
   });
 
   test('Cookie 批次串行交接，排队的旧账号不分发，迟到结果失效', () async {
@@ -148,11 +149,11 @@ void main() {
       if (!started.isCompleted) started.complete();
       return release.future;
     };
-    final old = LoginUtils.setWebCookie();
+    final old = WebAccountCookies.sync();
     await started.future;
-    final stale = LoginUtils.setWebCookie();
+    final stale = WebAccountCookies.sync();
     select(account(456));
-    final current = LoginUtils.setWebCookie();
+    final current = WebAccountCookies.sync();
     await Future<void>.delayed(Duration.zero);
     expect(cookies.events, ['set:123']);
     cookies.onSet = () async => true;
@@ -170,7 +171,7 @@ void main() {
       if (!started.isCompleted) started.complete();
       return release.future;
     };
-    final old = LoginUtils.setWebCookie();
+    final old = WebAccountCookies.sync();
     await started.future;
     select(AnonymousAccount());
     cookies.onDelete = () async => false;
@@ -191,7 +192,7 @@ void main() {
     await logout;
     select(account(456));
     cookies.onSet = () async => true;
-    expect(await LoginUtils.setWebCookie(), isTrue);
+    expect(await WebAccountCookies.sync(), isTrue);
     expect(cookies.events, ['set:123', 'delete', 'set:456']);
   });
 
@@ -202,12 +203,12 @@ void main() {
       if (!started.isCompleted) started.complete();
       return release.future;
     };
-    final old = LoginUtils.setWebCookie();
+    final old = WebAccountCookies.sync();
     await started.future;
     select(AnonymousAccount());
     final logout = LoginUtils.onLogoutMain();
     select(account(456));
-    final current = LoginUtils.setWebCookie();
+    final current = WebAccountCookies.sync();
     cookies.onSet = () async => true;
     release.complete(true);
     expect(await old, isFalse);

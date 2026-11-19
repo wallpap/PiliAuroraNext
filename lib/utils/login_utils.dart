@@ -1,70 +1,19 @@
 import 'dart:async' show unawaited;
-import 'dart:io' show Platform;
 
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
-import 'package:pili_aurora_next/services/webview_environment.dart';
+import 'package:pili_aurora_next/services/web_account_cookies.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/request_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show Digest;
-import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 abstract final class LoginUtils {
-  static Future<void> _webCookieTail = Future.value();
-
-  // 不同账号的原生写入串行交接，避免迟到的旧 Cookie 覆盖新登录。
-  static Future<T> _queueWebCookies<T>(Future<T> Function() action) {
-    final result = _webCookieTail.then((_) => action());
-    // 队列可以继续；调用方仍从 result 收到原始失败。
-    _webCookieTail = result.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
-    return result;
-  }
-
-  /// 返回 false 表示切号后失效；原生拒绝或异常通过 Future 返回。
-  static Future<bool> setWebCookie([Account? account]) {
-    final owner = account ?? Accounts.main;
-    return _queueWebCookies(
-      () => AppWebViewEnvironment.using(() async {
-        if (!identical(owner, Accounts.main)) return false;
-        await AppWebViewEnvironment.ensureInitialized();
-        if (!identical(owner, Accounts.main)) return false;
-        final cookies = owner.cookieJar.toList();
-        final webManager = web.CookieManager.instance(
-          webViewEnvironment: AppWebViewEnvironment.instance,
-        );
-        final results = await Future.wait(
-          cookies.map(
-            (cookie) => webManager.setCookie(
-              url: web.WebUri(
-                '${Platform.isWindows ? 'https://' : ''}${cookie.domain}',
-              ),
-              name: cookie.name,
-              value: cookie.value,
-              path: cookie.path ?? '/',
-              domain: cookie.domain,
-              isSecure: cookie.secure,
-              isHttpOnly: cookie.httpOnly,
-            ),
-          ),
-        );
-        if (results.any((success) => !success)) {
-          throw const Error('网页 Cookie 同步失败，请重试');
-        }
-        return identical(owner, Accounts.main);
-      }),
-    );
-  }
-
   static Future<void> onLoginMain() async {
     final account = Accounts.main;
     final receipt = await AccountProfile.legacy.confirmLogin(account);
@@ -76,14 +25,15 @@ abstract final class LoginUtils {
         logger.w('登录资料缓存保存失败', error: error.runtimeType);
       }
       unawaited(
-        setWebCookie(account).catchError((Object error, StackTrace stackTrace) {
-          logger.w(
-            '登录后的网页 Cookie 同步失败',
-            error: error.runtimeType,
-            stackTrace: stackTrace,
-          );
-          return false;
-        }),
+        WebAccountCookies.sync(account)
+            .catchError((Object error, StackTrace stackTrace) {
+              logger.w(
+                '登录后的网页 Cookie 同步失败',
+                error: error.runtimeType,
+                stackTrace: stackTrace,
+              );
+              return false;
+            }),
       );
       unawaited(
         RequestUtils.syncHistoryStatus().catchError((
@@ -115,24 +65,10 @@ abstract final class LoginUtils {
     }
   }
 
-  static Future<void> onLogoutMain() {
-    final owner = Accounts.main;
-
-    return Future.wait([
-      _queueWebCookies(
-        () => AppWebViewEnvironment.using(() async {
-          if (!identical(owner, Accounts.main)) return;
-          await AppWebViewEnvironment.ensureInitialized();
-          if (!identical(owner, Accounts.main)) return;
-          final cleared = await web.CookieManager.instance(
-            webViewEnvironment: AppWebViewEnvironment.instance,
-          ).deleteAllCookies();
-          if (!cleared) throw const Error('网页 Cookie 清理失败，请重试');
-        }),
-      ),
-      GStorage.userInfo.delete('userInfoCache'),
-    ]);
-  }
+  static Future<void> onLogoutMain() => Future.wait([
+    WebAccountCookies.clear(),
+    GStorage.userInfo.delete('userInfoCache'),
+  ]);
 
   static String generateBuvid() {
     final md5Str = Digest(

@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_quality.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 
 /// 画质、编码、音轨与地址来自同一次选择，页面不再分别维护候选列表。
 class VideoPlaybackSource {
@@ -36,7 +36,7 @@ class VideoPlaybackSource {
       }
       final List<String> candidates;
       if (segments.length == 1) {
-        candidates = VideoUtils.getCdnUrls(segments.single.playUrls);
+        candidates = MediaSourceSelection.getCdnUrls(segments.single.playUrls);
       } else {
         final edl = StringBuffer('edl://!no_chapters;');
         for (final segment in segments) {
@@ -44,7 +44,7 @@ class VideoPlaybackSource {
           if (length == null || length < 0) {
             throw const FormatException('分段来源缺少有效时长');
           }
-          final url = VideoUtils.getCdnUrl(segment.playUrls);
+          final url = MediaSourceSelection.getCdnUrl(segment.playUrls);
           edl.write(
             '%${utf8.encode(url).length}%$url,length=${length / 1000};',
           );
@@ -75,10 +75,10 @@ class VideoPlaybackSource {
       preferredCodecs: preferredCodecs,
     );
     final audio = selectAudioTrack(data.dash!.audio, audioQuality);
-    final videos = VideoUtils.getCdnUrls(video.playUrls);
+    final videos = MediaSourceSelection.getCdnUrls(video.playUrls);
     final audios = audio == null
         ? const <String>[]
-        : VideoUtils.getCdnUrls(audio.playUrls, isAudio: true);
+        : MediaSourceSelection.getCdnUrls(audio.playUrls, isAudio: true);
     if (videos.isEmpty || (audio != null && audios.isEmpty)) {
       throw const FormatException('视频或音轨来源地址为空');
     }

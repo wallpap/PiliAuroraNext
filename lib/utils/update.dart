@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/build_config.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/app_release.dart';

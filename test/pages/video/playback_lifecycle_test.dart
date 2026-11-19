@@ -411,10 +411,10 @@ void main() {
   });
 
   test('字幕响应迟到且列表已切集清空时，不缓存或应用旧字幕', () async {
-    final controller = page();
-    controller.currentSubtitleTracks = [
-      Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
-    ];
+    final controller = page()
+      ..currentSubtitleTracks = [
+        Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
+      ];
     final loading = controller.setSubtitle(1);
     final request = await adapter.next();
     controller.cid.value = 2;
@@ -521,10 +521,10 @@ void main() {
   });
 
   test('字幕加载期间选择关闭，以最新选择为准', () async {
-    final controller = page();
-    controller.currentSubtitleTracks = [
-      Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
-    ];
+    final controller = page()
+      ..currentSubtitleTracks = [
+        Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
+      ];
     final loading = controller.setSubtitle(1);
     final request = await adapter.next();
     await controller.setSubtitle(0);

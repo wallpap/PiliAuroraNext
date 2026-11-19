@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/features/download/domain/download_media.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 import 'package:collection/collection.dart';
 
 abstract final class DownloadHttp {
@@ -86,7 +86,7 @@ abstract final class DownloadHttp {
             .toList();
         final currentDecodeFormats = codecs.isEmpty
             ? null
-            : VideoUtils.selectCodec(codecs, Pref.preferCodecs);
+            : MediaSourceSelection.selectCodec(codecs, Pref.preferCodecs);
         final videoDash = currentDecodeFormats == null
             ? videosList.first
             : videosList.firstWhere(
@@ -99,7 +99,7 @@ abstract final class DownloadHttp {
           throw const FormatException('下载响应缺少视频地址');
         }
 
-        final videoUrl = VideoUtils.getCdnUrl(videoDash.playUrls);
+        final videoUrl = MediaSourceSelection.getCdnUrl(videoDash.playUrls);
 
         final Type2File videoFile = Type2File(
           id: videoDash.id,
@@ -128,7 +128,7 @@ abstract final class DownloadHttp {
           if (audioDash.playUrls.isEmpty) {
             throw const FormatException('下载响应缺少音频地址');
           }
-          final audioUrl = VideoUtils.getCdnUrl(
+          final audioUrl = MediaSourceSelection.getCdnUrl(
             audioDash.playUrls,
             isAudio: true,
           );
@@ -177,7 +177,7 @@ abstract final class DownloadHttp {
             md5: '',
             metaUrl: '',
             order: first.order!,
-            url: VideoUtils.getCdnUrl(first.playUrls),
+            url: MediaSourceSelection.getCdnUrl(first.playUrls),
           ),
         ];
         final FormatItem? formatItem = response.supportFormats

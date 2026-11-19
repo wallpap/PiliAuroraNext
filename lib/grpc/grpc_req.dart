@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:pili_aurora_next/generated/bilibili/rpc.pb.dart';
 import 'package:pili_aurora_next/grpc/decode_policy.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';

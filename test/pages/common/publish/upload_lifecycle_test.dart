@@ -56,8 +56,8 @@ void main() {
         home: _Composer(key: key),
       ),
     );
-    final state = key.currentState!;
-    state.addDraftImage(FilePicModel(path: 'synthetic'));
+    final state = key.currentState!
+      ..addDraftImage(FilePicModel(path: 'synthetic'));
     final operation = state.onPublish();
     await tester.pump();
     expect(state.token, isNotNull);

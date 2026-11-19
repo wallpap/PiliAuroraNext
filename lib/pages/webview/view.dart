@@ -6,14 +6,14 @@ import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart'
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/webview_ready.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
 import 'package:pili_aurora_next/models/common/webview_menu_type.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/services/web_account_cookies.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -203,7 +203,7 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
               identity.isCurrent &&
               (_pageRoute?.isCurrent ?? true);
           try {
-            if (await LoginUtils.setWebCookie(account) && isCurrent()) {
+            if (await WebAccountCookies.sync(account) && isCurrent()) {
               SmartDialog.showToast('设置成功，刷新或重新打开网页');
             }
           } catch (error, stackTrace) {
@@ -278,7 +278,7 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
               child: WebViewReady(
                 prepare: () async {
                   if (AppWebViewEnvironment.isConfigured &&
-                      !await LoginUtils.setWebCookie()) {
+                      !await WebAccountCookies.sync()) {
                     throw StateError(
                       'Web account changed during initialization',
                     );
