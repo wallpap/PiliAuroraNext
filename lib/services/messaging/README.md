@@ -75,7 +75,8 @@ fvm flutter test --no-pub test/services/messaging/
 | `protocol_test.dart` | 发送关闭重试、分享卡片协议字段、系统通知展示与 ACK 超时重试 |
 | `preferences_test.dart` | 本地入口偏好的即时更新与订阅释放 |
 | `settings_test.dart` | 同一项接收设置串行写入；写入失败回滚，刷新等待写入，切换账号后丢弃旧结果 |
-| `reminder_dialog_test.dart` | 换凭据后旧弹窗不能写入；新弹窗维持原协议选项 |
+
+提醒弹窗的回归在 `test/pages/whisper_settings/reminder_dialog_test.dart`，覆盖换凭据、取消选择及协议选项。
 
 测试使用模拟响应。涉及页面或协议改动时，还需登录后在 Android、Windows 检查实际服务与界面：
 

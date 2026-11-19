@@ -1,151 +1,148 @@
-import 'dart:async';
-
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
-    show IMSettingType, Setting, SettingSelect, SelectItem, GetImSettingsReply;
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
-import 'package:pili_aurora_next/pages/whisper_settings/controller.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart';
+import 'package:pili_aurora_next/grpc/grpc_req.dart';
+import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/whisper_settings/widgets/reminder_dialog.dart';
-import 'package:pili_aurora_next/services/messaging/settings.dart';
+import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
 
-class _Settings extends WhisperSettingsNotifier {
-  _Settings(super.type);
-  bool disposed = false;
-  final saved = <(int, Setting)>[];
-  final completion = Completer<LoadingState<void>>();
-  final original = Setting(
-    select: SettingSelect(
-      item: [
-        SelectItem(itemType: 1, text: '接收所有提醒', selected: true),
-        SelectItem(itemType: 2, text: '不接收提醒'),
-      ],
-    ),
-  );
-  @override
-  WhisperSettingsSnapshot build() {
-    ref.onDispose(() => disposed = true);
-    return WhisperSettingsSnapshot(loadingState: LoadingState.loading());
-  }
-
-  void ready() => state = WhisperSettingsSnapshot(
-    title: '提醒设置',
-    loadingState: Success(
-      GetImSettingsReply(settings: [MapEntry(7, original)]).settings,
-    ),
-  );
-  @override
-  Future<LoadingState<void>> setSetting(int key, Setting setting) {
-    saved.add((key, setting));
-    return completion.future;
-  }
-}
-
-class _Harness {
-  _Harness(this.type);
-  final IMSettingType type;
-  late _Settings settings;
-  Widget build() => ProviderScope(
-    overrides: [
-      whisperSettingsProvider(type)
-          .overrideWith(() => settings = _Settings(type)),
-    ],
-    child: MaterialApp(
-      home: Scaffold(
-        body: MessageReminderButton(
-          type: type,
-          title: '提醒',
-          icon: const Icon(Icons.settings),
-        ),
-      ),
-    ),
-  );
-}
+import '../../support/controlled_interceptor.dart';
+import '../../support/memory_box.dart';
 
 void main() {
-  for (final type in [
-    IMSettingType.SETTING_TYPE_OLD_RECEIVE_LIKE,
-    IMSettingType.SETTING_TYPE_OLD_REPLY_ME,
-    IMSettingType.SETTING_TYPE_OLD_AT_ME,
-  ]) {
-    testWidgets('$type：结果就绪前不弹窗，选择后保存并释放订阅', (tester) async {
-      final harness = _Harness(type);
-      await tester.pumpWidget(harness.build());
-      await tester.tap(find.byType(IconButton));
-      await tester.pump(const Duration(milliseconds: 120));
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(
-        Navigator.of(tester.element(find.byType(MessageReminderButton)))
-            .canPop(),
-        isFalse,
-      );
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(
-        tester.widget<IconButton>(find.byType(IconButton)).onPressed,
-        isNull,
-      );
-      harness.settings.ready();
-      await tester.pumpAndSettle();
-      expect(find.byType(SelectDialog<int>), findsOneWidget);
-      expect(find.text('接收所有提醒'), findsOneWidget);
-      expect(find.text('不接收提醒'), findsOneWidget);
-      await tester.tap(find.text('不接收提醒'));
-      await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(harness.settings.saved.single.$1, 7);
-      expect(
-        harness.settings.saved.single.$2.select.item.map((e) => e.selected),
-        [false, true],
-      );
-      expect(harness.settings.original.select.item.first.selected, isTrue);
-      expect(harness.settings.disposed, isFalse);
-      harness.settings.completion.complete(const Success(null));
-      await tester.pumpAndSettle();
-      expect(harness.settings.disposed, isTrue);
-      expect(
-        tester.widget<IconButton>(find.byType(IconButton)).onPressed,
-        isNotNull,
-      );
-      expect(tester.takeException(), isNull);
+  testWidgets('换凭据后的旧提醒弹窗不写入，新弹窗保留原设置键和选项编码', (tester) async {
+    GStorage.setting = MemoryBox();
+    GStorage.video = MemoryBox();
+    GStorage.localCache = MemoryBox();
+    Request();
+    final interceptor = ControlledInterceptor(
+      headers: Headers.fromMap({
+        'grpc-status': ['0'],
+      }),
+    );
+    final requests = interceptor.requests;
+    addTearDown(() async {
+      for (final request in requests) {
+        if (!request.reply.isCompleted) request.reply.complete(<int>[]);
+      }
+      Request.dio.close(force: true);
+      await interceptor.close();
     });
-  }
-  testWidgets('取消选择不写入设置并释放订阅', (tester) async {
-    final harness = _Harness(IMSettingType.SETTING_TYPE_OLD_RECEIVE_LIKE);
-    await tester.pumpWidget(harness.build());
-    await tester.tap(find.byType(IconButton));
-    harness.settings.ready();
-    await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(5, 5));
-    await tester.pumpAndSettle();
-    expect(harness.settings.saved, isEmpty);
-    expect(harness.settings.disposed, isTrue);
-    expect(find.byType(AlertDialog), findsNothing);
-  });
-  testWidgets('读取期间返回上一页会释放订阅', (tester) async {
-    const type = IMSettingType.SETTING_TYPE_OLD_RECEIVE_LIKE;
-    final harness = _Harness(type);
-    await tester.pumpWidget(harness.build());
-    final navigator =
-        Navigator.of(
-          tester.element(find.byType(MessageReminderButton)),
-        )..push(
-          MaterialPageRoute<void>(
-            builder: (_) => const Scaffold(
-              body: MessageReminderButton(
-                type: type,
-                title: '提醒',
-                icon: Icon(Icons.settings),
+    Request.dio.interceptors
+      ..clear()
+      ..add(interceptor);
+    LoginAccount account(String csrf) => LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': csrf}),
+      null,
+      null,
+    )..activated = true;
+    Accounts.accountMode[AccountType.main.index] = account('old');
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: MessageReminderButton(
+              type: .mentions,
+              title: '@我的提醒',
+              icon: Icon(Icons.settings),
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> waitFor(int count) async {
+      for (
+        var attempt = 0;
+        attempt < 100 && requests.length < count;
+        attempt++
+      ) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+      expect(requests, hasLength(count));
+    }
+
+    Object settings(String title) => GrpcReq.compressProtobuf(
+      GetImSettingsReply(
+        pageTitle: title,
+        settings: [
+          MapEntry(
+            12,
+            Setting(
+              select: SettingSelect(
+                item: [
+                  SelectItem(itemType: 13, text: '接收提醒', selected: true),
+                  SelectItem(itemType: 27, text: '不提醒'),
+                ],
               ),
             ),
           ),
-        );
+        ],
+      ).writeToBuffer(),
+    );
+
+    await tester.tap(find.byTooltip('@我的提醒'));
+    await waitFor(1);
+    expect(find.byType(AlertDialog), findsNothing);
+    final read = GetImSettingsReq.fromBuffer(
+      GrpcReq.decompressProtobuf(requests.first.options.data),
+    );
+    expect(read.type, IMSettingType.SETTING_TYPE_OLD_AT_ME);
+    requests.first.reply.complete(settings('旧账号设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(IconButton));
-    navigator.pop();
+    expect(find.text('旧账号设置'), findsOneWidget);
+
+    final replacement = account('new');
+    Accounts.replaceCredentials(replacement);
+    await waitFor(2);
+    requests[1].reply.complete(settings('新账号设置'));
     await tester.pumpAndSettle();
-    expect(harness.settings.disposed, isTrue);
+    await tester.tap(find.text('不提醒'));
+    await tester.pumpAndSettle();
+    expect(requests, hasLength(2));
+
+    await tester.tap(find.byTooltip('@我的提醒'));
+    await waitFor(3);
+    requests[2].reply.complete(settings('新账号设置'));
+    await tester.pumpAndSettle();
+    expect(find.text('新账号设置'), findsOneWidget);
+    final dialogContext = tester.element(find.byType(AlertDialog));
+    Navigator.of(dialogContext).pop();
+    await tester.pumpAndSettle();
+    expect(requests, hasLength(3));
+
+    await tester.tap(find.byTooltip('@我的提醒'));
+    await waitFor(4);
+    requests[3].reply.complete(settings('新账号设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('不提醒'));
+    await waitFor(5);
+    final write = SetImSettingsReq.fromBuffer(
+      GrpcReq.decompressProtobuf(requests.last.options.data),
+    );
+    expect(requests.last.options.extra['account'], same(replacement));
+    expect(write.settings.keys, [12]);
+    expect(
+      write.settings[12]!.select.item.map(
+        (option) => (option.itemType, option.selected),
+      ),
+      [(13, false), (27, true)],
+    );
+    requests.last.reply.complete(
+      GrpcReq.compressProtobuf(SetImSettingsReply().writeToBuffer()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('@我的提醒'));
+    await waitFor(6);
+    await tester.pumpWidget(const SizedBox());
+    requests.last.reply.complete(settings('迟到的设置'));
+    await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
