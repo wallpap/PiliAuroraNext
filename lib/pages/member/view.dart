@@ -22,7 +22,7 @@ import 'package:pili_aurora_next/pages/login_devices/view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_space.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:pili_aurora_next/pages/member/shortcut_action.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_wall.dart';
@@ -702,7 +702,7 @@ class _MemberPageState extends ConsumerState<MemberPage>
     } else if (space.relation == 128) {
       await _writeRelation(notifier, space, current, 6);
     } else {
-      await RequestUtils.actionRelationMod(
+      await showFollowActions(
         context: context,
         account: space.account,
         mid: _mid,

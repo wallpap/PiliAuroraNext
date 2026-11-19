@@ -28,6 +28,8 @@
 
 PGC 首页通过 `pgcFeedProvider`、`pgcFollowsProvider`、`pgcTimelineProvider` 独立持有推荐目录、追番与时间表。推荐目录只依赖推荐账号，另两项只依赖主账号；时间表按日期合并，部分失败保留已确认日期并交付重试提示。横向追番与推荐目录使用实际视口分页，失败重试原页；Tab 与滚动归 Widget，首页壳只持有窄句柄。回归见 `test/pages/pgc/account_lifecycle_test.dart`、`operation_results_test.dart`。
 
+独立索引由 `application/pgc_index.dart` 持有筛选目录和结果。目录使用主账号，结果使用推荐账号并按页面实例、索引类型和已提交筛选隔离。两种请求都经 `data/pgc_repository.dart`，分页失败重试原页。回归见 `test/pages/member_feed/controller_test.dart`。
+
 ## 共享发现列表
 
 `application/discovery_listing.dart` 统一负责主账号屏蔽与推荐账号身份、查询代次、分页互斥、合作作者检查、过滤补读和页尾重试。同账号、同查询刷新期间保留列表和元数据，首包成功后整体替换；刷新失败保留快照，重试从首包开始。查询或任一所属账号对象替换立即隐藏旧内容；分页失败保留已完成列表和原页码。连续五页无增长后暂停自动读取，用户可显式继续。总数按过滤前条目累计，页面移除不改变远端游标。旧响应不提交列表或元数据。

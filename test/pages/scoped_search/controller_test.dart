@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
+import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/live_search/view.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -233,7 +233,7 @@ void main() {
     );
     final data = await container.read(scopedSearchProvider(q).future);
     expect(data.hasMore, isFalse);
-    expect(data.items.single.archive.aid.toInt(), 42);
+    expect((data.items.single as ScopedSearchArchive).aid, 42);
     sub.close();
   });
   test('空间动态过滤后的空页按游标继续，连续五页无增长后停止', () async {

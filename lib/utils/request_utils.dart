@@ -1,31 +1,18 @@
-import 'dart:async' show FutureOr, unawaited;
-import 'dart:math' show min;
+import 'dart:async' show unawaited;
 
 import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/validate.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/login/gaia_result.dart';
-import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/pages/group_panel/view.dart';
-import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
@@ -53,165 +40,6 @@ abstract final class RequestUtils {
   static Future<void> syncHistoryStatus() async {
     final account = Accounts.history;
     if (account.isLogin) await HistoryLibrary.legacy.status(account);
-  }
-
-  static Future<void> actionRelationMod({
-    required BuildContext context,
-    Account? account,
-    required dynamic mid,
-    required bool isFollow,
-    required ValueChanged<int>? afterMod,
-    RelationData? followStatus,
-    bool Function()? isCurrent,
-  }) async {
-    final requestAccount = account ?? Accounts.main;
-    bool current() =>
-        context.mounted &&
-        identical(requestAccount, Accounts.main) &&
-        (isCurrent?.call() ?? true);
-    if (mid == null || !current()) {
-      return;
-    }
-    void notify(int attribute) {
-      try {
-        afterMod?.call(attribute);
-      } catch (error, stackTrace) {
-        logger.w(
-          '关系已更新，本地回调失败',
-          error: error.runtimeType,
-          stackTrace: stackTrace,
-        );
-      }
-    }
-
-    feedBack();
-    if (!isFollow) {
-      final res = await VideoHttp.relationMod(
-        account: requestAccount,
-        mid: mid,
-        act: 1,
-        reSrc: 11,
-      );
-      if (!current()) return;
-      if (res.isSuccess) {
-        SmartDialog.showToast('关注成功');
-        notify(2);
-      } else {
-        res.toast();
-      }
-    } else {
-      if (followStatus?.tag == null) {
-        final res = await UserHttp.userRelation(mid, account: requestAccount);
-        if (!current()) return;
-        if (res case Success(:final response)) {
-          followStatus = response;
-        } else {
-          res.toast();
-          return;
-        }
-      }
-
-      if (context.mounted && current()) {
-        bool isSpecialFollowed = followStatus!.special == 1;
-        String text = isSpecialFollowed ? '移除特别关注' : '加入特别关注';
-        Future<void>? pendingAction;
-        void runAction(Future<void> Function() action) {
-          pendingAction ??= action();
-        }
-
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => SimpleDialog(
-            clipBehavior: Clip.hardEdge,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            children: [
-              DialogOption(
-                onPressed: () => runAction(() async {
-                  Get.back();
-                  if (!current()) return;
-                  final res = await MemberHttp.specialAction(
-                    account: requestAccount,
-                    fid: mid,
-                    isAdd: !isSpecialFollowed,
-                  );
-                  if (!current()) return;
-                  if (res.isSuccess) {
-                    SmartDialog.showToast('$text成功');
-                    notify(isSpecialFollowed ? 2 : -10);
-                  } else {
-                    res.toast();
-                  }
-                }),
-                child: Text(text, style: const TextStyle(fontSize: 14)),
-              ),
-              DialogOption(
-                onPressed: () => runAction(() async {
-                  Get.back();
-                  if (!current()) return;
-                  final result = await showModalBottomSheet<Set<int>>(
-                    context: context,
-                    useSafeArea: true,
-                    isScrollControlled: true,
-                    constraints: BoxConstraints(
-                      maxWidth: min(640, context.mediaQueryShortestSide),
-                    ),
-                    builder: (BuildContext context) {
-                      final maxChildSize =
-                          PlatformUtils.isMobile &&
-                              !context.mediaQuerySize.isPortrait
-                          ? 1.0
-                          : 0.7;
-                      return DraggableScrollableSheet(
-                        minChildSize: 0,
-                        maxChildSize: 1,
-                        snap: true,
-                        expand: false,
-                        snapSizes: [maxChildSize],
-                        initialChildSize: maxChildSize,
-                        builder: (context, scrollController) {
-                          return GroupPanel(
-                            mid: mid,
-                            account: requestAccount,
-                            tags: followStatus!.tag,
-                            scrollController: scrollController,
-                          );
-                        },
-                      );
-                    },
-                  );
-                  if (current() && result != null) {
-                    followStatus!.tag = result.toList();
-                    notify(result.contains(-10) ? -10 : 2);
-                  }
-                }),
-                child: const Text('设置分组', style: TextStyle(fontSize: 14)),
-              ),
-              DialogOption(
-                onPressed: () => runAction(() async {
-                  Get.back();
-                  if (!current()) return;
-                  final res = await VideoHttp.relationMod(
-                    account: requestAccount,
-                    mid: mid,
-                    act: 2,
-                    reSrc: 11,
-                  );
-                  if (!current()) return;
-                  if (res.isSuccess) {
-                    SmartDialog.showToast('取消关注成功');
-                    notify(0);
-                  } else {
-                    res.toast();
-                  }
-                }),
-                child: const Text('取消关注', style: TextStyle(fontSize: 14)),
-              ),
-            ],
-          ),
-        );
-        await pendingAction;
-      }
-    }
   }
 
   static ReplyInfo replyCast(Map res) {
@@ -325,72 +153,6 @@ abstract final class RequestUtils {
       } catch (e, stackTrace) {
         logger.w('check dyn error: $e', error: e, stackTrace: stackTrace);
       }
-    }
-  }
-
-  static Future<void> validate(
-    String vVoucher,
-    FutureOr<void> Function(String) onSuccess, {
-    required Account account,
-    required bool Function() isCurrent,
-  }) async {
-    if (!isCurrent()) return;
-    final res = await ValidateHttp.gaiaVgateRegister(
-      vVoucher,
-      account: account,
-    );
-    if (!isCurrent()) return;
-    if (!res.isSuccess) {
-      if (res is UnknownResult) {
-        SmartDialog.showToast('验证响应未能确认，请重新打开验证');
-      } else {
-        res.toast();
-      }
-      return;
-    }
-
-    final registration = res.data;
-    final Map<String, dynamic>? json;
-    try {
-      json = await GeetestWebviewDialog.geetest(
-        registration.gt,
-        registration.challenge,
-      );
-    } catch (error, stackTrace) {
-      logger.w('打开风控验证失败', error: error.runtimeType, stackTrace: stackTrace);
-      if (isCurrent()) SmartDialog.showToast('无法打开验证，请重试');
-      return;
-    }
-    if (!isCurrent() || json == null) return;
-    final challenge = json['geetest_challenge'];
-    final seccode = json['geetest_seccode'];
-    final validate = json['geetest_validate'];
-    if (challenge is! String ||
-        seccode is! String ||
-        validate is! String ||
-        [challenge, seccode, validate].any((value) => value.trim().isEmpty)) {
-      SmartDialog.showToast('验证结果不完整，请重新打开验证');
-      return;
-    }
-    final result = await ValidateHttp.gaiaVgateValidate(
-      account: account,
-      challenge: challenge,
-      seccode: seccode,
-      token: registration.token,
-      validate: validate,
-    );
-    if (!isCurrent()) return;
-    switch (result) {
-      case Success(response: GaiaVerified(:final riskId)):
-        await onSuccess(riskId);
-      case Success(response: GaiaRejected()):
-        SmartDialog.showToast('验证未通过，请重试');
-      case UnknownResult():
-        SmartDialog.showToast('验证响应未能确认，请重新打开验证');
-      case Error():
-        result.toast();
-      case Loading():
-        break;
     }
   }
 

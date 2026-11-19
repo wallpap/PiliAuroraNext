@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/models/common/search/search_type.dart';
 import 'package:pili_aurora_next/models/common/search/user_search_type.dart';
 import 'package:pili_aurora_next/models/common/search/video_search_type.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/pages/search_panel/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/sliver/trending_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
-import 'package:pili_aurora_next/pages/search_trending/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_trending.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';

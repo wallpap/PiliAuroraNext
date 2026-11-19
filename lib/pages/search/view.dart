@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
 import 'package:pili_aurora_next/common/widgets/disabled_icon.dart';
@@ -14,7 +13,7 @@ import 'package:pili_aurora_next/common/widgets/sliver_wrap.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
-import 'package:pili_aurora_next/pages/search/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_home.dart';
 import 'package:pili_aurora_next/pages/search/widgets/hot_keyword.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/utils/em.dart' show Em;
@@ -139,8 +138,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     ref.watch(searchProvider(_tag));
-    final trending = Pref.enableTrending ? _buildHotSearch() : null;
-    final rcmd = Pref.enableSearchRcmd
+    final options = readSearchOptions();
+    final trending = options.trending ? _buildHotSearch() : null;
+    final rcmd = options.recommendations
         ? _buildHotSearch(isTrending: false)
         : null;
 
@@ -151,7 +151,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: ViewInsetsSafeArea(
           child: CustomScrollView(
             slivers: [
-              if (Pref.searchSuggestion) _buildSearchSuggest(),
+              if (options.suggestions) _buildSearchSuggest(),
               if (isPortrait) ...[
                 ?trending,
                 _buildHistory,
@@ -277,7 +277,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return SliverPadding(
       padding: .fromLTRB(
         10,
-        !isTrending && (isPortrait || Pref.enableTrending) ? 4 : 25,
+        !isTrending && (isPortrait || readSearchOptions().trending) ? 4 : 25,
         4,
         25,
       ),
@@ -372,7 +372,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         10,
         !isPortrait
             ? 25
-            : Pref.enableTrending
+            : readSearchOptions().trending
             ? 0
             : 6,
         6,

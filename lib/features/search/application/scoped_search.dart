@@ -1,15 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/space.dart';
-import 'package:pili_aurora_next/http/live.dart';
-import 'package:pili_aurora_next/http/member.dart';
-import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
+import 'package:pili_aurora_next/features/search/data/scoped_search_repository.dart';
+import 'package:pili_aurora_next/features/search/domain/scoped_search.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
 
-enum ScopedSearchKind { room, user, archive, dynamic }
+export 'package:pili_aurora_next/features/search/domain/scoped_search.dart';
 
 typedef ScopedSearchQuery = ({
   ScopedSearchKind kind,
@@ -83,84 +78,39 @@ class ScopedSearchNotifier extends AsyncNotifier<ScopedSearchState> {
     if (query.keyword.trim().isEmpty) {
       return ScopedSearchState(items: [], nextPage: 1, hasMore: false);
     }
-    List<dynamic> rows;
-    int? total;
-    String? offset;
-    bool more;
-    if (live) {
-      final result = await LiveHttp.liveSearch(
-        account: account,
-        page: page,
-        keyword: query.keyword,
-        type: query.kind == ScopedSearchKind.room
-            ? LiveSearchType.room
-            : LiveSearchType.user,
-      );
-      final data = result.data;
-      rows = query.kind == ScopedSearchKind.room
-          ? data.room?.list ?? []
-          : data.user?.list ?? [];
-      total = query.kind == ScopedSearchKind.room
-          ? data.room?.totalRoom
-          : data.user?.totalUser;
-      more =
-          rows.isNotEmpty &&
-          (total == null ? rows.length >= 30 : page * 30 < total);
-    } else if (query.kind == ScopedSearchKind.archive) {
-      final result = await SpaceGrpc.searchArchive(
-        account: account,
-        keyword: query.keyword,
-        mid: Int64(query.mid!),
-        pn: page,
-        ps: Int64(20),
-      );
-      rows = result.data.archives;
-      total = result.data.total.toInt();
-      more = rows.isNotEmpty && page * 20 < total;
-    } else {
-      final result = await MemberHttp.dynSearch(
-        account: account,
-        pn: page,
-        mid: query.mid!,
-        offset: before?.offset ?? '',
-        keyword: query.keyword,
-      );
-      final data = result.data;
-      rows = data.items ?? [];
-      total = data.total;
-      offset = data.offset;
-      // 过滤后的空页仍可沿新游标继续；重复游标停止，避免无限补页。
-      more =
-          data.hasMore == true &&
-          offset != null &&
-          offset.isNotEmpty &&
-          offset != before?.offset;
-    }
+    final result = await const ScopedSearchRepository().page(
+      account: account,
+      kind: query.kind,
+      keyword: query.keyword,
+      page: page,
+      mid: query.mid,
+      offset: before?.offset,
+    );
     Object identity(dynamic row) => switch (query.kind) {
       ScopedSearchKind.room => row.roomid ?? row,
       ScopedSearchKind.user => row.roomid ?? row,
-      ScopedSearchKind.archive => row.archive.aid,
+      ScopedSearchKind.archive => (row as ScopedSearchArchive).aid,
       ScopedSearchKind.dynamic => row.idStr ?? row,
     };
     final seen = <Object?>{};
     final items = [
-      for (final row in [...?before?.items, ...rows])
+      for (final row in [...?before?.items, ...result.rows])
         if (seen.add(identity(row))) row,
     ];
-    if (before != null &&
-        items.length == before.items.length &&
-        query.kind != ScopedSearchKind.dynamic) {
-      more = false;
-    }
+    final more =
+        result.hasMore &&
+        (before == null ||
+            items.length > before.items.length ||
+            query.kind == ScopedSearchKind.dynamic);
     final emptyPages = items.length == (before?.items.length ?? 0)
         ? (before?.emptyPages ?? 0) + 1
         : 0;
     return ScopedSearchState(
       emptyPages: emptyPages,
       items: items,
-      total: total ?? before?.total,
+      total: result.total ?? before?.total,
       nextPage: page + 1,
-      offset: offset,
+      offset: result.offset,
       hasMore: more && emptyPages < 5,
       source: before?.source,
     );
@@ -177,20 +127,18 @@ class ScopedSearchNotifier extends AsyncNotifier<ScopedSearchState> {
       return;
     }
     final owner = ref;
-    final account = owner.read(
-      live ? recommendAccountProvider : mainAccountProvider,
-    );
-    bool current() => identical(
-      account,
-      live ? Accounts.get(AccountType.recommend) : Accounts.main,
-    );
-    if (!current()) return;
+    final accountProvider = live
+        ? recommendAccountProvider
+        : mainAccountProvider;
+    final account = owner.read(accountProvider);
+    bool current() =>
+        owner.mounted && identical(account, owner.read(accountProvider));
     state = AsyncData(before.operation(loadingMore: true));
     try {
       final result = await _page(account, before);
-      if (owner.mounted && current()) state = AsyncData(result);
+      if (current()) state = AsyncData(result);
     } catch (_) {
-      if (owner.mounted && current()) {
+      if (current()) {
         state = AsyncData(before.operation(error: '加载失败，点击重试'));
       }
     }

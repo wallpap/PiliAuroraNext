@@ -2,9 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
+import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/member_search/child/view.dart';
 import 'package:pili_aurora_next/models/common/member/search_type.dart';
 

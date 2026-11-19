@@ -6,7 +6,8 @@
 
 | 领域 | 页面 | API/服务/模型 | 回归入口 |
 | --- | --- | --- | --- |
-| 首页、热门、排行、搜索 | `main/`、`home/`、`rcmd/`、`hot/`、`rank/`、`popular_*`、`search*` | `lib/features/content_discovery/`；`api.dart`、`search.dart`、`models/remote/popular/`、`search/` | `test/features/content_discovery/`、`test/pages/search/`、`test/pages/search_results/` |
+| 首页、热门、排行、PGC 索引 | `main/`、`home/`、`rcmd/`、`hot/`、`rank/`、`popular_*`、`pgc_index/` | [内容发现模块](../../lib/features/content_discovery/README.md) | `test/features/content_discovery/`、`test/pages/member_feed/` |
+| 搜索 | `search*`、`member_search/`、`live_search/` | [搜索模块](../../lib/features/search/README.md) | `test/pages/search/`、`test/pages/search_results/`、`test/pages/scoped_search/` |
 | 视频、文章、番剧、音频 | `video/`、`article/`、`article_list/`、`pgc/`、`audio/`、`music/` | `video.dart`、`pgc.dart`、`music.dart`、`reply.dart` | `test/pages/video/`、`test/pages/article/`、`test/pages/pgc/`、`test/pages/audio/` |
 | 播放器与原生输出 | 页面通过 `PlaybackOwner` 提交计划及命令 | `lib/plugin/pl_player/playback/`；`playback_contracts.dart`、`playback_session.dart`、`native_playback_runtime.dart` | `test/plugin/pl_player/`、`tool/probes/playback/` |
 | 弹幕与评论 | `danmaku/`、`danmaku_block/`、`main_reply/`、`my_reply/`、`video/reply/` | `danmaku.dart`；[评论模块](../../lib/features/community/README.md#评论) | `test/pages/danmaku/`、`test/pages/danmaku_block/`、`test/pages/community/` |
@@ -17,7 +18,7 @@
 | 个人空间 | `member/`、`member_contribute/`、`member_video/`、`member_video_web/`、`member_favorite/` | [个人空间模块](../../lib/features/member_space/README.md)；空间主查询、投稿和收藏 | `test/pages/member/`、`test/pages/member_favorite/`、`test/pages/member_pgc/` |
 | 空间动态与互动名单 | `member_dynamics/`、`dynamics_detail/`、`common/dyn/like_list/`、`common/dyn/repost_list/` | [社区模块](../../lib/features/community/README.md#动态)；空间查询、共享删除/置顶、惰性名单与计数 | `test/pages/dynamics/management_results_test.dart`、`test/features/community/dynamic_activity_test.dart` |
 | 话题浏览与发布选择 | `dynamics_topic/`、`dynamics_topic_rcmd/`、`dynamics_select_topic/`、`dynamics_mention/` | [话题与发布选择](../../lib/features/community/README.md#话题与发布选择)；话题头部、内容分页与选择查询 | `test/features/community/topic_queries_test.dart`、`test/features/community/topic_repository_test.dart`、`test/pages/dynamics/topic_interactions_test.dart` |
-| 关注、粉丝 | `follow/`、`follow_type/` | `follow.dart`、`fan.dart` | `test/pages/follow/`、`test/pages/follow_type/` |
+| 关注、粉丝与直播关注 | `follow/`、`follow_type/`、`follow_search/`、`follow_tag_sort/`、`live_follow/` | [关注模块](../../lib/features/following/README.md) | `test/pages/follow/`、`test/pages/follow_type/`、`test/pages/live_follow/` |
 | 消息、私信、分享 | `msg_feed_top/`、`whisper*`、`share/` | [消息模块](../../lib/services/messaging/README.md)；`msg.dart`、`lib/grpc/im.dart` | `test/services/messaging/` |
 | 收藏管理 | `lib/features/favorites/presentation/` | [收藏模块](../../lib/features/favorites/README.md)；账号查询、收藏夹与视频收藏写入 | `test/features/favorites/` |
 | 订阅 | `lib/features/subscriptions/presentation/` | [订阅模块](../../lib/features/subscriptions/README.md)；主账号列表、合集详情、取消和失效清理 | `test/features/subscriptions/` |

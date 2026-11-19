@@ -42,7 +42,7 @@ import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -470,7 +470,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
       return;
     } else {
-      RequestUtils.actionRelationMod(
+      showFollowActions(
         context: context,
         mid: mid,
         isFollow: attr != 0,

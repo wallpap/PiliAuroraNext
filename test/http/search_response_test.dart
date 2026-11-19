@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';

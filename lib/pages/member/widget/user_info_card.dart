@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/models/remote/space/space/live.dart';
 import 'package:pili_aurora_next/models/remote/space/space/pr_info.dart';
 import 'package:pili_aurora_next/models/remote/space/space/top.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/member/widget/header_layout_widget.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';

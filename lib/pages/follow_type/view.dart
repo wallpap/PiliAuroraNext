@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/models/remote/follow/list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as loading;
 import 'package:pili_aurora_next/pages/follow/widgets/follow_item.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/widgets/item.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
 import 'package:pili_aurora_next/services/account_providers.dart';

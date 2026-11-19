@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/pages/live_search/widgets/live_search_room.dart
 import 'package:pili_aurora_next/pages/live_search/widgets/live_search_user.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
+import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/common/search/scoped_search_page.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;

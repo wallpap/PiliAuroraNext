@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/models/common/search/video_search_type.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
-import 'package:pili_aurora_next/pages/search_panel/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';

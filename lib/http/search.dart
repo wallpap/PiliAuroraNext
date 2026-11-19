@@ -3,6 +3,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
@@ -16,11 +17,6 @@ import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
-
-class SearchVerificationRequired extends Error {
-  const SearchVerificationRequired(this.voucher) : super('触发风控，请完成验证');
-  final String voucher;
-}
 
 abstract final class SearchHttp {
   // 获取搜索建议

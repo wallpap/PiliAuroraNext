@@ -1,17 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/search/data/search_local_store.dart';
+import 'package:pili_aurora_next/features/search/data/search_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/search/suggest.dart';
 import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
 import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+
+const _local = SearchLocalStore();
+
+SearchOptions readSearchOptions() => _local.readOptions();
 
 final searchHistoryProvider = NotifierProvider<SearchHistory, List<String>>(
   SearchHistory.new,
@@ -19,14 +19,10 @@ final searchHistoryProvider = NotifierProvider<SearchHistory, List<String>>(
 
 class SearchHistory extends Notifier<List<String>> {
   @override
-  List<String> build() => List.unmodifiable(
-    List<String>.from(
-      GStorage.historyWord.get('cacheList') ?? const <String>[],
-    ),
-  );
+  List<String> build() => List.unmodifiable(_local.readHistory());
   void replace(List<String> words) {
     state = List.unmodifiable(words);
-    GStorage.historyWord.put('cacheList', state);
+    unawaited(_local.saveHistory(state));
   }
 
   void add(String word) =>
@@ -35,7 +31,7 @@ class SearchHistory extends Notifier<List<String>> {
       replace(state.where((item) => item != word).toList());
   void clear() {
     state = const [];
-    GStorage.historyWord.delete('cacheList');
+    unawaited(_local.clearHistory());
   }
 }
 
@@ -46,16 +42,16 @@ final recordSearchHistoryProvider = NotifierProvider<RecordSearchHistory, bool>(
 class RecordSearchHistory extends Notifier<bool> {
   @override
   bool build() {
-    final subscription = GStorage.setting
-        .watch(key: SettingBoxKey.recordSearchHistory)
-        .listen((_) => state = Pref.recordSearchHistory);
+    final subscription = _local.watchRecordsHistory().listen(
+      (value) => state = value,
+    );
     ref.onDispose(subscription.cancel);
-    return Pref.recordSearchHistory;
+    return _local.recordsHistory;
   }
 
   void set(bool value) {
     state = value;
-    GStorage.setting.put(SettingBoxKey.recordSearchHistory, value);
+    unawaited(_local.setRecordsHistory(value));
   }
 }
 
@@ -102,8 +98,9 @@ class SearchNotifier extends Notifier<SearchState> {
       ++_recommendVersion;
       _timer?.cancel();
     });
-    if (Pref.enableTrending) unawaited(refreshTrending());
-    if (Pref.enableSearchRcmd) unawaited(refreshRecommend());
+    final options = readSearchOptions();
+    if (options.trending) unawaited(refreshTrending());
+    if (options.recommendations) unawaited(refreshRecommend());
     return SearchState(
       trending: LoadingState.loading(),
       recommend: LoadingState.loading(),
@@ -113,7 +110,7 @@ class SearchNotifier extends Notifier<SearchState> {
   void input(String text, {bool immediate = false}) {
     final version = ++_suggestVersion;
     _timer?.cancel();
-    if (!Pref.searchSuggestion || text.isEmpty) {
+    if (!readSearchOptions().suggestions || text.isEmpty) {
       state = state.copyWith(suggestions: const []);
       return;
     }
@@ -134,15 +131,12 @@ class SearchNotifier extends Notifier<SearchState> {
   }
 
   Future<void> _suggest(String text, int version) async {
-    final account = Accounts.get(AccountType.recommend);
+    final account = ref.read(recommendAccountProvider);
     try {
-      final result = await SearchHttp.searchSuggest(
-        term: text,
-        account: account,
-      );
+      final result = await const SearchRepository().suggest(account, text);
       if (!_alive ||
           version != _suggestVersion ||
-          !identical(account, Accounts.get(AccountType.recommend))) {
+          !identical(account, ref.read(recommendAccountProvider))) {
         return;
       }
       if (result case Success(:final response)) {
@@ -157,32 +151,32 @@ class SearchNotifier extends Notifier<SearchState> {
 
   Future<void> refreshTrending() async {
     final version = ++_trendingVersion;
-    final account = Accounts.get(AccountType.recommend);
+    final account = ref.read(recommendAccountProvider);
     LoadingState<SearchTrendingData> result;
     try {
-      result = await SearchHttp.searchTrending(limit: 10);
+      result = await const SearchRepository().trending(limit: 10);
     } catch (error, stackTrace) {
       result = Error.fromException(error, stackTrace);
     }
     if (_alive &&
         version == _trendingVersion &&
-        identical(account, Accounts.get(AccountType.recommend))) {
+        identical(account, ref.read(recommendAccountProvider))) {
       state = state.copyWith(trending: result);
     }
   }
 
   Future<void> refreshRecommend() async {
     final version = ++_recommendVersion;
-    final account = Accounts.get(AccountType.recommend);
+    final account = ref.read(recommendAccountProvider);
     LoadingState<SearchRcmdData> result;
     try {
-      result = await SearchHttp.searchRecommend();
+      result = await const SearchRepository().recommendations();
     } catch (error, stackTrace) {
       result = Error.fromException(error, stackTrace);
     }
     if (_alive &&
         version == _recommendVersion &&
-        identical(account, Accounts.get(AccountType.recommend))) {
+        identical(account, ref.read(recommendAccountProvider))) {
       state = state.copyWith(recommend: result);
     }
   }

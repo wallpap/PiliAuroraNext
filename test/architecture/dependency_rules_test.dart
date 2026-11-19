@@ -88,6 +88,8 @@ void main() {
     'watch_later',
     'content_library',
     'content_discovery',
+    'search',
+    'following',
     'community',
     'member_space',
     'history',

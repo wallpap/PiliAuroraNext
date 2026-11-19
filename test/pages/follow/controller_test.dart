@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/follow/controller.dart';
+import 'package:pili_aurora_next/features/following/application/following.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/follow/child/child_view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';
@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import '../../support/controlled_interceptor.dart';
@@ -344,6 +344,31 @@ void main() {
     await rename;
     expect((await notifier.remove(11, before.source)).isSuccess, isFalse);
     expect(requests, hasLength(3));
+    sub.close();
+  });
+
+  test('刷新等待当前分组写入完成，再读取确认后的目录', () async {
+    final sub = container.listen(followTagsProvider, (_, _) {});
+    await loadTags();
+    final pending = container
+        .read(followTagsProvider.notifier)
+        .rename(10, '已确认', groups().source);
+    await dispatched(2);
+
+    final refreshed = container.refresh(followTagsProvider.future);
+    await container.pump();
+    expect(requests, hasLength(2));
+    requests.last.reply.complete({'code': 0});
+    await pending;
+    await dispatched(3);
+    expect(requests.last.options.path, Api.followUpTag);
+    requests.last.reply.complete({
+      'code': 0,
+      'data': [
+        {'tagid': 10, 'name': '已确认', 'count': 1},
+      ],
+    });
+    expect((await refreshed).tags.single.name, '已确认');
     sub.close();
   });
 
@@ -765,7 +790,7 @@ void main() {
         ),
       ),
     );
-    final pending = RequestUtils.actionRelationMod(
+    final pending = showFollowActions(
       context: context,
       account: account,
       mid: 1,

@@ -2,8 +2,7 @@ import 'package:pili_aurora_next/services/account_providers.dart';
 
 import 'dart:async';
 
-import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/search/presentation/search_verification_dialog.dart';
 
 import 'dart:convert';
 
@@ -15,7 +14,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/pages/search_panel/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:material_ui/material_ui.dart';
@@ -120,29 +119,35 @@ abstract class CommonSearchPanelState<
       if (challenge is SearchVerificationRequired &&
           !identical(_challenge, challenge)) {
         _challenge = challenge;
+        final account = ref.read(recommendAccountProvider);
         bool currentChallenge() {
           if (!mounted || query != key) return false;
           final latest = ref.read(provider);
           return !latest.isLoading &&
+              identical(account, ref.read(recommendAccountProvider)) &&
               identical(latest.error ?? latest.value?.error, challenge);
         }
 
-        RequestUtils.validate(
-          challenge.voucher,
-          (token) {
-            if (!currentChallenge()) return;
-            _verificationTimer?.cancel();
-            _verificationTimer = Timer(const Duration(milliseconds: 200), () {
-              if (currentChallenge()) {
-                unawaited(ref.read(provider.notifier).verify(challenge, token));
-              }
-            });
-          },
-          account: ref.read(recommendAccountProvider),
-          isCurrent: currentChallenge,
-        ).catchError((Object _) {
-          if (currentChallenge()) const Error('验证未完成，请重试').toast();
-        });
+        unawaited(
+          showSearchVerification(
+            challenge.voucher,
+            (token) {
+              if (!currentChallenge()) return;
+              _verificationTimer?.cancel();
+              _verificationTimer = Timer(const Duration(milliseconds: 200), () {
+                if (currentChallenge()) {
+                  unawaited(
+                    ref.read(provider.notifier).verify(challenge, token),
+                  );
+                }
+              });
+            },
+            account: account,
+            isCurrent: currentChallenge,
+          ).catchError((Object _) {
+            if (currentChallenge()) const Error('验证未完成，请重试').toast();
+          }),
+        );
       }
       widget.onCount?.call(data?.total);
       if (data != null) controller.onResults(data);

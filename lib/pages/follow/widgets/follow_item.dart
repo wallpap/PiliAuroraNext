@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/models/remote/follow/list.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
 import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -31,7 +31,7 @@ class FollowItem extends StatelessWidget {
     if (isOwner) {
       final isFollow = item.attribute != -1;
       followBtn = FilledButton.tonal(
-        onPressed: () => RequestUtils.actionRelationMod(
+        onPressed: () => showFollowActions(
           context: context,
           account: account,
           mid: item.mid,

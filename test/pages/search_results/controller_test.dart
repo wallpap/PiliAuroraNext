@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:pili_aurora_next/http/validate.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/search/presentation/search_verification_dialog.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,11 +10,10 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/search_panel/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
 import 'package:pili_aurora_next/pages/search_result/view.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -422,7 +421,7 @@ void main() {
   test('验证注册绑定发起账号，页面失效后不再打开验证或回调', () async {
     var current = true;
     var callbacks = 0;
-    final registration = RequestUtils.validate(
+    final registration = showSearchVerification(
       'voucher',
       (_) => callbacks++,
       account: account,

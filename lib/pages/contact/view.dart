@@ -1,6 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/follow/child/child_view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';

@@ -3,9 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
+import 'package:pili_aurora_next/features/search/data/search_repository.dart';
+import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
 import 'package:pili_aurora_next/models/model_video.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
@@ -13,10 +13,11 @@ import 'package:pili_aurora_next/models/search/search_esports.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/services/blocked_authors.dart';
 import 'package:pili_aurora_next/services/cooperative_authors.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/media_author_filter.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
+
+export 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 
 typedef SearchResultsQuery = ({
   String keyword,
@@ -108,8 +109,8 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
 
   bool _current(Ref owner, Account account, Account main) =>
       owner.mounted &&
-      identical(account, Accounts.get(AccountType.recommend)) &&
-      identical(main, Accounts.main);
+      identical(account, owner.read(recommendAccountProvider)) &&
+      identical(main, owner.read(mainAccountProvider));
   Object _identity(dynamic item) => item is SearchPgcItemModel
       ? ('pgc', item.seasonId ?? item.mediaId ?? item)
       : MediaAuthorFilter.contentKey(item) ?? item as Object;
@@ -171,20 +172,13 @@ class SearchResultsNotifier extends AsyncNotifier<SearchResultsState> {
               (page > 1 || filters['filtered'] == true)
           ? SearchType.video
           : query.type;
-      final result = await SearchHttp.searchByType<SearchNumData>(
+      final result = await const SearchRepository().results(
         account: account,
-        searchType: type,
+        type: type,
         keyword: query.keyword,
         page: page,
-        order: filters['order'],
-        duration: filters['duration'],
-        tids: filters['tids'],
-        orderSort: filters['orderSort'],
-        userType: filters['userType'],
-        categoryId: filters['categoryId'],
-        pubBegin: filters['pubBegin'],
-        pubEnd: filters['pubEnd'],
-        gaiaVtoken: _token,
+        filters: filters,
+        verificationToken: _token,
       );
       if (attempt == 0 && blacklist != null) await blacklist;
       if (!isCurrent()) throw const Error('查询已更新');

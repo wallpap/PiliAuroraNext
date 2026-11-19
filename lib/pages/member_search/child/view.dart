@@ -1,12 +1,12 @@
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/models/common/member/search_type.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
-import 'package:pili_aurora_next/pages/member_search/child/widgets/search_archive_grpc.dart';
+import 'package:pili_aurora_next/pages/member_search/child/widgets/search_archive_card.dart';
 import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
+import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/common/search/scoped_search_page.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
@@ -69,7 +69,7 @@ class MemberSearchChildPageState
             MemberSearchType.archive => SliverGrid.builder(
               gridDelegate: gridDelegate,
               itemBuilder: (context, index) {
-                return SearchArchiveGrpc(item: response[index]);
+                return SearchArchiveCard(item: response[index]);
               },
               itemCount: response.length,
             ),

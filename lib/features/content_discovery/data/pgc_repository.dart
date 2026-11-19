@@ -4,6 +4,8 @@ import 'package:pili_aurora_next/features/favorites/domain/fav_pgc/list.dart';
 import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/pgc.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
+import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/data.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -12,6 +14,31 @@ final pgcRepositoryProvider = Provider((ref) => const PgcRepository());
 
 class PgcRepository {
   const PgcRepository();
+
+  Future<PgcIndexConditionData> indexConditions(
+    Account account,
+    int? indexType,
+  ) async => (await PgcHttp.pgcIndexCondition(
+    account: account,
+    seasonType: indexType == null ? 1 : null,
+    type: 0,
+    indexType: indexType,
+  )).data;
+
+  Future<PgcIndexResult> indexResults(
+    Account account, {
+    required int page,
+    required int? indexType,
+    required Map<String, dynamic> filters,
+  }) async => (await PgcHttp.pgcIndexResult(
+    account: account,
+    page: page,
+    params: filters,
+    seasonType: indexType == null ? 1 : null,
+    type: 0,
+    indexType: indexType,
+  )).data;
+
   Future<LoadingState<DiscoveryPage<PgcIndexItem, void>>> catalog(
     Account account,
     int page,

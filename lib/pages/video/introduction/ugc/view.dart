@@ -38,7 +38,7 @@ import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -797,7 +797,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                         color: colorScheme.secondaryContainer,
                         child: InkWell(
                           customBorder: const CircleBorder(),
-                          onTap: () => RequestUtils.actionRelationMod(
+                          onTap: () => showFollowActions(
                             context: context,
                             mid: item.mid,
                             isFollow: false,

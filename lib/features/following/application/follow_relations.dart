@@ -1,18 +1,18 @@
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/http/fan.dart';
+import 'package:pili_aurora_next/features/following/data/following_repository.dart';
+import 'package:pili_aurora_next/features/following/domain/following.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/remote/follow/data.dart';
 import 'package:pili_aurora_next/models/remote/follow/list.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
-enum FollowKind { fans, same, followed }
+export 'package:pili_aurora_next/features/following/domain/following.dart'
+    show FollowKind;
+
+const _repository = FollowingRepository();
 
 // 同一账号的关系写入互斥，避免其他入口刷新与并发写入交错。
 final _writeGateProvider = Provider<_WriteGate>((ref) => _WriteGate());
@@ -26,13 +26,9 @@ class _WriteGate {
 typedef FollowQuery = ({FollowKind kind, int? mid, bool newFans});
 
 final followNameProvider = FutureProvider.family<String?, int?>(
-  (ref, mid) async {
+  (ref, mid) {
     final account = ref.watch(mainAccountProvider);
-    final result = await MemberHttp.memberCardInfo(
-      mid: mid ?? account.mid,
-      account: account,
-    );
-    return result.dataOrNull?.card?.name;
+    return _repository.memberName(account, mid ?? account.mid);
   },
   isAutoDispose: true,
   retry: (_, _) => null,
@@ -92,32 +88,14 @@ class FollowQueryNotifier extends AsyncNotifier<FollowQueryState> {
     return _merge(null, await _page(account, 1), 1);
   }
 
-  Future<FollowData> _page(Account account, int page) async {
-    final mid = query.mid ?? account.mid;
-    final result = switch (query.kind) {
-      FollowKind.fans => await FanHttp.fans(
-        vmid: mid,
-        pn: page,
-        ps: pageSize,
-        orderType: query.newFans ? null : 'attention',
-        account: account,
-      ),
-      FollowKind.same => await UserHttp.sameFollowing(
-        mid: mid,
-        pn: page,
-        account: account,
-      ),
-      FollowKind.followed => await UserHttp.followedUp(
-        mid: mid,
-        pn: page,
-        account: account,
-      ),
-    };
-    return switch (result) {
-      Success(:final response) => response,
-      _ => throw result,
-    };
-  }
+  Future<FollowData> _page(Account account, int page) => _repository.relations(
+    account: account,
+    mid: query.mid ?? account.mid,
+    kind: query.kind,
+    page: page,
+    pageSize: pageSize,
+    newestFirst: query.newFans,
+  );
 
   FollowQueryState _merge(
     FollowQueryState? current,
@@ -160,14 +138,16 @@ class FollowQueryNotifier extends AsyncNotifier<FollowQueryState> {
     }
     final requestRef = ref;
     final account = requestRef.read(mainAccountProvider);
-    if (!identical(account, Accounts.main)) return;
+    bool ownsQuery() =>
+        requestRef.mounted &&
+        identical(account, requestRef.read(mainAccountProvider));
     state = AsyncData(current.operation(isLoadingMore: true));
     try {
       final response = await _page(account, current.nextPage);
-      if (!requestRef.mounted || !identical(account, Accounts.main)) return;
+      if (!ownsQuery()) return;
       state = AsyncData(_merge(current, response, current.nextPage));
     } catch (_) {
-      if (requestRef.mounted && identical(account, Accounts.main)) {
+      if (ownsQuery()) {
         state = AsyncData(current.operation(pageError: '加载失败，点击重试'));
       }
     }
@@ -189,8 +169,10 @@ class FollowQueryNotifier extends AsyncNotifier<FollowQueryState> {
     final item = matching.first;
     final requestRef = ref;
     final account = requestRef.read(mainAccountProvider);
+    bool ownsQuery() =>
+        requestRef.mounted &&
+        identical(account, requestRef.read(mainAccountProvider));
     if (!account.isLogin ||
-        !identical(account, Accounts.main) ||
         query.kind != FollowKind.fans ||
         (query.mid ?? account.mid) != account.mid) {
       return const Error('账号已切换或无操作权限');
@@ -200,17 +182,13 @@ class FollowQueryNotifier extends AsyncNotifier<FollowQueryState> {
     final isFollowing = item.attribute == 2 || item.attribute == 6;
     state = AsyncData(current.operation(busyMid: mid));
     try {
-      final result = await VideoHttp.relationMod(
-        account: account,
-        mid: mid,
-        act: remove
-            ? 7
-            : isFollowing
-            ? 2
-            : 1,
-        reSrc: remove ? 11 : 107,
+      final result = await _repository.updateFan(
+        account,
+        mid,
+        remove: remove,
+        isFollowing: isFollowing,
       );
-      if (!requestRef.mounted || !identical(account, Accounts.main)) {
+      if (!ownsQuery()) {
         return const Error('账号已切换或页面已关闭');
       }
       if (!result.isSuccess) {
@@ -266,7 +244,7 @@ class FollowQueryNotifier extends AsyncNotifier<FollowQueryState> {
       }
       return const Success(null);
     } catch (_) {
-      if (requestRef.mounted && identical(account, Accounts.main)) {
+      if (ownsQuery()) {
         state = AsyncData(current);
       }
       return const Error('操作未完成，请刷新后核对');

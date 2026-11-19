@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/following/data/following_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_follow/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_follow/item.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 final liveFollowProvider =
@@ -66,13 +65,8 @@ class LiveFollowNotifier extends AsyncNotifier<LiveFollowState> {
     return _merge(null, await _page(account, 1), 1);
   }
 
-  Future<LiveFollowData> _page(Account account, int page) async {
-    final result = await LiveHttp.liveFollow(page, account: account);
-    return switch (result) {
-      Success(:final response) => response,
-      _ => throw result,
-    };
-  }
+  Future<LiveFollowData> _page(Account account, int page) =>
+      const FollowingRepository().liveFollowing(account, page);
 
   LiveFollowState _merge(
     LiveFollowState? current,
@@ -128,13 +122,16 @@ class LiveFollowNotifier extends AsyncNotifier<LiveFollowState> {
     }
     final requestRef = ref;
     final account = requestRef.read(mainAccountProvider);
+    bool ownsQuery() =>
+        requestRef.mounted &&
+        identical(account, requestRef.read(mainAccountProvider));
     state = AsyncData(current.withOperation(isLoadingMore: true));
     try {
       final response = await _page(account, current.nextPage);
-      if (!requestRef.mounted || !identical(account, Accounts.main)) return;
+      if (!ownsQuery()) return;
       state = AsyncData(_merge(current, response, current.nextPage));
     } catch (_) {
-      if (requestRef.mounted && identical(account, Accounts.main)) {
+      if (ownsQuery()) {
         state = AsyncData(current.withOperation(pageError: '加载失败，点击重试'));
       }
     }

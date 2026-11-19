@@ -1,17 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/http/follow.dart';
+import 'package:pili_aurora_next/features/following/data/following_repository.dart';
+import 'package:pili_aurora_next/features/following/domain/following.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/models/common/follow_order_type.dart';
 import 'package:pili_aurora_next/models/remote/follow/data.dart';
 import 'package:pili_aurora_next/models/remote/follow/list.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+
+export 'package:pili_aurora_next/features/following/domain/following.dart'
+    show FollowTag;
+
+const _repository = FollowingRepository();
 
 final followOrderProvider =
     NotifierProvider<FollowOrderNotifier, FollowOrderType>(
@@ -20,12 +22,12 @@ final followOrderProvider =
 
 class FollowOrderNotifier extends Notifier<FollowOrderType> {
   @override
-  FollowOrderType build() => Pref.followOrderType;
+  FollowOrderType build() => _repository.order;
   void toggle() {
     state = state == FollowOrderType.def
         ? FollowOrderType.attention
         : FollowOrderType.def;
-    GStorage.setting.put(SettingBoxKey.followOrderType, state.index);
+    unawaited(_repository.saveOrder(state));
   }
 }
 
@@ -84,35 +86,15 @@ class FollowingNotifier extends AsyncNotifier<FollowingState> {
     Account account,
     FollowOrderType order,
     int page,
-  ) async {
-    final mid = query.mid ?? account.mid;
-    final result = query.keyword != null
-        ? await MemberHttp.followSearch(
-            account: account,
-            mid: mid,
-            ps: pageSize,
-            pn: page,
-            name: query.keyword!,
-          )
-        : query.tagid != null
-        ? await MemberHttp.followUpGroup(
-            account: account,
-            mid: mid,
-            tagid: query.tagid!,
-            pn: page,
-            orderType: order.type,
-          )
-        : await FollowHttp.followings(
-            account: account,
-            vmid: mid,
-            pn: page,
-            orderType: order.type,
-          );
-    return switch (result) {
-      Success(:final response) => response,
-      _ => throw result,
-    };
-  }
+  ) => _repository.following(
+    account: account,
+    mid: query.mid ?? account.mid,
+    page: page,
+    pageSize: pageSize,
+    order: order,
+    tag: query.tagid,
+    keyword: query.keyword,
+  );
 
   FollowingState _merge(
     FollowingState? current,
@@ -150,30 +132,22 @@ class FollowingNotifier extends AsyncNotifier<FollowingState> {
     }
     final owner = ref;
     final account = owner.read(mainAccountProvider);
-    if (!identical(account, Accounts.main)) return;
+    bool ownsQuery() =>
+        owner.mounted && identical(account, owner.read(mainAccountProvider));
     final order = query.keyword == null
         ? owner.read(followOrderProvider)
         : FollowOrderType.attention;
     state = AsyncData(current.operation(isLoadingMore: true));
     try {
       final response = await _page(account, order, current.nextPage);
-      if (!owner.mounted || !identical(account, Accounts.main)) return;
+      if (!ownsQuery()) return;
       state = AsyncData(_merge(current, response, current.nextPage));
     } catch (_) {
-      if (owner.mounted && identical(account, Accounts.main)) {
+      if (ownsQuery()) {
         state = AsyncData(current.operation(pageError: '加载失败，点击重试'));
       }
     }
   }
-}
-
-class FollowTag {
-  const FollowTag({required this.id, required this.name, this.count, this.tip});
-  final int id;
-  final String name;
-  final int? count;
-  final String? tip;
-  bool get isCustom => BiliUtils.isCustomFollowTag(id);
 }
 
 class FollowTagsState {
@@ -195,23 +169,25 @@ final followTagsProvider =
       retry: (_, _) => null,
     );
 
+final _tagWritesProvider = Provider(
+  (ref) => <int, ({Account account, Completer<void> done})>{},
+);
+
 class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
   @override
   Future<FollowTagsState> build() async {
-    final account = ref.watch(mainAccountProvider);
+    final owner = ref;
+    final account = owner.watch(mainAccountProvider);
     if (!account.isLogin) throw const Error('账号未登录');
-    final result = await MemberHttp.followUpTags(account: account);
-    final ids = <int>{};
-    return FollowTagsState([
-      for (final tag in result.data)
-        if (tag.tagid != null && ids.add(tag.tagid!))
-          FollowTag(
-            id: tag.tagid!,
-            name: tag.name ?? '',
-            count: tag.count,
-            tip: tag.tip,
-          ),
-    ]);
+    final pending = owner.read(_tagWritesProvider)[account.mid];
+    if (pending != null && identical(pending.account, account)) {
+      await pending.done.future;
+      if (!owner.mounted ||
+          !identical(account, owner.read(mainAccountProvider))) {
+        throw const Error('分组或账号已更新，请重试');
+      }
+    }
+    return FollowTagsState(await _repository.tags(account));
   }
 
   Future<LoadingState<T>> _write<T>(
@@ -224,21 +200,26 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
     final before = state.value;
     final owner = ref;
     final account = owner.read(mainAccountProvider);
+    final writes = owner.read(_tagWritesProvider);
+    bool ownsWrite() =>
+        owner.mounted && identical(account, owner.read(mainAccountProvider));
     if (state.isLoading ||
         state.hasError ||
         before == null ||
         before.isSaving ||
         !identical(source, before.source) ||
         !account.isLogin ||
-        !identical(account, Accounts.main)) {
+        writes.containsKey(account.mid)) {
       return const Error('分组或账号已更新，请重试');
     }
+    final done = Completer<void>();
+    writes[account.mid] = (account: account, done: done);
     state = AsyncData(
       FollowTagsState(before.tags, source: before.source, isSaving: true),
     );
     try {
       final result = await send(account);
-      if (!owner.mounted || !identical(account, Accounts.main)) {
+      if (!ownsWrite()) {
         return const Error('账号已切换或页面已关闭');
       }
       if (result case Success(:final response)) {
@@ -251,7 +232,7 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
       }
       return result;
     } catch (error, stackTrace) {
-      if (owner.mounted && identical(account, Accounts.main)) {
+      if (ownsWrite()) {
         state = AsyncData(before);
       }
       final failure = Error.fromException(error, stackTrace);
@@ -260,6 +241,9 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
         cause: failure.cause,
         stackTrace: failure.stackTrace,
       );
+    } finally {
+      writes.remove(account.mid);
+      done.complete();
     }
   }
 
@@ -274,7 +258,7 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
     final nextSource = Object();
     final result = await _write(
       source,
-      (account) => MemberHttp.createFollowTag(name, account: account),
+      (account) => _repository.createTag(account, name),
       (tags, id) => [...tags, FollowTag(id: id, name: name, count: 0)],
       nextSource: nextSource,
     );
@@ -287,7 +271,7 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
 
   Future<LoadingState<void>> rename(int id, String name, Object source) {
     name = name.trim();
-    if (!BiliUtils.isCustomFollowTag(id) ||
+    if (!isCustomFollowTag(id) ||
         name.isEmpty ||
         name.runes.length > 16 ||
         !(state.value?.tags.any((tag) => tag.id == id) ?? false)) {
@@ -295,7 +279,7 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
     }
     return _write(
       source,
-      (account) => MemberHttp.updateFollowTag(id, name, account: account),
+      (account) => _repository.renameTag(account, id, name),
       (tags, _) => [
         for (final tag in tags)
           if (tag.id == id)
@@ -307,13 +291,13 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
   }
 
   Future<LoadingState<void>> remove(int id, Object source) {
-    if (!BiliUtils.isCustomFollowTag(id) ||
+    if (!isCustomFollowTag(id) ||
         !(state.value?.tags.any((tag) => tag.id == id) ?? false)) {
       return Future.value(const Error('分组已更新'));
     }
     return _write(
       source,
-      (account) => MemberHttp.delFollowTag(id, account: account),
+      (account) => _repository.deleteTag(account, id),
       (tags, _) => tags.where((tag) => tag.id != id).toList(),
       reloadLists: true,
     );
@@ -331,8 +315,7 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
     final order = List<int>.of(ids);
     return _write(
       source,
-      (account) =>
-          FollowHttp.sortFollowTag(account: account, tagids: order.join(',')),
+      (account) => _repository.sortTags(account, order),
       (tags, _) => [
         ...tags.where((tag) => !tag.isCustom),
         for (final id in order) custom.firstWhere((tag) => tag.id == id),
@@ -356,11 +339,7 @@ class FollowTagsNotifier extends AsyncNotifier<FollowTagsState> {
     final owner = ref;
     final result = await _write(
       source,
-      (account) => MemberHttp.addUsers(
-        '$mid',
-        selected.isEmpty ? '0' : selected.join(','),
-        account: account,
-      ),
+      (account) => _repository.assignTags(account, mid, selected),
       (tags, _) => tags,
       reloadLists: true,
     );

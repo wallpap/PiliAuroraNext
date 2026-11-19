@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/pages/common/member_feed.dart';
 import 'package:pili_aurora_next/pages/article_list/controller.dart';
-import 'package:pili_aurora_next/pages/pgc_index/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/pgc_index.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';

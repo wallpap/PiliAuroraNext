@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/features/favorites/presentation/folder_editor.d
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_detail_page.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/features/history/presentation/history_page.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';

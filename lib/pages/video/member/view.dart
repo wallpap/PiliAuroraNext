@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/models/common/member/user_info_type.dart';
 import 'package:pili_aurora_next/models/member/info.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/member_video/widgets/video_card_h_member_video.dart';
@@ -29,7 +29,7 @@ import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -364,7 +364,7 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
                     SmartDialog.showToast('账号未登录');
                     return;
                   }
-                  RequestUtils.actionRelationMod(
+                  showFollowActions(
                     context: context,
                     mid: widget.mid,
                     isFollow: memberInfoModel.isFollowed ?? false,

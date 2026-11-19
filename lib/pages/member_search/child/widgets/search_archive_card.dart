@@ -1,44 +1,44 @@
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
+import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/interfaces/v1.pb.dart' show Arc;
+import 'package:pili_aurora_next/features/search/domain/scoped_search.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/em.dart';
-import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
-class SearchArchiveGrpc extends StatelessWidget {
-  const SearchArchiveGrpc({
+class SearchArchiveCard extends ConsumerWidget {
+  const SearchArchiveCard({
     super.key,
     required this.item,
   });
 
-  final Arc item;
+  final ScopedSearchArchive item;
 
   @override
-  Widget build(BuildContext context) {
-    final arc = item.archive;
-    final bvid = IdUtils.av2bv(arc.aid.toInt());
-    final regTitle = Em.regTitle(arc.title);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bvid = IdUtils.av2bv(item.aid);
+    final regTitle = Em.regTitle(item.title);
     final titleStr = regTitle.map((e) => e.text).join();
     void onLongPress() => imageSaveDialog(
       bvid: bvid,
       title: titleStr,
-      cover: arc.pic,
+      cover: item.cover,
     );
     return Material(
       type: MaterialType.transparency,
@@ -49,20 +49,20 @@ class SearchArchiveGrpc extends StatelessWidget {
             onLongPress: onLongPress,
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
             onTap: () {
-              if (item.isPugv) {
+              if (item.isCourse) {
                 PageUtils.viewPgcFromUri(item.uri, isPgc: false);
                 return;
               }
-              if (arc.hasRedirectUrl()) {
-                PageUtils.viewPgcFromUri(arc.redirectUrl);
+              if (item.redirectUrl case final redirect?) {
+                PageUtils.viewPgcFromUri(redirect);
                 return;
               }
               PageUtils.toVideoPage(
                 bvid: bvid,
-                cid: arc.firstCid.toInt(),
-                cover: arc.pic,
+                cid: item.cid,
+                cover: item.cover,
                 title: titleStr,
-                isVertical: arc.dimension.isVertical,
+                isVertical: item.isVertical,
               );
             },
             child: Padding(
@@ -83,20 +83,20 @@ class SearchArchiveGrpc extends StatelessWidget {
                           clipBehavior: Clip.none,
                           children: [
                             NetworkImgLayer(
-                              src: arc.pic,
+                              src: item.cover,
                               width: maxWidth,
                               height: maxHeight,
                             ),
-                            if (item.isPugv)
+                            if (item.isCourse)
                               const PBadge(
                                 text: '课堂',
                                 top: 6.0,
                                 right: 6.0,
                               ),
-                            if (arc.duration > Int64.ZERO)
+                            if (item.duration > 0)
                               PBadge(
                                 text: DurationUtils.formatDuration(
-                                  arc.duration.toInt(),
+                                  item.duration,
                                 ),
                                 right: 6.0,
                                 bottom: 6.0,
@@ -140,7 +140,20 @@ class SearchArchiveGrpc extends StatelessWidget {
                 ),
                 AppPopupMenuItem(
                   height: 45,
-                  onTap: () => RequestUtils.addToWatchLater(bvid: bvid),
+                  onTap: () async {
+                    final library = ref.read(laterLibraryProvider);
+                    final account = ref.read(mainAccountProvider);
+                    final result = await library.add(
+                      bvid: bvid,
+                      account: account,
+                    );
+                    if (!context.mounted || !library.owns(account)) return;
+                    if (result.isSuccess) {
+                      SmartDialog.showToast('已添加到稍后再看');
+                    } else {
+                      result.toast();
+                    }
+                  },
                   child: const Row(
                     spacing: 6,
                     children: [
@@ -161,9 +174,8 @@ class SearchArchiveGrpc extends StatelessWidget {
     BuildContext context,
     List<({bool isEm, String text})> regTitle,
   ) {
-    final arc = item.archive;
     final theme = Theme.of(context);
-    String pubdate = DateFormatUtils.dateFormat(arc.pubdate.toInt());
+    String pubdate = DateFormatUtils.dateFormat(item.publishedAt);
     if (pubdate != '') pubdate += '  ';
     return Expanded(
       child: Column(
@@ -193,7 +205,7 @@ class SearchArchiveGrpc extends StatelessWidget {
             ),
           ),
           Text(
-            "$pubdate${arc.author.name}",
+            "$pubdate${item.author}",
             maxLines: 1,
             style: TextStyle(
               fontSize: 12,
@@ -208,11 +220,11 @@ class SearchArchiveGrpc extends StatelessWidget {
             children: [
               StatWidget(
                 type: StatType.play,
-                value: arc.stat.view,
+                value: item.views,
               ),
               StatWidget(
                 type: StatType.danmaku,
-                value: arc.stat.danmaku,
+                value: item.danmaku,
               ),
             ],
           ),

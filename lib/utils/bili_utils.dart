@@ -20,10 +20,6 @@ abstract final class BiliUtils {
     return (attr & 1) == 0;
   }
 
-  static bool isCustomFollowTag(int? tagid) {
-    return tagid != null && tagid != 0 && tagid != -10 && tagid != -2;
-  }
-
   static bool isFavFolderFull(int attr, int count) {
     return count >= (isDefaultFav(attr) ? 50000 : 1000);
   }
