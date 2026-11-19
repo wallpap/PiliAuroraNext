@@ -5,13 +5,12 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/pages/whisper_block/controller.dart';
-import 'package:pili_aurora_next/services/messaging/settings.dart';
+import 'package:pili_aurora_next/services/messaging/blocked_keywords.dart';
+import 'package:pili_aurora_next/services/messaging/settings_models.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class WhisperBlockPage extends ConsumerStatefulWidget {
@@ -27,24 +26,25 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final snapshot = ref.watch(whisperBlockProvider);
-    final controller = ref.read(whisperBlockProvider.notifier);
+    final handle = ref.watch(blockedKeywordsProvider);
     return SimpleScaffold(
       appBar: AppBar(title: const Text('消息屏蔽词')),
-      body: _buildBody(theme, snapshot, controller),
+      body: ValueListenableBuilder(
+        valueListenable: handle.state,
+        builder: (context, snapshot, _) => _buildBody(theme, snapshot, handle),
+      ),
     );
   }
 
   Widget _buildBody(
     ThemeData theme,
-    KeywordBlockSnapshot snapshot,
-    WhisperBlockNotifier controller,
+    LoadingState<BlockedKeywords> snapshot,
+    BlockedKeywordsHandle handle,
   ) {
-    final loadingState = snapshot.loadingState;
-    return switch (loadingState) {
+    return switch (snapshot) {
       Loading() => m3eLoading,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.words.isNotEmpty
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -60,14 +60,13 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                             color: theme.colorScheme.outline,
                           ),
                         ),
-                        if (snapshot.listLimit != null)
-                          Text(
-                            '${snapshot.count}/${snapshot.listLimit}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: theme.colorScheme.outline,
-                            ),
+                        Text(
+                          '${response.words.length}/${response.listLimit}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.colorScheme.outline,
                           ),
+                        ),
                       ],
                     ),
                   ),
@@ -77,20 +76,27 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                       child: Wrap(
                         spacing: 12,
                         runSpacing: 12,
-                        children: response
+                        children: response.words
                             .map(
-                              (e) => SearchText(
-                                text: e.keyword,
+                              (word) => SearchText(
+                                text: word,
                                 onTap: (keyword) async {
                                   final confirmed = await showConfirmDialog(
                                     context: context,
                                     title: const Text('删除屏蔽词？'),
                                     content: const Text('该屏蔽词将不再生效'),
                                   );
-                                  if (!confirmed || !context.mounted) return;
-                                  final result = await controller.onRemove(
-                                    e.keyword,
+                                  if (!confirmed ||
+                                      !context.mounted ||
+                                      !handle.isActive) {
+                                    return;
+                                  }
+                                  final result = await handle.setBlocked(
+                                    keyword,
+                                    blocked: false,
                                   );
+                                  if (!context.mounted || !handle.isActive)
+                                    return;
                                   if (result.isSuccess) {
                                     SmartDialog.showToast('删除成功');
                                   } else {
@@ -110,7 +116,7 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                       bottom: MediaQuery.viewPaddingOf(context).bottom + 10,
                     ),
                     child: FilledButton.tonal(
-                      onPressed: () => _onAdd(controller, snapshot.charLimit),
+                      onPressed: () => _onAdd(handle, response.charLimit),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [Icon(Icons.add, size: 22), Text('添加消息屏蔽词')],
@@ -138,7 +144,7 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                     ),
                     const Text('添加后，将不再接受包含屏蔽词的消息'),
                     FilledButton.tonal(
-                      onPressed: () => _onAdd(controller, snapshot.charLimit),
+                      onPressed: () => _onAdd(handle, response.charLimit),
                       style: FilledButton.styleFrom(
                         visualDensity: VisualDensity.compact,
                       ),
@@ -155,12 +161,12 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
               ),
       Error(:final errMsg) => scrollErrorWidget(
         errMsg: errMsg,
-        onReload: controller.onReload,
+        onReload: handle.refresh,
       ),
     };
   }
 
-  void _onAdd(WhisperBlockNotifier controller, int? charLimit) {
+  void _onAdd(BlockedKeywordsHandle handle, int charLimit) {
     String keyword = '';
     showModalBottomSheet(
       context: context,
@@ -189,7 +195,7 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: Get.back,
+                      onTap: () => Navigator.of(context).pop(),
                       behavior: HitTestBehavior.opaque,
                       child: Icon(
                         Icons.clear,
@@ -224,10 +230,18 @@ class _WhisperBlockPageState extends ConsumerState<WhisperBlockPage> {
                 const SizedBox(height: 12),
                 FilledButton.tonal(
                   onPressed: () async {
-                    if (keyword.isNotEmpty) {
-                      final result = await controller.onAdd(keyword);
+                    if (keyword.isNotEmpty && handle.isActive) {
+                      final result = await handle.setBlocked(
+                        keyword,
+                        blocked: true,
+                      );
+                      if (!context.mounted ||
+                          !handle.isActive ||
+                          ModalRoute.of(context)?.isCurrent != true) {
+                        return;
+                      }
                       if (result.isSuccess) {
-                        Get.back();
+                        Navigator.of(context).pop();
                         SmartDialog.showToast('添加成功');
                       } else {
                         result.toast();

@@ -4,6 +4,35 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/settings_models.dart';
 
+abstract final class BlockedKeywordsAdapter {
+  static Future<LoadingState<BlockedKeywords>> load(
+    MessagingSession session,
+  ) async {
+    final result = await session.run(
+      (account) => ImGrpc.keywordBlockingList(account: account),
+    );
+    return switch (result) {
+      Success(:final response) => Success((
+        words: List.unmodifiable(response.items.map((item) => item.keyword)),
+        listLimit: response.listLimit,
+        charLimit: response.charLimit,
+      )),
+      Error() => result,
+      Loading() => result,
+    };
+  }
+
+  static Future<LoadingState<void>> write(
+    MessagingSession session,
+    String word, {
+    required bool blocked,
+  }) => session.run(
+    (account) => blocked
+        ? ImGrpc.keywordBlockingAdd(word, account: account)
+        : ImGrpc.keywordBlockingDelete(word, account: account),
+  );
+}
+
 typedef WhisperSettingsPageData = ({
   String title,
   Map<int, WhisperSettingRecord> records,

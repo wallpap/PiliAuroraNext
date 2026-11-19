@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart'
+    show PrivateId, SessionId, SessionUpdateReply;
 import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
@@ -162,133 +163,6 @@ class WhisperSettingsHandle {
     _generation++;
     _writes.clear();
     _records.clear();
-    state.dispose();
-  }
-}
-
-@immutable
-class KeywordBlockSnapshot {
-  const KeywordBlockSnapshot({
-    required this.loadingState,
-    this.listLimit,
-    this.charLimit,
-  });
-
-  final LoadingState<List<KeywordBlockingItem>?> loadingState;
-  final int? listLimit;
-  final int? charLimit;
-  int get count => loadingState.dataOrNull?.length ?? 0;
-}
-
-class KeywordBlockHandle {
-  KeywordBlockHandle({required this.session})
-    : state = ValueNotifier(
-        KeywordBlockSnapshot(
-          loadingState: LoadingState<List<KeywordBlockingItem>?>.loading(),
-        ),
-      );
-
-  final MessagingSession session;
-  final ValueNotifier<KeywordBlockSnapshot> state;
-  int _generation = 0;
-  bool _disposed = false;
-
-  Future<void> refresh() async {
-    if (_disposed || !session.isActive) return;
-    final generation = ++_generation;
-    state.value = KeywordBlockSnapshot(
-      loadingState: LoadingState<List<KeywordBlockingItem>?>.loading(),
-    );
-    final result = await session.run(
-      (account) => ImGrpc.keywordBlockingList(account: account),
-    );
-    if (!_isCurrent(generation)) return;
-    switch (result) {
-      case Success<KeywordBlockingListReply>(:final response):
-        state.value = KeywordBlockSnapshot(
-          loadingState: Success(
-            List<KeywordBlockingItem>.unmodifiable(
-              response.items.map((item) => item.deepCopy()),
-            ),
-          ),
-          listLimit: response.listLimit,
-          charLimit: response.charLimit,
-        );
-      case Error():
-        state.value = KeywordBlockSnapshot(loadingState: result);
-      case Loading():
-        state.value = KeywordBlockSnapshot(
-          loadingState: LoadingState<List<KeywordBlockingItem>?>.loading(),
-        );
-    }
-  }
-
-  Future<LoadingState<void>> add(String keyword) async {
-    if (_disposed || !session.isActive) return const Error('当前操作不可用');
-    _generation++;
-    final result = await session.run(
-      (account) => ImGrpc.keywordBlockingAdd(keyword, account: account),
-    );
-    if (!_isActive) return const Error('账号已切换');
-    if (result case Success<void>()) {
-      _generation++;
-      final existing = state.value.loadingState.dataOrNull;
-      if (existing != null) {
-        state.value = KeywordBlockSnapshot(
-          loadingState: Success(
-            List<KeywordBlockingItem>.unmodifiable([
-              ...existing.where((item) => item.keyword != keyword),
-              KeywordBlockingItem(keyword: keyword),
-            ]),
-          ),
-          listLimit: state.value.listLimit,
-          charLimit: state.value.charLimit,
-        );
-      } else {
-        await refresh();
-      }
-      session.notifyChanged(MessagingChangeKind.settings);
-    }
-    return result;
-  }
-
-  Future<LoadingState<void>> remove(String keyword) async {
-    if (_disposed || !session.isActive) return const Error('当前操作不可用');
-    _generation++;
-    final result = await session.run(
-      (account) => ImGrpc.keywordBlockingDelete(keyword, account: account),
-    );
-    if (!_isActive) return const Error('账号已切换');
-    if (result case Success<void>()) {
-      _generation++;
-      final existing = state.value.loadingState.dataOrNull;
-      if (existing != null) {
-        state.value = KeywordBlockSnapshot(
-          loadingState: Success(
-            List<KeywordBlockingItem>.unmodifiable(
-              existing.where((item) => item.keyword != keyword),
-            ),
-          ),
-          listLimit: state.value.listLimit,
-          charLimit: state.value.charLimit,
-        );
-      } else {
-        await refresh();
-      }
-      session.notifyChanged(MessagingChangeKind.settings);
-    }
-    return result;
-  }
-
-  bool _isCurrent(int generation) =>
-      !_disposed && session.isActive && generation == _generation;
-
-  bool get _isActive => !_disposed && session.isActive;
-
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    _generation++;
     state.dispose();
   }
 }

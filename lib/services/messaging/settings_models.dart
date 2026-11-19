@@ -1,3 +1,9 @@
+typedef BlockedKeywords = ({
+  List<String> words,
+  int listLimit,
+  int charLimit,
+});
+
 extension type const WhisperSettingsSection(int code) {
   static const all = WhisperSettingsSection(0);
   static const replies = WhisperSettingsSection(17);
