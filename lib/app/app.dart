@@ -21,6 +21,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart';
 import 'package:pili_aurora_next/router/app_pages.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
+import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
@@ -46,6 +47,7 @@ class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
 
   @override
   void dispose() {
+    Messaging.closeApplicationSession();
     DanmakuWorkQuota.disposeProcessQuota();
     closeApplicationShutdownTimer();
     unawaited(

@@ -8,7 +8,7 @@
 
 `Messaging.instance.session` 提供当前主账号的 `MessagingSession`，其标识包含账号 mid 和递增的 generation。`Accounts` 在主账号变化时通知 `Messaging`：先释放旧 Session，再发布新 Session。请求捕获发起时的账号，执行前和返回后都检查 Session 有效性。
 
-应用根 Widget 提供 `ProviderScope`。`messagingSessionProvider` 跟随 Session 变化，依赖它的 provider 重建状态。关闭页面时释放页面订阅；账号共享资源由 Session 管理，聊天通过租约保留使用中的缓存项。
+应用根 Widget 提供 `ProviderScope`。`messagingSessionProvider` 跟随 Session 变化，依赖它的 provider 重建状态。关闭页面时释放页面订阅；账号共享资源由 Session 管理，聊天通过租约保留使用中的缓存项。应用卸载时释放当前 Session 及其订阅，迟到的消息请求返回失效结果。
 
 | 状态 | 所有者与释放时机 | 实现入口 |
 | --- | --- | --- |

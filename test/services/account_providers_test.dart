@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/account/application/account_roles.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
@@ -73,6 +76,24 @@ void main() {
       Accounts.accountMode[role.index] = AnonymousAccount();
     }
     Messaging.instance.session;
+  });
+
+  test('应用卸载关闭消息订阅并拒绝迟到请求，新会话可独立建立', () async {
+    final oldOwner = Messaging.instance;
+    final oldSession = oldOwner.session;
+    final response = Completer<LoadingState<int>>();
+    final request = oldSession.run((_) => response.future);
+    final closed = oldSession.changes.drain<void>();
+
+    Messaging.closeApplicationSession();
+    response.complete(const Success(42));
+
+    await closed;
+    expect(await request, isA<Error>());
+    expect(oldOwner.session.isActive, isFalse);
+    final newSession = Messaging.instance.session;
+    expect(newSession.isActive, isTrue);
+    expect(newSession.key, isNot(oldSession.key));
   });
 
   test('真实推荐账号切换发布同 mid 的新凭据，不重建主账号及消息 Session', () async {
