@@ -5,19 +5,21 @@ import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/common/widgets/cropped_image.dart';
-import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
+import 'package:pili_aurora_next/features/playback/application/seek_preview_timeline.dart';
+import 'package:pili_aurora_next/features/playback/domain/seek_preview.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/preview_image_cache.dart';
-import 'package:pili_aurora_next/plugin/pl_player/utils/seek_preview_timeline.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/seek_preview.dart';
 
-VideoShotData _timelineData() => VideoShotData(
-  imgXLen: 2,
-  imgYLen: 2,
-  imgXSize: 20,
-  imgYSize: 10,
-  image: ['a', 'b'],
-  index: [0, 10, 20, 30, 40, 50],
-);
+const _source = (bvid: 'BV-test', cid: 1);
+
+SeekPreviewAtlas _timelineData({List<String> images = const ['a', 'b']}) =>
+    SeekPreviewAtlas(
+      columns: 2,
+      rows: 2,
+      images: images,
+      timestamps: const [0, 10, 20, 30, 40, 50],
+    );
 
 ui.Image _sprite() {
   final recorder = ui.PictureRecorder();
@@ -30,62 +32,70 @@ ui.Image _sprite() {
 
 void main() {
   testWidgets('索引预热延后且与拖动共用请求，返回时直接发布最新目标', (tester) async {
-    final indexes = <int?>[];
-    final data = Completer<VideoShotData>();
+    final frames = <SeekPreviewFrame?>[];
+    final data = Completer<LoadingState<SeekPreviewAtlas>>();
+    var ready = true;
     var requests = 0;
-    Future<VideoShotData> load(CancelToken token) {
+    Future<LoadingState<SeekPreviewAtlas>> load(
+      SeekPreviewSource source, {
+      CancelToken? cancelToken,
+    }) {
       requests++;
       return data.future;
     }
 
-    final timeline = SeekPreviewTimeline(indexes.add)
-      ..prewarm(load: load, isCurrent: () => true);
+    final timeline = SeekPreviewTimeline(frames.add, load: load)
+      ..prewarm(_source, isCurrent: () => true, canStart: () => ready);
     await tester.pump(const Duration(milliseconds: 999));
     expect(requests, 0);
     await tester.pump(const Duration(milliseconds: 1));
     expect(requests, 1);
+    ready = false;
     timeline
-      ..select(10, load: load, isCurrent: () => true)
-      ..select(40, load: load, isCurrent: () => true);
-    expect(indexes, isEmpty);
-    data.complete(_timelineData());
+      ..select(_source, 10, isCurrent: () => true)
+      ..select(_source, 40, isCurrent: () => true);
+    expect(frames, isEmpty);
+    data.complete(Success(_timelineData()));
     await tester.pump();
-    expect(indexes, [3]);
+    final frame = frames.single!;
+    expect((frame.url, frame.column, frame.row), ('a', 1, 1));
     expect(requests, 1);
   });
 
   testWidgets('松手不显示迟到索引，切源取消请求且丢弃旧响应', (tester) async {
-    final indexes = <int?>[];
-    final timeline = SeekPreviewTimeline(indexes.add);
-    final released = Completer<VideoShotData>();
-    timeline
-      ..select(40, load: (_) => released.future, isCurrent: () => true)
-      ..hide();
-    released.complete(_timelineData());
+    final frames = <SeekPreviewFrame?>[];
+    var response = Completer<LoadingState<SeekPreviewAtlas>>();
+    late CancelToken token;
+    final timeline =
+        SeekPreviewTimeline(
+            frames.add,
+            load: (source, {cancelToken}) {
+              token = cancelToken!;
+              return response.future;
+            },
+          )
+          ..select(_source, 40, isCurrent: () => true)
+          ..hide();
+    response.complete(Success(_timelineData()));
     await tester.pump();
-    expect(indexes, [null]);
-    expect(timeline.data, isNotNull);
+    expect(frames, [null]);
+    timeline.select(_source, 20, isCurrent: () => true);
+    expect(frames.last?.column, 1);
 
     timeline.clear();
-    final stale = Completer<VideoShotData>();
-    late CancelToken oldToken;
+    final stale = response = Completer<LoadingState<SeekPreviewAtlas>>();
     timeline
-      ..select(
-        30,
-        load: (token) {
-          oldToken = token;
-          return stale.future;
-        },
-        isCurrent: () => true,
-      )
+      ..select(_source, 30, isCurrent: () => true)
       ..clear();
-    expect(oldToken.isCancelled, isTrue);
-    final current = _timelineData();
-    timeline.select(20, load: (_) async => current, isCurrent: () => true);
-    stale.complete(_timelineData());
+    expect(token.isCancelled, isTrue);
+    response = Completer<LoadingState<SeekPreviewAtlas>>();
+    final next = (bvid: _source.bvid, cid: 2);
+    timeline.select(next, 50, isCurrent: () => true);
+    response.complete(Success(_timelineData(images: ['current'])));
+    stale.complete(Success(_timelineData()));
     await tester.pump();
-    expect(timeline.data, same(current));
-    expect(indexes.last, 1);
+    final frame = frames.last!;
+    expect((frame.url, frame.column, frame.row), ('current', 1, 1));
   });
 
   testWidgets('跨图保留上一张的裁剪，新图使用最新目标及显示尺寸', (tester) async {

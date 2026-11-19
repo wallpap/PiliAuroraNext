@@ -5,7 +5,6 @@ import 'dart:convert' show ascii;
 import 'dart:io' show Platform;
 import 'dart:math' show min;
 
-import 'package:dio/dio.dart' show CancelToken;
 import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, visibleForTesting;
@@ -19,8 +18,9 @@ import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
 import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
+import 'package:pili_aurora_next/features/playback/application/seek_preview_timeline.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
+import 'package:pili_aurora_next/features/playback/domain/seek_preview.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
@@ -37,7 +37,6 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/decode_fallback.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/android_decode_recovery.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/preview_image_cache.dart';
-import 'package:pili_aurora_next/plugin/pl_player/utils/seek_preview_timeline.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/hardware_video_configuration.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/native_video_options.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
@@ -161,7 +160,6 @@ class PlPlayerController
   final RxInt position = RxInt(0);
   final RxInt seekPosition = RxInt(0);
   final _progressProjection = PlaybackProgressProjection();
-  int? _progressProjectionLoadId;
   int get progress => isSeeking.value ? seekPosition.value : position.value;
 
   int get positionInMilliseconds =>
@@ -173,11 +171,11 @@ class PlPlayerController
 
   final RxInt duration = RxInt(0);
 
-  int durationInMilliseconds = 0;
+  int get durationInMilliseconds => _progressProjection.duration.inMilliseconds;
 
   void updateDuration(Duration value) {
+    _progressProjection.updateDuration(value);
     duration.value = value.inSeconds;
-    durationInMilliseconds = value.inMilliseconds;
   }
 
   late double lastPlaybackSpeed = 1.0;
@@ -226,8 +224,6 @@ class PlPlayerController
   late final tryLook = !Accounts.get(AccountType.video).isLogin && Pref.p1080;
 
   Timer? _timer;
-  StreamSubscription? _subForSeek;
-  Completer<void>? _seekCompletion;
 
   Box setting = GStorage.setting;
 
@@ -935,7 +931,10 @@ class PlPlayerController
   }
 
   void closePlaybackOwner(PlaybackOwner owner) {
-    if (identical(_activeOwner, owner) && showSeekPreview) _clearPreview();
+    if (identical(_activeOwner, owner)) {
+      _progressProjection.cancelPendingSeek();
+      if (showSeekPreview) _clearPreview();
+    }
     owner.close();
     if (_session.isDisposed) _watchRuntimeRelease();
   }
@@ -952,6 +951,7 @@ class PlPlayerController
       _session.synchronizePlaybackIntent();
 
   Future<PlaybackShutdownResult> shutdownPlaybackFacade() {
+    _progressProjection.cancelPendingSeek();
     _watchRuntimeRelease();
     return _session.shutdown();
   }
@@ -981,6 +981,7 @@ class PlPlayerController
   void _disposeFacadeAfterRelease() {
     if (_facadeDisposed) return;
     _facadeDisposed = true;
+    _progressProjection.cancelPendingSeek();
     if (_listensToWindowEvents) {
       windowManager.removeListener(this);
       WidgetsBinding.instance.removeObserver(this);
@@ -1028,6 +1029,7 @@ class PlPlayerController
   void activatePlaybackOwner(PlaybackOwner owner) {
     owner.activate();
     if (identical(_activeOwner, owner)) return;
+    _progressProjection.cancelPendingSeek();
     if (_activeOwner != null && showSeekPreview) _clearPreview();
     _activeOwner = owner;
     unawaited(_snapshotSubscription?.cancel());
@@ -1113,20 +1115,17 @@ class PlPlayerController
       PlaybackPhase.failed => DataStatus.error,
       PlaybackPhase.closing || PlaybackPhase.disposed => DataStatus.none,
     };
-    if (snapshot.phase == PlaybackPhase.ready &&
-        snapshot.loadId != null &&
-        snapshot.loadId == _session.loadId &&
-        _session.currentSnapshot.phase == PlaybackPhase.ready &&
-        snapshot.loadId != _progressProjectionLoadId) {
-      _progressProjectionLoadId = snapshot.loadId;
+    if (snapshot.loadId case final loadId?
+        when snapshot.phase == PlaybackPhase.ready &&
+            loadId == _session.loadId &&
+            _session.currentSnapshot.phase == PlaybackPhase.ready) {
       final plan = _session.currentPlan;
-      final acceptedPosition = plan?.reloadPosition ?? plan?.startPosition;
-      if (!_audioSeekInProgress &&
-          _progressProjection.awaitingPosition &&
-          acceptedPosition != null) {
-        // 只在新加载首次就绪时交接修正后的起点，后续进度不再重置。
-        _progressProjection.begin(acceptedPosition);
-      }
+      _progressProjection.alignReadyLoad(
+        loadId,
+        _audioSeekInProgress
+            ? null
+            : plan?.reloadPosition ?? plan?.startPosition,
+      );
     }
     if (snapshot.phase == PlaybackPhase.ready && player != null) {
       _publishPlaybackPosition(player.state.position);
@@ -1328,7 +1327,7 @@ class PlPlayerController
     height = plan.metadata?.height;
     _videoType = videoType ?? VideoType.ugc;
     _androidDecodeRecovery?.reset();
-    _cancelSubForSeek();
+    _progressProjection.cancelPendingSeek();
     _currentPlan = plan;
     _av1DecodeErrorObserved = false;
     dataStatus.value = DataStatus.loading;
@@ -2115,16 +2114,6 @@ class PlPlayerController
     _subscriptions = null;
   }
 
-  void _cancelSubForSeek() {
-    final completion = _seekCompletion;
-    _seekCompletion = null;
-    if (completion != null && !completion.isCompleted) completion.complete();
-    if (_subForSeek != null) {
-      _subForSeek!.cancel();
-      _subForSeek = null;
-    }
-  }
-
   Future<void> seek(Duration position, {bool isSeek = false}) async {
     final revision = ++_seekRevision;
     _progressProjection.begin(position);
@@ -2179,36 +2168,16 @@ class PlPlayerController
   }
 
   /// 跳转至指定位置
-  Future<void> seekTo(Duration position, {bool isSeek = true}) async {
-    _cancelSubForSeek();
+  Future<void> seekTo(Duration position, {bool isSeek = true}) {
     final owner = _activeOwner;
-    if (owner == null || !owner.isActive) return;
-    if (position < Duration.zero) {
-      position = Duration.zero;
-    }
-    _heartDuration = position.inSeconds;
-
-    if (duration.value != 0) {
-      await seek(position, isSeek: isSeek);
-    } else {
-      final plan = _currentPlan;
-      final completion = _seekCompletion = Completer<void>();
-      _subForSeek = duration.listen((value) {
-        if (value <= 0) return;
-        _subForSeek?.cancel();
-        _subForSeek = null;
-        _seekCompletion = null;
-        if (!owner.isActive || !identical(plan, _currentPlan)) {
-          completion.complete();
-          return;
-        }
-        seek(
-          position,
-          isSeek: isSeek,
-        ).then(completion.complete, onError: completion.completeError);
-      });
-      await completion.future;
-    }
+    if (owner == null || !owner.isActive) return Future.value();
+    final target = position < Duration.zero ? Duration.zero : position;
+    _heartDuration = target.inSeconds;
+    final plan = _currentPlan;
+    return _progressProjection.seekWhenDurationKnown(() async {
+      if (!owner.isActive || !identical(plan, _currentPlan)) return;
+      await seek(target, isSeek: isSeek);
+    });
   }
 
   /// 设置倍速
@@ -2815,46 +2784,50 @@ class PlPlayerController
 
   late final previewCache = PreviewImageCache();
   late final showSeekPreview = Pref.showSeekPreview;
-  late final previewIndex = RxnInt();
+  late final seekPreviewFrame = Rxn<SeekPreviewFrame>();
   late final _previewTimeline = SeekPreviewTimeline(
-    (index) => previewIndex.value = index,
+    (frame) => seekPreviewFrame.value = frame,
   );
-  VideoShotData? get videoShot => _previewTimeline.data;
 
   void updatePreviewIndex(int seconds) {
-    final isCurrent = _seekPreviewGuard();
-    if (isCurrent == null) return;
+    final scope = _seekPreviewScope();
+    if (scope == null) return;
     _previewTimeline.select(
+      scope.source,
       seconds,
-      load: _loadPreviewTimeline,
-      isCurrent: isCurrent,
+      isCurrent: scope.isCurrent,
     );
   }
 
   void _prewarmSeekPreview() {
     if (currentPlaybackSnapshot.phase != PlaybackPhase.ready) return;
-    final isCurrent = _seekPreviewGuard();
-    if (isCurrent == null) return;
+    final scope = _seekPreviewScope();
+    if (scope == null) return;
     _previewTimeline.prewarm(
-      load: _loadPreviewTimeline,
-      isCurrent: () =>
-          isCurrent() && currentPlaybackSnapshot.phase == PlaybackPhase.ready,
+      scope.source,
+      isCurrent: scope.isCurrent,
+      canStart: () => currentPlaybackSnapshot.phase == PlaybackPhase.ready,
     );
   }
 
-  bool Function()? _seekPreviewGuard() {
+  ({SeekPreviewSource source, bool Function() isCurrent})? _seekPreviewScope() {
     final owner = activePlaybackOwner;
+    final bvid = _bvid;
+    final cid = this.cid;
     if (!showSeekPreview ||
         isLive ||
         isFileSource ||
-        _bvid == null ||
+        bvid == null ||
         cid == null ||
         owner == null) {
       return null;
     }
     final ownsPlayback = owner.guard();
     final plan = _currentPlan;
-    return () => ownsPlayback() && identical(_currentPlan, plan);
+    return (
+      source: (bvid: bvid, cid: cid),
+      isCurrent: () => ownsPlayback() && identical(_currentPlan, plan),
+    );
   }
 
   void hideSeekPreview() => _previewTimeline.hide();
@@ -2863,13 +2836,6 @@ class PlPlayerController
     _previewTimeline.clear();
     previewCache.clear();
   }
-
-  Future<VideoShotData?> _loadPreviewTimeline(CancelToken cancelToken) async =>
-      (await VideoHttp.videoshot(
-        bvid: bvid,
-        cid: cid!,
-        cancelToken: cancelToken,
-      )).dataOrNull;
 
   bool _takingScreenshot = false;
   Future<void> takeScreenshot() async {

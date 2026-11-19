@@ -28,7 +28,6 @@ import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_note_list/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_play_info/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_relation/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
@@ -1280,38 +1279,5 @@ abstract final class VideoHttp {
         return PlayUrlModel.fromJson(body['data']);
       },
     );
-  }
-
-  static Future<LoadingState<VideoShotData>> videoshot({
-    required String bvid,
-    required int cid,
-    CancelToken? cancelToken,
-  }) async {
-    final result = await Request().requestApi<VideoShotData>(
-      Api.videoshot,
-      kind: ApiCallKind.query,
-      decode: (body) => VideoShotData.fromJson(body['data']),
-      cancelToken: cancelToken,
-      queryParameters: {
-        // 'aid': IdUtils.bv2av(_bvid),
-        'bvid': bvid,
-        'cid': cid,
-        'index': 1,
-      },
-      options: Options(
-        headers: {
-          'user-agent': BrowserUa.pc,
-          'referer': 'https://www.bilibili.com/video/$bvid',
-        },
-      ),
-    );
-    if (result case Success(:final response)
-        when response.index.isEmpty ||
-            response.image.isEmpty ||
-            response.imgXLen <= 0 ||
-            response.imgYLen <= 0) {
-      return const Error('暂无视频预览');
-    }
-    return result;
   }
 }

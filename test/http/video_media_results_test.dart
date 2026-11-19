@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/playback/data/seek_preview_repository.dart';
 import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
 import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 
@@ -211,7 +212,10 @@ void main() {
       -403,
     );
     expect(
-      (await VideoHttp.videoshot(bvid: 'BV-test', cid: 1) as Error).code,
+      (await SeekPreviewRepository.fetch((
+        bvid: 'BV-test',
+        cid: 1,
+      )) as Error).code,
       -403,
     );
     body = {
@@ -234,13 +238,38 @@ void main() {
       },
     };
     expect(
-      (await VideoHttp.videoshot(bvid: 'BV-test', cid: 1)).toString(),
+      (await SeekPreviewRepository.fetch((bvid: 'BV-test', cid: 1))).toString(),
       '暂无视频预览',
     );
     body = {'code': 0, 'data': <String, dynamic>{}};
     expect(
-      (await VideoHttp.videoshot(bvid: 'BV-test', cid: 1) as Error).cause,
+      (await SeekPreviewRepository.fetch((
+        bvid: 'BV-test',
+        cid: 1,
+      )) as Error).cause,
       isNotNull,
     );
+    body = {
+      'code': 0,
+      'data': {
+        'img_x_len': 1,
+        'img_y_len': 1,
+        'image': ['//fixture.test/sprite.jpg'],
+        'index': [0, 10],
+      },
+    };
+    final result = await SeekPreviewRepository.fetch((
+      bvid: 'BV-preview',
+      cid: 2,
+    ));
+    expect(
+      result.dataOrNull?.frameAt(10)?.url,
+      'https://fixture.test/sprite.jpg',
+    );
+    expect(requests.last.queryParameters, {
+      'bvid': 'BV-preview',
+      'cid': 2,
+      'index': 1,
+    });
   });
 }

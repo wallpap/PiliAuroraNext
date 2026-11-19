@@ -1026,6 +1026,23 @@ void main() {
     expect(f.controller.playerStatus, PlayerStatus.paused);
   });
 
+  _recoveryTest('时长确认不足一秒时也能完成等待中的跳转', (f) async {
+    await f.load(start: PlaybackStartPolicy.pause);
+    f.runtime.onSeek = (target) async {
+      f.runtime.player.state.position = target;
+      return const PlaybackRuntimeCommandResult();
+    };
+    await f.tester.runAsync(() async {
+      f.controller.updateDuration(Duration.zero);
+      final seek = f.controller.seekTo(const Duration(milliseconds: 400));
+      expect(f.controller.positionInMilliseconds, 10000);
+      f.controller.updateDuration(const Duration(milliseconds: 800));
+      await seek.timeout(const Duration(seconds: 1));
+    });
+    expect(f.controller.durationInMilliseconds, 800);
+    expect(f.controller.positionInMilliseconds, 400);
+  });
+
   _recoveryTest('片尾连续跳转时旧结果不覆盖最新进度', (f) async {
     await f.load(local: true);
     f.runtime.complete();

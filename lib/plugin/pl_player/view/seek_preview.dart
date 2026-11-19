@@ -19,28 +19,25 @@ Widget buildSeekPreviewWidget(
   PlPlayerController controller,
   double maxHeight,
 ) => Obx(() {
-  final index = controller.previewIndex.value;
-  final data = controller.videoShot;
-  if (index == null || data == null) return const SizedBox.shrink();
+  final frame = controller.seekPreviewFrame.value;
+  if (frame == null) return const SizedBox.shrink();
 
   final expanded =
       controller.isFullScreen.value &&
       (PlatformUtils.isDesktop || !controller.isVertical);
   final compatibleHeight = maxHeight - 140;
   final height = expanded ? 108.0 : 81.0;
-  final page = (index ~/ data.totalPerImage).clamp(0, data.image.length - 1);
-  final tile = index % data.totalPerImage;
   return Align(
     alignment: Alignment.center,
     child: ClipRRect(
       borderRadius: Style.mdRadius,
       child: VideoShotImage(
-        key: ObjectKey(data),
-        url: data.image[page],
-        x: tile % data.imgXLen,
-        y: tile ~/ data.imgXLen,
-        columns: data.imgXLen,
-        rows: data.imgYLen,
+        key: ObjectKey(frame.atlas),
+        url: frame.url,
+        x: frame.column,
+        y: frame.row,
+        columns: frame.columns,
+        rows: frame.rows,
         height: compatibleHeight > 50
             ? math.min(height, compatibleHeight)
             : height,
