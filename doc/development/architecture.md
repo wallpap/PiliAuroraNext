@@ -139,10 +139,12 @@ flowchart LR
 - 显式后台媒体租约可让页面 owner 关闭后继续播放；最后一个 owner 和租约释放后才关闭会话。路由、后台与音频焦点分别释放自己的 inhibitor，保留用户暂停意图。
 - 快速切源复用 Player、控制器、订阅和纹理。过期操作在进入原生前跳过，已发出的操作仍沿运行时串行链完成并核对代次。
 - Windows 子窗口通过本地连接接收播放、账号及设置快照，设置仅在内存生效；超分重建先卸载媒体，再重建输出并重载，恢复点播位置与最新意图。资源释放顺序见[Windows 视频输出](../maintenance/windows-video-output.md)。
-- protobuf 与 Android JNI 属于生成产物。修改源定义或生成脚本，再运行项目生成流程；不要直接维护生成文件。
+- protobuf 与 Android JNI 属于生成产物，不直接手改。JNI 从项目源定义和脚本更新；Bilibili protobuf 的快照与生成前置条件见[协议产物](../../lib/generated/README.md)。
 - 定制依赖通过 `dependency_overrides` 指向 `third_party/` 中的本地包。来源、版本和许可证以 `pubspec.yaml`、`pubspec.lock` 与 [`third_party/README.md`](../../third_party/README.md) 为准。
 
 `test/architecture/dependency_rules_test.dart` 断言 `main.dart` 不被导入、`app/` 不被底层模块依赖；也检查下载仓库不依赖 UI、GetX、网络或全局存储，以及下载执行器通过构造参数接收 Dio。
+
+`test/architecture/legacy_dependencies_test.dart` 拒绝新增 GetX 业务继承、展示层直连传输和全局存储，以及对生成协议和定制包内部实现的直接依赖。迁移清除对应的存量清单项，CI 分析整个 `lib test tool`，生成快照与定制包不混入应用分析范围。
 
 ## 状态与本地数据
 

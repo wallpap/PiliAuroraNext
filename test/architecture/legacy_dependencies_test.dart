@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -52,6 +53,14 @@ bool _isRestricted(String target) =>
 
 void main() {
   test('application code introduces no new legacy dependency', () {
+    final registry = jsonDecode(
+      File('third_party/dependencies.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final vendoredImplementations = <String>[
+      for (final entry in registry['packages'] as List<dynamic>)
+        'package:${entry['name']}/src/',
+      '../third_party/',
+    ];
     final baseTypes = <String, Set<String>>{};
     final violations = <String>{};
     for (final file in Directory('lib').listSync(recursive: true)) {
@@ -66,7 +75,10 @@ void main() {
       if (_isPresentation(source)) {
         for (final uri in unitDependencies(unit)) {
           final target = localDependency(file, uri) ?? uri;
-          if (_isRestricted(target)) violations.add('$source -> $target');
+          if (_isRestricted(target) ||
+              vendoredImplementations.any(target.startsWith)) {
+            violations.add('$source -> $target');
+          }
         }
       }
       for (final (:name, :base) in typeInheritance(unit)) {
