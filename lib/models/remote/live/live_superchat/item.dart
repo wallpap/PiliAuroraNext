@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/models/remote/live/live_medal_wall/uinfo_medal.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/user_info.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/parse_int.dart';
 import 'package:pili_aurora_next/utils/parse_string.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -93,7 +93,8 @@ class SuperChatItem {
         token: json['token'],
         ts: safeToInt(json['ts'])!,
         userInfo: UserInfo.fromJson(json['user_info'] as Map<String, dynamic>),
-        medalInfo: !GlobalData().showMedal || json['uinfo']?['medal'] == null
+        medalInfo:
+            !DisplayPreferences.showFanMedals || json['uinfo']?['medal'] == null
             ? null
             : UinfoMedal.fromJson(json['uinfo']['medal']),
         roomid: roomid,

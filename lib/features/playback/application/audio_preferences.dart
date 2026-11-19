@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -14,4 +15,12 @@ abstract final class AudioPreferences {
 
   static Future<void> saveDesktopVolumeRatio(double ratio) =>
       GStorage.setting.put(SettingBoxKey.desktopVolume, ratio);
+
+  static Future<void> saveQuality(AudioQuality quality, {required bool wifi}) =>
+      GStorage.setting.put(
+        wifi
+            ? SettingBoxKey.defaultAudioQa
+            : SettingBoxKey.defaultAudioQaCellular,
+        quality.code,
+      );
 }

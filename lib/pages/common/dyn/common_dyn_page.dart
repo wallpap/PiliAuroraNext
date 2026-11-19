@@ -26,8 +26,6 @@ import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/rate_limiter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -467,10 +465,7 @@ mixin CommonDynPageMixin<T extends ConsumerStatefulWidget>
                   setState(() {});
                 }
               },
-              onChangeEnd: (_) => GStorage.setting.put(
-                SettingBoxKey.dynamicDetailRatio,
-                controller.ratio,
-              ),
+              onChangeEnd: (_) => controller.saveRatio(),
             ),
           ),
         ),

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:pili_aurora_next/pages/video/pay_coins/view.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -51,7 +51,8 @@ mixin TripleMixin {
       return;
     }
 
-    if (GlobalData().coins != null && GlobalData().coins! < 1) {
+    final availableCoins = CoinBalance.instance.amount;
+    if (availableCoins != null && availableCoins < 1) {
       SmartDialog.showToast('硬币不足');
       // return;
     }
@@ -60,6 +61,7 @@ mixin TripleMixin {
       onPayCoin: payCoinCallback,
       hasCoin: coinNum == 1,
       hasCopyright: hasCopyright,
+      availableCoins: availableCoins,
     );
   }
 

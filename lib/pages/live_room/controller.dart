@@ -44,7 +44,7 @@ import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -973,7 +973,8 @@ class LiveRoomController {
             uemote: uemote,
             extra: liveExtra,
             reply: reply,
-            medalInfo: !GlobalData().showMedal || user['medal'] == null
+            medalInfo:
+                !DisplayPreferences.showFanMedals || user['medal'] == null
                 ? null
                 : UinfoMedal.fromJson(user['medal']),
           );

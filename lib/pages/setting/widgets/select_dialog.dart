@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/models/video/play/url.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SelectDialog<T> extends StatelessWidget {
@@ -137,7 +137,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     return SelectDialog<CDNService>(
       title: 'CDN 设置',
       values: CDNService.values.map((i) => (i, i.desc)).toList(),
-      value: VideoUtils.cdnService,
+      value: VideoPreferences.cdn,
       subtitleBuilder: _cdnSpeedTest
           ? (context, index) {
               final item = _cdnResList[index];

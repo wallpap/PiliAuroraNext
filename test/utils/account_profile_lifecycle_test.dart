@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:pili_aurora_next/utils/login_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
@@ -52,7 +52,7 @@ void main() {
     profile.data.clear();
     adapter.requests.clear();
     adapter.pending.clear();
-    GlobalData().coins = 30;
+    CoinBalance.instance.confirm(Accounts.main, 30);
   });
   tearDown(() {
     Accounts.accountMode[mainIndex] = previousAccount;
@@ -61,7 +61,7 @@ void main() {
   tearDownAll(() => Request.dio.close(force: true));
 
   test('硬币请求绑定发起账号，切号后迟到结果不写入共享余额', () async {
-    final pending = Request.setCoin();
+    final pending = CoinBalance.instance.refresh();
     await dispatched(1);
     expect(adapter.requests.single.extra['account'], same(first));
     Accounts.accountMode[mainIndex] = account(456);
@@ -70,15 +70,15 @@ void main() {
       'data': {'money': 99},
     });
     await pending;
-    expect(GlobalData().coins, 30);
-    final current = Request.setCoin();
+    expect(CoinBalance.instance.amount, isNull);
+    final current = CoinBalance.instance.refresh();
     await dispatched(2);
     adapter.json(1, {
       'code': 0,
       'data': {'money': 12},
     });
     await current;
-    expect(GlobalData().coins, 12);
+    expect(CoinBalance.instance.amount, 12);
   });
 
   test('登录查询在切号后不再同步旧头像、Cookie、缓存或余额', () async {
@@ -89,7 +89,7 @@ void main() {
     adapter.json(0, info());
     await pending;
     expect(profile.data, isEmpty);
-    expect(GlobalData().coins, 30);
+    expect(CoinBalance.instance.amount, isNull);
   });
 
   test('真实 HTTP 资料查询忽略切号或释放后的结果', () async {
@@ -110,7 +110,7 @@ void main() {
       adapter.json(0, info());
       expect(await pending, isNull);
       expect(profile.data, isEmpty);
-      expect(GlobalData().coins, 30);
+      expect(CoinBalance.instance.amount, close ? 30 : null);
       expect(adapter.requests, hasLength(1));
       Accounts.accountMode[mainIndex] = first;
     }
@@ -126,6 +126,6 @@ void main() {
     expect(await old, isNull);
     expect(Accounts.main, same(first));
     expect(profile.data['userInfoCache:123']!.mid, 123);
-    expect(GlobalData().coins, 12);
+    expect(CoinBalance.instance.amount, 12);
   });
 }

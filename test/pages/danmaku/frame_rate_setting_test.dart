@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
@@ -35,24 +36,26 @@ void main() {
     testWidgets('保存帧率后当前${isLive ? '直播' : '视频'}弹幕立即更新且保留控制器', (tester) async {
       final player = _Player(isLive: isLive);
       await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: MediaQuery(
-            data: const MediaQueryData(),
-            child: isLive
-                ? live.LiveDanmaku(
-                    liveRoomController: _LiveRoom(),
-                    plPlayerController: player,
-                    isFullScreen: false,
-                    size: const Size(800, 600),
-                  )
-                : PlDanmaku(
-                    cid: 1,
-                    playerController: player,
-                    isFullScreen: false,
-                    isFileSource: false,
-                    size: const Size(800, 600),
-                  ),
+        ProviderScope(
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(),
+              child: isLive
+                  ? live.LiveDanmaku(
+                      liveRoomController: _LiveRoom(),
+                      plPlayerController: player,
+                      isFullScreen: false,
+                      size: const Size(800, 600),
+                    )
+                  : PlDanmaku(
+                      cid: 1,
+                      playerController: player,
+                      isFullScreen: false,
+                      isFileSource: false,
+                      size: const Size(800, 600),
+                    ),
+            ),
           ),
         ),
       );

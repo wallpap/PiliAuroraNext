@@ -53,10 +53,10 @@ import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/filtering_text.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
@@ -234,7 +234,10 @@ List<SettingsModel> _styleSettings(BadgePreferences badges, double width) => [
         value: () => Pref.barHideType,
         items: BarHideType.values,
         onSelected: (value, setState) async {
-          await GStorage.setting.put(SettingBoxKey.barHideType, value.index);
+          await SettingsValues.general.save(
+            SettingBoxKey.barHideType,
+            value.index,
+          );
           setState();
           SmartDialog.showToast('重启生效');
         },
@@ -319,7 +322,7 @@ List<SettingsModel> _styleSettings(BadgePreferences badges, double width) => [
         value: () => Pref.upPanelPosition,
         items: UpPanelPosition.values,
         onSelected: (value, setState) async {
-          await GStorage.setting.put(
+          await SettingsValues.general.save(
             SettingBoxKey.upPanelPosition,
             value.index,
           );
@@ -382,12 +385,8 @@ List<SettingsModel> _styleSettings(BadgePreferences badges, double width) => [
           context: context,
           title: const Text('图片质量'),
           initValue: Pref.picQuality,
-          write: (picQuality) =>
-              GStorage.setting.put(SettingBoxKey.defaultPicQa, picQuality),
-          apply: (picQuality) {
-            GlobalData().imgQuality = picQuality;
-            setState();
-          },
+          write: DisplayPreferences.saveImageQuality,
+          apply: (_) => setState(),
         ),
         title: '图片质量',
         subtitle: '选择合适的图片清晰度，上限100%',
@@ -402,8 +401,10 @@ List<SettingsModel> _styleSettings(BadgePreferences badges, double width) => [
           context: context,
           title: const Text('查看大图质量'),
           initValue: Pref.previewQ,
-          write: (picQuality) =>
-              GStorage.setting.put(SettingBoxKey.previewQuality, picQuality),
+          write: (picQuality) => SettingsValues.general.save(
+            SettingBoxKey.previewQuality,
+            picQuality,
+          ),
           apply: (_) => setState(),
         ),
         title: '查看大图质量',
@@ -585,7 +586,7 @@ void _showUiScaleDialog(
           onPressed: () async {
             final saved = await saveSetting(
               key: SettingBoxKey.uiScale,
-              write: () => GStorage.setting.delete(SettingBoxKey.uiScale),
+              write: () => SettingsValues.general.reset(SettingBoxKey.uiScale),
               apply: () {
                 ScaledWidgetsFlutterBinding.instance.scaleFactor = 1.0;
                 setState();
@@ -620,7 +621,8 @@ void _showUiScaleDialog(
             }
             final saved = await saveSetting(
               key: SettingBoxKey.uiScale,
-              write: () => GStorage.setting.put(SettingBoxKey.uiScale, parsed),
+              write: () =>
+                  SettingsValues.general.save(SettingBoxKey.uiScale, parsed),
               apply: () {
                 ScaledWidgetsFlutterBinding.instance.scaleFactor = parsed;
                 setState();
@@ -738,7 +740,7 @@ void _showSpringDialog(BuildContext context, _) {
             final saved = await saveSetting(
               key: SettingBoxKey.springDescription,
               write: () =>
-                  GStorage.setting.delete(SettingBoxKey.springDescription),
+                  SettingsValues.general.reset(SettingBoxKey.springDescription),
               canPresent: () => context.mounted,
               successMessage: '重置成功，重启生效',
             );
@@ -784,8 +786,10 @@ void _showSpringDialog(BuildContext context, _) {
             }
             final saved = await saveSetting(
               key: SettingBoxKey.springDescription,
-              write: () =>
-                  GStorage.setting.put(SettingBoxKey.springDescription, res),
+              write: () => SettingsValues.general.save(
+                SettingBoxKey.springDescription,
+                res,
+              ),
               apply: () => kSpringDescription = SpringDescription(
                 mass: res[0],
                 stiffness: res[1],
@@ -823,7 +827,7 @@ Future<void> _showTransitionDialog(
     await saveSetting(
       key: SettingBoxKey.pageTransition,
       write: () =>
-          GStorage.setting.put(SettingBoxKey.pageTransition, res.index),
+          SettingsValues.general.save(SettingBoxKey.pageTransition, res.index),
       apply: () {
         Get.rootController.defaultTransition = res;
         setState();
@@ -854,7 +858,7 @@ Future<void> _showCardWidthDialog(
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.recommendCardWidth,
-      write: () => GStorage.setting.putAll({
+      write: () => SettingsValues.general.saveAll({
         SettingBoxKey.recommendCardWidth: res.$1,
         SettingBoxKey.smallCardWidth: res.$2,
       }),
@@ -943,8 +947,8 @@ void _showReduceColorDialog(
           await saveSetting(
             key: SettingBoxKey.reduceLuxColor,
             write: () => color == Colors.white
-                ? GStorage.setting.delete(SettingBoxKey.reduceLuxColor)
-                : GStorage.setting.put(
+                ? SettingsValues.general.reset(SettingBoxKey.reduceLuxColor)
+                : SettingsValues.general.save(
                     SettingBoxKey.reduceLuxColor,
                     color.toARGB32(),
                   ),
@@ -980,7 +984,8 @@ Future<void> _showToastDialog(
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.defaultToastOp,
-      write: () => GStorage.setting.put(SettingBoxKey.defaultToastOp, res),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.defaultToastOp, res),
       apply: () {
         CustomToast.toastOpacity = res;
         setState();
@@ -1051,12 +1056,11 @@ List<SettingsModel> get appearanceExtraSettings => [
     defaultVal: false,
     onChanged: (value) => enableEmoteTooltip = value,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '显示粉丝勋章',
     leading: const Icon(MdiIcons.medalOutline),
     setKey: SettingBoxKey.showMedal,
     defaultVal: true,
-    onChanged: (value) => GlobalData().showMedal = value,
   ),
   SwitchModel(
     title: '预览 Live Photo',
@@ -1129,7 +1133,7 @@ void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
               final saved = await saveSetting(
                 key: SettingBoxKey.touchSlopH,
                 write: () =>
-                    GStorage.setting.put(SettingBoxKey.touchSlopH, val),
+                    SettingsValues.general.save(SettingBoxKey.touchSlopH, val),
                 apply: () {
                   touchSlopH = val;
                   setState();
@@ -1169,7 +1173,8 @@ Future<void> _showRefreshDialog(
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.refreshDisplacement,
-      write: () => GStorage.setting.put(SettingBoxKey.refreshDisplacement, res),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.refreshDisplacement, res),
       apply: () {
         displacement = res;
         if (WidgetsBinding.instance.rootElement case final root?) {

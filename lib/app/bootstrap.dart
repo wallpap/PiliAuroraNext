@@ -8,6 +8,8 @@ import 'package:pili_aurora_next/app/app_paths.dart';
 import 'package:pili_aurora_next/app/platform_setup.dart';
 import 'package:pili_aurora_next/app/startup.dart';
 import 'package:pili_aurora_next/app/startup_failure.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart'
@@ -114,6 +116,7 @@ Future<void> _bootstrapApplication(
   MediaKit.ensureInitialized();
   progress.phase = StartupPhase.storage;
   await GStorage.init(memorySnapshot: initialization?.storage);
+  FeedLayoutPreferences.initialize();
   AppIcon.load();
   if (playerWindow) {
     await GStorage.setting.putAll({
@@ -157,6 +160,11 @@ Future<void> _bootstrapApplication(
   progress.phase = StartupPhase.requests;
   Request();
   Request.setCookie(syncWebView: !playerWindow && !Platform.isWindows);
+  unawaited(
+    CoinBalance.instance.restore().catchError((Object error, StackTrace stack) {
+      logger.w('启动余额同步失败', error: error.runtimeType, stackTrace: stack);
+    }),
+  );
   if (!playerWindow) {
     unawaited(
       RequestUtils.syncHistoryStatus().catchError((

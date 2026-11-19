@@ -25,4 +25,7 @@ class ProfileRepository {
 
   Future<LoadingState<UserStat>> stats(Account account) =>
       UserHttp.userStatOwner(account: account);
+
+  Future<LoadingState<num?>> coins(Account account) =>
+      UserHttp.getCoin(account: account);
 }

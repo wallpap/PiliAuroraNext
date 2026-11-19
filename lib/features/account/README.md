@@ -7,6 +7,7 @@
 - `domain/`：用户资料、等级与统计模型，保留既有 Hive typeId 和字段编号。
 - `data/profile_repository.dart`：显式账号的资料与统计请求、按 UID 隔离的 Hive 资料缓存。
 - `application/account_profile.dart`：资料发布顺序、查询代次、缓存串行写入，以及共享资料和统计 provider。登录同步与资料编辑共用 `AccountProfile.legacy`，不创建额外 ProviderContainer。
+- `application/coin_balance.dart`：余额绑定当前账号凭据。只接受当前查询或确认消费；换号不复用之前的余额。投币页面只接收打开时的余额快照。
 - `application/account_preferences.dart`：从心跳角色派生无痕状态，观察主题偏好。账号身份与角色持久化仍由 `utils/accounts.dart` 持有，Riverpod 桥接入口为 `services/account_providers.dart`。
 - `application/profile_editor.dart` 与 `data/profile_editor_repository.dart`：编辑实例的资料查询、写入和待确认核对；页面持有文本、图片选择和弹窗。
 - `application/account_roles.dart` 与 `presentation/account_switch_dialog.dart`：账号切换草稿只保存 UID，确认时解析最新凭据。角色已改动时拒绝旧草稿。

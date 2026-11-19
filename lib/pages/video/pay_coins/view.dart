@@ -10,10 +10,7 @@ import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -27,11 +24,13 @@ class PayCoinsPage extends StatefulWidget {
     required this.onPayCoin,
     required this.hasCoin,
     required this.hasCopyright,
+    required this.availableCoins,
   });
 
   final OnPayCoin onPayCoin;
   final bool hasCoin;
   final bool hasCopyright;
+  final num? availableCoins;
 
   @override
   State<PayCoinsPage> createState() => _PayCoinsPageState();
@@ -40,6 +39,7 @@ class PayCoinsPage extends StatefulWidget {
     required OnPayCoin onPayCoin,
     required bool hasCoin,
     required bool hasCopyright,
+    required num? availableCoins,
   }) {
     Get.key.currentState!.push(
       PublishRoute(
@@ -48,6 +48,7 @@ class PayCoinsPage extends StatefulWidget {
             onPayCoin: onPayCoin,
             hasCoin: hasCoin,
             hasCopyright: hasCopyright,
+            availableCoins: availableCoins,
           );
         },
         transitionDuration: const Duration(milliseconds: 225),
@@ -68,7 +69,7 @@ class _PayCoinsPageState extends State<PayCoinsPage>
   late final _hasCopyright = widget.hasCopyright;
   late bool _isPaying = false;
   PageController? _controller;
-  late final RxBool _coinWithLike = Pref.coinWithLike.obs;
+  late final RxBool _coinWithLike = VideoPreferences.likeOnCoin.obs;
   late final RxInt _pageIndex = 0.obs;
 
   late final AnimationController _selectionScaleController;
@@ -79,7 +80,7 @@ class _PayCoinsPageState extends State<PayCoinsPage>
   // 与导出脚本中的 24 帧 × 40ms 保持一致；从 GIF 首帧显示时开始计时。
   static const _tossDuration = Duration(milliseconds: 960);
 
-  final num? _coins = GlobalData().coins;
+  late final num? _coins = widget.availableCoins;
 
   bool _canPay(int index) {
     if (index == 1 && widget.hasCoin) {
@@ -410,7 +411,15 @@ class _PayCoinsPageState extends State<PayCoinsPage>
                     onTap: () {
                       final newVal = !_coinWithLike.value;
                       _coinWithLike.value = newVal;
-                      GStorage.setting.put(SettingBoxKey.coinWithLike, newVal);
+                      unawaited(
+                        VideoPreferences.saveLikeOnCoin(newVal).catchError(
+                          (Object error, StackTrace stack) => logger.w(
+                            '保存投币点赞偏好失败',
+                            error: error.runtimeType,
+                            stackTrace: stack,
+                          ),
+                        ),
+                      );
                     },
                     behavior: HitTestBehavior.opaque,
                     child: Row(

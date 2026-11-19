@@ -13,11 +13,9 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
 import 'package:pili_aurora_next/http/response_decoder.dart';
 import 'package:pili_aurora_next/http/response_transformer.dart';
-import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 import 'package:pili_aurora_next/utils/login_utils.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -61,32 +59,6 @@ class Request {
           return false;
         }),
       );
-    }
-
-    if (Accounts.main.isLogin) {
-      final coin = Pref.userInfoCache?.money;
-      if (coin == null) {
-        unawaited(
-          setCoin().catchError((Object error, StackTrace stackTrace) {
-            logger.w(
-              '启动余额同步失败',
-              error: error.runtimeType,
-              stackTrace: stackTrace,
-            );
-          }),
-        );
-      } else {
-        GlobalData().coins = coin;
-      }
-    }
-  }
-
-  static Future<void> setCoin() async {
-    final account = Accounts.main;
-    final res = await UserHttp.getCoin(account: account);
-    if (!identical(account, Accounts.main)) return;
-    if (res case Success(:final response)) {
-      GlobalData().coins = response;
     }
   }
 

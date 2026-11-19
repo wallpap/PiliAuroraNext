@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 
 class AudioInteractions {
   AudioInteractions({
@@ -65,7 +65,7 @@ class AudioInteractions {
         _owns(account, target);
   }
 
-  LoadingState<({bool hasCoin, bool hasCopyright, bool insufficient})>
+  LoadingState<({bool hasCoin, bool hasCopyright, num? availableCoins})>
   coinPanel() {
     if (!Accounts.main.isLogin) return const Error('账号未登录');
     if (unavailable() case final error?) return error;
@@ -78,7 +78,7 @@ class AudioInteractions {
     return Success((
       hasCoin: coins == 1,
       hasCopyright: hasCopyright,
-      insufficient: (GlobalData().coins ?? 1) < 1,
+      availableCoins: CoinBalance.instance.amount,
     ));
   }
 
@@ -228,8 +228,6 @@ class AudioInteractions {
   }
 
   static void _charge(Account account, int amount) {
-    if (amount > 0 && identical(account, Accounts.main)) {
-      GlobalData().afterCoin(amount);
-    }
+    CoinBalance.instance.recordSpend(account, amount);
   }
 }

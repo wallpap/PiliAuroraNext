@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/skeleton/dynamic_card.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_constrained_cross_axis.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:material_ui/material_ui.dart';
@@ -16,7 +16,7 @@ mixin DynMixin {
       );
 
   Widget buildPage(Widget child) {
-    if (GlobalData().dynamicsWaterfallFlow) {
+    if (FeedLayoutPreferences.waterfall) {
       return child;
     }
     return CenteredSliverConstrainedCrossAxis(
@@ -34,7 +34,7 @@ mixin DynMixin {
   );
 
   Widget get dynSkeleton {
-    if (GlobalData().dynamicsWaterfallFlow) {
+    if (FeedLayoutPreferences.waterfall) {
       return SliverGrid(
         gridDelegate: skeDelegate,
         delegate: const SliverSingleChildDelegate(

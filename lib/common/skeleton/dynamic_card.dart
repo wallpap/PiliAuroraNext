@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/skeleton/skeleton.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
 class DynamicCardSkeleton extends StatelessWidget {
@@ -84,7 +84,7 @@ class DynamicCardSkeleton extends StatelessWidget {
               height: 13,
               margin: const EdgeInsets.only(bottom: 7),
             ),
-            if (GlobalData().dynamicsWaterfallFlow) const Spacer(),
+            if (FeedLayoutPreferences.waterfall) const Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: const ['转发', '评论', '点赞']

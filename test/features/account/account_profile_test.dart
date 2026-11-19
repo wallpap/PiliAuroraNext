@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 
 import '../../support/memory_box.dart';
 import 'profile_fixture.dart';
@@ -27,7 +27,7 @@ void main() {
     Accounts.accountMode[AccountType.main.index] = owner;
     repository = FakeProfiles();
     module = AccountProfile(repository, currentAccount: () => owner);
-    GlobalData().coins = 0;
+    CoinBalance.instance.confirm(Accounts.main, 0);
   });
   tearDown(() async {
     await module.dispose();
@@ -39,7 +39,7 @@ void main() {
     repository.requests.single.complete(Success(info(1, 'old')));
     expect(await pending, isNull);
     expect(repository.saved, isEmpty);
-    expect(GlobalData().coins, 0);
+    expect(CoinBalance.instance.amount, 0);
   });
 
   test('最新刷新优先，旧查询不覆盖确认快照', () async {
@@ -120,7 +120,7 @@ void main() {
     repository.requests.single.complete(Success(info(1, 'late')));
     await Future<void>.delayed(Duration.zero);
     expect(repository.saved, isEmpty);
-    expect(GlobalData().coins, 0);
+    expect(CoinBalance.instance.amount, 0);
   });
 
   test('provider 旧刷新返回时仍等待较新刷新，不能提前结束加载', () async {

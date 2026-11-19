@@ -21,7 +21,7 @@ import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
 import '../../support/controlled_http_adapter.dart';
@@ -162,7 +162,7 @@ void main() {
   setUp(() {
     previousAccount = Accounts.main;
     Accounts.accountMode[AccountType.main.index] = account(1);
-    GlobalData().coins = 10;
+    CoinBalance.instance.confirm(Accounts.main, 10);
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
     controller =
@@ -182,7 +182,7 @@ void main() {
     controller.dispose();
     adapter.close();
     Accounts.accountMode[AccountType.main.index] = previousAccount;
-    GlobalData().coins = null;
+    CoinBalance.instance.confirm(Accounts.main, null);
   });
   tearDownAll(() => Request.dio.close(force: true));
   Future<void> host(WidgetTester tester) => tester.pumpWidget(
@@ -231,7 +231,7 @@ void main() {
     await _complete(tester, operation);
     expect(controller.audioItem.value!.stats.viewerCoins, 0);
     expect(controller.audioItem.value!.stats.liked, isFalse);
-    expect(GlobalData().coins, 10);
+    expect(CoinBalance.instance.amount, isNull);
   });
   _check(
     'triple honors individual acknowledgements without guessing extra coins',
@@ -250,7 +250,7 @@ void main() {
       expect(controller.audioItem.value!.stats.liked, isFalse);
       expect(controller.audioItem.value!.stats.favored, isTrue);
       expect(controller.audioItem.value!.stats.viewerCoins, 1);
-      expect(GlobalData().coins, 10);
+      expect(CoinBalance.instance.amount, 10);
       expect(controller.audioItem.value!.stats.favorites, 1);
     },
   );

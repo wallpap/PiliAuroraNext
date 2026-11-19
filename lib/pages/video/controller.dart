@@ -1599,6 +1599,15 @@ class VideoDetailController with BlockMixin {
 
   void updateMediaListHistory(int aid) => _playlist?.recordProgress(aid);
 
+  void reportVideo() {
+    if (isClosed) return;
+    if (Accounts.main.isLogin) {
+      PageUtils.reportVideo(aid);
+    } else {
+      SmartDialog.showToast('账号未登录');
+    }
+  }
+
   void makeHeartBeat() {
     if (plPlayerController.enableHeart &&
         !plPlayerController.playerStatus.isCompleted &&

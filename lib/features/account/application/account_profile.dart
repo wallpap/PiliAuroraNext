@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:pili_aurora_next/features/account/data/profile_repository.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/features/account/domain/stat.dart';
@@ -9,7 +10,6 @@ import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
 
 export 'package:pili_aurora_next/features/account/domain/info.dart';
 export 'package:pili_aurora_next/features/account/domain/stat.dart';
@@ -114,7 +114,7 @@ class AccountProfile {
     bool updateCoins = true,
   }) async {
     _confirmed = (account, info);
-    if (updateCoins) GlobalData().coins = info.money;
+    if (updateCoins) CoinBalance.instance.confirm(account, info.money);
     _changes.add((account, info));
     Object? cacheError;
     final previous = _cacheTail;

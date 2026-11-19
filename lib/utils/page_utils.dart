@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/utils/extension/get_ext.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -57,7 +57,7 @@ abstract final class PageUtils {
         pageBuilder: (context, animation, secondaryAnimation) => GalleryViewer(
           sources: imgList,
           initIndex: initialPage,
-          quality: quality ?? GlobalData().imgQuality,
+          quality: quality ?? DisplayPreferences.imageQuality,
           onPageChanged: onPageChanged,
           tag: tag,
         ),

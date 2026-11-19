@@ -900,11 +900,14 @@ class AudioController with AudioNormalizationMixin {
   void actionCoinVideo() {
     final choice = _interactions.coinPanel();
     if (choice case Success(:final response)) {
-      if (response.insufficient) SmartDialog.showToast('硬币不足');
+      if ((response.availableCoins ?? 1) < 1) {
+        SmartDialog.showToast('硬币不足');
+      }
       PayCoinsPage.toPayCoinsPage(
         onPayCoin: payCoinCallback,
         hasCoin: response.hasCoin,
         hasCopyright: response.hasCopyright,
+        availableCoins: response.availableCoins,
       );
     } else {
       choice.toast();

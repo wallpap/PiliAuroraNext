@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 class DetailValue<T> extends ValueNotifier<T> {
@@ -44,5 +46,9 @@ abstract class ContentPageDetail {
 
   late final horizontalPreview = Pref.horizontalPreview;
   late final List<double> ratio = Pref.dynamicDetailRatio;
+  Future<void> saveRatio() => GStorage.setting.put(
+    SettingBoxKey.dynamicDetailRatio,
+    List<double>.of(ratio),
+  );
   late final showDynActionBar = Pref.showDynActionBar;
 }

@@ -26,7 +26,7 @@ import 'package:pili_aurora_next/services/account_providers.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';
@@ -468,7 +468,7 @@ class _DynTopicPageState extends ConsumerState<DynTopicPage>
       Loading() => dynSkeleton,
       Success(:final response) =>
         response != null && response.isNotEmpty
-            ? GlobalData().dynamicsWaterfallFlow
+            ? FeedLayoutPreferences.waterfall
                   ? SliverWaterfallFlow(
                       gridDelegate: dynGridDelegate,
                       delegate: SliverChildBuilderDelegate(

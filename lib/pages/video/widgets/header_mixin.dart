@@ -9,9 +9,8 @@ import 'package:pili_aurora_next/utils/feed_back.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/danmaku/application/danmaku_preferences.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -266,8 +265,8 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
           setOptions();
         }
 
-        Future<void> updatePreference(String key, Object value) async {
-          await GStorage.setting.put(key, value);
+        Future<void> updatePreference(Future<void> write) async {
+          await write;
           if (context.mounted) setState(() {});
         }
 
@@ -335,9 +334,9 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     showCheckmark: false,
-                    selected: Pref.danmakuFrameRate == fps,
+                    selected: DanmakuPreferences.frameRate == fps,
                     onSelected: (_) =>
-                        updatePreference(SettingBoxKey.danmakuFrameRate, fps),
+                        updatePreference(DanmakuPreferences.saveFrameRate(fps)),
                     visualDensity: VisualDensity.compact,
                   ),
               ],
@@ -522,25 +521,24 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
           const SizedBox(height: 12),
           sliderSetting(
             '放大阈值',
-            valueText: '${Pref.mergeDanmakuThreshold} 条',
-            value: Pref.mergeDanmakuThreshold.toDouble(),
+            valueText: '${DanmakuPreferences.repeatThreshold} 条',
+            value: DanmakuPreferences.repeatThreshold.toDouble(),
             min: 2,
             max: 50,
             divisions: 48,
             onChanged: (value) => updatePreference(
-              SettingBoxKey.mergeDanmakuThreshold,
-              value.round(),
+              DanmakuPreferences.saveRepeatThreshold(value.round()),
             ),
           ),
           sliderSetting(
             '放大速度（对数底数）',
-            valueText: Pref.mergeDanmakuLogBase.toStringAsFixed(1),
-            value: Pref.mergeDanmakuLogBase,
+            valueText: DanmakuPreferences.repeatLogBase.toStringAsFixed(1),
+            value: DanmakuPreferences.repeatLogBase,
             min: 2,
             max: 20,
             divisions: 36,
             onChanged: (value) =>
-                updatePreference(SettingBoxKey.mergeDanmakuLogBase, value),
+                updatePreference(DanmakuPreferences.saveRepeatLogBase(value)),
           ),
           Text(
             '重复数量超过阈值时放大；对数底数越小，放大越快。设置立即生效。',

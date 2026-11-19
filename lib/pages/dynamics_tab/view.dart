@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:material_ui/material_ui.dart';
@@ -118,7 +118,7 @@ class _DynamicsTabPageState extends ConsumerState<DynamicsTabPage>
       Loading() => dynSkeleton,
       Success(:final response) =>
         response.isNotEmpty
-            ? GlobalData().dynamicsWaterfallFlow
+            ? FeedLayoutPreferences.waterfall
                   ? SliverWaterfallFlow(
                       gridDelegate: dynGridDelegate,
                       delegate: SliverChildBuilderDelegate(

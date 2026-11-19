@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/device_utils.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:pili_aurora_next/utils/permission_handler.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -277,7 +277,7 @@ abstract final class ImageUtils {
   );
   static String thumbnailUrl(String? src, [int maxQuality = 1]) {
     if (src != null && maxQuality != 100) {
-      maxQuality = math.max(maxQuality, GlobalData().imgQuality);
+      maxQuality = math.max(maxQuality, DisplayPreferences.imageQuality);
       bool hasMatch = false;
       src = src.splitMapJoin(
         _thumbRegex,

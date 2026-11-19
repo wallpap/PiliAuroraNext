@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
@@ -18,7 +19,6 @@ class VideoSelectionException extends FormatException {
 }
 
 abstract final class VideoUtils {
-  static CDNService cdnService = Pref.defaultCDNService;
   static String? liveCdnUrl = Pref.liveCdnUrl;
   static bool disableAudioCDN = Pref.disableAudioCDN;
 
@@ -28,7 +28,7 @@ abstract final class VideoUtils {
     CDNService? defaultCDNService,
     bool isAudio = false,
   }) => _CdnSources(urls).select(
-    defaultCDNService ?? cdnService,
+    defaultCDNService ?? VideoPreferences.cdn,
     rewriteHosts: !isAudio || !disableAudioCDN,
   );
 
@@ -43,7 +43,7 @@ abstract final class VideoUtils {
     final rewriteHosts = !isAudio || !disableAudioCDN;
     final result = <String>{
       sources.select(
-        defaultCDNService ?? cdnService,
+        defaultCDNService ?? VideoPreferences.cdn,
         rewriteHosts: rewriteHosts,
       ),
     };

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
@@ -24,9 +25,11 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/media_clock.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
-Widget host(Widget child) => Directionality(
-  textDirection: TextDirection.ltr,
-  child: MediaQuery(data: const MediaQueryData(), child: child),
+Widget host(Widget child) => ProviderScope(
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: MediaQuery(data: const MediaQueryData(), child: child),
+  ),
 );
 
 void main() {

@@ -23,15 +23,13 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dar
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_dialog.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
 
 Future<void> showVideoMoreSettings(
   BuildContext context, {
@@ -302,13 +300,7 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
         (
           Icons.flag_outlined,
           '举报',
-          () {
-            if (Accounts.main.isLogin) {
-              PageUtils.reportVideo(controller.aid);
-            } else {
-              SmartDialog.showToast('账号未登录');
-            }
-          },
+          controller.reportVideo,
         ),
     ];
     return Column(
@@ -429,11 +421,9 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
                 return;
               }
               try {
-                await GStorage.setting.put(
-                  network.response
-                      ? SettingBoxKey.defaultAudioQa
-                      : SettingBoxKey.defaultAudioQaCellular,
-                  value.code,
+                await AudioPreferences.saveQuality(
+                  value,
+                  wifi: network.response,
                 );
               } catch (error, stackTrace) {
                 logger.w(
@@ -473,16 +463,28 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
         _select<CDNService>(
           Icons.cloud_outlined,
           'CDN',
-          value: VideoUtils.cdnService,
-          selectedLabel: VideoUtils.cdnService.name,
-          hint: VideoUtils.cdnService.desc,
+          value: VideoPreferences.cdn,
+          selectedLabel: VideoPreferences.cdn.name,
+          hint: VideoPreferences.cdn.desc,
           options: [
             for (final service in CDNService.values) (service, service.desc),
           ],
-          onSelected: (value) {
-            if (VideoUtils.cdnService == value) return;
-            VideoUtils.cdnService = value;
-            GStorage.setting.put(SettingBoxKey.CDNService, value.name);
+          onSelected: (value) async {
+            if (VideoPreferences.cdn == value) return;
+            try {
+              await VideoPreferences.saveCdn(value);
+            } catch (error, stack) {
+              logger.w(
+                '保存 CDN 设置失败',
+                error: error.runtimeType,
+                stackTrace: stack,
+              );
+              if (mounted && !controller.isClosed) {
+                SmartDialog.showToast('CDN 设置保存失败，请重试');
+              }
+              return;
+            }
+            if (!mounted || controller.isClosed) return;
             if (controller.videoState.value) {
               controller.queryVideoUrl(fromReset: true);
             }

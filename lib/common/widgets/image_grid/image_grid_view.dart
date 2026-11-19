@@ -27,7 +27,7 @@ import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/utils/extension/context_ext.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/size_ext.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -104,7 +104,7 @@ class ImageGridView extends StatelessWidget {
           (context) => GalleryViewer(
             sources: imgList,
             initIndex: index,
-            quality: GlobalData().imgQuality,
+            quality: DisplayPreferences.imageQuality,
           ),
           enableDrag: false,
         );

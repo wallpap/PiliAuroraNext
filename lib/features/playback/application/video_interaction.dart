@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 
 typedef VideoInteractionTarget = ({String bvid, int? episode});
 typedef VideoReactions = ({bool liked, bool disliked, num coins, bool favored});
@@ -247,8 +247,6 @@ class VideoInteraction {
   }
 
   void _charge(Account account, int amount) {
-    if (amount > 0 && identical(account, Accounts.main)) {
-      GlobalData().afterCoin(amount);
-    }
+    CoinBalance.instance.recordSpend(account, amount);
   }
 }

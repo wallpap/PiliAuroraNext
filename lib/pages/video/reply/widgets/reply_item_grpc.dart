@@ -43,7 +43,7 @@ import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/utils/image_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
@@ -201,7 +201,7 @@ class ReplyItemGrpc extends StatelessWidget {
                         isStack: false,
                         fontSize: 9,
                       )
-                    else if (GlobalData().showMedal &&
+                    else if (DisplayPreferences.showFanMedals &&
                         member.medalLevel != null)
                       MedalWidget(
                         medalName: member.medalName,

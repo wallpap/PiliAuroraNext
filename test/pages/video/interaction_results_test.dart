@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -68,7 +68,7 @@ void main() {
   setUp(() {
     original = account(1);
     Accounts.accountMode[AccountType.main.index] = original;
-    GlobalData().coins = 10;
+    CoinBalance.instance.confirm(Accounts.main, 10);
     requests.clear();
   });
   tearDown(() {
@@ -76,7 +76,7 @@ void main() {
       controller.close();
     }
     controllers.clear();
-    GlobalData().coins = null;
+    CoinBalance.instance.confirm(Accounts.main, null);
     Get.reset();
   });
   tearDownAll(() async {
@@ -146,7 +146,7 @@ void main() {
     await tester.pump();
     expect(controller.coinNum.value, 2);
     expect(controller.stat.coin, 1);
-    expect(GlobalData().coins, 9);
+    expect(CoinBalance.instance.amount, 9);
     expect(controller.hasLike.value, isTrue);
     expect(controller.hasFav.value, isFalse);
     expect(find.text('三连未全部完成，请核对点赞、投币和收藏状态'), findsOneWidget);
@@ -166,7 +166,7 @@ void main() {
     });
     expect(controller.coinNum.value, 2);
     expect(controller.stat.coin, 1);
-    expect(GlobalData().coins, 9);
+    expect(CoinBalance.instance.amount, 9);
     expect(controller.hasTriple, isTrue);
     await finish(tester);
   });
@@ -208,19 +208,19 @@ void main() {
       controller.bvid = IdUtils.av2bv(2);
       requests[0].reply.complete({'code': 0});
       await writing;
-      expect(GlobalData().coins, 9);
+      expect(CoinBalance.instance.amount, 9);
       expect(controller.coinNum.value, 0);
       expect(controller.hasLike.value, isFalse);
       writing = controller.actionTriple();
       await interceptor.waitForRequests(2);
       Accounts.accountMode[AccountType.main.index] = account(2);
-      GlobalData().coins = 20;
+      CoinBalance.instance.confirm(Accounts.main, 20);
       requests[1].reply.complete({
         'code': 0,
         'data': {'like': true, 'coin': true, 'fav': true, 'multiply': 2},
       });
       await writing;
-      expect(GlobalData().coins, 20);
+      expect(CoinBalance.instance.amount, 20);
       expect(controller.hasTriple, isFalse);
       expect(requests[1].options.extra['account'], same(original));
     });

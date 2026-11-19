@@ -17,10 +17,11 @@ import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart
 import 'package:pili_aurora_next/plugin/pl_player/models/audio_output_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/video_buffer_policy.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 
 List<SettingsModel> get videoSettings => [
   SettingsGroup(
@@ -106,7 +107,7 @@ List<SettingsModel> get videoSettings => [
         title: 'CDN 设置',
         leading: const Icon(MdiIcons.cloudPlusOutline),
         getSubtitle: () =>
-            '当前使用：${VideoUtils.cdnService.desc}，部分 CDN 可能失效，如无法播放请尝试切换',
+            '当前使用：${VideoPreferences.cdn.desc}，部分 CDN 可能失效，如无法播放请尝试切换',
         onTap: _showCDNDialog,
       ),
       SwitchModel(
@@ -281,8 +282,7 @@ Future<void> _showCDNDialog(BuildContext context, VoidCallback setState) async {
     builder: (context) => const CdnSelectDialog(),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.CDNService, res.name);
-    VideoUtils.cdnService = res;
+    await VideoPreferences.saveCdn(res);
     setState();
   }
 }
@@ -300,7 +300,7 @@ Future<void> _showCdnFallbackOrderDialog(
     ),
   );
   if (result != null) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.cdnFallbackOrder,
       result.map((service) => service.name).toList(),
     );
@@ -324,9 +324,9 @@ Future<void> _showLiveCDNDialog(BuildContext context, VoidCallback setState) =>
               ? value
               : 'https://$value';
           if (host == null) {
-            await GStorage.setting.delete(SettingBoxKey.liveCdnUrl);
+            await SettingsValues.general.reset(SettingBoxKey.liveCdnUrl);
           } else {
-            await GStorage.setting.put(SettingBoxKey.liveCdnUrl, host);
+            await SettingsValues.general.save(SettingBoxKey.liveCdnUrl, host);
           }
           VideoUtils.liveCdnUrl = host;
           setState();
@@ -347,7 +347,7 @@ Future<void> _showVideoQaDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.defaultVideoQa, res);
+    await SettingsValues.general.save(SettingBoxKey.defaultVideoQa, res);
     setState();
   }
 }
@@ -365,7 +365,7 @@ Future<void> _showVideoCellularQaDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.defaultVideoQaCellular,
       res,
     );
@@ -386,7 +386,7 @@ Future<void> _showAudioQaDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.defaultAudioQa, res);
+    await SettingsValues.general.save(SettingBoxKey.defaultAudioQa, res);
     setState();
   }
 }
@@ -404,7 +404,7 @@ Future<void> _showAudioCellularQaDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.defaultAudioQaCellular,
       res,
     );
@@ -425,7 +425,7 @@ Future<void> _showLiveQaDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.liveQuality, res);
+    await SettingsValues.general.save(SettingBoxKey.liveQuality, res);
     setState();
   }
 }
@@ -443,7 +443,7 @@ Future<void> _showLiveCellularQaDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.liveQualityCellular, res);
+    await SettingsValues.general.save(SettingBoxKey.liveQualityCellular, res);
     setState();
   }
 }
@@ -461,7 +461,7 @@ Future<void> _showCodecsDialog(
     ),
   );
   if (res != null && res.isNotEmpty) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.preferCodecs,
       res.map((i) => i.name).toList(),
     );
@@ -482,7 +482,7 @@ Future<void> _showCellularCodecsDialog(
     ),
   );
   if (res != null && res.isNotEmpty) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.preferCodecsCellular,
       res.map((i) => i.name).toList(),
     );
@@ -505,7 +505,7 @@ Future<void> _showAudioOutputDialog(
     ),
   );
   if (res != null && res.isNotEmpty) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.audioOutput,
       res.join(','),
     );
@@ -538,7 +538,7 @@ Future<void> _showVideoSyncDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.videoSync, res);
+    await SettingsValues.general.save(SettingBoxKey.videoSync, res);
     setState();
   }
 }
@@ -558,7 +558,7 @@ Future<void> _showHwDecDialog(
     ),
   );
   if (res != null && res.isNotEmpty) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.hardwareDecoding,
       res.join(','),
     );
@@ -580,7 +580,7 @@ Future<void> _showAutoSyncDialog(BuildContext context, VoidCallback setState) =>
           return value;
         },
         save: (value) async {
-          await GStorage.setting.put(SettingBoxKey.autosync, value);
+          await SettingsValues.general.save(SettingBoxKey.autosync, value);
           setState();
         },
       ),
@@ -597,7 +597,7 @@ Future<void> _showDecimalDialog(
   context: context,
   builder: (_) => SettingInputDialog<double>(
     title: title,
-    initialValue: (GStorage.setting.get(key) ?? defVal).toString(),
+    initialValue: (SettingsValues.general.read(key) ?? defVal).toString(),
     suffix: suffix,
     validationMessage: '请输入有效的非负数',
     isCurrent: () => context.mounted,
@@ -607,7 +607,7 @@ Future<void> _showDecimalDialog(
       return number;
     },
     save: (value) async {
-      await GStorage.setting.put(key, value);
+      await SettingsValues.general.save(key, value);
       setState();
     },
   ),
@@ -631,7 +631,10 @@ Future<void> _showVideoBufferPolicyDialog(
     ),
   );
   if (result == null) return;
-  await GStorage.setting.put(SettingBoxKey.videoBufferPolicy, result.name);
+  await SettingsValues.general.save(
+    SettingBoxKey.videoBufferPolicy,
+    result.name,
+  );
   setState();
 }
 
@@ -743,7 +746,7 @@ Future<void> audioNormalization(
           validationMessage: '请输入有效参数',
           isCurrent: () => context.mounted,
           save: (value) async {
-            await GStorage.setting.put(key, value);
+            await SettingsValues.general.save(key, value);
             savedParam = value;
             setState();
           },
@@ -756,7 +759,7 @@ Future<void> audioNormalization(
         await audioNormalization(context, setState, fallback: true);
       }
     } else {
-      await GStorage.setting.put(key, res);
+      await SettingsValues.general.save(key, res);
       setState();
       if (res == '2' && context.mounted) {
         await audioNormalization(context, setState, fallback: true);
@@ -778,7 +781,7 @@ Future<void> _showSuperResolutionDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.superResolutionType,
       res.index,
     );

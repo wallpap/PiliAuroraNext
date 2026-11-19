@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/models/common/member/search_type.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/member_search/child/widgets/search_archive_card.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/waterfall.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,7 +74,7 @@ class MemberSearchChildPageState
               itemCount: response.length,
             ),
             MemberSearchType.dynamic =>
-              GlobalData().dynamicsWaterfallFlow
+              FeedLayoutPreferences.waterfall
                   ? SliverWaterfallFlow(
                       gridDelegate: dynGridDelegate,
                       delegate: SliverChildBuilderDelegate(
