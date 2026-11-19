@@ -1,16 +1,16 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/features/playback/data/audio_playlist_repository.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/accounts/account.dart';
 
 typedef AudioPlaylistSnapshot = ({
-  List<DetailItem>? items,
+  List<AudioTrack>? items,
   int? index,
-  ListOrder order,
+  AudioPlaylistOrder order,
   LoadingState<void> status,
   LoadingState<void> pageStatus,
   bool hasPrevious,
@@ -20,20 +20,20 @@ typedef AudioPlaylistSnapshot = ({
 class AudioPlaylist {
   AudioPlaylist({
     required this._anchor,
-    required this._onAnchorLoaded,
-    List<DetailItem>? initialItems,
+    required this._prepareAnchor,
+    List<AudioTrack>? initialItems,
   }) : _items = initialItems == null ? null : List.unmodifiable(initialItems) {
     _knownItems.addAll(_items?.map(_key) ?? const []);
   }
 
   final AudioPlaylistAnchor Function() _anchor;
-  final void Function(DetailItem) _onAnchorLoaded;
+  final void Function(AudioTrack) Function() _prepareAnchor;
   late final _state = ValueNotifier(_snapshot);
   ValueListenable<AudioPlaylistSnapshot> get state => _state;
 
-  List<DetailItem>? _items;
+  List<AudioTrack>? _items;
   int? _index;
-  ListOrder _order = ListOrder.ORDER_NORMAL;
+  AudioPlaylistOrder _order = AudioPlaylistOrder.normal;
   LoadingState<void> _status = LoadingState.loading();
   LoadingState<void> _pageStatus = const Success(null);
   final _previous = _PageCursor();
@@ -65,8 +65,8 @@ class AudioPlaylist {
     if (!identical(_account, Accounts.main)) reload();
   }
 
-  static (int, Int64) _key(DetailItem entry) =>
-      (entry.item.itemType, entry.item.oid);
+  static (int, Int64) _key(AudioTrack entry) =>
+      (entry.info.target.type, entry.info.target.oid);
 
   Future<bool> reload() async {
     if (_closed) return false;
@@ -86,6 +86,7 @@ class AudioPlaylist {
     _status = LoadingState.loading();
     _pageStatus = const Success(null);
     final target = _anchor();
+    final onAnchorLoaded = _prepareAnchor();
     _publish();
     final result = await _fetch(target, account);
     if (!_owns(revision, account)) return false;
@@ -107,7 +108,7 @@ class AudioPlaylist {
           current.oid == target.oid &&
           current.itemType == target.itemType &&
           listEquals(current.subIds, target.subIds)) {
-        _onAnchorLoaded(_items![selected]);
+        onAnchorLoaded(_items![selected]);
       }
       _status = const Success(null);
     } else {
@@ -117,7 +118,7 @@ class AudioPlaylist {
     return _status.isSuccess;
   }
 
-  Future<bool> changeOrder(ListOrder order) {
+  Future<bool> changeOrder(AudioPlaylistOrder order) {
     if (_order == order &&
         _status is! Error &&
         identical(_account, Accounts.main)) {
@@ -210,9 +211,23 @@ class AudioPlaylist {
     }
   }
 
-  int? indexOf(DetailItem item) {
-    final index = _items?.indexWhere((entry) => identical(entry, item)) ?? -1;
+  int? indexOf(AudioTrack item) {
+    final index =
+        _items?.indexWhere((entry) => identical(entry.info, item.info)) ?? -1;
     return index < 0 ? null : index;
+  }
+
+  void confirmStats(AudioTrack item) {
+    final index = _index;
+    final items = _items;
+    if (_closed || index == null || items == null) return;
+    final selected = items[index];
+    if (!identical(selected.info, item.info) ||
+        identical(selected.stats, item.stats)) {
+      return;
+    }
+    _items = List.unmodifiable([...items]..[index] = item);
+    _publish();
   }
 
   void select(int index) {
@@ -220,7 +235,7 @@ class AudioPlaylist {
     _publish();
   }
 
-  void remove(DetailItem item) {
+  void remove(AudioTrack item) {
     if (_closed) return;
     final removed = indexOf(item);
     if (removed == null || removed == _index) return;

@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/generated/bilibili/pagination.pb.dart';
 import 'package:pili_aurora_next/models/common/account_type.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
@@ -89,7 +90,7 @@ void main() {
       ..oid = Int64(11)
       ..subId = [Int64(11)]
       ..itemType = 2
-      ..from = PlaylistSource.DEFAULT;
+      ..from = AudioPlaylistSource.fallback;
     controller.animController = AnimationController(
       vsync: controller,
       duration: const Duration(milliseconds: 200),
@@ -114,16 +115,19 @@ void main() {
   }
 
   test('playlist order keeps the most recent selection', () async {
-    final first = controller.onChangeOrder(ListOrder.ORDER_REVERSE);
+    final first = controller.onChangeOrder(AudioPlaylistOrder.reverse);
     await adapter.waitForRequests(1);
-    final second = controller.onChangeOrder(ListOrder.ORDER_NORMAL);
+    final second = controller.onChangeOrder(AudioPlaylistOrder.normal);
     await adapter.waitForRequests(2);
     adapter.playlist(1, [11, 22]);
     expect(await second, isTrue);
     adapter.playlist(0, [22, 11]);
     expect(await first, isFalse);
-    expect(controller.playlistState.value.order, ListOrder.ORDER_NORMAL);
-    expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11, 22]);
+    expect(controller.playlistState.value.order, AudioPlaylistOrder.normal);
+    expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
+      11,
+      22,
+    ]);
   });
 
   test(
@@ -136,19 +140,23 @@ void main() {
       await adapter.waitForRequests(2);
       adapter.playlist(1, [22, 33, 33], next: 'next2');
       expect(await next, isTrue);
-      expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11, 22, 33]);
+      expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
+        11,
+        22,
+        33,
+      ]);
       final prev = controller.loadPrev();
       await adapter.waitForRequests(3);
       adapter.playlist(2, [1, 11], prev: 'prev2');
       expect(await prev, isTrue);
-      expect(controller.playlist!.map((e) => e.item.oid.toInt()), [
+      expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
         1,
         11,
         22,
         33,
       ]);
       expect(controller.index, 1);
-      expect(controller.audioItem.value!.item.oid, Int64(11));
+      expect(controller.audioItem.value!.info.target.oid, Int64(11));
     },
   );
 
@@ -180,13 +188,16 @@ void main() {
       await initialize(next: 'next');
       final page = controller.loadNext();
       await adapter.waitForRequests(2);
-      final refresh = controller.onChangeOrder(ListOrder.ORDER_REVERSE);
+      final refresh = controller.onChangeOrder(AudioPlaylistOrder.reverse);
       await adapter.waitForRequests(3);
       adapter.playlist(2, [22, 11]);
       expect(await refresh, isTrue);
       adapter.playlist(1, [33]);
       expect(await page, isFalse);
-      expect(controller.playlist!.map((e) => e.item.oid.toInt()), [22, 11]);
+      expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
+        22,
+        11,
+      ]);
       expect(controller.index, 1);
     },
   );
@@ -208,16 +219,19 @@ void main() {
     for (var i = 0; i < 20 && controller.playlist == null; i++) {
       await Future<void>.delayed(Duration.zero);
     }
-    expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11, 44]);
+    expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
+      11,
+      44,
+    ]);
   });
 
   test('initialization failure permits same-order retry and valid missing-anchor or empty lists', () async {
-    final first = controller.onChangeOrder(ListOrder.ORDER_REVERSE);
+    final first = controller.onChangeOrder(AudioPlaylistOrder.reverse);
     await adapter.waitForRequests(1);
     adapter.malformed(0);
     expect(await first, isFalse);
     expect(controller.playlistState.value.status, isA<Error>());
-    final retry = controller.onChangeOrder(ListOrder.ORDER_REVERSE);
+    final retry = controller.onChangeOrder(AudioPlaylistOrder.reverse);
     await adapter.waitForRequests(2);
     adapter.playlist(1, [22, 33]);
     expect(await retry, isTrue);
@@ -243,7 +257,10 @@ void main() {
     await adapter.waitForRequests(3);
     adapter.playlist(2, [22, 33], next: 'next');
     expect(await secondPage, isTrue);
-    expect(controller.playlist!.map((e) => e.item.oid.toInt()), [11, 33]);
+    expect(controller.playlist!.map((e) => e.info.target.oid.toInt()), [
+      11,
+      33,
+    ]);
     expect(await controller.loadNext(), isFalse);
     expect(adapter.requests.length, 3);
   });

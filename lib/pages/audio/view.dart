@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
@@ -57,7 +57,7 @@ class AudioPage extends StatefulWidget {
     required int oid,
     List<int>? subId,
     required int itemType,
-    required PlaylistSource from,
+    required AudioPlaylistSource from,
     String? heroTag,
     Duration? start,
     String? audioUrl,
@@ -78,8 +78,13 @@ class AudioPage extends StatefulWidget {
   );
 }
 
-extension _ListOrderExt on ListOrder {
-  String get title => const ['无序', '正序', '倒序', '随机'][value];
+extension _AudioPlaylistOrderLabel on AudioPlaylistOrder {
+  String get title => switch (this) {
+    .unordered => '无序',
+    .normal => '正序',
+    .reverse => '倒序',
+    .random => '随机',
+  };
 }
 
 class _AudioPageState extends State<AudioPage> {
@@ -116,12 +121,12 @@ class _AudioPageState extends State<AudioPage> {
           ValueListenableBuilder(
             valueListenable: _controller.playlistState,
             builder: (context, playlist, _) {
-              return PopupMenuButton<ListOrder>(
+              return PopupMenuButton<AudioPlaylistOrder>(
                 tooltip: '排序',
                 icon: const Icon(Icons.sort, size: 22),
                 initialValue: playlist.order,
                 onSelected: _controller.onChangeOrder,
-                itemBuilder: (context) => ListOrder.values
+                itemBuilder: (context) => AudioPlaylistOrder.values
                     .map(
                       (e) => AppPopupMenuItem(value: e, child: Text(e.title)),
                     )
@@ -212,7 +217,7 @@ class _AudioPageState extends State<AudioPage> {
       builder: (context) => ValueListenableBuilder(
         valueListenable: _controller.playlistState,
         builder: (context, snapshot, _) {
-          final playlist = snapshot.items ?? const <DetailItem>[];
+          final playlist = snapshot.items ?? const <AudioTrack>[];
           final state = snapshot.status;
           final pageState = snapshot.pageStatus;
           final colorScheme = ColorScheme.of(context);
@@ -260,7 +265,7 @@ class _AudioPageState extends State<AudioPage> {
                     }
                     final isCurr = index == snapshot.index;
                     final item = playlist[index];
-                    if (item.parts.length > 1) {
+                    if (item.info.parts.length > 1) {
                       final subId = _controller.subId.firstOrNull;
                       return ExpansionTile(
                         dense: true,
@@ -269,7 +274,7 @@ class _AudioPageState extends State<AudioPage> {
                         collapsedIconColor: isCurr ? colorScheme.primary : null,
                         iconColor: isCurr ? null : colorScheme.onSurfaceVariant,
                         title: Text(
-                          item.arc.title,
+                          item.info.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: isCurr
@@ -291,7 +296,7 @@ class _AudioPageState extends State<AudioPage> {
                                 size: 28,
                                 iconSize: 18,
                               ),
-                        children: item.parts.map((e) {
+                        children: item.info.parts.map((e) {
                           final isCurr = e.subId == subId;
                           return ListTile(
                             dense: true,
@@ -380,7 +385,7 @@ class _AudioPageState extends State<AudioPage> {
                               const TextSpan(text: '  '),
                             ],
                             TextSpan(
-                              text: item.arc.title,
+                              text: item.info.title,
                             ),
                           ],
                         ),
@@ -716,7 +721,7 @@ class _AudioPageState extends State<AudioPage> {
     );
   }
 
-  Widget _buildActions(DetailItem audioItem) {
+  Widget _buildActions(AudioTrack audioItem) {
     return SizedBox(
       height: 48,
       child: Row(
@@ -731,7 +736,7 @@ class _AudioPageState extends State<AudioPage> {
               ),
               selectStatus: _controller.hasLike.value,
               semanticsLabel: '点赞',
-              text: NumUtils.numFormat(audioItem.stat.like),
+              text: NumUtils.numFormat(audioItem.stats.likes),
               onStartTriple: _controller.onStartTriple,
               onCancelTriple: _controller.onCancelTriple,
             ),
@@ -745,7 +750,7 @@ class _AudioPageState extends State<AudioPage> {
               selectStatus: _controller.hasCoin,
               semanticsLabel: '投币',
               text: NumUtils.numFormat(
-                audioItem.stat.coin,
+                audioItem.stats.coins,
               ),
             ),
           ),
@@ -764,7 +769,7 @@ class _AudioPageState extends State<AudioPage> {
               selectStatus: _controller.hasFav.value,
               semanticsLabel: '收藏',
               text: NumUtils.numFormat(
-                audioItem.stat.favourite,
+                audioItem.stats.favorites,
               ),
             ),
           ),
@@ -773,7 +778,7 @@ class _AudioPageState extends State<AudioPage> {
             onTap: _controller.showReply,
             semanticsLabel: '评论',
             text: NumUtils.numFormat(
-              audioItem.stat.reply,
+              audioItem.stats.replies,
             ),
           ),
           ActionItem(
@@ -784,18 +789,17 @@ class _AudioPageState extends State<AudioPage> {
             selectStatus: false,
             semanticsLabel: '分享',
             text: NumUtils.numFormat(
-              audioItem.stat.share,
+              audioItem.stats.shares,
             ),
           ),
-          if (audioItem.associatedItem.hasOid() &&
-              audioItem.associatedItem.subId.isNotEmpty)
+          if (audioItem.info.musicVideo case final musicVideo?)
             ActionItem(
               icon: Icon(FontAwesomeIcons.circlePlay.data),
               onTap: () {
                 _controller.player?.pause();
                 PageUtils.toVideoPage(
-                  cid: audioItem.associatedItem.subId.first.toInt(),
-                  aid: audioItem.associatedItem.oid.toInt(),
+                  cid: musicVideo.cid,
+                  aid: musicVideo.aid,
                 );
               },
               selectStatus: false,
@@ -962,7 +966,8 @@ class _AudioPageState extends State<AudioPage> {
     return Obx(() {
       final audioItem = _controller.audioItem.value;
       if (audioItem != null) {
-        final cover = audioItem.arc.cover.http2https;
+        final info = audioItem.info;
+        final cover = info.cover.http2https;
         return Column(
           children: [
             Expanded(
@@ -991,30 +996,30 @@ class _AudioPageState extends State<AudioPage> {
                     ),
                     const SizedBox(height: 12),
                     SelectionText(
-                      audioItem.arc.title,
+                      info.title,
                       style: const TextStyle(height: 1.7, fontSize: 16),
                     ),
                     const SizedBox(height: 12),
-                    if (audioItem.owner.hasName()) ...[
+                    if (info.artistName case final artistName?) ...[
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
                           _controller.pauseFromUi();
-                          Get.toNamed('/member?mid=${audioItem.owner.mid}');
+                          Get.toNamed('/member?mid=${info.artistId}');
                         },
                         child: Row(
                           spacing: 6,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (audioItem.owner.hasAvatar())
+                            if (info.artistAvatar case final avatar?)
                               NetworkImgLayer(
-                                src: audioItem.owner.avatar,
+                                src: avatar,
                                 width: 22,
                                 height: 22,
                                 type: ImageType.avatar,
                               ),
                             Text(
-                              audioItem.owner.name,
+                              artistName,
                             ),
                           ],
                         ),
@@ -1033,15 +1038,15 @@ class _AudioPageState extends State<AudioPage> {
                             children: [
                               TextSpan(
                                 text:
-                                    ' ${NumUtils.numFormat(audioItem.stat.view)}   '
-                                    '${DateFormatUtils.dateFormat(audioItem.arc.publish.toInt(), long: DateFormatUtils.longFormatD)}   ',
+                                    ' ${NumUtils.numFormat(audioItem.stats.views)}   '
+                                    '${DateFormatUtils.dateFormat(info.publishedAt, long: DateFormatUtils.longFormatD)}   ',
                               ),
                               TextSpan(
-                                text: audioItem.arc.displayedOid,
+                                text: info.displayedId,
                                 style: TextStyle(color: colorScheme.secondary),
                                 recognizer: NoDeadlineTapGestureRecognizer()
                                   ..onTap = () => Utils.copyText(
-                                    audioItem.arc.displayedOid,
+                                    info.displayedId,
                                   ),
                               ),
                             ],
@@ -1053,9 +1058,9 @@ class _AudioPageState extends State<AudioPage> {
                         ),
                       ],
                     ),
-                    if (audioItem.arc.hasDesc()) ...[
+                    if (info.description case final description?) ...[
                       const SizedBox(height: 10),
-                      SelectionText(audioItem.arc.desc),
+                      SelectionText(description),
                     ],
                   ],
                 ),

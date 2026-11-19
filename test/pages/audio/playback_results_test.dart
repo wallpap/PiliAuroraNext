@@ -5,7 +5,8 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:media_kit/media_kit.dart' hide AudioTrack;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
@@ -204,8 +205,10 @@ void main() {
       },
       initialPlaylist: [
         for (var id = 1; id <= 3; id++)
-          DetailItem(
-            item: PlayItem(oid: Int64(id), subId: [Int64(id)], itemType: 2),
+          AudioTrack(
+            AudioTrackInfo(
+              target: (oid: Int64(id), type: 2, parts: [Int64(id)]),
+            ),
           ),
       ],
     )..cacheAudioQa = 30280;
@@ -271,7 +274,7 @@ void main() {
     await tester.pump();
     await _complete(tester, first);
     expect(player.opened, ['https://media.example/new']);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
 
   _check(
@@ -299,7 +302,7 @@ void main() {
       await tester.pump();
       await _complete(tester, second);
       expect(creations, 2);
-      expect(controller.audioItem.value!.item.oid, Int64(1));
+      expect(controller.audioItem.value!.info.target.oid, Int64(1));
     },
   );
   _check('account replacement discards a pending playback URL', (
@@ -343,7 +346,7 @@ void main() {
       'https://media.example/old',
       'https://media.example/new',
     ]);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
   _check('open failure is consumed before confirming the selected item', (
     tester,
@@ -404,7 +407,7 @@ void main() {
     player.seeking!.complete();
     await seek;
     expect(controller.position.value, 2);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
 
   _check('pause during media opening preserves the paused intent', (
@@ -424,7 +427,7 @@ void main() {
     await _complete(tester, operation);
     expect(player.playing, isNotEmpty);
     expect(player.playing, everyElement(isFalse));
-    expect(controller.audioItem.value!.item.oid, Int64.ONE);
+    expect(controller.audioItem.value!.info.target.oid, Int64.ONE);
   });
 
   _check('new audio page waits for closing media open and actual destruction', (
@@ -586,7 +589,7 @@ void main() {
       await _until(tester, () => adapter.requests.length == 1);
       adapter.reply(0, _source());
       await _complete(tester, operation);
-      expect(controller.audioItem.value!.item.oid, Int64.ONE);
+      expect(controller.audioItem.value!.info.target.oid, Int64.ONE);
       expect(handler.mediaItem.value?.title, 'new owner');
     } finally {
       videoPlayerServiceHandler = null;

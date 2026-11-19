@@ -2,8 +2,7 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
-    show PlaylistSource;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/forward_panel.dart';
@@ -191,7 +190,7 @@ Widget module(
           onTap: () => AudioPage.toAudioPage(
             oid: music.id!,
             itemType: 3,
-            from: PlaylistSource.AUDIO_CARD,
+            from: AudioPlaylistSource.audioCard,
           ),
           child: Padding(
             padding: const EdgeInsets.only(

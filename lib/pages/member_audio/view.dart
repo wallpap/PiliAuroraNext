@@ -1,5 +1,4 @@
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
-    show PlaylistSource;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
@@ -96,7 +95,7 @@ class _MemberAudioState extends ConsumerState<MemberAudio>
                                   itemType: 3,
                                   id: item.uid!,
                                   oid: item.id!,
-                                  from: PlaylistSource.MEM_SPACE,
+                                  from: AudioPlaylistSource.memberSpace,
                                 );
                               },
                               icon: Icon(

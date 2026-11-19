@@ -1,37 +1,36 @@
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
-    show PlaylistSource;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 
 enum SourceType {
   normal(
     mediaType: -1,
-    playlistSource: PlaylistSource.UP_ARCHIVE,
+    playlistSource: AudioPlaylistSource.archive,
   ),
   archive(
     mediaType: 1,
     extraId: 1,
-    playlistSource: PlaylistSource.MEDIA_LIST,
+    playlistSource: AudioPlaylistSource.mediaList,
   ),
   watchLater(
     mediaType: 2,
     extraId: 2,
-    playlistSource: PlaylistSource.MEDIA_LIST,
+    playlistSource: AudioPlaylistSource.mediaList,
   ),
   fav(
     mediaType: 3,
     extraId: 2,
-    playlistSource: PlaylistSource.USER_FAVOURITE,
+    playlistSource: AudioPlaylistSource.favorite,
   ),
   playlist(
     mediaType: 3,
     extraId: 4,
-    playlistSource: PlaylistSource.MEDIA_LIST,
+    playlistSource: AudioPlaylistSource.mediaList,
   ),
   file,
   ;
 
   final int? mediaType;
   final int? extraId;
-  final PlaylistSource? playlistSource;
+  final AudioPlaylistSource? playlistSource;
   const SourceType({
     this.mediaType,
     this.extraId,

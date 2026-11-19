@@ -3,8 +3,7 @@ import 'dart:io' show File, Platform;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart'
-    show DetailItem;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/models/remote/live/live_room_info_h5/data.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
@@ -458,13 +457,13 @@ class VideoPlayerServiceHandler extends BaseAudioHandler {
           duration: Duration(seconds: data.duration ?? 0),
           artUri: getUri(cover),
         );
-      case DetailItem(:final arc):
+      case AudioTrack(:final info):
         mediaItem = MediaItem(
           id: id,
-          title: arc.title,
-          artist: data.owner.name,
-          duration: Duration(seconds: arc.duration.toInt()),
-          artUri: getUri(arc.cover),
+          title: info.title,
+          artist: info.artistName ?? '',
+          duration: Duration(seconds: info.duration),
+          artUri: getUri(info.cover),
         );
       case BiliDownloadEntryInfo():
         final coverFile = File(

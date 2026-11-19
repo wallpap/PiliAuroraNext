@@ -2,8 +2,7 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
-    show PlaylistSource;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space_audio/item.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
@@ -28,7 +27,7 @@ class MemberAudioItem extends StatelessWidget {
           itemType: 3,
           id: item.uid!,
           oid: item.id!,
-          from: PlaylistSource.MEM_SPACE,
+          from: AudioPlaylistSource.memberSpace,
         ),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,

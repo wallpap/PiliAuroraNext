@@ -5,8 +5,7 @@ import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/select_mask.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart'
-    show PlaylistSource;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_detail/media.dart';
@@ -77,7 +76,7 @@ class FavVideoCardH extends StatelessWidget {
                     AudioPage.toAudioPage(
                       oid: item.id!,
                       itemType: 3,
-                      from: PlaylistSource.AUDIO_CARD,
+                      from: AudioPlaylistSource.audioCard,
                     );
                     break;
                   case 24:
