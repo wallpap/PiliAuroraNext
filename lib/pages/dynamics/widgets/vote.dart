@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:collection/collection.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
 class VotePanel extends StatefulWidget {
@@ -43,8 +43,7 @@ class _VotePanelState extends State<VotePanel> {
   bool get _isCurrent => _owner.isCurrent;
 
   late VoteInfo _voteInfo;
-  late final RxList<int> groupValue =
-      (_voteInfo.myVotes?.toList() ?? <int>[]).obs;
+  late List<int> groupValue = _voteInfo.myVotes?.toList() ?? [];
   late var _percentage = _cnt2Percentage(_voteInfo.options);
   late bool _enabled =
       groupValue.isEmpty &&
@@ -52,7 +51,7 @@ class _VotePanelState extends State<VotePanel> {
   late bool _showPercentage = !_enabled;
   int get _maxCnt => _voteInfo.choiceCnt ?? _voteInfo.options.length;
   bool get isLogin => _isCurrent && _owner.account.isLogin;
-  late final followeeVote = Rxn<List<FolloweeVote>>();
+  final followeeVote = ValueNotifier<List<FolloweeVote>?>(null);
 
   @override
   void initState() {
@@ -91,7 +90,7 @@ class _VotePanelState extends State<VotePanel> {
       _generation++;
       _submitting = false;
       _voteInfo = widget.voteInfo;
-      groupValue.value = _voteInfo.myVotes?.toList() ?? [];
+      groupValue = _voteInfo.myVotes?.toList() ?? [];
       _percentage = _cnt2Percentage(_voteInfo.options);
       _enabled =
           groupValue.isEmpty &&
@@ -106,6 +105,7 @@ class _VotePanelState extends State<VotePanel> {
   @override
   void dispose() {
     AccountScope.changes.removeListener(_onAccountChanged);
+    followeeVote.dispose();
     _generation++;
     super.dispose();
   }
@@ -131,7 +131,7 @@ class _VotePanelState extends State<VotePanel> {
           _enabled = false;
           _showPercentage = true;
           _voteInfo = response;
-          groupValue.value = response.myVotes?.toList() ?? votes.toList();
+          groupValue = response.myVotes?.toList() ?? votes.toList();
           _percentage = _cnt2Percentage(response.options);
         });
       } else {
@@ -169,7 +169,7 @@ class _VotePanelState extends State<VotePanel> {
                 ? '已结束'
                 : '已完成',
           ),
-          if (_enabled) Obx(() => Text('${groupValue.length} / $_maxCnt')),
+          if (_enabled) Text('${groupValue.length} / $_maxCnt'),
         ],
       ),
       Flexible(
@@ -203,13 +203,11 @@ class _VotePanelState extends State<VotePanel> {
         _checkBoxes,
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Obx(
-            () => OutlinedButton(
-              onPressed: groupValue.isNotEmpty && !_submitting && _isCurrent
-                  ? _onVote
-                  : null,
-              child: Center(child: Text(_submitting ? '提交中' : '投票')),
-            ),
+          child: OutlinedButton(
+            onPressed: groupValue.isNotEmpty && !_submitting && _isCurrent
+                ? _onVote
+                : null,
+            child: Center(child: Text(_submitting ? '提交中' : '投票')),
           ),
         ),
       ],
@@ -224,85 +222,87 @@ class _VotePanelState extends State<VotePanel> {
         crossAxisAlignment: .start,
         children: [
           Expanded(child: title),
-          Obx(() {
-            final list = followeeVote.value;
-            if (list != null && list.isNotEmpty) {
-              return GestureDetector(
-                behavior: .opaque,
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      final colorScheme = ColorScheme.of(context);
-                      return SimpleDialog(
-                        clipBehavior: .hardEdge,
-                        title: const Text('关注的人的投票'),
-                        contentPadding: const .only(bottom: 12),
-                        titlePadding: const .fromLTRB(20, 20, 20, 10),
-                        children: list
-                            .map(
-                              (e) => ListTile(
-                                dense: true,
-                                onTap: () =>
-                                    Get.toNamed('/member?mid=${e.mid}'),
-                                leading: NetworkImgLayer(
-                                  src: e.face,
-                                  width: 40,
-                                  height: 40,
-                                  type: .avatar,
-                                ),
-                                title: Text.rich(
-                                  style: const TextStyle(fontSize: 13),
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(text: e.name),
-                                      TextSpan(
-                                        text: ' 投给了',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: colorScheme.outline,
+          ValueListenableBuilder(
+            valueListenable: followeeVote,
+            builder: (context, list, _) {
+              if (list != null && list.isNotEmpty) {
+                return GestureDetector(
+                  behavior: .opaque,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        final colorScheme = ColorScheme.of(context);
+                        return SimpleDialog(
+                          clipBehavior: .hardEdge,
+                          title: const Text('关注的人的投票'),
+                          contentPadding: const .only(bottom: 12),
+                          titlePadding: const .fromLTRB(20, 20, 20, 10),
+                          children: list
+                              .map(
+                                (e) => ListTile(
+                                  dense: true,
+                                  onTap: () =>
+                                      Get.toNamed('/member?mid=${e.mid}'),
+                                  leading: NetworkImgLayer(
+                                    src: e.face,
+                                    width: 40,
+                                    height: 40,
+                                    type: .avatar,
+                                  ),
+                                  title: Text.rich(
+                                    style: const TextStyle(fontSize: 13),
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(text: e.name),
+                                        TextSpan(
+                                          text: ' 投给了',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.outline,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    style: const TextStyle(fontSize: 13),
+                                    e.votes
+                                        .map(
+                                          (vote) => _voteInfo.options
+                                              .firstWhereOrNull(
+                                                (e) => e.optIdx == vote,
+                                              )
+                                              ?.optDesc,
+                                        )
+                                        .join('、'),
                                   ),
                                 ),
-                                subtitle: Text(
-                                  style: const TextStyle(fontSize: 13),
-                                  e.votes
-                                      .map(
-                                        (vote) => _voteInfo.options
-                                            .firstWhereOrNull(
-                                              (e) => e.optIdx == vote,
-                                            )
-                                            ?.optDesc,
-                                      )
-                                      .join('、'),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      );
-                    },
-                  );
-                },
-                child: Row(
-                  mainAxisSize: .min,
-                  children: [
-                    avatars(
-                      colorScheme: theme.colorScheme,
-                      users: list.take(3),
-                    ),
-                    Icon(
-                      size: 18,
-                      color: theme.colorScheme.outline.withValues(alpha: .7),
-                      Icons.keyboard_arrow_right,
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          }),
+                              )
+                              .toList(),
+                        );
+                      },
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: .min,
+                    children: [
+                      avatars(
+                        colorScheme: theme.colorScheme,
+                        users: list.take(3),
+                      ),
+                      Icon(
+                        size: 18,
+                        color: theme.colorScheme.outline.withValues(alpha: .7),
+                        Icons.keyboard_arrow_right,
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ],
       );
     }
@@ -401,7 +401,7 @@ class _VotePanelState extends State<VotePanel> {
           return InkWell(
             onTap: !_enabled || _submitting || !_isCurrent
                 ? null
-                : () => _onSelected(context, !selected, opt.optIdx!),
+                : () => _onSelected(!selected, opt.optIdx!),
             onLongPress: PlatformUtils.isMobile ? onLongPress : null,
             onSecondaryTap: PlatformUtils.isDesktop ? onLongPress : null,
             borderRadius: const .all(.circular(6)),
@@ -493,39 +493,30 @@ class _VotePanelState extends State<VotePanel> {
   }
 
   Widget _buildOptions(int index) {
-    return Builder(
-      builder: (context) {
-        final opt = _voteInfo.options[index];
-        final selected = groupValue.contains(opt.optIdx);
-        return PercentageChip(
-          label: opt.optDesc!,
-          percentage: _showPercentage ? _percentage[index] : null,
-          selected: selected,
-          onSelected: !_enabled || _submitting || !_isCurrent
-              ? null
-              : () => _onSelected(context, !selected, opt.optIdx!),
-        );
-      },
+    final opt = _voteInfo.options[index];
+    final selected = groupValue.contains(opt.optIdx);
+    return PercentageChip(
+      label: opt.optDesc!,
+      percentage: _showPercentage ? _percentage[index] : null,
+      selected: selected,
+      onSelected: !_enabled || _submitting || !_isCurrent
+          ? null
+          : () => _onSelected(!selected, opt.optIdx!),
     );
   }
 
-  void _onSelected(BuildContext itemCtx, bool value, int optidx) {
+  void _onSelected(bool value, int optidx) {
     if (_submitting || !_isCurrent) return;
-    final bool isMax = groupValue.length >= _maxCnt;
-    if (isMax && value && !groupValue.contains(optidx)) {
-      groupValue
-        ..removeAt(0)
-        ..add(optidx);
-      setState(() {});
-      return;
-    }
-
-    if (value) {
-      groupValue.add(optidx);
-    } else {
-      groupValue.remove(optidx);
-    }
-    (itemCtx as Element).markNeedsBuild();
+    setState(() {
+      if (value) {
+        if (groupValue.isNotEmpty && groupValue.length >= _maxCnt) {
+          groupValue.removeAt(0);
+        }
+        groupValue.add(optidx);
+      } else {
+        groupValue.remove(optidx);
+      }
+    });
   }
 
   static List<double> _cnt2Percentage(List<Option> options) {
