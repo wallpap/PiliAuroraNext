@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/following/data/following_repository.dart';
 import 'package:pili_aurora_next/features/following/domain/following.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/follow_order_type.dart';
-import 'package:pili_aurora_next/models/remote/follow/data.dart';
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
+import 'package:pili_aurora_next/features/following/domain/follow_order_type.dart';
+import 'package:pili_aurora_next/features/following/domain/list/data.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

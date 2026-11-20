@@ -1,6 +1,6 @@
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_sys/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_sys/data.dart';
 import 'package:pili_aurora_next/services/messaging/feed.dart';
 import 'package:pili_aurora_next/services/messaging/feed_adapters.dart';
 import 'package:pili_aurora_next/services/messaging/feed_notifier.dart';

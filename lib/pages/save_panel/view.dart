@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';

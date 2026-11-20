@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:pili_aurora_next/features/community/data/dynamics_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/up.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

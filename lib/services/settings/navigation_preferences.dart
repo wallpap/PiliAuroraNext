@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';

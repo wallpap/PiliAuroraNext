@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/community/presentation/dynamic_like_action.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';

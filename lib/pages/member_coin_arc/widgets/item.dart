@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_v.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/member/coin_like_arc/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/coin_like_arc/item.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';

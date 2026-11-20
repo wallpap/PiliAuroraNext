@@ -20,8 +20,8 @@ import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dar
 import 'package:pili_aurora_next/common/widgets/tap_region_surface.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_option_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';

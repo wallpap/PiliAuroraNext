@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/rank/pgc_rank_item_model.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';

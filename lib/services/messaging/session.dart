@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

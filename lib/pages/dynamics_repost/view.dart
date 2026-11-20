@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_publishing.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';

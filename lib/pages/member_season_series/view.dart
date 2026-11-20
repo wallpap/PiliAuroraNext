@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_season_series/season.dart'
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_season_series/season.dart'
     show SpaceSsModel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';

@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_audio/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_audio/item.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';

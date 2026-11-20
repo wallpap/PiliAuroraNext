@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/bubble/category_list.dart';
-import 'package:pili_aurora_next/models/remote/bubble/sort_info.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/category_list.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/sort_info.dart';
 
 class BubbleCatalog {
   BubbleCatalog({

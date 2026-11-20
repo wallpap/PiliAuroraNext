@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
     as refresh;
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/bubble/category_list.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/category_list.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/pages/bubble/view.dart';
 import 'package:pili_aurora_next/features/community/application/bubble_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
 import 'package:pili_aurora_next/features/community/domain/bubble_catalog.dart';
-import 'package:pili_aurora_next/models/remote/bubble/dyn_list.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/dyn_list.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

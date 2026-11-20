@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
-import 'package:pili_aurora_next/models/dynamics/up.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up_panel_position.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/features/app_shell/application/shell_badges.dart';
 import 'package:pili_aurora_next/features/app_shell/presentation/scroll_bars.dart';

@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
 import 'package:pili_aurora_next/features/following/application/following.dart';
 import 'package:pili_aurora_next/pages/follow/widgets/follow_item.dart';
 import 'package:pili_aurora_next/features/following/application/follow_relations.dart';

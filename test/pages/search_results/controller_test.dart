@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
 import 'package:pili_aurora_next/pages/search_result/view.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';

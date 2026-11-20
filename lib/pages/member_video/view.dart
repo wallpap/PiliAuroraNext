@@ -7,8 +7,8 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show ReloadMixin, ReloadScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

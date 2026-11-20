@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:material_ui/material_ui.dart';
 
 Widget livePanel(

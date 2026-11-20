@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/fav_order_type.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_order_type.dart';
 
 enum FavoriteKind { folders, detail, pgc, article, note, topic, cheese }
 

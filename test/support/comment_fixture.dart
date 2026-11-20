@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/features/community/data/comments/comments_repos
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_type.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class CommentFixture extends CommentsRepository {

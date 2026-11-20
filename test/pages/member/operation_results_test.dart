@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
 import 'package:pili_aurora_next/pages/member/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

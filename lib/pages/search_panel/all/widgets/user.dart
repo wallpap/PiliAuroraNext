@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart'
     show pushVideoH;
-import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';

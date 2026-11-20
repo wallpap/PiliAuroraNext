@@ -1,12 +1,12 @@
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/item.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/topic_card_list.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_list.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_precious/data.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_list.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_precious/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/data.dart';
 
 abstract final class MediaAuthorFilter {
   static bool isBlocked(

@@ -28,10 +28,10 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show kSpringDescription;
 import 'package:pili_aurora_next/common/widgets/stateful_builder.dart';
 import 'package:pili_aurora_next/models/common/bar_hide_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
-import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamic_badge_mode.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up_panel_position.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';

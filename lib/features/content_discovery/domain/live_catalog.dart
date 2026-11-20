@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_list.dart';
-import 'package:pili_aurora_next/models/remote/live/live_second_list/tag.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/second_list/tag.dart';
 
 class LiveCatalog {
   LiveCatalog({

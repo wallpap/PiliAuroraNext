@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_shop/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_shop/item.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';

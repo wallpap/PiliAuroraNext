@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/common/fav_order_type.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_order_type.dart';
 import 'package:pili_aurora_next/features/subscriptions/data/hidden_media.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

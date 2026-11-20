@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver_wrap.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_rcmd/data.dart';
 import 'package:pili_aurora_next/features/search/application/search_home.dart';
 import 'package:pili_aurora_next/pages/search/widgets/hot_keyword.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';

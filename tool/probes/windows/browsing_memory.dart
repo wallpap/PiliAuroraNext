@@ -13,7 +13,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_feed_sliver.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';

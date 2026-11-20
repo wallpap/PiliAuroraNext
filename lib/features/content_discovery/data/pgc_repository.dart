@@ -4,10 +4,10 @@ import 'package:pili_aurora_next/features/favorites/domain/fav_pgc/list.dart';
 import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/pgc.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/result.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final pgcRepositoryProvider = Provider((ref) => const PgcRepository());

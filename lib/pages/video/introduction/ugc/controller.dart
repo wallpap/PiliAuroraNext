@@ -8,8 +8,8 @@ import 'package:pili_aurora_next/features/playback/application/video_details.dar
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
-import 'package:pili_aurora_next/models/remote/member_card_info/data.dart';
-import 'package:pili_aurora_next/models/remote/relation/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/card/data.dart';
+import 'package:pili_aurora_next/features/following/domain/relation/data.dart';
 import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/model_result.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/dimension.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart';

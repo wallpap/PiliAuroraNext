@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_reply/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_reply/item.dart';
 import 'package:pili_aurora_next/pages/msg_feed_top/reply_me/controller.dart';
 import 'package:pili_aurora_next/pages/whisper_settings/widgets/reminder_dialog.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';

@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/dimension.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';

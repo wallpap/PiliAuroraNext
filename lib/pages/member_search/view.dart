@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/member_search/child/view.dart';
-import 'package:pili_aurora_next/models/common/member/search_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/search_type.dart';
 
 class MemberSearchPage extends ConsumerStatefulWidget {
   const MemberSearchPage({super.key});

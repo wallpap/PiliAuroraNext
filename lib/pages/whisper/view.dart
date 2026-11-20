@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
 import 'package:pili_aurora_next/pages/whisper/controller.dart';
 import 'package:pili_aurora_next/pages/whisper/widgets/item.dart';
 import 'package:pili_aurora_next/services/messaging/overview.dart';

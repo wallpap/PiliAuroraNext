@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/flutter/vertical_tabs.dart';
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
-import 'package:pili_aurora_next/models/common/rank_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/rank_type.dart';
 import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/pages/rank/zone/view.dart';

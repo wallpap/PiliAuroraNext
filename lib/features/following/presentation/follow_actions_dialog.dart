@@ -6,7 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/features/following/application/follow_actions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/relation/data.dart';
+import 'package:pili_aurora_next/features/following/domain/relation/data.dart';
 import 'package:pili_aurora_next/pages/group_panel/view.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/following/data/following_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_follow/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_follow/item.dart';
+import 'package:pili_aurora_next/features/following/domain/live/data.dart';
+import 'package:pili_aurora_next/features/following/domain/live/item.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/curated_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';

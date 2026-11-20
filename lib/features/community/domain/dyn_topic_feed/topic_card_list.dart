@@ -1,5 +1,6 @@
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/item.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/topic_sort_by_conf.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 
 class TopicCardList {
   bool? hasMore;
@@ -14,10 +15,13 @@ class TopicCardList {
     this.topicSortByConf,
   });
 
-  factory TopicCardList.fromJson(Map<String, dynamic> json) => TopicCardList(
+  factory TopicCardList.fromJson(
+    Map<String, dynamic> json, {
+    DynamicsDecodeOptions options = const DynamicsDecodeOptions(),
+  }) => TopicCardList(
     hasMore: json['has_more'] as bool?,
     items: (json['items'] as List<dynamic>?)
-        ?.map((e) => TopicCardItem.fromJson(e as Map<String, dynamic>))
+        ?.map((e) => TopicCardItem.fromJson(e as Map<String, dynamic>, options))
         .toList(),
     offset: json['offset'] as String?,
     topicSortByConf: json['topic_sort_by_conf'] == null

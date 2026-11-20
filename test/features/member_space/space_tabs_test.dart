@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
-import 'package:pili_aurora_next/models/common/member/tab_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
+import 'package:pili_aurora_next/features/member_space/domain/tab_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/tab2.dart';
 
 void main() {
   test('空间入口保留栏目优先级，不修改远端默认值', () {

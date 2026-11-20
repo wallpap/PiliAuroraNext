@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as loading;
 import 'package:pili_aurora_next/pages/follow/widgets/follow_item.dart';
 import 'package:pili_aurora_next/features/following/application/follow_relations.dart';

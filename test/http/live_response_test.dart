@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank_type.dart';
-import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/live/search_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/tab2.dart';
 import 'package:pili_aurora_next/pages/member_article/view.dart';
 import 'package:pili_aurora_next/pages/member_audio/view.dart';
 import 'package:pili_aurora_next/pages/member_comic/view.dart';

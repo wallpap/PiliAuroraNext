@@ -3,8 +3,8 @@ import 'package:pili_aurora_next/features/account/application/account_profile.da
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
-import 'package:pili_aurora_next/models/dynamics/up.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up_panel_position.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:pili_aurora_next/pages/live_follow/view.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';

@@ -9,7 +9,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
 import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';

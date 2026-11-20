@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show ArticleContentModel;
 import 'package:pili_aurora_next/pages/dynamics/widgets/rich_node_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/additional_panel.dart';

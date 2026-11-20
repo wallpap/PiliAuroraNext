@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_sort_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
 import 'package:pili_aurora_next/pages/member_video_web/base/view.dart';
 import 'package:get/get.dart';
 

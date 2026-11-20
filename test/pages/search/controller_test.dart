@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/search/application/search_trending.dart';
 import 'package:pili_aurora_next/pages/search_trending/view.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/trending_header.dart';
-import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_trending/data.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/search/application/search_home.dart';
 import 'package:pili_aurora_next/features/search/application/search_hint.dart';

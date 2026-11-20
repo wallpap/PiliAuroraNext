@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/features/content_discovery/data/pgc_repository.
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_pgc/list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/result.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef PgcQuery = ({Object owner, bool cinema});

@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/common/widgets/video_popup_menu.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';

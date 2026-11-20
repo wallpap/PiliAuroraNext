@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/self_sized_horizontal_list.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_web.dart';
 import 'package:pili_aurora_next/pages/member_video_web/base/view.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:get/get.dart';

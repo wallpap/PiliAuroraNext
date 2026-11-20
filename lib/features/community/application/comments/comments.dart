@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/features/community/data/comments/comments_repos
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_filter.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_type.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';

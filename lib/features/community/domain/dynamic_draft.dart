@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_option_type.dart';
 
 class DynamicDraft {
   DynamicDraft({

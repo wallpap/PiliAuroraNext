@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

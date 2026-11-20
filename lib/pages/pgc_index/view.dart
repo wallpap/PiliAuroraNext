@@ -14,10 +14,10 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/self_sized_horizontal_list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/sort.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/value.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/sort.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/value.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/pgc_index.dart';
 import 'package:pili_aurora_next/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';

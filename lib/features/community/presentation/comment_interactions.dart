@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.da
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/video/reply_new/view.dart';

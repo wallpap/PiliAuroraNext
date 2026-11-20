@@ -1,4 +1,5 @@
 import 'package:pili_aurora_next/core/text/keyword_pattern.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 typedef ContentFilter = ({RegExp? keywords, bool hideGoods});
@@ -12,8 +13,11 @@ abstract final class ContentFilterPreferences {
     hideGoods: Pref.antiGoodsReply,
   );
 
-  static ContentFilter dynamics() => (
+  static DynamicsDecodeOptions dynamics() => DynamicsDecodeOptions(
     keywords: _dynamics.resolve(Pref.banWordForDyn),
     hideGoods: Pref.antiGoodsDyn,
+    showInteraction: Pref.showDynInteraction,
+    showDispute: Pref.showDynDispute,
+    showDecoration: Pref.showDecorate,
   );
 }

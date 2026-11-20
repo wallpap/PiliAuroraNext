@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/content_discovery/domain/recommendatio
 import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 CooperativeVideo _video(int aid, {bool bvidOnly = false}) => (

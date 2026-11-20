@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/watched_show.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/watched_show.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/room_info/anchor_info.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/room_info/room_info.dart';
 

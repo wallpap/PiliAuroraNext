@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
-import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_web.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_sort_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
-import 'package:pili_aurora_next/models/remote/member/search_archive/slist.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/search_archive/slist.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/features/member_space/presentation/member_repor
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/msg/im_user_infos/datum.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_dnd/uid_setting.dart';
+import 'package:pili_aurora_next/services/messaging/models/im_user_infos/datum.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_dnd/uid_setting.dart';
 import 'package:pili_aurora_next/pages/whisper_link_setting/controller.dart';
 import 'package:pili_aurora_next/services/messaging/settings.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';

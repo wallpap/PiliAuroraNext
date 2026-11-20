@@ -6,8 +6,8 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/setting.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/setting.dart';
 import 'package:pili_aurora_next/pages/member_article/widget/item.dart';
 import 'package:pili_aurora_next/pages/member_audio/widgets/item.dart';
 import 'package:pili_aurora_next/pages/member_coin_arc/view.dart';

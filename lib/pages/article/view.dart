@@ -17,9 +17,9 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
+import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show Pic;
-import 'package:pili_aurora_next/models/dynamics/result.dart' show DynamicStat;
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart' show DynamicStat;
 import 'package:pili_aurora_next/features/community/application/article_detail.dart';
 import 'package:pili_aurora_next/pages/article/widgets/article_ops.dart';
 import 'package:pili_aurora_next/pages/article/widgets/html_render.dart';

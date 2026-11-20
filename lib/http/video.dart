@@ -17,10 +17,10 @@ import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart
 import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_interaction.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_precious/data.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_list/list.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/rank/pgc_rank_item_model.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_precious/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_list/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/data.dart';
 import 'package:pili_aurora_next/features/playback/domain/triple/pgc_triple.dart';
 import 'package:pili_aurora_next/features/playback/domain/triple/ugc_triple.dart';
 import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/data.dart';

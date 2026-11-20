@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
 import 'package:pili_aurora_next/http/api.dart';

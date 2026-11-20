@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart'
     show m3eLoading;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_listings.dart';
 import 'package:pili_aurora_next/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
 import 'package:pili_aurora_next/utils/grid.dart';

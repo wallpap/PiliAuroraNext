@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 

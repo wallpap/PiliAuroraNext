@@ -10,8 +10,8 @@ import 'package:pili_aurora_next/features/community/domain/dynamic_cursor.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

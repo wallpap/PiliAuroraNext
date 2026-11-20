@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/live_search/child/view.dart';
-import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/live/search_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 

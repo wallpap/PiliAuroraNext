@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/msg.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_sys/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_sys/data.dart';
 import 'package:pili_aurora_next/services/messaging/conversation_adapter.dart';
 import 'package:pili_aurora_next/services/messaging/feed.dart';
 import 'package:pili_aurora_next/services/messaging/feed_adapters.dart';

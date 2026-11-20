@@ -99,6 +99,7 @@ void main() {
     'watch_later',
     'content_library',
     'content_discovery',
+    'media_catalog',
     'search',
     'following',
     'community',
@@ -210,7 +211,7 @@ void main() {
               source == 'pages/setting/models/recommend_settings.dart' &&
               target?.startsWith('pages/rcmd/') == true;
           final enumDispatch =
-              source == 'models/common/home_tab_type.dart' &&
+              source == 'features/content_discovery/domain/home_tab_type.dart' &&
               (uri.startsWith('package:get/') ||
                   target?.startsWith('pages/') == true);
           if (removed.contains(target) || settingsToPage || enumDispatch) {

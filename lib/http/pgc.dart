@@ -3,12 +3,12 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/pgc_timeline.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/pgc_timeline.dart';
 import 'package:pili_aurora_next/features/playback/domain/season_follow_status.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/result.dart';
 import 'package:dio/dio.dart';
 
 abstract final class PgcHttp {

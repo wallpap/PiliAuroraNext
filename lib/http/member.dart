@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:pili_aurora_next/common/constants.dart';
+import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/services/web_user_agent.dart';
@@ -8,29 +9,29 @@ import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/error_msg.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
-import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/member/info.dart';
-import 'package:pili_aurora_next/models/member/tags.dart';
-import 'package:pili_aurora_next/models/remote/follow/data.dart';
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
-import 'package:pili_aurora_next/models/remote/member/coin_like_arc/data.dart';
-import 'package:pili_aurora_next/models/remote/member/search_archive/data.dart';
-import 'package:pili_aurora_next/models/remote/member/season_web/data.dart';
-import 'package:pili_aurora_next/models/remote/member_card_info/data.dart';
-import 'package:pili_aurora_next/models/remote/member_guard/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_article/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_audio/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_cheese/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_opus/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_season_series/item.dart';
-import 'package:pili_aurora_next/models/remote/space/space_shop/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_web.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_sort_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/member_space/domain/details/info.dart';
+import 'package:pili_aurora_next/features/member_space/domain/details/tags.dart';
+import 'package:pili_aurora_next/features/following/domain/list/data.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/coin_like_arc/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/search_archive/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/season_web/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/card/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/guard/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_article/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_audio/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_cheese/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_opus/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_season_series/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_shop/data.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
@@ -185,7 +186,14 @@ abstract final class MemberHttp {
       'vmid': mid,
     };
     return await Request().requestApi(
-      type.api,
+      switch (type) {
+        ContributeType.video => Api.spaceArchive,
+        ContributeType.charging => Api.spaceChargingArchive,
+        ContributeType.season => Api.spaceSeason,
+        ContributeType.series => Api.spaceSeries,
+        ContributeType.bangumi => Api.spaceBangumi,
+        ContributeType.comic => Api.spaceComic,
+      },
       kind: ApiCallKind.query,
       decode: (body) => SpaceArchiveData.fromJson(body['data']),
       queryParameters: params,
@@ -400,7 +408,10 @@ abstract final class MemberHttp {
   }) async {
     account ??= Accounts.main;
     return await Request().requestApi(
-      type.api,
+      switch (type) {
+        WebSsType.season => Api.seasonArchives,
+        WebSsType.series => Api.seriesArchives,
+      },
       kind: ApiCallKind.query,
       errorMessages: errorMsg,
       decode: (body) => SeasonWebData.fromJson(body['data']),
@@ -448,7 +459,10 @@ abstract final class MemberHttp {
         final result = await Request().requestApi(
           Api.memberDynamic,
           kind: ApiCallKind.query,
-          decode: (body) => DynamicsDataModel.fromJson(body['data']),
+          decode: (body) => DynamicsDataModel.fromJson(
+            body['data'],
+            options: ContentFilterPreferences.dynamics(),
+          ),
           errorMessages: errorMsg,
           queryParameters: await WbiSign.makSign({
             'offset': offset ?? '',
@@ -497,7 +511,10 @@ abstract final class MemberHttp {
     return await Request().requestApi(
       Api.dynSearch,
       kind: ApiCallKind.query,
-      decode: (body) => DynamicsDataModel.fromJson(body['data']),
+      decode: (body) => DynamicsDataModel.fromJson(
+        body['data'],
+        options: ContentFilterPreferences.dynamics(),
+      ),
       options: Options(extra: {'account': account}),
       queryParameters: {
         'host_mid': mid,

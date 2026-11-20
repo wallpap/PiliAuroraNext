@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
-import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_web.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_sort_type_app.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_web.dart';
@@ -232,13 +232,13 @@ void main() {
       final (path, pageKey, sortKey, firstSort, secondSort) = switch (type) {
         null => (Api.searchArchive, 'pn', 'order', 'pubdate', 'click'),
         WebSsType.season => (
-          type.api,
+          Api.seasonArchives,
           'page_num',
           'sort_reverse',
           false,
           true,
         ),
-        WebSsType.series => (type.api, 'pn', 'sort', 'desc', 'asc'),
+        WebSsType.series => (Api.seriesArchives, 'pn', 'sort', 'desc', 'asc'),
       };
       void confirm(int i, int number, Object sort) {
         final request = requests[i];

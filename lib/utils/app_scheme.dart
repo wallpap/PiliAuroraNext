@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/fav_type.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';

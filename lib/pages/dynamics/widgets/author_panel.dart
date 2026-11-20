@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';

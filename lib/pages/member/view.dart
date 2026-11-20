@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/medals/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/reservation_card_list.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/reservation_card_list.dart';
 import 'package:pili_aurora_next/features/account/domain/account_log.dart';
 import 'package:pili_aurora_next/pages/log_table/view.dart';
 import 'package:pili_aurora_next/pages/login_devices/view.dart';

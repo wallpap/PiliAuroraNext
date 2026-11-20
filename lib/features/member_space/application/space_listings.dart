@@ -3,8 +3,8 @@ import 'package:pili_aurora_next/features/content_discovery/application/discover
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
-import 'package:pili_aurora_next/models/remote/space/space_opus/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_opus/item.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef SpaceListQuery = ({Object owner, int mid});

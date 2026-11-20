@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
-import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
+import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/live_emote/view.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';

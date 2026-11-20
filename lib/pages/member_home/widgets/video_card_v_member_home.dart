@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';

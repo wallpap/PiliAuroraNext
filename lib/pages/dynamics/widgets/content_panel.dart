@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/rich_node_panel.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';

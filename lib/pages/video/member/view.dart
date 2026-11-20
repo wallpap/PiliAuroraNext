@@ -15,8 +15,8 @@ import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/common/member/user_info_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/presentation/user_info_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
 import 'package:pili_aurora_next/features/member_space/application/video_author.dart';

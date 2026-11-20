@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/tab_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/setting.dart';
+import 'package:pili_aurora_next/features/member_space/domain/tab_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/setting.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -35,7 +35,7 @@ class SpaceSnapshot {
       account: account,
       mid: mid,
       data: data,
-      tabs: SpaceTabs(data, Pref.memberTab),
+      tabs: SpaceTabs(data, Pref.memberTab, showShop: Pref.showMemberShop),
       relation: switch (data.relation) {
         -1 => 128,
         -999 => data.guestRelation == -1 ? -1 : 0,

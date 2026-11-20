@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/member_space/application/upower_ranking.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -163,7 +163,7 @@ void main() {
       Api.spaceShop: MemberFeedKind.shop,
       Api.memberGuard: MemberFeedKind.guard,
       Api.spaceCheese: MemberFeedKind.cheese,
-      ContributeType.comic.api: MemberFeedKind.comic,
+      Api.spaceComic: MemberFeedKind.comic,
       Api.seasonSeries: MemberFeedKind.series,
     };
     for (final request in requests) {

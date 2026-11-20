@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dyn_content.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/module_panel.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';

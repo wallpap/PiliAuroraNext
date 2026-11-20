@@ -4,15 +4,15 @@ import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/models/search/suggest.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
+import 'package:pili_aurora_next/features/search/domain/suggest.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_pub_search/data.dart';
 import 'package:pili_aurora_next/features/playback/domain/parts/page_item.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
-import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
-import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_rcmd/data.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_trending/data.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
@@ -80,7 +80,7 @@ abstract final class SearchHttp {
         'gaia_vtoken': ?gaiaVtoken,
       });
       final result = await Request().requestApi<Map<String, dynamic>>(
-        searchType.api,
+        searchType == SearchType.all ? Api.searchAll : Api.searchByType,
         kind: ApiCallKind.query,
         decode: (body) => body['data'] as Map<String, dynamic>,
         queryParameters: params,

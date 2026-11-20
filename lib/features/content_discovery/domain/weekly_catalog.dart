@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/popular/popular_series_list/list.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_list/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/config.dart';
 
 class WeeklyCatalog {
   WeeklyCatalog({

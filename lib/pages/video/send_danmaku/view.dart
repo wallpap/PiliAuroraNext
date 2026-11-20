@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
+import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_text_pub_page.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';

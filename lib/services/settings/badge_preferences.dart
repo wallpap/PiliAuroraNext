@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamic_badge_mode.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 

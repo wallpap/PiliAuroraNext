@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/rank/pgc_rank_item_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/rank_feed.dart';

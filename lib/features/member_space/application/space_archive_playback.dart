@@ -1,12 +1,12 @@
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 import 'package:pili_aurora_next/features/playback/domain/video_detail/dimension.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';
 
 import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';

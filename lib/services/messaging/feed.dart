@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like/item.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

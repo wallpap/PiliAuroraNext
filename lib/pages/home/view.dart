@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/common/widgets/custom_height_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
 import 'package:pili_aurora_next/pages/common/common_page.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
 import 'package:pili_aurora_next/pages/live/view.dart';

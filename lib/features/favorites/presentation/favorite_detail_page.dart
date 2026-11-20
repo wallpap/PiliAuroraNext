@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/content_library/application/library_pr
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_panel.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_sort_page.dart';
-import 'package:pili_aurora_next/models/common/fav_order_type.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_order_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';

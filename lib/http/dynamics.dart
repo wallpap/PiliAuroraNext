@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:pili_aurora_next/common/constants.dart';
+import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
 import 'package:pili_aurora_next/common/widgets/pair.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
@@ -9,23 +10,23 @@ import 'package:pili_aurora_next/http/error_msg.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/dynamics/up.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_option_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
-import 'package:pili_aurora_next/models/remote/article/article_info/data.dart';
-import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
-import 'package:pili_aurora_next/models/remote/bubble/data.dart';
+import 'package:pili_aurora_next/features/community/domain/article/article_info/data.dart';
+import 'package:pili_aurora_next/features/community/domain/article/article_view/data.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/data.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_mention/data.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_mention/group.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reaction/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dyn_reaction/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dyn_reserve/data.dart';
 import 'package:pili_aurora_next/features/community/domain/reserve.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/topic_card_list.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/top_details.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
-import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
+import 'package:pili_aurora_next/features/community/domain/votes/vote.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
@@ -53,6 +54,7 @@ abstract final class DynamicsHttp {
           body['data'],
           type: type,
           tempBannedList: banned,
+          options: ContentFilterPreferences.dynamics(),
         ),
         errorMessages: const {4101132: '没有数据'},
         queryParameters: {
@@ -269,7 +271,10 @@ abstract final class DynamicsHttp {
       Api.dynamicDetail,
       kind: ApiCallKind.query,
       decode: (body) {
-        final item = DynamicItemModel.fromJson(body['data']['item']);
+        final item = DynamicItemModel.fromJson(
+          body['data']['item'],
+          options: ContentFilterPreferences.dynamics(),
+        );
         if ((int.tryParse(item.idStr.toString()) ?? 0) <= 0) {
           throw const FormatException('动态详情缺少有效 ID');
         }
@@ -389,7 +394,10 @@ abstract final class DynamicsHttp {
         Api.opusDetail,
         kind: ApiCallKind.query,
         decode: (body) {
-          final item = DynamicItemModel.fromOpusJson(body['data']);
+          final item = DynamicItemModel.fromOpusJson(
+            body['data'],
+            options: ContentFilterPreferences.dynamics(),
+          );
           if (item.fallback?.id == null &&
               (item.basic?.commentType == null ||
                   (int.tryParse(item.basic?.commentIdStr ?? '') ?? 0) <= 0)) {
@@ -489,7 +497,9 @@ abstract final class DynamicsHttp {
       kind: ApiCallKind.query,
       decode: (body) {
         final data = body['data']?['topic_card_list'];
-        return data == null ? null : TopicCardList.fromJson(data);
+        return data == null
+            ? null
+            : TopicCardList.fromJson(data, options: ContentFilterPreferences.dynamics());
       },
       queryParameters: {
         'topic_id': topicId,
@@ -514,7 +524,9 @@ abstract final class DynamicsHttp {
       kind: ApiCallKind.query,
       decode: (body) {
         final data = body['data']?['topic_card_list'];
-        return data == null ? null : TopicCardList.fromJson(data);
+        return data == null
+            ? null
+            : TopicCardList.fromJson(data, options: ContentFilterPreferences.dynamics());
       },
       queryParameters: {
         'topic_id': topicId,

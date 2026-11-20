@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/common/skeleton/video_card_v.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
-import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/live/search_type.dart';
 import 'package:pili_aurora_next/pages/live_search/widgets/live_search_room.dart';
 import 'package:pili_aurora_next/pages/live_search/widgets/live_search_user.dart';
 import 'package:pili_aurora_next/utils/grid.dart';

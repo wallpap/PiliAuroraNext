@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/additional_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/blocked_item.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/content_panel.dart';

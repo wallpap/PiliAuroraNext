@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
 

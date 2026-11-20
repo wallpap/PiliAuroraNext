@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like_detail/card.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like_detail/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like_detail/card.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like_detail/item.dart';
 import 'package:pili_aurora_next/services/messaging/feed.dart';
 import 'package:pili_aurora_next/services/messaging/feed_adapters.dart';
 import 'package:pili_aurora_next/services/messaging/providers.dart';

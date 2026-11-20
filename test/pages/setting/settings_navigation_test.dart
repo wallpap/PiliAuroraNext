@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
 import 'package:pili_aurora_next/pages/setting/common_setting.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/models/content_settings.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_level_filter.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_level_filter.dart';
 import 'package:pili_aurora_next/pages/setting/models/play_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/privacy_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';

@@ -1,23 +1,23 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_at/content.dart' as at_model;
-import 'package:pili_aurora_next/models/remote/msg/msg_at/item.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_at/user.dart' as at_model;
-import 'package:pili_aurora_next/models/remote/msg/msg_like/content.dart'
+import 'package:pili_aurora_next/services/messaging/models/msg_at/content.dart' as at_model;
+import 'package:pili_aurora_next/services/messaging/models/msg_at/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_at/user.dart' as at_model;
+import 'package:pili_aurora_next/services/messaging/models/msg_like/content.dart'
     as like_model;
-import 'package:pili_aurora_next/models/remote/msg/msg_like/data.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like/item.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like/user.dart' as like_model;
-import 'package:pili_aurora_next/models/remote/msg/msg_like_detail/card.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like_detail/item.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like_detail/user.dart'
+import 'package:pili_aurora_next/services/messaging/models/msg_like/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like/user.dart' as like_model;
+import 'package:pili_aurora_next/services/messaging/models/msg_like_detail/card.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like_detail/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like_detail/user.dart'
     as detail;
-import 'package:pili_aurora_next/models/remote/msg/msg_reply/content.dart'
+import 'package:pili_aurora_next/services/messaging/models/msg_reply/content.dart'
     as reply_model;
-import 'package:pili_aurora_next/models/remote/msg/msg_reply/item.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_reply/user.dart'
+import 'package:pili_aurora_next/services/messaging/models/msg_reply/item.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_reply/user.dart'
     as reply_model;
-import 'package:pili_aurora_next/models/remote/msg/msg_sys/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_sys/data.dart';
 import 'package:pili_aurora_next/services/messaging/feed.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

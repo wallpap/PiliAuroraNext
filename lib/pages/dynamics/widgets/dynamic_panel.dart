@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/avatars.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/action_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dyn_content.dart';

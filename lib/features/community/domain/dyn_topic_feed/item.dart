@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/fold_card_item.dart';
 
 class TopicCardItem {
@@ -8,11 +8,15 @@ class TopicCardItem {
 
   TopicCardItem({this.dynamicCardItem, this.foldCardItem, this.topicType});
 
-  factory TopicCardItem.fromJson(Map<String, dynamic> json) => TopicCardItem(
+  factory TopicCardItem.fromJson(
+    Map<String, dynamic> json,
+    DynamicsDecodeOptions options,
+  ) => TopicCardItem(
     dynamicCardItem: json['dynamic_card_item'] == null
         ? null
         : DynamicItemModel.fromJson(
             json['dynamic_card_item'] as Map<String, dynamic>,
+            options: options,
           ),
     foldCardItem: json['fold_card_item'] == null
         ? null

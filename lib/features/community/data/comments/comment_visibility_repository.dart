@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_sort_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_type.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef VisibilityPage = ({List<int?> ids, int? count, int? size});

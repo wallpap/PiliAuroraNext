@@ -1,8 +1,8 @@
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/http/member.dart';
-import 'package:pili_aurora_next/models/remote/member_guard/guard_top_list.dart';
-import 'package:pili_aurora_next/models/remote/space/space_shop/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/guard/guard_top_list.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_shop/data.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

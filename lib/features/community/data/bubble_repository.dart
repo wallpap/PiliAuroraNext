@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/community/domain/bubble_catalog.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/bubble/dyn_list.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/dyn_list.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final bubbleRepositoryProvider = Provider((ref) => const BubbleRepository());

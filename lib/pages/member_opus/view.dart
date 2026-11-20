@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/tab2.dart';
 import 'package:pili_aurora_next/common/skeleton/space_opus.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space_opus/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_opus/item.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_listings.dart';
 import 'package:pili_aurora_next/pages/member_opus/widgets/space_opus_item.dart';

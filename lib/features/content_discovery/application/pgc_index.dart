@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/pgc_repository.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

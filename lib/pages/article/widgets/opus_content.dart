@@ -15,9 +15,9 @@ import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart'
 import 'package:pili_aurora_next/common/widgets/image_viewer/hero.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
+import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show ArticleContentModel, Rich, Style, Word, Node;
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';

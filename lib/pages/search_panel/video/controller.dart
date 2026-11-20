@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:pili_aurora_next/models/common/search/video_search_type.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/video_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
 import 'package:pili_aurora_next/features/search/application/search_results.dart';

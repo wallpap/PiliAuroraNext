@@ -1,15 +1,21 @@
-import 'package:pili_aurora_next/models/common/member/tab_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/tab2.dart';
+import 'package:pili_aurora_next/features/member_space/domain/tab_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/tab2.dart';
 
 /// 栏目从同一次空间响应派生，不能修改服务端返回的列表。
 class SpaceTabs {
-  SpaceTabs(SpaceData? data, MemberTabType preferred)
+  SpaceTabs(SpaceData? data, MemberTabType preferred, {bool showShop = true})
     : tabs = List.unmodifiable(
         data == null
             ? _fallback
             : (data.tab2 ?? const <SpaceTab2>[])
-                  .where((tab) => MemberTabType.contains(tab.param ?? ''))
+                  .where(
+                    (tab) => MemberTabType.values.any(
+                      (type) =>
+                          type.name == tab.param &&
+                          (type != MemberTabType.shop || showShop),
+                    ),
+                  )
                   .skipWhile(
                     (tab) => data.hasItem != true && tab.param == 'home',
                   ),

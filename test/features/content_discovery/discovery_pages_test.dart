@@ -18,11 +18,11 @@ import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalo
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/config.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';

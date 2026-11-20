@@ -8,8 +8,8 @@ import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.da
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/features/community/data/dynamic_picture_upload.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart'
+import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart'
     show PicModel, FilePicModel, OpusPicModel;
 import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
 import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';

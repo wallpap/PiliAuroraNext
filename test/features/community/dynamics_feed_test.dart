@@ -12,9 +12,9 @@ import 'package:pili_aurora_next/features/content_discovery/domain/discovery_pag
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/dynamics/up.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/pages/dynamics/view.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_page_handle.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';

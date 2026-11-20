@@ -1,8 +1,8 @@
-import 'package:pili_aurora_next/models/common/search/article_search_type.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/models/common/search/user_search_type.dart';
-import 'package:pili_aurora_next/models/common/search/video_search_type.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/article_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/user_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/video_search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

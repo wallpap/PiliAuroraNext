@@ -3,12 +3,12 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/validate.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
 import 'package:pili_aurora_next/features/account/domain/login/gaia_result.dart';
-import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
-import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/models/search/suggest.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_rcmd/data.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_trending/data.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
+import 'package:pili_aurora_next/features/search/domain/suggest.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
 
