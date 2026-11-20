@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show Pic;
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart' show DynamicStat;

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/features/playback/data/cdn_speed_probe.dart';
+import 'package:pili_aurora_next/features/playback/application/cdn_speed_probe.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';

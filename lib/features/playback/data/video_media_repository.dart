@@ -9,32 +9,20 @@ import 'package:pili_aurora_next/features/playback/domain/play_info/data.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
-final class VideoMediaQuery {
-  VideoMediaQuery({
-    required this.account,
-    required this.bvid,
-    required this.cid,
-    required this.episode,
-    required this.season,
-    required this.type,
-    required this.tryLook,
-    required this.voiceBalance,
-    this.language,
-  });
-
-  final Account account;
-  final String bvid;
-  final int cid;
-  final int? episode, season;
-  final VideoType type;
-  final bool tryLook, voiceBalance;
-  final String? language;
-  final _token = CancelToken();
-
-  bool get isCancelled => _token.isCancelled;
-  void cancel() => _token.cancel();
-
-  Future<LoadingState<PlayUrlModel>> fetch(int quality) => VideoHttp.videoUrl(
+abstract final class VideoMediaRepository {
+  static Future<LoadingState<PlayUrlModel>> fetch({
+    required Account account,
+    required String bvid,
+    required int cid,
+    required int? episode,
+    required int? season,
+    required int quality,
+    required bool tryLook,
+    required VideoType type,
+    required String? language,
+    required bool voiceBalance,
+    required CancelToken cancelToken,
+  }) => VideoHttp.videoUrl(
     account: account,
     bvid: bvid,
     cid: cid,
@@ -45,11 +33,9 @@ final class VideoMediaQuery {
     videoType: type,
     language: language,
     voiceBalance: voiceBalance,
-    cancelToken: _token,
+    cancelToken: cancelToken,
   );
-}
 
-abstract final class VideoMediaRepository {
   static Future<List<VideoItem>> diagnosticsSample() async {
     final result = await VideoHttp.videoUrl(
       cid: 196018899,

@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/features/member_space/presentation/user_info_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space/card.dart';

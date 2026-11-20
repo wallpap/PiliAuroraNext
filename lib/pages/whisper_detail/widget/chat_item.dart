@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/image/content_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_viewer/hero.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/pages/whisper_detail/widget/message_content_card.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
 import 'package:pili_aurora_next/router/app_scheme.dart';

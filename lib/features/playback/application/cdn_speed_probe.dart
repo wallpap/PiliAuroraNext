@@ -25,10 +25,13 @@ final class CdnSpeedProbe {
   bool _closed = false;
 
   static Future<BaseItem> sample() async {
-    final item = (await VideoMediaRepository.diagnosticsSample()).firstOrNull;
+    final item = (await samples()).firstOrNull;
     if (item == null) throw const FormatException('响应缺少测速视频流');
     return item;
   }
+
+  static Future<List<VideoItem>> samples() =>
+      VideoMediaRepository.diagnosticsSample();
 
   void close() {
     if (_closed) return;

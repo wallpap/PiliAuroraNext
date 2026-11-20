@@ -21,7 +21,6 @@ import 'package:pili_aurora_next/pages/log_table/view.dart';
 import 'package:pili_aurora_next/pages/login_devices/view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_space.dart';
-import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
 import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:pili_aurora_next/pages/member/shortcut_action.dart';
@@ -786,9 +785,7 @@ class _MemberPageState extends ConsumerState<MemberPage>
       onShow();
       return;
     }
-    final res = await ref
-        .read(spaceRepositoryProvider)
-        .followTime(space.account, _mid);
+    final res = await _space.followTime(space.account);
     if (!current()) return;
     if (res case Success(:final response)) {
       if (response == null) return;
@@ -822,7 +819,7 @@ class _MemberPageState extends ConsumerState<MemberPage>
     if (_loadingMedals) return;
     _loadingMedals = true;
     final tag = 'space-medals-${UniqueKey()}';
-    final repository = ref.read(spaceRepositoryProvider);
+    final space = _space;
     SmartDialog.show<void>(
       tag: tag,
       clickMaskDismiss: false,
@@ -830,7 +827,7 @@ class _MemberPageState extends ConsumerState<MemberPage>
     );
     late final LoadingState<MedalWallData> res;
     try {
-      res = await repository.medals(_mid);
+      res = await space.medals();
     } finally {
       _loadingMedals = false;
       await SmartDialog.dismiss(tag: tag);

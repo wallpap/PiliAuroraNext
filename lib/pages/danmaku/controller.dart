@@ -5,12 +5,10 @@ import 'dart:io' show File;
 import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
-import 'package:pili_aurora_next/features/danmaku/data/danmaku_segments.dart';
+import 'package:pili_aurora_next/features/danmaku/application/danmaku_source.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart' show DanmakuDisplayLimits;
-import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
-import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_store.dart';
 import 'package:pili_aurora_next/pages/danmaku/raw_cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/processing_rules.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
@@ -96,7 +94,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
   bool _fileLoading = false;
   bool _fileFailed = false;
   final _failedSegments = <int>{};
-  final _orderedFile = OrderedDanmakuFileStore();
+  final _source = DanmakuSource();
   bool _fileKnown = false;
   Future<void>? _reprocessing;
   ({int first, int last})? _rangeTarget;
@@ -164,7 +162,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
     _lifetimeWork.cancel();
     _ruleWork.cancel();
     _fileWork.cancel();
-    unawaited(_orderedFile.dispose());
+    unawaited(_source.dispose());
     _cache.clear();
     _requestedSeg.clear();
     _rawSegments.clear();
@@ -197,7 +195,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
     _failedSegments.remove(segmentIndex);
     _coverageChanged(segmentIndex);
     try {
-      final success = await loadDanmakuSegment(
+      final success = await _source.loadSegment(
         cid: _cid,
         segmentIndex: segmentIndex,
         workToken: _lifetimeWork,
@@ -471,7 +469,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
           PathUtils.danmakuName,
         ),
       );
-      if (await _orderedFile.updateSource(file)) {
+      if (await _source.updateFile(file)) {
         if (_fileKnown) {
           _invalidateFile();
         } else {
@@ -569,9 +567,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
     );
     var index = 0;
     Stream<List<DanmakuElement>> batches() async* {
-      final input = rules.merge
-          ? _orderedFile.read(file, token: token)
-          : readDanmakuFile(file, token: token);
+      final input = _source.readFile(file, ordered: rules.merge, token: token);
       await for (final batch in input) {
         if (rules.merge &&
             batch.first.progress >= end + DanmakuMerger.windowMilliseconds) {
@@ -585,7 +581,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
     // 结果对象与 retained/buckets 两组索引在 worker 运行期间共同持有。
     final resultReservation = resultBytes + _cache.maxElements * 256;
     final pipelineLease = lease.retaining(
-      resultReservation + orderedDanmakuFileWorkBytes,
+      resultReservation + DanmakuSource.orderedFileWorkBytes,
     );
     await processOrderedDanmakuBatches(
       batches(),
@@ -609,7 +605,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
       },
     );
     if (_disposed || token.isCancelled || revision != _ruleRevision) return;
-    if (await _orderedFile.updateSource(file)) {
+    if (await _source.updateFile(file)) {
       throw const DanmakuWorkCancelled();
     }
     if (_disposed || token.isCancelled || revision != _ruleRevision) return;

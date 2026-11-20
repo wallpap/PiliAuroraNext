@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/features/content_discovery/application/cooperat
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 import 'package:pili_aurora_next/features/search/data/search_repository.dart';
-import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
+import 'package:pili_aurora_next/features/search/application/search_verification_failure.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/features/search/domain/search_esports.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
-export 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
+export 'package:pili_aurora_next/features/search/application/search_verification_failure.dart';
 
 typedef SearchResultsQuery = ({
   String keyword,

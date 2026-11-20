@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/storage_key.dart';
@@ -13,6 +15,7 @@ final danmakuFrameRateProvider = Provider.autoDispose<int>((ref) {
 
 abstract final class DanmakuPreferences {
   static int get frameRate => Pref.danmakuFrameRate;
+  static Color? get chartColor => Pref.dmChartColor;
   static bool get scaleRepeats => Pref.mergeDanmakuScale;
   static int get repeatThreshold => Pref.mergeDanmakuThreshold;
   static double get repeatLogBase => Pref.mergeDanmakuLogBase;

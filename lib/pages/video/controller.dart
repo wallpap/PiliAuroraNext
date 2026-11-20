@@ -10,8 +10,7 @@ import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_ba
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
-import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
+import 'package:pili_aurora_next/features/playback/application/video_media_query.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/action_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/post_segment_model.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/segment_model.dart';
@@ -1516,7 +1515,7 @@ class VideoDetailController with BlockMixin {
     if (plPlayerController.showViewPoints) {
       _viewPoints.value = const [];
     }
-    final res = await VideoMediaRepository.metadata(
+    final res = await VideoMediaQuery.metadata(
       bvid: bvid,
       cid: cid.value,
       seasonId: seasonId,
@@ -1578,7 +1577,7 @@ class VideoDetailController with BlockMixin {
       if (response.subtitle?.subtitles case final sub? when (sub.isNotEmpty)) {
         _setSubtitle(sub, isCurrent: isCurrent);
       } else if (!AccountScope.signedIn) {
-        final res = await SubtitleRepository.publicTracks(aid, cid.value);
+        final res = await SubtitleSources.publicTracks(aid, cid.value);
         if (!isCurrent()) return;
         if (res case Success(:final response)) {
           if (response.isNotEmpty) _setSubtitle(response, isCurrent: isCurrent);

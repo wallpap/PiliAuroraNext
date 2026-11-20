@@ -46,6 +46,8 @@ PiliAuroraNext 的本地定制包从 `+piliauroranext.1` 建立修订基线，�
 
 平台构建覆盖编译和打包，后台通知、GPU/MediaCodec、窗口主题和 WebView 退出由人工实机回归覆盖。`third_party` 的上游检查告警如实记录，不靠关闭检查或削弱测试来清零。
 
+定制包沿用各自的分析配置。需要检查某个包时，从该包目录解析依赖，再运行 `fvm flutter analyze --no-pub lib` 或 `fvm dart analyze lib`。从应用根目录运行的分析覆盖业务适配和调用方。检索定制源码时使用 `rg --no-ignore-dot -n '<关键词>' third_party/<包名>/lib`。
+
 media_kit 的 seek 提交回执与落点完成分离；完成事件携带观察序号及原生文件身份，播放层维护等待和超时隔离。实现修订见该包的 [UPSTREAM.md](media_kit/UPSTREAM.md)。
 
 ## 原生二进制与 SDK

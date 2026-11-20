@@ -29,7 +29,7 @@ import 'package:pili_aurora_next/common/widgets/image_viewer/viewer.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/app_viewport.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:pili_aurora_next/common/layout/num_ext.dart';

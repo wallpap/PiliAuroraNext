@@ -1,11 +1,9 @@
 // edit from package:dio_cookie_manager
 import 'dart:io';
 
-import 'package:pili_aurora_next/services/diagnostics/redact.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/http/request_failure_policy.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
@@ -14,7 +12,6 @@ import 'package:pili_aurora_next/features/account/data/api_type.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
 import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
@@ -28,7 +25,9 @@ class AccountCookiePersistenceException implements Exception {
 }
 
 class AccountManager extends Interceptor {
-  AccountManager();
+  AccountManager({this.onFailure});
+
+  final void Function(DioException)? onFailure;
 
   static String getCookies(List<Cookie> cookies) {
     // Sort cookies by path (longer path first).
@@ -145,7 +144,7 @@ class AccountManager extends Interceptor {
       return handler.next(err);
     }
 
-    if (options.method != 'POST') toast(err);
+    if (options.method != 'POST') onFailure?.call(err);
 
     if (err.error is AccountCookiePersistenceException) {
       return handler.next(err);
@@ -165,18 +164,6 @@ class AccountManager extends Interceptor {
       }
     }
     return handler.next(err);
-  }
-
-  static void toast(DioException err) {
-    if (isExpectedHttpFailure(err)) return;
-    final url = DiagnosticRedactor.text(err.requestOptions.uri);
-    final status = err.response?.statusCode;
-    dioError(err).then(
-      (res) => SmartDialog.showToast(
-        '$res\n${err.requestOptions.method} $url'
-        '${status == null ? '' : ' (HTTP $status)'}',
-      ),
-    );
   }
 
   static Future<void> _saveCookies(Account account, Response response) async {

@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:analyzer/dart/ast/ast.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as path;
 
 import 'dart_source.dart';
 
@@ -45,22 +45,17 @@ const _implementationEntries = {
   'services/settings/storage.dart',
 };
 
-bool _isPresentation(String source) =>
-    source.startsWith('pages/') ||
-    source.startsWith('common/widgets/') ||
-    (source.startsWith('features/') && source.contains('/presentation/'));
-
 bool _isRestricted(String target) =>
-    (target.startsWith('http/') && target != 'http/loading_state.dart') ||
-    target.startsWith('grpc/') ||
+    _isTransport(target) ||
     target.startsWith('generated/') ||
-    target.startsWith('features/account/data/') ||
+    featureLayer(target, 'data') ||
     _implementationEntries.contains(target) ||
-    target.startsWith('package:dlna_dart/') ||
-    target.startsWith('package:dio/') ||
-    target.startsWith('package:grpc/') ||
-    target.startsWith('package:hive_ce/') ||
-    target.startsWith('package:shared_preferences/');
+    const [
+      'package:dlna_dart/',
+      'package:protobuf/',
+      'package:hive_ce/',
+      'package:shared_preferences/',
+    ].any(target.startsWith);
 
 bool _isTransport(String target) =>
     (target.startsWith('http/') && target != 'http/loading_state.dart') ||
@@ -68,9 +63,47 @@ bool _isTransport(String target) =>
     target.startsWith('package:dio/') ||
     target.startsWith('package:grpc/');
 
+bool _isProtocolAdapter(String source) =>
+    featureLayer(source, 'data') ||
+    source.startsWith('grpc/') ||
+    source.startsWith('http/') ||
+    const {
+      'services/messaging/conversation_adapter.dart',
+      'services/messaging/session_adapter.dart',
+      'services/messaging/settings_adapter.dart',
+    }.contains(source);
+
+bool _violatesFeatureDirection(String source, String target) {
+  if (!source.startsWith('features/')) return false;
+  final presentation = featureLayer(source, 'presentation');
+  if (target.startsWith('package:get/') &&
+      !(presentation && target == 'package:get/route_manager.dart')) {
+    return true;
+  }
+  if (featureLayer(source, 'domain')) {
+    return isPresentation(target) ||
+        featureLayer(target, 'application') ||
+        featureLayer(target, 'data') ||
+        _isRestricted(target) && !target.startsWith('package:hive_ce/') ||
+        const [
+          'dart:ui',
+          'package:flutter',
+          'package:material_ui/',
+          'platform/',
+          'router/',
+          'services/settings/',
+        ].any(target.startsWith);
+  }
+  if (featureLayer(source, 'application') || featureLayer(source, 'data')) {
+    return isPresentation(target) ||
+        target.startsWith('package:flutter_smart_dialog/');
+  }
+  return false;
+}
+
 void main() {
   test(
-    'presentation has no transport, storage or GetX business dependencies',
+    'application source respects presentation, feature and protocol boundaries',
     () {
       final registry = jsonDecode(
         File('third_party/dependencies.json').readAsStringSync(),
@@ -82,30 +115,37 @@ void main() {
       ];
       final baseTypes = <String, Set<String>>{};
       final violations = <String>{};
-      final directTransport = <String>{};
-      for (final file in Directory('lib').listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
-        final source = path
-            .relative(file.path, from: 'lib')
-            .replaceAll('\\', '/');
-        if (source.startsWith('generated/') || source.endsWith('.g.dart')) {
-          continue;
-        }
+      for (final file in dartFiles('lib')) {
+        final source = libPath(file);
         final unit = parseSource(file.readAsStringSync());
         for (final call in matchingUnitStaticCalls(unit, _getxRegistryCalls)) {
           violations.add('$source -> $call');
         }
-        if (_isPresentation(source)) {
-          for (final uri in unitDependencies(unit)) {
+        for (final uri in unitDependencies(unit)) {
+          final target = localDependency(file, uri) ?? uri;
+          final usesStoredPreferences =
+              target == 'services/settings/stored_preferences.dart' &&
+              !source.startsWith('pages/setting/');
+          if ((isPresentation(source) &&
+                  (_isRestricted(target) ||
+                      usesStoredPreferences ||
+                      vendoredImplementations.any(target.startsWith))) ||
+              (_violatesFeatureDirection(source, target)) ||
+              (target.startsWith('generated/bilibili/') &&
+                  !_isProtocolAdapter(source))) {
+            violations.add('$source -> $target');
+          }
+        }
+        for (final directive in unit.directives.whereType<ExportDirective>()) {
+          final targets = [
+            directive.uri.stringValue,
+            for (final configuration in directive.configurations)
+              configuration.uri.stringValue,
+          ];
+          for (final uri in targets.whereType<String>()) {
             final target = localDependency(file, uri) ?? uri;
-            if (_isTransport(target)) directTransport.add('$source -> $target');
-            final readsSettingsCatalog =
-                target == 'services/settings/stored_preferences.dart' &&
-                !source.startsWith('pages/setting/');
-            if (_isRestricted(target) ||
-                readsSettingsCatalog ||
-                vendoredImplementations.any(target.startsWith)) {
-              violations.add('$source -> $target');
+            if (!featureLayer(source, 'data') && _isRestricted(target)) {
+              violations.add('$source exports $target');
             }
           }
         }
@@ -126,11 +166,6 @@ void main() {
       }
 
       final forbidden = violations.toList()..sort();
-      expect(
-        directTransport,
-        isEmpty,
-        reason: 'Presentation must not access transport directly',
-      );
       expect(
         forbidden,
         isEmpty,

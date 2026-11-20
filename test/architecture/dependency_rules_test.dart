@@ -48,118 +48,6 @@ void main() {
       '/services/settings/stored_preferences',
     ],
   };
-  test(
-    'download feature enforces domain, application and presentation boundaries',
-    () {
-      final violations = <String>[];
-      for (final file in Directory(
-        'lib/features/download',
-      ).listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
-        final source = path
-            .relative(file.path, from: 'lib')
-            .replaceAll('\\', '/');
-        final domain = source.startsWith('features/download/domain/');
-        final application = source.startsWith('features/download/application/');
-        final presentation = source.startsWith(
-          'features/download/presentation/',
-        );
-        for (final uri in dependencies(file)) {
-          final target = localDependency(file, uri);
-          final isRouteCompatibility =
-              presentation && uri == 'package:get/route_manager.dart';
-          final forbidden =
-              (uri.startsWith('package:get/') && !isRouteCompatibility) ||
-              (domain &&
-                  (uri.startsWith('package:flutter') ||
-                      uri.startsWith('package:material_ui/') ||
-                      uri.startsWith('package:dio/') ||
-                      (target != null &&
-                          !target.startsWith('features/download/domain/') &&
-                          !target.startsWith('core/')))) ||
-              (application &&
-                  (target?.startsWith('features/download/presentation/') ==
-                          true ||
-                      target?.startsWith('pages/') == true ||
-                      uri.startsWith('package:flutter_smart_dialog/'))) ||
-              (presentation &&
-                  (target?.startsWith('features/download/data/') == true ||
-                      (target?.startsWith('http/') == true &&
-                          target != 'http/loading_state.dart') ||
-                      target?.startsWith('services/settings/storage') == true));
-          if (forbidden) violations.add('$source -> $uri');
-        }
-      }
-      expect(violations, isEmpty, reason: violations.join('\n'));
-    },
-  );
-  for (final feature in [
-    'account',
-    'app_shell',
-    'watch_later',
-    'content_library',
-    'content_discovery',
-    'media_catalog',
-    'search',
-    'following',
-    'community',
-    'danmaku',
-    'member_space',
-    'playback',
-    'sponsor_block',
-    'history',
-    'favorites',
-    'subscriptions',
-  ]) {
-    test('$feature enforces its migrated Interface', () {
-      final violations = <String>[];
-      for (final file in Directory(
-        'lib/features/$feature',
-      ).listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
-        final source = path
-            .relative(file.path, from: 'lib')
-            .replaceAll('\\', '/');
-        for (final uri in dependencies(file)) {
-          final target = localDependency(file, uri);
-          final presentation = source.contains('/presentation/');
-          final application = source.contains('/application/');
-          final domain = source.contains('/domain/');
-          final data = source.contains('/data/');
-          final forbidden =
-              (uri.startsWith('package:get/') &&
-                  !(presentation && uri == 'package:get/route_manager.dart')) ||
-              (domain &&
-                  (uri.startsWith('package:flutter') ||
-                      uri.startsWith('package:material_ui/') ||
-                      target?.startsWith('pages/') == true ||
-                      target?.startsWith('http/') == true ||
-                      target?.startsWith('grpc/') == true ||
-                      target?.startsWith('generated/') == true ||
-                      uri.startsWith('package:protobuf/') ||
-                      target?.contains('/application/') == true ||
-                      target?.contains('/data/') == true ||
-                      target?.contains('/presentation/') == true ||
-                      target?.startsWith('services/settings/storage') == true)) ||
-              (data &&
-                  (target?.startsWith('pages/') == true ||
-                      target?.contains('/presentation/') == true)) ||
-              (application &&
-                  (target?.startsWith('pages/') == true ||
-                      target?.startsWith('generated/') == true ||
-                      target?.contains('/presentation/') == true ||
-                      uri.startsWith('package:flutter_smart_dialog/'))) ||
-              (presentation &&
-                  (target?.contains('/data/') == true ||
-                      (target?.startsWith('http/') == true &&
-                          target != 'http/loading_state.dart') ||
-                      target?.startsWith('services/settings/storage') == true));
-          if (forbidden) violations.add('$source -> $uri');
-        }
-      }
-      expect(violations, isEmpty, reason: violations.join('\n'));
-    });
-  }
   test('recommendation state has no legacy controller or settings-to-page dependency', () {
     const removed = [
       'pages/main/controller.dart',
@@ -199,8 +87,7 @@ void main() {
     ];
     final violations = <String>[];
     for (final root in ['lib', 'tool']) {
-      for (final file in Directory(root).listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
+      for (final file in dartFiles(root)) {
         final source = path
             .relative(file.path, from: root)
             .replaceAll('\\', '/');
@@ -210,11 +97,7 @@ void main() {
           final settingsToPage =
               source == 'pages/setting/models/recommend_settings.dart' &&
               target?.startsWith('pages/rcmd/') == true;
-          final enumDispatch =
-              source == 'features/content_discovery/domain/home_tab_type.dart' &&
-              (uri.startsWith('package:get/') ||
-                  target?.startsWith('pages/') == true);
-          if (removed.contains(target) || settingsToPage || enumDispatch) {
+          if (removed.contains(target) || settingsToPage) {
             violations.add('$root/$source -> $uri');
           }
         }
@@ -255,22 +138,13 @@ void main() {
       final file = File('lib/pages/$entry');
       for (final uri in dependencies(file)) {
         final target = localDependency(file, uri);
-        if ((target?.startsWith('http/') == true &&
-                target != 'http/loading_state.dart') ||
-            target?.contains('/data/') == true ||
-            target?.startsWith('services/settings/storage') == true ||
-            target == 'features/account/application/accounts.dart' ||
-            (target?.startsWith('pages/common/common_') == true &&
-                target != 'pages/common/common_page.dart')) {
+        if (target?.startsWith('pages/common/common_') == true &&
+            target != 'pages/common/common_page.dart') {
           violations.add('$entry -> $uri');
         }
       }
       final source = file.readAsStringSync();
-      if (RegExp(r'Get\.find<').hasMatch(source)) {
-        violations.add('$entry finds a business controller');
-      }
-      if (RegExp(r'Get\.(put|putOrFind|lazyPut)|Obx\(|\.obs\b|Rx[nA-Z]')
-          .hasMatch(source)) {
+      if (RegExp(r'Obx\(|\.obs\b|Rx[nA-Z]').hasMatch(source)) {
         violations.add('$entry contains legacy business state');
       }
     }
@@ -312,11 +186,8 @@ void main() {
       final transportNames = candidates
           .map((key) => key.split('.').first)
           .toSet();
-      for (final file in Directory('lib').listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
-        final source = path
-            .relative(file.path, from: 'lib')
-            .replaceAll('\\', '/');
+      for (final file in dartFiles('lib')) {
+        final source = libPath(file);
         final body = file.readAsStringSync();
         if (!transportNames.any(body.contains)) continue;
         for (final call in matchingStaticCalls(body, candidates)) {
@@ -361,12 +232,7 @@ void main() {
       final forbidden = dependencies(file)
           .map((uri) => localDependency(file, uri))
           .where(
-            (target) =>
-                target != null &&
-                (removed.contains(target) ||
-                    (target.startsWith('http/') &&
-                        target != 'http/loading_state.dart') ||
-                    target == 'grpc/reply.dart'),
+            (target) => target != null && removed.contains(target),
           );
       expect(forbidden, isEmpty, reason: entry);
     }
@@ -379,11 +245,8 @@ void main() {
       'models/remote/sub/',
     ];
     final violations = <String>[];
-    for (final file in Directory('lib').listSync(recursive: true)) {
-      if (file is! File || !file.path.endsWith('.dart')) continue;
-      final source = path
-          .relative(file.path, from: 'lib')
-          .replaceAll('\\', '/');
+    for (final file in dartFiles('lib')) {
+      final source = libPath(file);
       if (legacy.any(source.startsWith)) violations.add(source);
       for (final uri in dependencies(file)) {
         final target = localDependency(file, uri);
@@ -394,34 +257,36 @@ void main() {
     }
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
-  test('models and utilities stay with their owners and core stays neutral', () {
-    const retired = ['models/', 'utils/', 'services/danmaku/work_quota.dart'];
-    final violations = <String>[];
-    for (final root in ['lib', 'test', 'tool']) {
-      for (final file in Directory(root).listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
-        final source = path
-            .relative(file.path, from: root)
-            .replaceAll('\\', '/');
-        if (root == 'lib' && retired.any(source.startsWith)) {
-          violations.add(source);
-        }
-        for (final uri in dependencies(file)) {
-          final target = localDependency(file, uri);
-          final isCore = root == 'lib' && source.startsWith('core/');
-          final coreDependency =
-              target?.startsWith('core/') == true ||
-              (uri.startsWith('dart:') && uri != 'dart:ui') ||
-              uri.startsWith('package:intl/');
-          if ((target != null && retired.any(target.startsWith)) ||
-              (isCore && !coreDependency)) {
-            violations.add('$root/$source -> $uri');
+  test(
+    'models and utilities stay with their owners and core stays neutral',
+    () {
+      const retired = ['models/', 'utils/', 'services/danmaku/work_quota.dart'];
+      final violations = <String>[];
+      for (final root in ['lib', 'test', 'tool']) {
+        for (final file in dartFiles(root)) {
+          final source = path
+              .relative(file.path, from: root)
+              .replaceAll('\\', '/');
+          if (root == 'lib' && retired.any(source.startsWith)) {
+            violations.add(source);
+          }
+          for (final uri in dependencies(file)) {
+            final target = localDependency(file, uri);
+            final isCore = root == 'lib' && source.startsWith('core/');
+            final coreDependency =
+                target?.startsWith('core/') == true ||
+                (uri.startsWith('dart:') && uri != 'dart:ui') ||
+                uri.startsWith('package:intl/');
+            if ((target != null && retired.any(target.startsWith)) ||
+                (isCore && !coreDependency)) {
+              violations.add('$root/$source -> $uri');
+            }
           }
         }
       }
-    }
-    expect(violations, isEmpty, reason: violations.join('\n'));
-  });
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    },
+  );
   test('account identity and profile have no legacy GetX state or page dependencies', () {
     const removed = [
       'services/account_service.dart',
@@ -431,20 +296,13 @@ void main() {
       'models/user/stat.dart',
     ];
     final violations = <String>[];
-    for (final file in Directory('lib').listSync(recursive: true)) {
-      if (file is! File || !file.path.endsWith('.dart')) continue;
-      final source = path
-          .relative(file.path, from: 'lib')
-          .replaceAll('\\', '/');
+    for (final file in dartFiles('lib')) {
+      final source = libPath(file);
       if (removed.any(source.startsWith)) violations.add(source);
       for (final uri in dependencies(file)) {
         final target = localDependency(file, uri);
         if (target == null) continue;
-        if (removed.any(target.startsWith) ||
-            ((source == 'features/account/application/accounts.dart' ||
-                    source == 'features/account/application/login_sync.dart' ||
-                    source == 'features/account/application/account_providers.dart') &&
-                target.startsWith('pages/'))) {
+        if (removed.any(target.startsWith)) {
           violations.add('$source -> $uri');
         }
       }
@@ -458,7 +316,8 @@ void main() {
         dependencies(file).where(
           (uri) =>
               !(entry.key == 'services/settings/settings_backup.dart' &&
-                  localDependency(file, uri) == 'services/settings/storage_key.dart') &&
+                  localDependency(file, uri) ==
+                      'services/settings/storage_key.dart') &&
               entry.value.any(
                 (restriction) => restriction.startsWith('package:')
                     ? uri.startsWith(restriction)
@@ -474,11 +333,8 @@ void main() {
     'main and app composition modules are never imported by lower layers',
     () {
       final violations = <String>[];
-      for (final file in Directory('lib').listSync(recursive: true)) {
-        if (file is! File || !file.path.endsWith('.dart')) continue;
-        final source = path
-            .relative(file.path, from: 'lib')
-            .replaceAll('\\', '/');
+      for (final file in dartFiles('lib')) {
+        final source = libPath(file);
         for (final uri in dependencies(file)) {
           final target = localDependency(file, uri);
           if (target == 'main.dart' ||

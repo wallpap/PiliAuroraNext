@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/music/bgm_detail.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';

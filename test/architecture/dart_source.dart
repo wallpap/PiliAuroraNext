@@ -7,6 +7,36 @@ import 'package:path/path.dart' as path;
 
 final _dependenciesByPath = <String, List<String>>{};
 
+Iterable<File> dartFiles(String root) sync* {
+  for (final entry in Directory(root).listSync(followLinks: false)) {
+    if (entry is Directory) {
+      final relative = path.relative(entry.path).replaceAll('\\', '/');
+      if (relative == 'lib/generated/bilibili') continue;
+      yield* dartFiles(entry.path);
+    } else if (entry is File &&
+        entry.path.endsWith('.dart') &&
+        !entry.path.endsWith('.g.dart')) {
+      yield entry;
+    }
+  }
+}
+
+String libPath(File file) =>
+    path.relative(file.path, from: 'lib').replaceAll('\\', '/');
+
+bool featureLayer(String source, String layer) {
+  final segments = source.split('/');
+  return segments.length >= 4 &&
+      segments.first == 'features' &&
+      segments[2] == layer;
+}
+
+bool isPresentation(String source) =>
+    source.startsWith('pages/') ||
+    source.startsWith('common/widgets/') ||
+    source.startsWith('plugin/pl_player/view/') ||
+    featureLayer(source, 'presentation');
+
 CompilationUnit parseSource(String source) =>
     parseString(content: source, throwIfDiagnostics: false).unit;
 
@@ -73,11 +103,13 @@ Iterable<String> dependencies(File file) => _dependenciesByPath.putIfAbsent(
 
 String? localDependency(File file, String uri) {
   const prefix = 'package:pili_aurora_next/';
-  if (uri.startsWith(prefix)) return uri.substring(prefix.length);
-  if (uri.contains(':')) return null;
-  return path
-      .relative(path.normalize(path.join(file.parent.path, uri)), from: 'lib')
-      .replaceAll('\\', '/');
+  final parsed = Uri.parse(uri);
+  final location = parsed.pathSegments.join('/');
+  if (uri.startsWith(prefix)) {
+    return path.posix.normalize(location.substring('pili_aurora_next/'.length));
+  }
+  if (parsed.hasScheme || parsed.hasAuthority) return null;
+  return libPath(File(path.join(file.parent.path, location)));
 }
 
 Set<String> matchingStaticCalls(String source, Set<String> candidates) =>

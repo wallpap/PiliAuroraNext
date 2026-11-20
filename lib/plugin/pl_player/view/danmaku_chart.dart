@@ -1,7 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/features/danmaku/application/danmaku_preferences.dart';
 
 class DanmakuTrendChart extends StatefulWidget {
   const DanmakuTrendChart({
@@ -39,7 +39,7 @@ class _DanmakuTrendChartState extends State<DanmakuTrendChart> {
 
   @override
   Widget build(BuildContext context) {
-    final color = Pref.dmChartColor ?? widget.themeColor;
+    final color = DanmakuPreferences.chartColor ?? widget.themeColor;
     return IgnorePointer(
       child: Container(
         height: 12,

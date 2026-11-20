@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute;
 import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
+import 'package:pili_aurora_next/features/playback/domain/play_info/subtitle.dart';
 import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 
@@ -17,6 +18,9 @@ class SubtitleSources {
   void clear() => _sources.clear();
 
   void remember(int index, SubtitleSource source) => _sources[index] = source;
+
+  static Future<LoadingState<List<Subtitle>>> publicTracks(int aid, int cid) =>
+      SubtitleRepository.publicTracks(aid, cid);
 
   Future<LoadingState<SubtitleSource>?> forPlayback(
     int index,

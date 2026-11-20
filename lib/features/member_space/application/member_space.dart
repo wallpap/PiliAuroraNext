@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/data.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/member_space/domain/tab_type.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
@@ -144,6 +145,12 @@ class MemberSpace extends AsyncNotifier<SpaceSnapshot> {
 
   Future<LoadingState<void>> writeRelation(Account account, int action) =>
       ref.read(spaceRepositoryProvider).relation(account, query.mid, action);
+
+  Future<LoadingState<int?>> followTime(Account account) =>
+      ref.read(spaceRepositoryProvider).followTime(account, query.mid);
+
+  Future<LoadingState<MedalWallData>> medals() =>
+      ref.read(spaceRepositoryProvider).medals(query.mid);
 
   void updateRelation(int relation, {bool removedFan = false}) {
     final source = snapshot;

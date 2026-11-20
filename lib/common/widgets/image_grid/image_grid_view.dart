@@ -23,7 +23,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_builder.dart';
 import 'package:pili_aurora_next/common/widgets/image_viewer/gallery_viewer.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
 import 'package:pili_aurora_next/common/layout/num_ext.dart';
 import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';

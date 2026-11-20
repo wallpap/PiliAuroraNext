@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
-import 'package:pili_aurora_next/features/playback/data/video_metadata_repository.dart';
+import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/episode_panel_type.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
@@ -194,7 +194,7 @@ class _EpisodePanelState extends State<EpisodePanel>
       return;
     }
     _favState.value = LoadingState.loading();
-    final result = await VideoMetadataRepository.seasonSubscription(
+    final result = await VideoMetadata.seasonSubscription(
       account,
       bvid,
     );

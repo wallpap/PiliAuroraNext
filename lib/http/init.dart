@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/request_failure_feedback.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
 import 'package:pili_aurora_next/http/response_decoder.dart';
 import 'package:pili_aurora_next/http/response_transformer.dart';
@@ -56,7 +57,7 @@ class Request {
 
   /// 设置cookie
   static void setCookie({bool syncWebView = true}) {
-    accountManager = AccountManager();
+    accountManager = AccountManager(onFailure: showRequestFailure);
     dio.interceptors.add(accountManager);
     unawaited(
       Accounts.refresh().catchError((Object error, StackTrace stackTrace) {
@@ -317,7 +318,7 @@ class Request {
         cancelToken: cancelToken,
       );
     } on DioException catch (e) {
-      AccountManager.toast(e);
+      showRequestFailure(e);
       return _failureResponse(e);
     }
   }

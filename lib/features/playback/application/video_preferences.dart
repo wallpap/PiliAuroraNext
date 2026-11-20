@@ -16,6 +16,14 @@ abstract final class VideoPreferences {
   static int qualityCode({bool wifi = true}) =>
       wifi ? Pref.defaultVideoQa : Pref.defaultVideoQaCellular;
 
+  static Future<void> saveQualityCode(int quality, {required bool wifi}) =>
+      GStorage.setting.put(
+        wifi
+            ? SettingBoxKey.defaultVideoQa
+            : SettingBoxKey.defaultVideoQaCellular,
+        quality,
+      );
+
   static List<VideoDecodeFormatType> codecs({bool wifi = true}) =>
       wifi ? Pref.preferCodecs : Pref.preferCodecsCellular;
 

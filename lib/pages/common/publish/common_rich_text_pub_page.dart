@@ -6,8 +6,8 @@ import 'package:pili_aurora_next/common/widgets/button/toolbar_icon_button.dart'
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
-import 'package:pili_aurora_next/features/community/data/dynamic_picture_upload.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_picture_upload.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart'
     show PicModel, FilePicModel, OpusPicModel;

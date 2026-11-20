@@ -8,9 +8,10 @@ if (-not (Test-Path -LiteralPath $packageConfigPath)) {
 }
 
 $config = Get-Content -LiteralPath $packageConfigPath -Raw | ConvertFrom-Json
-$configUri = [Uri]::new($packageConfigPath)
+$configUri = [UriBuilder]::new('file', '')
+$configUri.Path = $packageConfigPath
 foreach ($package in $config.packages) {
-    $package.rootUri = [Uri]::new($configUri, $package.rootUri).AbsoluteUri
+    $package.rootUri = [Uri]::new($configUri.Uri, $package.rootUri).AbsoluteUri
 }
 
 $build = (New-Item -ItemType Directory -Path (Join-Path $workspace 'build') -Force).FullName

@@ -25,8 +25,7 @@ import 'package:pili_aurora_next/platform/network/connectivity.dart';
 import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
-import 'package:pili_aurora_next/services/settings/storage.dart';
-import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -578,11 +577,9 @@ class _VideoControlsState extends State<VideoControls> {
                           return;
                         }
                         try {
-                          await GStorage.setting.put(
-                            network.response
-                                ? SettingBoxKey.defaultVideoQa
-                                : SettingBoxKey.defaultVideoQaCellular,
+                          await VideoPreferences.saveQualityCode(
                             quality,
+                            wifi: network.response,
                           );
                         } catch (error, stackTrace) {
                           logger.w(

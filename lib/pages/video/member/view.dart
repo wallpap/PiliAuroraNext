@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/member_space/presentation/user_info_type.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';

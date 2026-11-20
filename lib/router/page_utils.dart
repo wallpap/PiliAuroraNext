@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/community/application/dynamic_details.
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart';

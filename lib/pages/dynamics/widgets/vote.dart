@@ -4,10 +4,10 @@ import 'package:pili_aurora_next/common/widgets/avatars.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/features/community/data/vote_repository.dart';
+import 'package:pili_aurora_next/features/community/application/vote_actions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/common/widgets/badge_type.dart';
-import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/features/community/domain/votes/vote.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote_decoration.dart';
@@ -71,7 +71,7 @@ class _VotePanelState extends State<VotePanel> {
     if (!isLogin) return;
     final info = _voteInfo;
     final generation = _generation;
-    final result = await const VoteRepository().followees(
+    final result = await VoteActions.followees(
       _owner.account,
       info.voteId,
     );
@@ -613,8 +613,7 @@ Future<void> showVoteDialog(
 ]) async {
   final owner = AccountScope.capture();
   final account = owner.account;
-  const repository = VoteRepository();
-  final voteInfo = await repository.detail(account, voteId);
+  final voteInfo = await VoteActions.detail(account, voteId);
   if (context.mounted && owner.isCurrent) {
     if (voteInfo case Success(:final response)) {
       showDialog(
@@ -625,8 +624,13 @@ Future<void> showVoteDialog(
             padding: const .all(24),
             child: VotePanel(
               voteInfo: response,
-              onVote: (votes, anonymous) =>
-                  repository.vote(account, voteId, votes, anonymous, dynamicId),
+              onVote: (votes, anonymous) => VoteActions.vote(
+                account,
+                voteId,
+                votes,
+                anonymous,
+                dynamicId,
+              ),
             ),
           ),
         ),

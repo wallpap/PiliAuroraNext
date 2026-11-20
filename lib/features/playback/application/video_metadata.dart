@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/playback/data/video_metadata_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/interactive_video/data.dart';
@@ -5,6 +6,11 @@ import 'package:pili_aurora_next/services/logger.dart';
 
 class VideoMetadata {
   int _edgeGeneration = 0;
+
+  static Future<LoadingState<bool>> seasonSubscription(
+    Account account,
+    String bvid,
+  ) => VideoMetadataRepository.seasonSubscription(account, bvid);
 
   Future<EdgeInfoData?> interactiveEdge({
     required String bvid,

@@ -4,7 +4,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
+import 'package:pili_aurora_next/features/playback/application/cdn_speed_probe.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
@@ -155,8 +155,7 @@ class _DecoderTestDialogState extends State<DecoderTestDialog> {
     }
   }
 
-  Future<List<VideoItem>> _fetchSample() =>
-      VideoMediaRepository.diagnosticsSample();
+  Future<List<VideoItem>> _fetchSample() => CdnSpeedProbe.samples();
 
   String _codecName(VideoItem item) => switch (item.codecid) {
     7 => 'AVC',
