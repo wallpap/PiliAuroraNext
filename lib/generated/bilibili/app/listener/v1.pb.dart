@@ -15,10 +15,10 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../../pagination.pb.dart' as $4;
-import '../archive/middleware/v1.pb.dart' as $2;
-import '../interfaces/v1.pb.dart' as $3;
-import '../playurl/v1.pb.dart' as $5;
+import '../../pagination.pb.dart' as $2;
+import '../archive/middleware/v1.pb.dart' as $0;
+import '../interfaces/v1.pb.dart' as $1;
+import '../playurl/v1.pb.dart' as $3;
 import 'v1.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
@@ -123,7 +123,7 @@ class Author extends $pb.GeneratedMessage {
 class BKArcDetailsReq extends $pb.GeneratedMessage {
   factory BKArcDetailsReq({
     $core.Iterable<PlayItem>? items,
-    $2.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = BKArcDetailsReq._();
     if (items != null) result.items.addAll(items);
@@ -147,8 +147,8 @@ class BKArcDetailsReq extends $pb.GeneratedMessage {
       createEmptyInstance: BKArcDetailsReq.$_createMessage)
     ..pPM<PlayItem>(1, _omitFieldNames ? '' : 'items',
         subBuilder: PlayItem.$_createMessage)
-    ..aOM<$2.PlayerArgs>(2, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $2.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(2, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -177,15 +177,15 @@ class BKArcDetailsReq extends $pb.GeneratedMessage {
   $pb.PbList<PlayItem> get items => $_getList(0);
 
   @$pb.TagNumber(2)
-  $2.PlayerArgs get playerArgs => $_getN(1);
+  $0.PlayerArgs get playerArgs => $_getN(1);
   @$pb.TagNumber(2)
-  set playerArgs($2.PlayerArgs value) => $_setField(2, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasPlayerArgs() => $_has(1);
   @$pb.TagNumber(2)
   void clearPlayerArgs() => $_clearField(2);
   @$pb.TagNumber(2)
-  $2.PlayerArgs ensurePlayerArgs() => $_ensure(1);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(1);
 }
 
 class BKArcDetailsResp extends $pb.GeneratedMessage {
@@ -1375,7 +1375,7 @@ class DetailItem extends $pb.GeneratedMessage {
     PlayItem? associatedItem,
     $fixnum.Int64? lastPlayTime,
     $core.String? historyTag,
-    $3.DeviceType? deviceType,
+    $1.DeviceType? deviceType,
     FavFolder? ugcSeasonInfo,
   }) {
     final result = DetailItem._();
@@ -1436,8 +1436,8 @@ class DetailItem extends $pb.GeneratedMessage {
         subBuilder: PlayItem.$_createMessage)
     ..aInt64(12, _omitFieldNames ? '' : 'lastPlayTime')
     ..aOS(13, _omitFieldNames ? '' : 'historyTag')
-    ..aOM<$3.DeviceType>(14, _omitFieldNames ? '' : 'deviceType',
-        subBuilder: $3.DeviceType.$_createMessage)
+    ..aOM<$1.DeviceType>(14, _omitFieldNames ? '' : 'deviceType',
+        subBuilder: $1.DeviceType.$_createMessage)
     ..aOM<FavFolder>(15, _omitFieldNames ? '' : 'ugcSeasonInfo',
         subBuilder: FavFolder.$_createMessage)
     ..hasRequiredFields = false;
@@ -1578,15 +1578,15 @@ class DetailItem extends $pb.GeneratedMessage {
   void clearHistoryTag() => $_clearField(13);
 
   @$pb.TagNumber(14)
-  $3.DeviceType get deviceType => $_getN(13);
+  $1.DeviceType get deviceType => $_getN(13);
   @$pb.TagNumber(14)
-  set deviceType($3.DeviceType value) => $_setField(14, value);
+  set deviceType($1.DeviceType value) => $_setField(14, value);
   @$pb.TagNumber(14)
   $core.bool hasDeviceType() => $_has(13);
   @$pb.TagNumber(14)
   void clearDeviceType() => $_clearField(14);
   @$pb.TagNumber(14)
-  $3.DeviceType ensureDeviceType() => $_ensure(13);
+  $1.DeviceType ensureDeviceType() => $_ensure(13);
 
   @$pb.TagNumber(15)
   FavFolder get ugcSeasonInfo => $_getN(14);
@@ -7290,7 +7290,7 @@ class PlayHistoryReq extends $pb.GeneratedMessage {
   factory PlayHistoryReq({
     PageOption? pageOpt,
     $fixnum.Int64? localTodayZero,
-    $4.Pagination? pagination,
+    $2.Pagination? pagination,
   }) {
     final result = PlayHistoryReq._();
     if (pageOpt != null) result.pageOpt = pageOpt;
@@ -7316,8 +7316,8 @@ class PlayHistoryReq extends $pb.GeneratedMessage {
     ..aOM<PageOption>(1, _omitFieldNames ? '' : 'pageOpt',
         subBuilder: PageOption.$_createMessage)
     ..aInt64(2, _omitFieldNames ? '' : 'localTodayZero')
-    ..aOM<$4.Pagination>(3, _omitFieldNames ? '' : 'pagination',
-        subBuilder: $4.Pagination.$_createMessage)
+    ..aOM<$2.Pagination>(3, _omitFieldNames ? '' : 'pagination',
+        subBuilder: $2.Pagination.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7363,15 +7363,15 @@ class PlayHistoryReq extends $pb.GeneratedMessage {
   void clearLocalTodayZero() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $4.Pagination get pagination => $_getN(2);
+  $2.Pagination get pagination => $_getN(2);
   @$pb.TagNumber(3)
-  set pagination($4.Pagination value) => $_setField(3, value);
+  set pagination($2.Pagination value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPagination() => $_has(2);
   @$pb.TagNumber(3)
   void clearPagination() => $_clearField(3);
   @$pb.TagNumber(3)
-  $4.Pagination ensurePagination() => $_ensure(2);
+  $2.Pagination ensurePagination() => $_ensure(2);
 }
 
 class PlayHistoryResp extends $pb.GeneratedMessage {
@@ -7379,7 +7379,7 @@ class PlayHistoryResp extends $pb.GeneratedMessage {
     $core.int? total,
     $core.bool? reachEnd,
     $core.Iterable<DetailItem>? list,
-    $4.PaginationReply? paginationReply,
+    $2.PaginationReply? paginationReply,
   }) {
     final result = PlayHistoryResp._();
     if (total != null) result.total = total;
@@ -7407,8 +7407,8 @@ class PlayHistoryResp extends $pb.GeneratedMessage {
     ..aOB(2, _omitFieldNames ? '' : 'reachEnd')
     ..pPM<DetailItem>(3, _omitFieldNames ? '' : 'list',
         subBuilder: DetailItem.$_createMessage)
-    ..aOM<$4.PaginationReply>(4, _omitFieldNames ? '' : 'paginationReply',
-        subBuilder: $4.PaginationReply.$_createMessage)
+    ..aOM<$2.PaginationReply>(4, _omitFieldNames ? '' : 'paginationReply',
+        subBuilder: $2.PaginationReply.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7455,15 +7455,15 @@ class PlayHistoryResp extends $pb.GeneratedMessage {
   $pb.PbList<DetailItem> get list => $_getList(2);
 
   @$pb.TagNumber(4)
-  $4.PaginationReply get paginationReply => $_getN(3);
+  $2.PaginationReply get paginationReply => $_getN(3);
   @$pb.TagNumber(4)
-  set paginationReply($4.PaginationReply value) => $_setField(4, value);
+  set paginationReply($2.PaginationReply value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPaginationReply() => $_has(3);
   @$pb.TagNumber(4)
   void clearPaginationReply() => $_clearField(4);
   @$pb.TagNumber(4)
-  $4.PaginationReply ensurePaginationReply() => $_ensure(3);
+  $2.PaginationReply ensurePaginationReply() => $_ensure(3);
 }
 
 enum PlayInfo_Info { playUrl, playDash, notSet }
@@ -7483,7 +7483,7 @@ class PlayInfo extends $pb.GeneratedMessage {
     $core.int? code,
     $core.String? message,
     $fixnum.Int64? expireTime,
-    $5.VolumeInfo? volume,
+    $3.VolumeInfo? volume,
   }) {
     final result = PlayInfo._();
     if (qn != null) result.qn = qn;
@@ -7539,8 +7539,8 @@ class PlayInfo extends $pb.GeneratedMessage {
     ..aI(11, _omitFieldNames ? '' : 'code')
     ..aOS(12, _omitFieldNames ? '' : 'message')
     ..aInt64(13, _omitFieldNames ? '' : 'expireTime')
-    ..aOM<$5.VolumeInfo>(14, _omitFieldNames ? '' : 'volume',
-        subBuilder: $5.VolumeInfo.$_createMessage)
+    ..aOM<$3.VolumeInfo>(14, _omitFieldNames ? '' : 'volume',
+        subBuilder: $3.VolumeInfo.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7686,15 +7686,15 @@ class PlayInfo extends $pb.GeneratedMessage {
   void clearExpireTime() => $_clearField(13);
 
   @$pb.TagNumber(14)
-  $5.VolumeInfo get volume => $_getN(13);
+  $3.VolumeInfo get volume => $_getN(13);
   @$pb.TagNumber(14)
-  set volume($5.VolumeInfo value) => $_setField(14, value);
+  set volume($3.VolumeInfo value) => $_setField(14, value);
   @$pb.TagNumber(14)
   $core.bool hasVolume() => $_has(13);
   @$pb.TagNumber(14)
   void clearVolume() => $_clearField(14);
   @$pb.TagNumber(14)
-  $5.VolumeInfo ensureVolume() => $_ensure(13);
+  $3.VolumeInfo ensureVolume() => $_ensure(13);
 }
 
 class PlayItem extends $pb.GeneratedMessage {
@@ -7852,7 +7852,7 @@ class PlayURL extends $pb.GeneratedMessage {
 class PlayURLReq extends $pb.GeneratedMessage {
   factory PlayURLReq({
     PlayItem? item,
-    $2.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = PlayURLReq._();
     if (item != null) result.item = item;
@@ -7876,8 +7876,8 @@ class PlayURLReq extends $pb.GeneratedMessage {
       createEmptyInstance: PlayURLReq.$_createMessage)
     ..aOM<PlayItem>(1, _omitFieldNames ? '' : 'item',
         subBuilder: PlayItem.$_createMessage)
-    ..aOM<$2.PlayerArgs>(2, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $2.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(2, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7912,15 +7912,15 @@ class PlayURLReq extends $pb.GeneratedMessage {
   PlayItem ensureItem() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  $2.PlayerArgs get playerArgs => $_getN(1);
+  $0.PlayerArgs get playerArgs => $_getN(1);
   @$pb.TagNumber(2)
-  set playerArgs($2.PlayerArgs value) => $_setField(2, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasPlayerArgs() => $_has(1);
   @$pb.TagNumber(2)
   void clearPlayerArgs() => $_clearField(2);
   @$pb.TagNumber(2)
-  $2.PlayerArgs ensurePlayerArgs() => $_ensure(1);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(1);
 }
 
 class PlayURLResp extends $pb.GeneratedMessage {
@@ -8308,10 +8308,10 @@ class PlaylistReq extends $pb.GeneratedMessage {
     $fixnum.Int64? id,
     PlayItem? anchor,
     PageOption? pageOpt,
-    $2.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $fixnum.Int64? extraId,
     SortOption? sortOpt,
-    $4.Pagination? pagination,
+    $2.Pagination? pagination,
   }) {
     final result = PlaylistReq._();
     if (from != null) result.from = from;
@@ -8346,13 +8346,13 @@ class PlaylistReq extends $pb.GeneratedMessage {
         subBuilder: PlayItem.$_createMessage)
     ..aOM<PageOption>(4, _omitFieldNames ? '' : 'pageOpt',
         subBuilder: PageOption.$_createMessage)
-    ..aOM<$2.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $2.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aInt64(6, _omitFieldNames ? '' : 'extraId')
     ..aOM<SortOption>(7, _omitFieldNames ? '' : 'sortOpt',
         subBuilder: SortOption.$_createMessage)
-    ..aOM<$4.Pagination>(8, _omitFieldNames ? '' : 'pagination',
-        subBuilder: $4.Pagination.$_createMessage)
+    ..aOM<$2.Pagination>(8, _omitFieldNames ? '' : 'pagination',
+        subBuilder: $2.Pagination.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8418,15 +8418,15 @@ class PlaylistReq extends $pb.GeneratedMessage {
   PageOption ensurePageOpt() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $2.PlayerArgs get playerArgs => $_getN(4);
+  $0.PlayerArgs get playerArgs => $_getN(4);
   @$pb.TagNumber(5)
-  set playerArgs($2.PlayerArgs value) => $_setField(5, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasPlayerArgs() => $_has(4);
   @$pb.TagNumber(5)
   void clearPlayerArgs() => $_clearField(5);
   @$pb.TagNumber(5)
-  $2.PlayerArgs ensurePlayerArgs() => $_ensure(4);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(4);
 
   @$pb.TagNumber(6)
   $fixnum.Int64 get extraId => $_getI64(5);
@@ -8449,15 +8449,15 @@ class PlaylistReq extends $pb.GeneratedMessage {
   SortOption ensureSortOpt() => $_ensure(6);
 
   @$pb.TagNumber(8)
-  $4.Pagination get pagination => $_getN(7);
+  $2.Pagination get pagination => $_getN(7);
   @$pb.TagNumber(8)
-  set pagination($4.Pagination value) => $_setField(8, value);
+  set pagination($2.Pagination value) => $_setField(8, value);
   @$pb.TagNumber(8)
   $core.bool hasPagination() => $_has(7);
   @$pb.TagNumber(8)
   void clearPagination() => $_clearField(8);
   @$pb.TagNumber(8)
-  $4.Pagination ensurePagination() => $_ensure(7);
+  $2.Pagination ensurePagination() => $_ensure(7);
 }
 
 class PlaylistResp extends $pb.GeneratedMessage {
@@ -8468,7 +8468,7 @@ class PlaylistResp extends $pb.GeneratedMessage {
     $core.Iterable<DetailItem>? list,
     PlayItem? lastPlay,
     $fixnum.Int64? lastProgress,
-    $4.PaginationReply? paginationReply,
+    $2.PaginationReply? paginationReply,
   }) {
     final result = PlaylistResp._();
     if (total != null) result.total = total;
@@ -8503,8 +8503,8 @@ class PlaylistResp extends $pb.GeneratedMessage {
     ..aOM<PlayItem>(5, _omitFieldNames ? '' : 'lastPlay',
         subBuilder: PlayItem.$_createMessage)
     ..aInt64(6, _omitFieldNames ? '' : 'lastProgress')
-    ..aOM<$4.PaginationReply>(7, _omitFieldNames ? '' : 'paginationReply',
-        subBuilder: $4.PaginationReply.$_createMessage)
+    ..aOM<$2.PaginationReply>(7, _omitFieldNames ? '' : 'paginationReply',
+        subBuilder: $2.PaginationReply.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8580,15 +8580,15 @@ class PlaylistResp extends $pb.GeneratedMessage {
   void clearLastProgress() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $4.PaginationReply get paginationReply => $_getN(6);
+  $2.PaginationReply get paginationReply => $_getN(6);
   @$pb.TagNumber(7)
-  set paginationReply($4.PaginationReply value) => $_setField(7, value);
+  set paginationReply($2.PaginationReply value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasPaginationReply() => $_has(6);
   @$pb.TagNumber(7)
   void clearPaginationReply() => $_clearField(7);
   @$pb.TagNumber(7)
-  $4.PaginationReply ensurePaginationReply() => $_ensure(6);
+  $2.PaginationReply ensurePaginationReply() => $_ensure(6);
 }
 
 class RandomOrderStatus extends $pb.GeneratedMessage {
@@ -8754,8 +8754,8 @@ class RcmdPlaylistReq extends $pb.GeneratedMessage {
     $fixnum.Int64? id,
     $core.bool? needHistory,
     $core.bool? needTopCards,
-    $2.PlayerArgs? playerArgs,
-    $4.Pagination? page,
+    $0.PlayerArgs? playerArgs,
+    $2.Pagination? page,
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? annotations,
   }) {
     final result = RcmdPlaylistReq._();
@@ -8788,10 +8788,10 @@ class RcmdPlaylistReq extends $pb.GeneratedMessage {
     ..aInt64(2, _omitFieldNames ? '' : 'id')
     ..aOB(3, _omitFieldNames ? '' : 'needHistory')
     ..aOB(4, _omitFieldNames ? '' : 'needTopCards')
-    ..aOM<$2.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $2.PlayerArgs.$_createMessage)
-    ..aOM<$4.Pagination>(6, _omitFieldNames ? '' : 'page',
-        subBuilder: $4.Pagination.$_createMessage)
+    ..aOM<$0.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
+    ..aOM<$2.Pagination>(6, _omitFieldNames ? '' : 'page',
+        subBuilder: $2.Pagination.$_createMessage)
     ..m<$core.String, $core.String>(7, _omitFieldNames ? '' : 'annotations',
         entryClassName: 'RcmdPlaylistReq.AnnotationsEntry',
         keyFieldType: $pb.PbFieldType.OS,
@@ -8858,26 +8858,26 @@ class RcmdPlaylistReq extends $pb.GeneratedMessage {
   void clearNeedTopCards() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $2.PlayerArgs get playerArgs => $_getN(4);
+  $0.PlayerArgs get playerArgs => $_getN(4);
   @$pb.TagNumber(5)
-  set playerArgs($2.PlayerArgs value) => $_setField(5, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasPlayerArgs() => $_has(4);
   @$pb.TagNumber(5)
   void clearPlayerArgs() => $_clearField(5);
   @$pb.TagNumber(5)
-  $2.PlayerArgs ensurePlayerArgs() => $_ensure(4);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(4);
 
   @$pb.TagNumber(6)
-  $4.Pagination get page => $_getN(5);
+  $2.Pagination get page => $_getN(5);
   @$pb.TagNumber(6)
-  set page($4.Pagination value) => $_setField(6, value);
+  set page($2.Pagination value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasPage() => $_has(5);
   @$pb.TagNumber(6)
   void clearPage() => $_clearField(6);
   @$pb.TagNumber(6)
-  $4.Pagination ensurePage() => $_ensure(5);
+  $2.Pagination ensurePage() => $_ensure(5);
 
   @$pb.TagNumber(7)
   $pb.PbMap<$core.String, $core.String> get annotations => $_getMap(6);
@@ -8888,7 +8888,7 @@ class RcmdPlaylistResp extends $pb.GeneratedMessage {
     $core.Iterable<DetailItem>? list,
     $fixnum.Int64? historyLen,
     $core.Iterable<TopCard>? topCards,
-    $4.PaginationReply? nextPage,
+    $2.PaginationReply? nextPage,
   }) {
     final result = RcmdPlaylistResp._();
     if (list != null) result.list.addAll(list);
@@ -8917,8 +8917,8 @@ class RcmdPlaylistResp extends $pb.GeneratedMessage {
     ..aInt64(2, _omitFieldNames ? '' : 'historyLen')
     ..pPM<TopCard>(3, _omitFieldNames ? '' : 'topCards',
         subBuilder: TopCard.$_createMessage)
-    ..aOM<$4.PaginationReply>(4, _omitFieldNames ? '' : 'nextPage',
-        subBuilder: $4.PaginationReply.$_createMessage)
+    ..aOM<$2.PaginationReply>(4, _omitFieldNames ? '' : 'nextPage',
+        subBuilder: $2.PaginationReply.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8959,15 +8959,15 @@ class RcmdPlaylistResp extends $pb.GeneratedMessage {
   $pb.PbList<TopCard> get topCards => $_getList(2);
 
   @$pb.TagNumber(4)
-  $4.PaginationReply get nextPage => $_getN(3);
+  $2.PaginationReply get nextPage => $_getN(3);
   @$pb.TagNumber(4)
-  set nextPage($4.PaginationReply value) => $_setField(4, value);
+  set nextPage($2.PaginationReply value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasNextPage() => $_has(3);
   @$pb.TagNumber(4)
   void clearNextPage() => $_clearField(4);
   @$pb.TagNumber(4)
-  $4.PaginationReply ensureNextPage() => $_ensure(3);
+  $2.PaginationReply ensureNextPage() => $_ensure(3);
 }
 
 class ResponseUrl extends $pb.GeneratedMessage {

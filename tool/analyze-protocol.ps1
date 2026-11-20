@@ -1,3 +1,5 @@
+param([ValidateSet('fvm', 'path')][string]$DartTool = 'fvm')
+
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $packageConfigPath = Join-Path $workspace '.dart_tool/package_config.json'
@@ -22,7 +24,8 @@ try {
 
     Push-Location -LiteralPath $scratch
     try {
-        fvm dart analyze lib
+        if ($DartTool -eq 'path') { dart analyze lib }
+        else { fvm dart analyze lib }
         if ($LASTEXITCODE -ne 0) { throw "协议静态分析失败，退出码 $LASTEXITCODE。" }
     }
     finally {

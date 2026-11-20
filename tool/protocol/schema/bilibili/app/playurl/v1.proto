@@ -1,0 +1,553 @@
+syntax = "proto3";
+
+package bilibili.app.playurl.v1;
+
+enum Business {
+  UNKNOWN = 0;
+  STORY = 1;
+}
+
+enum ButtonAction {
+  BUTTON_UNKNOWN = 0;
+  CHARGINGPLUS = 1;
+}
+
+enum CodeType {
+  NOCODE = 0;
+  CODE264 = 1;
+  CODE265 = 2;
+  CODEAV1 = 3;
+}
+
+enum ConfType {
+  NoType = 0;
+  FLIPCONF = 1;
+  CASTCONF = 2;
+  FEEDBACK = 3;
+  SUBTITLE = 4;
+  PLAYBACKRATE = 5;
+  TIMEUP = 6;
+  PLAYBACKMODE = 7;
+  SCALEMODE = 8;
+  BACKGROUNDPLAY = 9;
+  LIKE = 10;
+  DISLIKE = 11;
+  COIN = 12;
+  ELEC = 13;
+  SHARE = 14;
+  SCREENSHOT = 15;
+  LOCKSCREEN = 16;
+  RECOMMEND = 17;
+  PLAYBACKSPEED = 18;
+  DEFINITION = 19;
+  SELECTIONS = 20;
+  NEXT = 21;
+  EDITDM = 22;
+  SMALLWINDOW = 23;
+  SHAKE = 24;
+  OUTERDM = 25;
+  INNERDM = 26;
+  PANORAMA = 27;
+  DOLBY = 28;
+  COLORFILTER = 29;
+  LOSSLESS = 30;
+}
+
+enum Group {
+  UnknownGroup = 0;
+  A = 1;
+  B = 2;
+  C = 3;
+}
+
+enum GuideStyle {
+  STYLE_UNKNOWN = 0;
+  CHARGING_TEXT = 1;
+}
+
+enum PlayErr {
+  NoErr = 0;
+  WithMultiDeviceLoginErr = 1;
+}
+
+enum PlayLimitCode {
+  PLCUnkown = 0;
+  PLCUgcNotPayed = 1;
+  PLCChargingPlusNotPass = 2;
+  PLCChargingPlusUpgrade = 3;
+}
+
+enum ToastType {
+  TOAST_TYPE_UNKNOWN = 0;
+  CHARGING_TOAST = 1;
+}
+
+enum VideoType {
+  Unknown = 0;
+  FLV = 1;
+  DASH = 2;
+  MP4 = 3;
+}
+
+message AB {
+  .bilibili.app.playurl.v1.Glance glance = 1;
+  .bilibili.app.playurl.v1.Group group = 2;
+}
+
+message ArcConf {
+  bool is_support = 1;
+  bool disabled = 2;
+  .bilibili.app.playurl.v1.ExtraContent extra_content = 3;
+  repeated int64 unsupport_scene = 4;
+}
+
+message ButtonInfo {
+  string text = 1;
+  string text_color = 2;
+  string text_color_night = 3;
+  string bg_color = 4;
+  string bg_color_night = 5;
+  string link = 6;
+  .bilibili.app.playurl.v1.ButtonAction action_type = 7;
+  .bilibili.app.playurl.v1.Report report = 8;
+  string frame_color = 9;
+  string icon = 10;
+}
+
+message ButtonStyle {
+  string text = 1;
+  string text_color = 2;
+  string bg_color = 3;
+  string jump_link = 4;
+}
+
+message Chronos {
+  string md5 = 1;
+  string file = 2;
+}
+
+message CloudConf {
+  bool show = 1;
+  .bilibili.app.playurl.v1.ConfType conf_type = 2;
+  .bilibili.app.playurl.v1.FieldValue field_value = 3;
+  .bilibili.app.playurl.v1.ConfValue conf_value = 4;
+}
+
+message ComprehensiveToast {
+  .bilibili.app.playurl.v1.ToastType type = 1;
+  .bilibili.app.playurl.v1.ButtonInfo button = 2;
+  string icon = 3;
+  .bilibili.app.playurl.v1.TextInfo toast_text = 4;
+  .bilibili.app.playurl.v1.Report report = 5;
+}
+
+message ConfValue {
+  oneof value {
+    bool switch_val = 1;
+    int64 selected_val = 2;
+  }
+}
+
+message DashItem {
+  int32 id = 1;
+  string base_url = 2;
+  repeated string backup_url = 3;
+  int32 bandwidth = 4;
+  int32 codecid = 5;
+  string md5 = 6;
+  int64 size = 7;
+  string frame_rate = 8;
+  string widevine_pssh = 9;
+  string bilidrm_uri = 10;
+}
+
+message DashVideo {
+  string base_url = 1;
+  repeated string backup_url = 2;
+  int32 bandwidth = 3;
+  int32 codecid = 4;
+  string md5 = 5;
+  int64 size = 6;
+  int32 audio_id = 7;
+  bool no_rexcode = 8;
+  string frame_rate = 9;
+  int32 width = 10;
+  int32 height = 11;
+  string widevine_pssh = 12;
+  string bilidrm_uri = 13;
+}
+
+message Dialog {
+  .bilibili.app.playurl.v1.GuideStyle style_type = 1;
+  .bilibili.app.playurl.v1.Report report = 2;
+  .bilibili.app.playurl.v1.TextInfo title = 3;
+  .bilibili.app.playurl.v1.TextInfo subtitle = 4;
+  repeated .bilibili.app.playurl.v1.ButtonInfo button = 5;
+}
+
+message DolbyItem {
+  enum Type {
+    NONE = 0;
+    COMMON = 1;
+    ATMOS = 2;
+  }
+  .bilibili.app.playurl.v1.DolbyItem.Type type = 1;
+  repeated .bilibili.app.playurl.v1.DashItem audio = 2;
+}
+
+message Event {
+  .bilibili.app.playurl.v1.Shake shake = 1;
+}
+
+message ExtraContent {
+  string disabled_reason = 1;
+  int64 disabled_code = 2;
+}
+
+message FieldValue {
+  oneof value {
+    bool switch = 1;
+  }
+}
+
+message FormatDescription {
+  int32 quality = 1;
+  string format = 2;
+  string description = 3;
+  string new_description = 4;
+  string display_desc = 5;
+  string superscript = 6;
+}
+
+message Glance {
+  bool can_watch = 1;
+  int64 times = 2;
+  int64 duration = 3;
+}
+
+message LossLessItem {
+  bool is_lossless_audio = 1;
+  .bilibili.app.playurl.v1.DashItem audio = 2;
+  bool need_vip = 3;
+}
+
+message MultiDashVideo {
+  repeated .bilibili.app.playurl.v1.DashVideo dash_videos = 1;
+}
+
+message PlayAbilityConf {
+  .bilibili.app.playurl.v1.CloudConf background_play_conf = 1;
+  .bilibili.app.playurl.v1.CloudConf flip_conf = 2;
+  .bilibili.app.playurl.v1.CloudConf cast_conf = 3;
+  .bilibili.app.playurl.v1.CloudConf feedback_conf = 4;
+  .bilibili.app.playurl.v1.CloudConf subtitle_conf = 5;
+  .bilibili.app.playurl.v1.CloudConf playback_rate_conf = 6;
+  .bilibili.app.playurl.v1.CloudConf time_up_conf = 7;
+  .bilibili.app.playurl.v1.CloudConf playback_mode_conf = 8;
+  .bilibili.app.playurl.v1.CloudConf scale_mode_conf = 9;
+  .bilibili.app.playurl.v1.CloudConf like_conf = 10;
+  .bilibili.app.playurl.v1.CloudConf dislike_conf = 11;
+  .bilibili.app.playurl.v1.CloudConf coin_conf = 12;
+  .bilibili.app.playurl.v1.CloudConf elec_conf = 13;
+  .bilibili.app.playurl.v1.CloudConf share_conf = 14;
+  .bilibili.app.playurl.v1.CloudConf screen_shot_conf = 15;
+  .bilibili.app.playurl.v1.CloudConf lock_screen_conf = 16;
+  .bilibili.app.playurl.v1.CloudConf recommend_conf = 17;
+  .bilibili.app.playurl.v1.CloudConf playback_speed_conf = 18;
+  .bilibili.app.playurl.v1.CloudConf definition_conf = 19;
+  .bilibili.app.playurl.v1.CloudConf selections_conf = 20;
+  .bilibili.app.playurl.v1.CloudConf next_conf = 21;
+  .bilibili.app.playurl.v1.CloudConf edit_dm_conf = 22;
+  .bilibili.app.playurl.v1.CloudConf small_window_conf = 23;
+  .bilibili.app.playurl.v1.CloudConf shake_conf = 24;
+  .bilibili.app.playurl.v1.CloudConf outer_dm_conf = 25;
+  .bilibili.app.playurl.v1.CloudConf inner_dm_conf = 26;
+  .bilibili.app.playurl.v1.CloudConf panorama_conf = 27;
+  .bilibili.app.playurl.v1.CloudConf dolby_conf = 28;
+  .bilibili.app.playurl.v1.CloudConf color_filter_conf = 29;
+  .bilibili.app.playurl.v1.CloudConf loss_less_conf = 30;
+}
+
+message PlayArc {
+  bool is_preview = 1;
+}
+
+message PlayArcConf {
+  .bilibili.app.playurl.v1.ArcConf background_play_conf = 1;
+  .bilibili.app.playurl.v1.ArcConf flip_conf = 2;
+  .bilibili.app.playurl.v1.ArcConf cast_conf = 3;
+  .bilibili.app.playurl.v1.ArcConf feedback_conf = 4;
+  .bilibili.app.playurl.v1.ArcConf subtitle_conf = 5;
+  .bilibili.app.playurl.v1.ArcConf playback_rate_conf = 6;
+  .bilibili.app.playurl.v1.ArcConf time_up_conf = 7;
+  .bilibili.app.playurl.v1.ArcConf playback_mode_conf = 8;
+  .bilibili.app.playurl.v1.ArcConf scale_mode_conf = 9;
+  .bilibili.app.playurl.v1.ArcConf like_conf = 10;
+  .bilibili.app.playurl.v1.ArcConf dislike_conf = 11;
+  .bilibili.app.playurl.v1.ArcConf coin_conf = 12;
+  .bilibili.app.playurl.v1.ArcConf elec_conf = 13;
+  .bilibili.app.playurl.v1.ArcConf share_conf = 14;
+  .bilibili.app.playurl.v1.ArcConf screen_shot_conf = 15;
+  .bilibili.app.playurl.v1.ArcConf lock_screen_conf = 16;
+  .bilibili.app.playurl.v1.ArcConf recommend_conf = 17;
+  .bilibili.app.playurl.v1.ArcConf playback_speed_conf = 18;
+  .bilibili.app.playurl.v1.ArcConf definition_conf = 19;
+  .bilibili.app.playurl.v1.ArcConf selections_conf = 20;
+  .bilibili.app.playurl.v1.ArcConf next_conf = 21;
+  .bilibili.app.playurl.v1.ArcConf edit_dm_conf = 22;
+  .bilibili.app.playurl.v1.ArcConf small_window_conf = 23;
+  .bilibili.app.playurl.v1.ArcConf shake_conf = 24;
+  .bilibili.app.playurl.v1.ArcConf outer_dm_conf = 25;
+  .bilibili.app.playurl.v1.ArcConf inner_dm_conf = 26;
+  .bilibili.app.playurl.v1.ArcConf panorama_conf = 27;
+  .bilibili.app.playurl.v1.ArcConf dolby_conf = 28;
+  .bilibili.app.playurl.v1.ArcConf screen_recording_conf = 29;
+  .bilibili.app.playurl.v1.ArcConf color_filter_conf = 30;
+  .bilibili.app.playurl.v1.ArcConf loss_less_conf = 31;
+  .bilibili.app.playurl.v1.ArcConf system_record_conf = 32;
+}
+
+message PlayConfEditReply {
+}
+
+message PlayConfEditReq {
+  repeated .bilibili.app.playurl.v1.PlayConfState play_conf = 1;
+}
+
+message PlayConfReply {
+  .bilibili.app.playurl.v1.PlayAbilityConf play_conf = 1;
+}
+
+message PlayConfReq {
+}
+
+message PlayConfState {
+  .bilibili.app.playurl.v1.ConfType conf_type = 1;
+  bool show = 2;
+  .bilibili.app.playurl.v1.FieldValue field_value = 3;
+  .bilibili.app.playurl.v1.ConfValue conf_value = 4;
+}
+
+message PlayLimit {
+  .bilibili.app.playurl.v1.PlayLimitCode code = 1;
+  string message = 2;
+  string sub_message = 3;
+  .bilibili.app.playurl.v1.ButtonStyle button = 4;
+}
+
+message PlayURLReply {
+  int32 quality = 1;
+  string format = 2;
+  int64 timelength = 3;
+  int32 video_codecid = 4;
+  int32 fnver = 5;
+  int32 fnval = 6;
+  bool video_project = 7;
+  repeated .bilibili.app.playurl.v1.ResponseUrl durl = 8;
+  .bilibili.app.playurl.v1.ResponseDash dash = 9;
+  int32 no_rexcode = 10;
+  .bilibili.app.playurl.v1.UpgradeLimit upgrade_limit = 11;
+  repeated .bilibili.app.playurl.v1.FormatDescription support_formats = 12;
+  .bilibili.app.playurl.v1.VideoType type = 13;
+  .bilibili.app.playurl.v1.VipRisk vip_risk = 14;
+}
+
+message PlayURLReq {
+  int64 aid = 1;
+  int64 cid = 2;
+  int64 qn = 3;
+  int32 fnver = 4;
+  int32 fnval = 5;
+  int32 download = 6;
+  int32 force_host = 7;
+  bool fourk = 8;
+  string spmid = 9;
+  string from_spmid = 10;
+}
+
+message PlayViewReply {
+  .bilibili.app.playurl.v1.VideoInfo video_info = 1;
+  .bilibili.app.playurl.v1.PlayAbilityConf play_conf = 2;
+  .bilibili.app.playurl.v1.UpgradeLimit upgrade_limit = 3;
+  .bilibili.app.playurl.v1.Chronos chronos = 4;
+  .bilibili.app.playurl.v1.PlayArcConf play_arc = 5;
+  .bilibili.app.playurl.v1.Event event = 6;
+  .bilibili.app.playurl.v1.AB ab = 7;
+  .bilibili.app.playurl.v1.PlayLimit play_limit = 8;
+  .bilibili.app.playurl.v1.ViewInfo view_info = 9;
+  .bilibili.app.playurl.v1.PlayArc arc = 10;
+}
+
+message PlayViewReq {
+  int64 aid = 1;
+  int64 cid = 2;
+  int64 qn = 3;
+  int32 fnver = 4;
+  int32 fnval = 5;
+  int32 download = 6;
+  int32 force_host = 7;
+  bool fourk = 8;
+  string spmid = 9;
+  string from_spmid = 10;
+  int32 teenagers_mode = 11;
+  .bilibili.app.playurl.v1.CodeType prefer_codec_type = 12;
+  .bilibili.app.playurl.v1.Business business = 13;
+  int64 voice_balance = 14;
+}
+
+message ProjectReply {
+  .bilibili.app.playurl.v1.PlayURLReply project = 1;
+}
+
+message ProjectReq {
+  int64 aid = 1;
+  int64 cid = 2;
+  int64 qn = 3;
+  int32 fnver = 4;
+  int32 fnval = 5;
+  int32 download = 6;
+  int32 force_host = 7;
+  bool fourk = 8;
+  string spmid = 9;
+  string from_spmid = 10;
+  int32 protocol = 11;
+  int32 device_type = 12;
+}
+
+message PromptBar {
+  .bilibili.app.playurl.v1.TextInfo title = 1;
+  .bilibili.app.playurl.v1.TextInfo sub_title = 2;
+  string sub_title_icon = 3;
+  string bg_image = 4;
+  repeated .bilibili.app.playurl.v1.ButtonInfo button = 5;
+  .bilibili.app.playurl.v1.Report report = 6;
+}
+
+message Report {
+  string show_event_id = 1;
+  string click_event_id = 2;
+  string extends = 3;
+}
+
+message ResponseDash {
+  repeated .bilibili.app.playurl.v1.DashItem video = 1;
+  repeated .bilibili.app.playurl.v1.DashItem audio = 2;
+}
+
+message ResponseUrl {
+  int32 order = 1;
+  int64 length = 2;
+  int64 size = 3;
+  string url = 4;
+  repeated string backup_url = 5;
+  string md5 = 6;
+  int32 quality = 7;
+}
+
+message Scheme {
+  enum ActionType {
+    UNKNOWN_ActionType = 0;
+    SHOW_TOAST = 1;
+  }
+  .bilibili.app.playurl.v1.Scheme.ActionType action_type = 1;
+  string toast = 2;
+}
+
+message SegmentVideo {
+  repeated .bilibili.app.playurl.v1.ResponseUrl segment = 1;
+}
+
+message Shake {
+  string file = 1;
+}
+
+message Stream {
+  oneof content {
+    .bilibili.app.playurl.v1.DashVideo dash_video = 2;
+    .bilibili.app.playurl.v1.SegmentVideo segment_video = 3;
+    .bilibili.app.playurl.v1.MultiDashVideo multi_dash_video = 4;
+  }
+  .bilibili.app.playurl.v1.StreamInfo stream_info = 1;
+}
+
+message StreamInfo {
+  int32 quality = 1;
+  string format = 2;
+  string description = 3;
+  .bilibili.app.playurl.v1.PlayErr err_code = 4;
+  .bilibili.app.playurl.v1.StreamLimit limit = 5;
+  bool need_vip = 6;
+  bool need_login = 7;
+  bool intact = 8;
+  bool no_rexcode = 9;
+  int64 attribute = 10;
+  string new_description = 11;
+  string display_desc = 12;
+  string superscript = 13;
+  bool vip_free = 14;
+  string subtitle = 15;
+  .bilibili.app.playurl.v1.Scheme scheme = 16;
+  bool support_drm = 17;
+  bool has_preview = 18;
+}
+
+message StreamLimit {
+  string title = 1;
+  string uri = 2;
+  string msg = 3;
+}
+
+message TextInfo {
+  string text = 1;
+  string text_color = 2;
+  string text_color_night = 3;
+}
+
+message UpgradeButton {
+  string title = 1;
+  string link = 2;
+}
+
+message UpgradeLimit {
+  int32 code = 1;
+  string message = 2;
+  string image = 3;
+  .bilibili.app.playurl.v1.UpgradeButton button = 4;
+}
+
+message VideoInfo {
+  int32 quality = 1;
+  string format = 2;
+  int64 timelength = 3;
+  int32 video_codecid = 4;
+  repeated .bilibili.app.playurl.v1.Stream stream_list = 5;
+  repeated .bilibili.app.playurl.v1.DashItem dash_audio = 6;
+  .bilibili.app.playurl.v1.DolbyItem dolby = 7;
+  .bilibili.app.playurl.v1.VolumeInfo volume = 8;
+  .bilibili.app.playurl.v1.LossLessItem loss_less_item = 9;
+  int64 main_timelength = 10;
+}
+
+message ViewInfo {
+  map<string, .bilibili.app.playurl.v1.Dialog> dialog_map = 1;
+  .bilibili.app.playurl.v1.PromptBar prompt_bar = 2;
+  repeated .bilibili.app.playurl.v1.ComprehensiveToast toasts = 3;
+}
+
+message VipRisk {
+  bool allow = 1;
+  int64 type = 2;
+  int64 reason = 3;
+  int64 device_status = 4;
+}
+
+message VolumeInfo {
+  double measured_i = 1;
+  double measured_lra = 2;
+  double measured_tp = 3;
+  double measured_threshold = 4;
+  double target_offset = 5;
+  double target_i = 6;
+  double target_tp = 7;
+  map<string, string> multi_scene_args = 8;
+}

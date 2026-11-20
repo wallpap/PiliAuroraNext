@@ -14,14 +14,14 @@ import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
-import 'package:protobuf/well_known_types/google/protobuf/any.pb.dart' as $6;
+import 'package:protobuf/well_known_types/google/protobuf/any.pb.dart' as $5;
 
-import '../../account/service/v1.pb.dart' as $3;
-import '../../dagw/component/avatar/v1.pb.dart' as $2;
-import '../../pagination.pb.dart' as $7;
-import '../../vas/garb/service.pb.dart' as $5;
-import '../archive/middleware/v1.pb.dart' as $1;
-import 'common.pb.dart' as $4;
+import '../../account/service/v1.pb.dart' as $2;
+import '../../dagw/component/avatar/v1.pb.dart' as $1;
+import '../../pagination.pb.dart' as $6;
+import '../../vas/garb/service.pb.dart' as $4;
+import '../archive/middleware/v1.pb.dart' as $0;
+import 'common.pb.dart' as $3;
 import 'v2.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
@@ -3402,7 +3402,7 @@ class AlumniDynamicsReq extends $pb.GeneratedMessage {
   factory AlumniDynamicsReq({
     $fixnum.Int64? campusId,
     $core.int? firstTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.int? localTime,
     $core.int? page,
     CampusReqFromType? fromType,
@@ -3433,8 +3433,8 @@ class AlumniDynamicsReq extends $pb.GeneratedMessage {
       createEmptyInstance: AlumniDynamicsReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'campusId')
     ..aI(2, _omitFieldNames ? '' : 'firstTime')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aI(4, _omitFieldNames ? '' : 'localTime')
     ..aI(5, _omitFieldNames ? '' : 'page')
     ..aE<CampusReqFromType>(6, _omitFieldNames ? '' : 'fromType',
@@ -3482,15 +3482,15 @@ class AlumniDynamicsReq extends $pb.GeneratedMessage {
   void clearFirstTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.int get localTime => $_getIZ(3);
@@ -3599,14 +3599,14 @@ class BasicUserInfoV2 extends $pb.GeneratedMessage {
     $fixnum.Int64? mid,
     $core.String? name,
     $core.String? face,
-    $2.AvatarItem? avatar,
+    $1.AvatarItem? avatar,
     $core.int? level,
     $core.int? isSeniorMember,
     VipInfo? vip,
     $core.String? jumpUri,
     Relation? relation,
     $core.String? nameSubText,
-    $3.NameRender? nameRender,
+    $2.NameRender? nameRender,
   }) {
     final result = BasicUserInfoV2._();
     if (mid != null) result.mid = mid;
@@ -3640,8 +3640,8 @@ class BasicUserInfoV2 extends $pb.GeneratedMessage {
     ..aInt64(1, _omitFieldNames ? '' : 'mid')
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOS(3, _omitFieldNames ? '' : 'face')
-    ..aOM<$2.AvatarItem>(4, _omitFieldNames ? '' : 'avatar',
-        subBuilder: $2.AvatarItem.$_createMessage)
+    ..aOM<$1.AvatarItem>(4, _omitFieldNames ? '' : 'avatar',
+        subBuilder: $1.AvatarItem.$_createMessage)
     ..aI(5, _omitFieldNames ? '' : 'level')
     ..aI(6, _omitFieldNames ? '' : 'isSeniorMember')
     ..aOM<VipInfo>(7, _omitFieldNames ? '' : 'vip',
@@ -3650,8 +3650,8 @@ class BasicUserInfoV2 extends $pb.GeneratedMessage {
     ..aOM<Relation>(9, _omitFieldNames ? '' : 'relation',
         subBuilder: Relation.$_createMessage)
     ..aOS(10, _omitFieldNames ? '' : 'nameSubText')
-    ..aOM<$3.NameRender>(11, _omitFieldNames ? '' : 'nameRender',
-        subBuilder: $3.NameRender.$_createMessage)
+    ..aOM<$2.NameRender>(11, _omitFieldNames ? '' : 'nameRender',
+        subBuilder: $2.NameRender.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3704,15 +3704,15 @@ class BasicUserInfoV2 extends $pb.GeneratedMessage {
   void clearFace() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $2.AvatarItem get avatar => $_getN(3);
+  $1.AvatarItem get avatar => $_getN(3);
   @$pb.TagNumber(4)
-  set avatar($2.AvatarItem value) => $_setField(4, value);
+  set avatar($1.AvatarItem value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasAvatar() => $_has(3);
   @$pb.TagNumber(4)
   void clearAvatar() => $_clearField(4);
   @$pb.TagNumber(4)
-  $2.AvatarItem ensureAvatar() => $_ensure(3);
+  $1.AvatarItem ensureAvatar() => $_ensure(3);
 
   @$pb.TagNumber(5)
   $core.int get level => $_getIZ(4);
@@ -3773,15 +3773,15 @@ class BasicUserInfoV2 extends $pb.GeneratedMessage {
   void clearNameSubText() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $3.NameRender get nameRender => $_getN(10);
+  $2.NameRender get nameRender => $_getN(10);
   @$pb.TagNumber(11)
-  set nameRender($3.NameRender value) => $_setField(11, value);
+  set nameRender($2.NameRender value) => $_setField(11, value);
   @$pb.TagNumber(11)
   $core.bool hasNameRender() => $_has(10);
   @$pb.TagNumber(11)
   void clearNameRender() => $_clearField(11);
   @$pb.TagNumber(11)
-  $3.NameRender ensureNameRender() => $_ensure(10);
+  $2.NameRender ensureNameRender() => $_ensure(10);
 }
 
 class ButtonWithSubTitle extends $pb.GeneratedMessage {
@@ -4202,7 +4202,7 @@ class CampusBillBoardReq extends $pb.GeneratedMessage {
   factory CampusBillBoardReq({
     $fixnum.Int64? campusId,
     $core.String? versionCode,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     CampusReqFromType? fromType,
   }) {
     final result = CampusBillBoardReq._();
@@ -4229,8 +4229,8 @@ class CampusBillBoardReq extends $pb.GeneratedMessage {
       createEmptyInstance: CampusBillBoardReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'campusId')
     ..aOS(2, _omitFieldNames ? '' : 'versionCode')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aE<CampusReqFromType>(4, _omitFieldNames ? '' : 'fromType',
         enumValues: CampusReqFromType.values)
     ..hasRequiredFields = false;
@@ -4276,15 +4276,15 @@ class CampusBillBoardReq extends $pb.GeneratedMessage {
   void clearVersionCode() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   CampusReqFromType get fromType => $_getN(3);
@@ -4938,7 +4938,7 @@ class CampusHomePagesReq extends $pb.GeneratedMessage {
     $core.String? campusName,
     $core.double? lat,
     $core.double? lng,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     CampusHomePageType? pageType,
   }) {
     final result = CampusHomePagesReq._();
@@ -4969,8 +4969,8 @@ class CampusHomePagesReq extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'campusName')
     ..aD(3, _omitFieldNames ? '' : 'lat')
     ..aD(4, _omitFieldNames ? '' : 'lng')
-    ..aOM<$1.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aE<CampusHomePageType>(6, _omitFieldNames ? '' : 'pageType',
         enumValues: CampusHomePageType.values)
     ..hasRequiredFields = false;
@@ -5034,15 +5034,15 @@ class CampusHomePagesReq extends $pb.GeneratedMessage {
   void clearLng() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $1.PlayerArgs get playerArgs => $_getN(4);
+  $0.PlayerArgs get playerArgs => $_getN(4);
   @$pb.TagNumber(5)
-  set playerArgs($1.PlayerArgs value) => $_setField(5, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasPlayerArgs() => $_has(4);
   @$pb.TagNumber(5)
   void clearPlayerArgs() => $_clearField(5);
   @$pb.TagNumber(5)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(4);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(4);
 
   @$pb.TagNumber(6)
   CampusHomePageType get pageType => $_getN(5);
@@ -6736,7 +6736,7 @@ class CampusRcmdFeedReq extends $pb.GeneratedMessage {
   factory CampusRcmdFeedReq({
     $fixnum.Int64? campusId,
     $core.int? firstTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.int? localTime,
     $core.int? page,
     $core.int? scroll,
@@ -6771,8 +6771,8 @@ class CampusRcmdFeedReq extends $pb.GeneratedMessage {
       createEmptyInstance: CampusRcmdFeedReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'campusId')
     ..aI(2, _omitFieldNames ? '' : 'firstTime')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aI(4, _omitFieldNames ? '' : 'localTime')
     ..aI(5, _omitFieldNames ? '' : 'page')
     ..aI(6, _omitFieldNames ? '' : 'scroll')
@@ -6822,15 +6822,15 @@ class CampusRcmdFeedReq extends $pb.GeneratedMessage {
   void clearFirstTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.int get localTime => $_getIZ(3);
@@ -7156,7 +7156,7 @@ class CampusRcmdReq extends $pb.GeneratedMessage {
     $core.String? campusName,
     $core.double? lat,
     $core.double? lng,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     CampusReqFromType? fromType,
     CampusHomePageType? pageType,
   }) {
@@ -7189,8 +7189,8 @@ class CampusRcmdReq extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'campusName')
     ..aD(3, _omitFieldNames ? '' : 'lat')
     ..aD(4, _omitFieldNames ? '' : 'lng')
-    ..aOM<$1.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aE<CampusReqFromType>(6, _omitFieldNames ? '' : 'fromType',
         enumValues: CampusReqFromType.values)
     ..aE<CampusHomePageType>(7, _omitFieldNames ? '' : 'pageType',
@@ -7256,15 +7256,15 @@ class CampusRcmdReq extends $pb.GeneratedMessage {
   void clearLng() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $1.PlayerArgs get playerArgs => $_getN(4);
+  $0.PlayerArgs get playerArgs => $_getN(4);
   @$pb.TagNumber(5)
-  set playerArgs($1.PlayerArgs value) => $_setField(5, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasPlayerArgs() => $_has(4);
   @$pb.TagNumber(5)
   void clearPlayerArgs() => $_clearField(5);
   @$pb.TagNumber(5)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(4);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(4);
 
   @$pb.TagNumber(6)
   CampusReqFromType get fromType => $_getN(5);
@@ -7653,7 +7653,7 @@ class CampusRecommendReq extends $pb.GeneratedMessage {
   factory CampusRecommendReq({
     $fixnum.Int64? campusId,
     $fixnum.Int64? pageNo,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     CampusRcmdReqFrom? from,
   }) {
     final result = CampusRecommendReq._();
@@ -7680,8 +7680,8 @@ class CampusRecommendReq extends $pb.GeneratedMessage {
       createEmptyInstance: CampusRecommendReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'campusId')
     ..aInt64(2, _omitFieldNames ? '' : 'pageNo')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aE<CampusRcmdReqFrom>(4, _omitFieldNames ? '' : 'from',
         enumValues: CampusRcmdReqFrom.values)
     ..hasRequiredFields = false;
@@ -7727,15 +7727,15 @@ class CampusRecommendReq extends $pb.GeneratedMessage {
   void clearPageNo() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   CampusRcmdReqFrom get from => $_getN(3);
@@ -8497,7 +8497,7 @@ class CampusTopicRcmdFeedReq extends $pb.GeneratedMessage {
   factory CampusTopicRcmdFeedReq({
     $fixnum.Int64? campusId,
     $core.String? offset,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.int? localTime,
     CampusReqFromType? fromType,
   }) {
@@ -8526,8 +8526,8 @@ class CampusTopicRcmdFeedReq extends $pb.GeneratedMessage {
       createEmptyInstance: CampusTopicRcmdFeedReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'campusId')
     ..aOS(2, _omitFieldNames ? '' : 'offset')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aI(4, _omitFieldNames ? '' : 'localTime')
     ..aE<CampusReqFromType>(5, _omitFieldNames ? '' : 'fromType',
         enumValues: CampusReqFromType.values)
@@ -8576,15 +8576,15 @@ class CampusTopicRcmdFeedReq extends $pb.GeneratedMessage {
   void clearOffset() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.int get localTime => $_getIZ(3);
@@ -8610,7 +8610,7 @@ enum CampusWaterFlowItem_FlowItem { itemDefault, notSet }
 class CampusWaterFlowItem extends $pb.GeneratedMessage {
   factory CampusWaterFlowItem({
     WFItemType? itemType,
-    $4.ItemWHRatio? whRatio,
+    $3.ItemWHRatio? whRatio,
     WFItemDefault? itemDefault,
   }) {
     final result = CampusWaterFlowItem._();
@@ -8642,8 +8642,8 @@ class CampusWaterFlowItem extends $pb.GeneratedMessage {
     ..oo(0, [3])
     ..aE<WFItemType>(1, _omitFieldNames ? '' : 'itemType',
         enumValues: WFItemType.values)
-    ..aOM<$4.ItemWHRatio>(2, _omitFieldNames ? '' : 'whRatio',
-        subBuilder: $4.ItemWHRatio.$_createMessage)
+    ..aOM<$3.ItemWHRatio>(2, _omitFieldNames ? '' : 'whRatio',
+        subBuilder: $3.ItemWHRatio.$_createMessage)
     ..aOM<WFItemDefault>(3, _omitFieldNames ? '' : 'itemDefault',
         subBuilder: WFItemDefault.$_createMessage)
     ..hasRequiredFields = false;
@@ -8687,15 +8687,15 @@ class CampusWaterFlowItem extends $pb.GeneratedMessage {
   void clearItemType() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $4.ItemWHRatio get whRatio => $_getN(1);
+  $3.ItemWHRatio get whRatio => $_getN(1);
   @$pb.TagNumber(2)
-  set whRatio($4.ItemWHRatio value) => $_setField(2, value);
+  set whRatio($3.ItemWHRatio value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasWhRatio() => $_has(1);
   @$pb.TagNumber(2)
   void clearWhRatio() => $_clearField(2);
   @$pb.TagNumber(2)
-  $4.ItemWHRatio ensureWhRatio() => $_ensure(1);
+  $3.ItemWHRatio ensureWhRatio() => $_ensure(1);
 
   @$pb.TagNumber(3)
   WFItemDefault get itemDefault => $_getN(2);
@@ -10674,7 +10674,7 @@ class DecorateCard extends $pb.GeneratedMessage {
     $core.String? cardUrl,
     $core.String? jumpUrl,
     DecoCardFan? fan,
-    $5.UserCard? vasDecoCard,
+    $4.UserCard? vasDecoCard,
   }) {
     final result = DecorateCard._();
     if (id != null) result.id = id;
@@ -10704,8 +10704,8 @@ class DecorateCard extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'jumpUrl')
     ..aOM<DecoCardFan>(4, _omitFieldNames ? '' : 'fan',
         subBuilder: DecoCardFan.$_createMessage)
-    ..aOM<$5.UserCard>(5, _omitFieldNames ? '' : 'vasDecoCard',
-        subBuilder: $5.UserCard.$_createMessage)
+    ..aOM<$4.UserCard>(5, _omitFieldNames ? '' : 'vasDecoCard',
+        subBuilder: $4.UserCard.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -10769,15 +10769,15 @@ class DecorateCard extends $pb.GeneratedMessage {
   DecoCardFan ensureFan() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $5.UserCard get vasDecoCard => $_getN(4);
+  $4.UserCard get vasDecoCard => $_getN(4);
   @$pb.TagNumber(5)
-  set vasDecoCard($5.UserCard value) => $_setField(5, value);
+  set vasDecoCard($4.UserCard value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasVasDecoCard() => $_has(4);
   @$pb.TagNumber(5)
   void clearVasDecoCard() => $_clearField(5);
   @$pb.TagNumber(5)
-  $5.UserCard ensureVasDecoCard() => $_ensure(4);
+  $4.UserCard ensureVasDecoCard() => $_ensure(4);
 }
 
 class Description extends $pb.GeneratedMessage {
@@ -11377,7 +11377,7 @@ class DynAllPersonalReq extends $pb.GeneratedMessage {
     $core.int? localTime,
     $core.String? footprint,
     $core.String? from,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.String? personalExtra,
     AdParam? adParam,
   }) {
@@ -11419,8 +11419,8 @@ class DynAllPersonalReq extends $pb.GeneratedMessage {
     ..aI(6, _omitFieldNames ? '' : 'localTime')
     ..aOS(7, _omitFieldNames ? '' : 'footprint')
     ..aOS(8, _omitFieldNames ? '' : 'from')
-    ..aOM<$1.PlayerArgs>(9, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(9, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOS(10, _omitFieldNames ? '' : 'personalExtra')
     ..aOM<AdParam>(11, _omitFieldNames ? '' : 'adParam',
         subBuilder: AdParam.$_createMessage)
@@ -11523,15 +11523,15 @@ class DynAllPersonalReq extends $pb.GeneratedMessage {
   void clearFrom() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $1.PlayerArgs get playerArgs => $_getN(8);
+  $0.PlayerArgs get playerArgs => $_getN(8);
   @$pb.TagNumber(9)
-  set playerArgs($1.PlayerArgs value) => $_setField(9, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(9, value);
   @$pb.TagNumber(9)
   $core.bool hasPlayerArgs() => $_has(8);
   @$pb.TagNumber(9)
   void clearPlayerArgs() => $_clearField(9);
   @$pb.TagNumber(9)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(8);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(8);
 
   @$pb.TagNumber(10)
   $core.String get personalExtra => $_getSZ(9);
@@ -11718,7 +11718,7 @@ class DynAllReq extends $pb.GeneratedMessage {
     AdParam? adParam,
     $core.int? coldStart,
     $core.String? from,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $fixnum.Int64? tabRecallUid,
     StyleType? tabRecallType,
     $core.String? tabRecallExtra,
@@ -11776,8 +11776,8 @@ class DynAllReq extends $pb.GeneratedMessage {
         subBuilder: AdParam.$_createMessage)
     ..aI(10, _omitFieldNames ? '' : 'coldStart')
     ..aOS(11, _omitFieldNames ? '' : 'from')
-    ..aOM<$1.PlayerArgs>(12, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(12, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aInt64(13, _omitFieldNames ? '' : 'tabRecallUid')
     ..aE<StyleType>(14, _omitFieldNames ? '' : 'tabRecallType',
         enumValues: StyleType.values)
@@ -11913,15 +11913,15 @@ class DynAllReq extends $pb.GeneratedMessage {
   void clearFrom() => $_clearField(11);
 
   @$pb.TagNumber(12)
-  $1.PlayerArgs get playerArgs => $_getN(11);
+  $0.PlayerArgs get playerArgs => $_getN(11);
   @$pb.TagNumber(12)
-  set playerArgs($1.PlayerArgs value) => $_setField(12, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(12, value);
   @$pb.TagNumber(12)
   $core.bool hasPlayerArgs() => $_has(11);
   @$pb.TagNumber(12)
   void clearPlayerArgs() => $_clearField(12);
   @$pb.TagNumber(12)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(11);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(11);
 
   @$pb.TagNumber(13)
   $fixnum.Int64 get tabRecallUid => $_getI64(12);
@@ -12134,7 +12134,7 @@ class DynDetailReq extends $pb.GeneratedMessage {
     $fixnum.Int64? rid,
     AdParam? adParam,
     $core.String? from,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.String? shareId,
     $core.int? shareMode,
     $core.int? localTime,
@@ -12178,8 +12178,8 @@ class DynDetailReq extends $pb.GeneratedMessage {
     ..aOM<AdParam>(5, _omitFieldNames ? '' : 'adParam',
         subBuilder: AdParam.$_createMessage)
     ..aOS(6, _omitFieldNames ? '' : 'from')
-    ..aOM<$1.PlayerArgs>(7, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(7, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOS(8, _omitFieldNames ? '' : 'shareId')
     ..aI(9, _omitFieldNames ? '' : 'shareMode')
     ..aI(10, _omitFieldNames ? '' : 'localTime')
@@ -12267,15 +12267,15 @@ class DynDetailReq extends $pb.GeneratedMessage {
   void clearFrom() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $1.PlayerArgs get playerArgs => $_getN(6);
+  $0.PlayerArgs get playerArgs => $_getN(6);
   @$pb.TagNumber(7)
-  set playerArgs($1.PlayerArgs value) => $_setField(7, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasPlayerArgs() => $_has(6);
   @$pb.TagNumber(7)
   void clearPlayerArgs() => $_clearField(7);
   @$pb.TagNumber(7)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(6);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(6);
 
   @$pb.TagNumber(8)
   $core.String get shareId => $_getSZ(7);
@@ -12383,7 +12383,7 @@ class DynDetailsReq extends $pb.GeneratedMessage {
     $core.String? dynamicIds,
     PlayurlParam? playurlParam,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     Config? config,
   }) {
     final result = DynDetailsReq._();
@@ -12413,8 +12413,8 @@ class DynDetailsReq extends $pb.GeneratedMessage {
     ..aOM<PlayurlParam>(2, _omitFieldNames ? '' : 'playurlParam',
         subBuilder: PlayurlParam.$_createMessage)
     ..aI(3, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOM<Config>(5, _omitFieldNames ? '' : 'config',
         subBuilder: Config.$_createMessage)
     ..hasRequiredFields = false;
@@ -12471,15 +12471,15 @@ class DynDetailsReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.PlayerArgs get playerArgs => $_getN(3);
+  $0.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($1.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 
   @$pb.TagNumber(5)
   Config get config => $_getN(4);
@@ -12752,7 +12752,7 @@ class DynFriendReq extends $pb.GeneratedMessage {
   factory DynFriendReq({
     $core.String? offset,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = DynFriendReq._();
     if (offset != null) result.offset = offset;
@@ -12777,8 +12777,8 @@ class DynFriendReq extends $pb.GeneratedMessage {
       createEmptyInstance: DynFriendReq.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'offset')
     ..aI(2, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -12822,15 +12822,15 @@ class DynFriendReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 }
 
 class DynLightReply extends $pb.GeneratedMessage {
@@ -12899,7 +12899,7 @@ class DynLightReq extends $pb.GeneratedMessage {
     $core.String? historyOffset,
     $core.int? page,
     $core.String? from,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.int? localTime,
     LightFromType? fromType,
     $fixnum.Int64? fakeUid,
@@ -12932,8 +12932,8 @@ class DynLightReq extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'historyOffset')
     ..aI(2, _omitFieldNames ? '' : 'page')
     ..aOS(3, _omitFieldNames ? '' : 'from')
-    ..aOM<$1.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aI(5, _omitFieldNames ? '' : 'localTime')
     ..aE<LightFromType>(6, _omitFieldNames ? '' : 'fromType',
         enumValues: LightFromType.values)
@@ -12990,15 +12990,15 @@ class DynLightReq extends $pb.GeneratedMessage {
   void clearFrom() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.PlayerArgs get playerArgs => $_getN(3);
+  $0.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($1.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 
   @$pb.TagNumber(5)
   $core.int get localTime => $_getIZ(4);
@@ -13381,7 +13381,7 @@ class DynRcmdReply extends $pb.GeneratedMessage {
 
 class DynRcmdReq extends $pb.GeneratedMessage {
   factory DynRcmdReq({
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.int? localTime,
     $fixnum.Int64? fakeUid,
     $core.bool? isRefresh,
@@ -13408,8 +13408,8 @@ class DynRcmdReq extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.app.dynamic.v2'),
       createEmptyInstance: DynRcmdReq.$_createMessage)
-    ..aOM<$1.PlayerArgs>(1, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(1, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aI(2, _omitFieldNames ? '' : 'localTime')
     ..aInt64(3, _omitFieldNames ? '' : 'fakeUid')
     ..aOB(4, _omitFieldNames ? '' : 'isRefresh')
@@ -13436,15 +13436,15 @@ class DynRcmdReq extends $pb.GeneratedMessage {
   static DynRcmdReq? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.PlayerArgs get playerArgs => $_getN(0);
+  $0.PlayerArgs get playerArgs => $_getN(0);
   @$pb.TagNumber(1)
-  set playerArgs($1.PlayerArgs value) => $_setField(1, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasPlayerArgs() => $_has(0);
   @$pb.TagNumber(1)
   void clearPlayerArgs() => $_clearField(1);
   @$pb.TagNumber(1)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(0);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(0);
 
   @$pb.TagNumber(2)
   $core.int get localTime => $_getIZ(1);
@@ -13982,7 +13982,7 @@ class DynSearchReq extends $pb.GeneratedMessage {
     $core.String? keyword,
     $core.int? page,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = DynSearchReq._();
     if (keyword != null) result.keyword = keyword;
@@ -14009,8 +14009,8 @@ class DynSearchReq extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'keyword')
     ..aI(2, _omitFieldNames ? '' : 'page')
     ..aI(3, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -14063,15 +14063,15 @@ class DynSearchReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.PlayerArgs get playerArgs => $_getN(3);
+  $0.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($1.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 }
 
 class DynServerDetailsReply extends $pb.GeneratedMessage {
@@ -14138,7 +14138,7 @@ class DynServerDetailsReq extends $pb.GeneratedMessage {
   factory DynServerDetailsReq({
     $core.Iterable<$fixnum.Int64>? dynamicIds,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.String? mobiApp,
     $core.String? device,
     $core.String? buvid,
@@ -14180,8 +14180,8 @@ class DynServerDetailsReq extends $pb.GeneratedMessage {
     ..p<$fixnum.Int64>(
         1, _omitFieldNames ? '' : 'dynamicIds', $pb.PbFieldType.K6)
     ..aI(2, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOS(4, _omitFieldNames ? '' : 'mobiApp')
     ..aOS(5, _omitFieldNames ? '' : 'device')
     ..aOS(6, _omitFieldNames ? '' : 'buvid')
@@ -14229,15 +14229,15 @@ class DynServerDetailsReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.String get mobiApp => $_getSZ(3);
@@ -14310,7 +14310,7 @@ class DynSpaceReq extends $pb.GeneratedMessage {
   factory DynSpaceReq({
     $fixnum.Int64? hostUid,
     $core.String? historyOffset,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.int? localTime,
     $fixnum.Int64? page,
     $core.String? from,
@@ -14341,8 +14341,8 @@ class DynSpaceReq extends $pb.GeneratedMessage {
       createEmptyInstance: DynSpaceReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'hostUid')
     ..aOS(2, _omitFieldNames ? '' : 'historyOffset')
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aI(4, _omitFieldNames ? '' : 'localTime')
     ..aInt64(5, _omitFieldNames ? '' : 'page')
     ..aOS(6, _omitFieldNames ? '' : 'from')
@@ -14389,15 +14389,15 @@ class DynSpaceReq extends $pb.GeneratedMessage {
   void clearHistoryOffset() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.int get localTime => $_getIZ(3);
@@ -14572,7 +14572,7 @@ class DynSpaceSearchDetailsReq extends $pb.GeneratedMessage {
     $core.Iterable<$fixnum.Int64>? dynamicIds,
     $core.Iterable<$core.String>? searchWords,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $core.String? mobiApp,
     $core.String? device,
     $core.String? buvid,
@@ -14618,8 +14618,8 @@ class DynSpaceSearchDetailsReq extends $pb.GeneratedMessage {
         1, _omitFieldNames ? '' : 'dynamicIds', $pb.PbFieldType.K6)
     ..pPS(2, _omitFieldNames ? '' : 'searchWords')
     ..aI(3, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOS(5, _omitFieldNames ? '' : 'mobiApp')
     ..aOS(6, _omitFieldNames ? '' : 'device')
     ..aOS(7, _omitFieldNames ? '' : 'buvid')
@@ -14673,15 +14673,15 @@ class DynSpaceSearchDetailsReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.PlayerArgs get playerArgs => $_getN(3);
+  $0.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($1.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 
   @$pb.TagNumber(5)
   $core.String get mobiApp => $_getSZ(4);
@@ -15375,7 +15375,7 @@ class DynVideoPersonalReq extends $pb.GeneratedMessage {
     $core.int? localTime,
     $core.String? footprint,
     $core.String? from,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $fixnum.Int64? pegasusAvid,
     $core.String? personalExtra,
   }) {
@@ -15417,8 +15417,8 @@ class DynVideoPersonalReq extends $pb.GeneratedMessage {
     ..aI(6, _omitFieldNames ? '' : 'localTime')
     ..aOS(7, _omitFieldNames ? '' : 'footprint')
     ..aOS(8, _omitFieldNames ? '' : 'from')
-    ..aOM<$1.PlayerArgs>(9, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(9, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aInt64(10, _omitFieldNames ? '' : 'pegasusAvid')
     ..aOS(11, _omitFieldNames ? '' : 'personalExtra')
     ..hasRequiredFields = false;
@@ -15521,15 +15521,15 @@ class DynVideoPersonalReq extends $pb.GeneratedMessage {
   void clearFrom() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $1.PlayerArgs get playerArgs => $_getN(8);
+  $0.PlayerArgs get playerArgs => $_getN(8);
   @$pb.TagNumber(9)
-  set playerArgs($1.PlayerArgs value) => $_setField(9, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(9, value);
   @$pb.TagNumber(9)
   $core.bool hasPlayerArgs() => $_has(8);
   @$pb.TagNumber(9)
   void clearPlayerArgs() => $_clearField(9);
   @$pb.TagNumber(9)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(8);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(8);
 
   @$pb.TagNumber(10)
   $fixnum.Int64 get pegasusAvid => $_getI64(9);
@@ -15666,7 +15666,7 @@ class DynVideoReq extends $pb.GeneratedMessage {
     $core.String? assistBaseline,
     $core.int? localTime,
     $core.String? from,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     FeedSortOptionReq? reqSortOption,
   }) {
     final result = DynVideoReq._();
@@ -15707,8 +15707,8 @@ class DynVideoReq extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'assistBaseline')
     ..aI(7, _omitFieldNames ? '' : 'localTime')
     ..aOS(8, _omitFieldNames ? '' : 'from')
-    ..aOM<$1.PlayerArgs>(9, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(9, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOM<FeedSortOptionReq>(10, _omitFieldNames ? '' : 'reqSortOption',
         subBuilder: FeedSortOptionReq.$_createMessage)
     ..hasRequiredFields = false;
@@ -15810,15 +15810,15 @@ class DynVideoReq extends $pb.GeneratedMessage {
   void clearFrom() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $1.PlayerArgs get playerArgs => $_getN(8);
+  $0.PlayerArgs get playerArgs => $_getN(8);
   @$pb.TagNumber(9)
-  set playerArgs($1.PlayerArgs value) => $_setField(9, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(9, value);
   @$pb.TagNumber(9)
   $core.bool hasPlayerArgs() => $_has(8);
   @$pb.TagNumber(9)
   void clearPlayerArgs() => $_clearField(9);
   @$pb.TagNumber(9)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(8);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(8);
 
   @$pb.TagNumber(10)
   FeedSortOptionReq get reqSortOption => $_getN(9);
@@ -17215,7 +17215,7 @@ class Extend extends $pb.GeneratedMessage {
     $fixnum.Int64? dynType,
     $fixnum.Int64? uid,
     $core.String? cardUrl,
-    $6.Any? sourceContent,
+    $5.Any? sourceContent,
     $core.String? origFace,
     ExtendReply? reply,
     $core.String? trackId,
@@ -17302,8 +17302,8 @@ class Extend extends $pb.GeneratedMessage {
     ..aInt64(13, _omitFieldNames ? '' : 'dynType')
     ..aInt64(14, _omitFieldNames ? '' : 'uid')
     ..aOS(15, _omitFieldNames ? '' : 'cardUrl')
-    ..aOM<$6.Any>(16, _omitFieldNames ? '' : 'sourceContent',
-        subBuilder: $6.Any.$_createMessage)
+    ..aOM<$5.Any>(16, _omitFieldNames ? '' : 'sourceContent',
+        subBuilder: $5.Any.$_createMessage)
     ..aOS(17, _omitFieldNames ? '' : 'origFace')
     ..aOM<ExtendReply>(18, _omitFieldNames ? '' : 'reply',
         subBuilder: ExtendReply.$_createMessage)
@@ -17479,15 +17479,15 @@ class Extend extends $pb.GeneratedMessage {
   void clearCardUrl() => $_clearField(15);
 
   @$pb.TagNumber(16)
-  $6.Any get sourceContent => $_getN(15);
+  $5.Any get sourceContent => $_getN(15);
   @$pb.TagNumber(16)
-  set sourceContent($6.Any value) => $_setField(16, value);
+  set sourceContent($5.Any value) => $_setField(16, value);
   @$pb.TagNumber(16)
   $core.bool hasSourceContent() => $_has(15);
   @$pb.TagNumber(16)
   void clearSourceContent() => $_clearField(16);
   @$pb.TagNumber(16)
-  $6.Any ensureSourceContent() => $_ensure(15);
+  $5.Any ensureSourceContent() => $_ensure(15);
 
   @$pb.TagNumber(17)
   $core.String get origFace => $_getSZ(16);
@@ -17909,7 +17909,7 @@ class FeedFilterReq extends $pb.GeneratedMessage {
     $core.String? offset,
     $core.String? tab,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     AdParam? adParam,
     $core.int? coldStart,
     $fixnum.Int64? page,
@@ -17942,8 +17942,8 @@ class FeedFilterReq extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'offset')
     ..aOS(2, _omitFieldNames ? '' : 'tab')
     ..aI(3, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOM<AdParam>(5, _omitFieldNames ? '' : 'adParam',
         subBuilder: AdParam.$_createMessage)
     ..aI(6, _omitFieldNames ? '' : 'coldStart')
@@ -18000,15 +18000,15 @@ class FeedFilterReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.PlayerArgs get playerArgs => $_getN(3);
+  $0.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($1.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 
   @$pb.TagNumber(5)
   AdParam get adParam => $_getN(4);
@@ -18333,7 +18333,7 @@ class FetchTabSettingReply extends $pb.GeneratedMessage {
 class FlowItemOpus extends $pb.GeneratedMessage {
   factory FlowItemOpus({
     MdlDynDrawItem? coverPic,
-    $4.ItemWHRatio? coverWhRatio,
+    $3.ItemWHRatio? coverWhRatio,
     CoverIconWithText? bottomLeftText1,
     CoverIconWithText? bottomLeftText2,
     Paragraph? textParagraph,
@@ -18367,8 +18367,8 @@ class FlowItemOpus extends $pb.GeneratedMessage {
       createEmptyInstance: FlowItemOpus.$_createMessage)
     ..aOM<MdlDynDrawItem>(1, _omitFieldNames ? '' : 'coverPic',
         subBuilder: MdlDynDrawItem.$_createMessage)
-    ..aOM<$4.ItemWHRatio>(2, _omitFieldNames ? '' : 'coverWhRatio',
-        subBuilder: $4.ItemWHRatio.$_createMessage)
+    ..aOM<$3.ItemWHRatio>(2, _omitFieldNames ? '' : 'coverWhRatio',
+        subBuilder: $3.ItemWHRatio.$_createMessage)
     ..aOM<CoverIconWithText>(3, _omitFieldNames ? '' : 'bottomLeftText1',
         subBuilder: CoverIconWithText.$_createMessage)
     ..aOM<CoverIconWithText>(4, _omitFieldNames ? '' : 'bottomLeftText2',
@@ -18415,15 +18415,15 @@ class FlowItemOpus extends $pb.GeneratedMessage {
   MdlDynDrawItem ensureCoverPic() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  $4.ItemWHRatio get coverWhRatio => $_getN(1);
+  $3.ItemWHRatio get coverWhRatio => $_getN(1);
   @$pb.TagNumber(2)
-  set coverWhRatio($4.ItemWHRatio value) => $_setField(2, value);
+  set coverWhRatio($3.ItemWHRatio value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasCoverWhRatio() => $_has(1);
   @$pb.TagNumber(2)
   void clearCoverWhRatio() => $_clearField(2);
   @$pb.TagNumber(2)
-  $4.ItemWHRatio ensureCoverWhRatio() => $_ensure(1);
+  $3.ItemWHRatio ensureCoverWhRatio() => $_ensure(1);
 
   @$pb.TagNumber(3)
   CoverIconWithText get bottomLeftText1 => $_getN(2);
@@ -20207,7 +20207,7 @@ class LbsPoiReq extends $pb.GeneratedMessage {
     $core.String? offset,
     Refresh? refreshType,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = LbsPoiReq._();
     if (poi != null) result.poi = poi;
@@ -20239,8 +20239,8 @@ class LbsPoiReq extends $pb.GeneratedMessage {
     ..aE<Refresh>(4, _omitFieldNames ? '' : 'refreshType',
         enumValues: Refresh.values)
     ..aI(5, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(6, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(6, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -20309,15 +20309,15 @@ class LbsPoiReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $1.PlayerArgs get playerArgs => $_getN(5);
+  $0.PlayerArgs get playerArgs => $_getN(5);
   @$pb.TagNumber(6)
-  set playerArgs($1.PlayerArgs value) => $_setField(6, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(6, value);
   @$pb.TagNumber(6)
   $core.bool hasPlayerArgs() => $_has(5);
   @$pb.TagNumber(6)
   void clearPlayerArgs() => $_clearField(6);
   @$pb.TagNumber(6)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(5);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(5);
 }
 
 class LegacyTopicFeedReply extends $pb.GeneratedMessage {
@@ -21026,7 +21026,7 @@ class LinkNode extends $pb.GeneratedMessage {
     $fixnum.Int64? timestamp,
     GoodsItem? goodsItem,
     NoteVideoTS? noteVideoTs,
-    $6.Any? bizData,
+    $5.Any? bizData,
     MdlDynDraw? linkPics,
   }) {
     final result = LinkNode._();
@@ -21073,8 +21073,8 @@ class LinkNode extends $pb.GeneratedMessage {
         subBuilder: GoodsItem.$_createMessage)
     ..aOM<NoteVideoTS>(10, _omitFieldNames ? '' : 'noteVideoTs',
         subBuilder: NoteVideoTS.$_createMessage)
-    ..aOM<$6.Any>(11, _omitFieldNames ? '' : 'bizData',
-        subBuilder: $6.Any.$_createMessage)
+    ..aOM<$5.Any>(11, _omitFieldNames ? '' : 'bizData',
+        subBuilder: $5.Any.$_createMessage)
     ..aOM<MdlDynDraw>(12, _omitFieldNames ? '' : 'linkPics',
         subBuilder: MdlDynDraw.$_createMessage)
     ..hasRequiredFields = false;
@@ -21196,15 +21196,15 @@ class LinkNode extends $pb.GeneratedMessage {
   NoteVideoTS ensureNoteVideoTs() => $_ensure(9);
 
   @$pb.TagNumber(11)
-  $6.Any get bizData => $_getN(10);
+  $5.Any get bizData => $_getN(10);
   @$pb.TagNumber(11)
-  set bizData($6.Any value) => $_setField(11, value);
+  set bizData($5.Any value) => $_setField(11, value);
   @$pb.TagNumber(11)
   $core.bool hasBizData() => $_has(10);
   @$pb.TagNumber(11)
   void clearBizData() => $_clearField(11);
   @$pb.TagNumber(11)
-  $6.Any ensureBizData() => $_ensure(10);
+  $5.Any ensureBizData() => $_ensure(10);
 
   @$pb.TagNumber(12)
   MdlDynDraw get linkPics => $_getN(11);
@@ -21222,7 +21222,7 @@ class ListCreationReq extends $pb.GeneratedMessage {
   factory ListCreationReq({
     SelectedClassificationAndSortType? preference,
     $core.int? localTime,
-    $7.Pagination? pagination,
+    $6.Pagination? pagination,
   }) {
     final result = ListCreationReq._();
     if (preference != null) result.preference = preference;
@@ -21249,8 +21249,8 @@ class ListCreationReq extends $pb.GeneratedMessage {
         1, _omitFieldNames ? '' : 'preference',
         subBuilder: SelectedClassificationAndSortType.$_createMessage)
     ..aI(2, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$7.Pagination>(3, _omitFieldNames ? '' : 'pagination',
-        subBuilder: $7.Pagination.$_createMessage)
+    ..aOM<$6.Pagination>(3, _omitFieldNames ? '' : 'pagination',
+        subBuilder: $6.Pagination.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -21297,22 +21297,22 @@ class ListCreationReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $7.Pagination get pagination => $_getN(2);
+  $6.Pagination get pagination => $_getN(2);
   @$pb.TagNumber(3)
-  set pagination($7.Pagination value) => $_setField(3, value);
+  set pagination($6.Pagination value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPagination() => $_has(2);
   @$pb.TagNumber(3)
   void clearPagination() => $_clearField(3);
   @$pb.TagNumber(3)
-  $7.Pagination ensurePagination() => $_ensure(2);
+  $6.Pagination ensurePagination() => $_ensure(2);
 }
 
 class ListCreationResp extends $pb.GeneratedMessage {
   factory ListCreationResp({
     $core.Iterable<CreationClassification>? classifications,
     $core.Iterable<CreationSortType>? sortTypes,
-    $7.PaginationReply? nextPage,
+    $6.PaginationReply? nextPage,
     $core.Iterable<OpusCreationItem>? creationList,
   }) {
     final result = ListCreationResp._();
@@ -21341,8 +21341,8 @@ class ListCreationResp extends $pb.GeneratedMessage {
         subBuilder: CreationClassification.$_createMessage)
     ..pPM<CreationSortType>(2, _omitFieldNames ? '' : 'sortTypes',
         subBuilder: CreationSortType.$_createMessage)
-    ..aOM<$7.PaginationReply>(3, _omitFieldNames ? '' : 'nextPage',
-        subBuilder: $7.PaginationReply.$_createMessage)
+    ..aOM<$6.PaginationReply>(3, _omitFieldNames ? '' : 'nextPage',
+        subBuilder: $6.PaginationReply.$_createMessage)
     ..pPM<OpusCreationItem>(4, _omitFieldNames ? '' : 'creationList',
         subBuilder: OpusCreationItem.$_createMessage)
     ..hasRequiredFields = false;
@@ -21376,15 +21376,15 @@ class ListCreationResp extends $pb.GeneratedMessage {
   $pb.PbList<CreationSortType> get sortTypes => $_getList(1);
 
   @$pb.TagNumber(3)
-  $7.PaginationReply get nextPage => $_getN(2);
+  $6.PaginationReply get nextPage => $_getN(2);
   @$pb.TagNumber(3)
-  set nextPage($7.PaginationReply value) => $_setField(3, value);
+  set nextPage($6.PaginationReply value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasNextPage() => $_has(2);
   @$pb.TagNumber(3)
   void clearNextPage() => $_clearField(3);
   @$pb.TagNumber(3)
-  $7.PaginationReply ensureNextPage() => $_ensure(2);
+  $6.PaginationReply ensureNextPage() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $pb.PbList<OpusCreationItem> get creationList => $_getList(3);
@@ -21393,7 +21393,7 @@ class ListCreationResp extends $pb.GeneratedMessage {
 class ListFavReq extends $pb.GeneratedMessage {
   factory ListFavReq({
     $core.int? localTime,
-    $7.Pagination? pagination,
+    $6.Pagination? pagination,
   }) {
     final result = ListFavReq._();
     if (localTime != null) result.localTime = localTime;
@@ -21416,8 +21416,8 @@ class ListFavReq extends $pb.GeneratedMessage {
           _omitMessageNames ? '' : 'bilibili.app.dynamic.v2'),
       createEmptyInstance: ListFavReq.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$7.Pagination>(2, _omitFieldNames ? '' : 'pagination',
-        subBuilder: $7.Pagination.$_createMessage)
+    ..aOM<$6.Pagination>(2, _omitFieldNames ? '' : 'pagination',
+        subBuilder: $6.Pagination.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -21450,21 +21450,21 @@ class ListFavReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $7.Pagination get pagination => $_getN(1);
+  $6.Pagination get pagination => $_getN(1);
   @$pb.TagNumber(2)
-  set pagination($7.Pagination value) => $_setField(2, value);
+  set pagination($6.Pagination value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasPagination() => $_has(1);
   @$pb.TagNumber(2)
   void clearPagination() => $_clearField(2);
   @$pb.TagNumber(2)
-  $7.Pagination ensurePagination() => $_ensure(1);
+  $6.Pagination ensurePagination() => $_ensure(1);
 }
 
 class ListFavResp extends $pb.GeneratedMessage {
   factory ListFavResp({
     $core.Iterable<OpusFavItem>? itemList,
-    $7.PaginationReply? nextPage,
+    $6.PaginationReply? nextPage,
   }) {
     final result = ListFavResp._();
     if (itemList != null) result.itemList.addAll(itemList);
@@ -21488,8 +21488,8 @@ class ListFavResp extends $pb.GeneratedMessage {
       createEmptyInstance: ListFavResp.$_createMessage)
     ..pPM<OpusFavItem>(1, _omitFieldNames ? '' : 'itemList',
         subBuilder: OpusFavItem.$_createMessage)
-    ..aOM<$7.PaginationReply>(2, _omitFieldNames ? '' : 'nextPage',
-        subBuilder: $7.PaginationReply.$_createMessage)
+    ..aOM<$6.PaginationReply>(2, _omitFieldNames ? '' : 'nextPage',
+        subBuilder: $6.PaginationReply.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -21518,15 +21518,15 @@ class ListFavResp extends $pb.GeneratedMessage {
   $pb.PbList<OpusFavItem> get itemList => $_getList(0);
 
   @$pb.TagNumber(2)
-  $7.PaginationReply get nextPage => $_getN(1);
+  $6.PaginationReply get nextPage => $_getN(1);
   @$pb.TagNumber(2)
-  set nextPage($7.PaginationReply value) => $_setField(2, value);
+  set nextPage($6.PaginationReply value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasNextPage() => $_has(1);
   @$pb.TagNumber(2)
   void clearNextPage() => $_clearField(2);
   @$pb.TagNumber(2)
-  $7.PaginationReply ensureNextPage() => $_ensure(1);
+  $6.PaginationReply ensureNextPage() => $_ensure(1);
 }
 
 class LiveInfo extends $pb.GeneratedMessage {
@@ -25995,8 +25995,8 @@ class MixUpListItem extends $pb.GeneratedMessage {
     Relation? relation,
     $core.int? premiereState,
     $core.String? uri,
-    $2.AvatarItem? avatar,
-    $3.NameRender? nameRender,
+    $1.AvatarItem? avatar,
+    $2.NameRender? nameRender,
   }) {
     final result = MixUpListItem._();
     if (uid != null) result.uid = uid;
@@ -26044,10 +26044,10 @@ class MixUpListItem extends $pb.GeneratedMessage {
         subBuilder: Relation.$_createMessage)
     ..aI(10, _omitFieldNames ? '' : 'premiereState')
     ..aOS(11, _omitFieldNames ? '' : 'uri')
-    ..aOM<$2.AvatarItem>(12, _omitFieldNames ? '' : 'avatar',
-        subBuilder: $2.AvatarItem.$_createMessage)
-    ..aOM<$3.NameRender>(13, _omitFieldNames ? '' : 'nameRender',
-        subBuilder: $3.NameRender.$_createMessage)
+    ..aOM<$1.AvatarItem>(12, _omitFieldNames ? '' : 'avatar',
+        subBuilder: $1.AvatarItem.$_createMessage)
+    ..aOM<$2.NameRender>(13, _omitFieldNames ? '' : 'nameRender',
+        subBuilder: $2.NameRender.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -26180,26 +26180,26 @@ class MixUpListItem extends $pb.GeneratedMessage {
   void clearUri() => $_clearField(11);
 
   @$pb.TagNumber(12)
-  $2.AvatarItem get avatar => $_getN(11);
+  $1.AvatarItem get avatar => $_getN(11);
   @$pb.TagNumber(12)
-  set avatar($2.AvatarItem value) => $_setField(12, value);
+  set avatar($1.AvatarItem value) => $_setField(12, value);
   @$pb.TagNumber(12)
   $core.bool hasAvatar() => $_has(11);
   @$pb.TagNumber(12)
   void clearAvatar() => $_clearField(12);
   @$pb.TagNumber(12)
-  $2.AvatarItem ensureAvatar() => $_ensure(11);
+  $1.AvatarItem ensureAvatar() => $_ensure(11);
 
   @$pb.TagNumber(13)
-  $3.NameRender get nameRender => $_getN(12);
+  $2.NameRender get nameRender => $_getN(12);
   @$pb.TagNumber(13)
-  set nameRender($3.NameRender value) => $_setField(13, value);
+  set nameRender($2.NameRender value) => $_setField(13, value);
   @$pb.TagNumber(13)
   $core.bool hasNameRender() => $_has(12);
   @$pb.TagNumber(13)
   void clearNameRender() => $_clearField(13);
   @$pb.TagNumber(13)
-  $3.NameRender ensureNameRender() => $_ensure(12);
+  $2.NameRender ensureNameRender() => $_ensure(12);
 }
 
 class MixUpListLiveItem extends $pb.GeneratedMessage {
@@ -27247,7 +27247,7 @@ class Module extends $pb.GeneratedMessage {
 
 class ModuleAd extends $pb.GeneratedMessage {
   factory ModuleAd({
-    $6.Any? sourceContent,
+    $5.Any? sourceContent,
     ModuleAuthor? moduleAuthor,
     $core.int? adContentType,
     $core.String? coverLeftText1,
@@ -27278,8 +27278,8 @@ class ModuleAd extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.app.dynamic.v2'),
       createEmptyInstance: ModuleAd.$_createMessage)
-    ..aOM<$6.Any>(1, _omitFieldNames ? '' : 'sourceContent',
-        subBuilder: $6.Any.$_createMessage)
+    ..aOM<$5.Any>(1, _omitFieldNames ? '' : 'sourceContent',
+        subBuilder: $5.Any.$_createMessage)
     ..aOM<ModuleAuthor>(2, _omitFieldNames ? '' : 'moduleAuthor',
         subBuilder: ModuleAuthor.$_createMessage)
     ..aI(3, _omitFieldNames ? '' : 'adContentType')
@@ -27309,15 +27309,15 @@ class ModuleAd extends $pb.GeneratedMessage {
   static ModuleAd? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $6.Any get sourceContent => $_getN(0);
+  $5.Any get sourceContent => $_getN(0);
   @$pb.TagNumber(1)
-  set sourceContent($6.Any value) => $_setField(1, value);
+  set sourceContent($5.Any value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasSourceContent() => $_has(0);
   @$pb.TagNumber(1)
   void clearSourceContent() => $_clearField(1);
   @$pb.TagNumber(1)
-  $6.Any ensureSourceContent() => $_ensure(0);
+  $5.Any ensureSourceContent() => $_ensure(0);
 
   @$pb.TagNumber(2)
   ModuleAuthor get moduleAuthor => $_getN(1);
@@ -31665,7 +31665,7 @@ class ModuleRecommend extends $pb.GeneratedMessage {
     $core.String? tag,
     $core.String? title,
     $core.String? jumpUrl,
-    $core.Iterable<$6.Any>? ad,
+    $core.Iterable<$5.Any>? ad,
   }) {
     final result = ModuleRecommend._();
     if (moduleTitle != null) result.moduleTitle = moduleTitle;
@@ -31696,8 +31696,8 @@ class ModuleRecommend extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'tag')
     ..aOS(4, _omitFieldNames ? '' : 'title')
     ..aOS(5, _omitFieldNames ? '' : 'jumpUrl')
-    ..pPM<$6.Any>(6, _omitFieldNames ? '' : 'ad',
-        subBuilder: $6.Any.$_createMessage)
+    ..pPM<$5.Any>(6, _omitFieldNames ? '' : 'ad',
+        subBuilder: $5.Any.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -31768,7 +31768,7 @@ class ModuleRecommend extends $pb.GeneratedMessage {
   void clearJumpUrl() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $pb.PbList<$6.Any> get ad => $_getList(5);
+  $pb.PbList<$5.Any> get ad => $_getList(5);
 }
 
 class ModuleShareInfo extends $pb.GeneratedMessage {
@@ -33603,7 +33603,7 @@ class OfficialDynamicsReply extends $pb.GeneratedMessage {
     $core.Iterable<OfficialItem>? items,
     $fixnum.Int64? offset,
     $core.bool? hasMore,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = OfficialDynamicsReply._();
     if (items != null) result.items.addAll(items);
@@ -33631,8 +33631,8 @@ class OfficialDynamicsReply extends $pb.GeneratedMessage {
         subBuilder: OfficialItem.$_createMessage)
     ..aInt64(2, _omitFieldNames ? '' : 'offset')
     ..aOB(3, _omitFieldNames ? '' : 'hasMore')
-    ..aOM<$1.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -33681,15 +33681,15 @@ class OfficialDynamicsReply extends $pb.GeneratedMessage {
   void clearHasMore() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.PlayerArgs get playerArgs => $_getN(3);
+  $0.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($1.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 }
 
 class OfficialDynamicsReq extends $pb.GeneratedMessage {
@@ -35600,7 +35600,7 @@ class OpusDetailReq extends $pb.GeneratedMessage {
     $core.String? shareId,
     $core.int? shareMode,
     $core.int? localTime,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     Config? config,
     AdParam? adParam,
     $core.String? from,
@@ -35642,8 +35642,8 @@ class OpusDetailReq extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'shareId')
     ..aI(9, _omitFieldNames ? '' : 'shareMode')
     ..aI(10, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$1.PlayerArgs>(11, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(11, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aOM<Config>(12, _omitFieldNames ? '' : 'config',
         subBuilder: Config.$_createMessage)
     ..aOM<AdParam>(13, _omitFieldNames ? '' : 'adParam',
@@ -35729,15 +35729,15 @@ class OpusDetailReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $1.PlayerArgs get playerArgs => $_getN(6);
+  $0.PlayerArgs get playerArgs => $_getN(6);
   @$pb.TagNumber(11)
-  set playerArgs($1.PlayerArgs value) => $_setField(11, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(11, value);
   @$pb.TagNumber(11)
   $core.bool hasPlayerArgs() => $_has(6);
   @$pb.TagNumber(11)
   void clearPlayerArgs() => $_clearField(11);
   @$pb.TagNumber(11)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(6);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(6);
 
   @$pb.TagNumber(12)
   Config get config => $_getN(7);
@@ -36186,7 +36186,7 @@ class OpusSpaceFlowReq extends $pb.GeneratedMessage {
   factory OpusSpaceFlowReq({
     $fixnum.Int64? hostMid,
     $core.int? localTime,
-    $7.Pagination? pagination,
+    $6.Pagination? pagination,
     $core.String? filterType,
   }) {
     final result = OpusSpaceFlowReq._();
@@ -36213,8 +36213,8 @@ class OpusSpaceFlowReq extends $pb.GeneratedMessage {
       createEmptyInstance: OpusSpaceFlowReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'hostMid')
     ..aI(2, _omitFieldNames ? '' : 'localTime')
-    ..aOM<$7.Pagination>(3, _omitFieldNames ? '' : 'pagination',
-        subBuilder: $7.Pagination.$_createMessage)
+    ..aOM<$6.Pagination>(3, _omitFieldNames ? '' : 'pagination',
+        subBuilder: $6.Pagination.$_createMessage)
     ..aOS(4, _omitFieldNames ? '' : 'filterType')
     ..hasRequiredFields = false;
 
@@ -36259,15 +36259,15 @@ class OpusSpaceFlowReq extends $pb.GeneratedMessage {
   void clearLocalTime() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $7.Pagination get pagination => $_getN(2);
+  $6.Pagination get pagination => $_getN(2);
   @$pb.TagNumber(3)
-  set pagination($7.Pagination value) => $_setField(3, value);
+  set pagination($6.Pagination value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPagination() => $_has(2);
   @$pb.TagNumber(3)
   void clearPagination() => $_clearField(3);
   @$pb.TagNumber(3)
-  $7.Pagination ensurePagination() => $_ensure(2);
+  $6.Pagination ensurePagination() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $core.String get filterType => $_getSZ(3);
@@ -36282,7 +36282,7 @@ class OpusSpaceFlowReq extends $pb.GeneratedMessage {
 class OpusSpaceFlowResp extends $pb.GeneratedMessage {
   factory OpusSpaceFlowResp({
     $core.Iterable<OpusFlowItem>? itemList,
-    $7.PaginationReply? nextPage,
+    $6.PaginationReply? nextPage,
     SectionOpusCollection? hostUpOpusCollection,
     SectionNoteNavigationBar? hostUpNoteNavBar,
   }) {
@@ -36311,8 +36311,8 @@ class OpusSpaceFlowResp extends $pb.GeneratedMessage {
       createEmptyInstance: OpusSpaceFlowResp.$_createMessage)
     ..pPM<OpusFlowItem>(1, _omitFieldNames ? '' : 'itemList',
         subBuilder: OpusFlowItem.$_createMessage)
-    ..aOM<$7.PaginationReply>(2, _omitFieldNames ? '' : 'nextPage',
-        subBuilder: $7.PaginationReply.$_createMessage)
+    ..aOM<$6.PaginationReply>(2, _omitFieldNames ? '' : 'nextPage',
+        subBuilder: $6.PaginationReply.$_createMessage)
     ..aOM<SectionOpusCollection>(
         3, _omitFieldNames ? '' : 'hostUpOpusCollection',
         subBuilder: SectionOpusCollection.$_createMessage)
@@ -36347,15 +36347,15 @@ class OpusSpaceFlowResp extends $pb.GeneratedMessage {
   $pb.PbList<OpusFlowItem> get itemList => $_getList(0);
 
   @$pb.TagNumber(2)
-  $7.PaginationReply get nextPage => $_getN(1);
+  $6.PaginationReply get nextPage => $_getN(1);
   @$pb.TagNumber(2)
-  set nextPage($7.PaginationReply value) => $_setField(2, value);
+  set nextPage($6.PaginationReply value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasNextPage() => $_has(1);
   @$pb.TagNumber(2)
   void clearNextPage() => $_clearField(2);
   @$pb.TagNumber(2)
-  $7.PaginationReply ensureNextPage() => $_ensure(1);
+  $6.PaginationReply ensureNextPage() => $_ensure(1);
 
   @$pb.TagNumber(3)
   SectionOpusCollection get hostUpOpusCollection => $_getN(2);
@@ -45679,8 +45679,8 @@ class UserInfo extends $pb.GeneratedMessage {
     $core.int? faceNftNew,
     NFTInfo? nftInfo,
     $core.int? isSeniorMember,
-    $2.AvatarItem? avatar,
-    $3.NameRender? nameRender,
+    $1.AvatarItem? avatar,
+    $2.NameRender? nameRender,
   }) {
     final result = UserInfo._();
     if (mid != null) result.mid = mid;
@@ -45738,10 +45738,10 @@ class UserInfo extends $pb.GeneratedMessage {
     ..aOM<NFTInfo>(14, _omitFieldNames ? '' : 'nftInfo',
         subBuilder: NFTInfo.$_createMessage)
     ..aI(15, _omitFieldNames ? '' : 'isSeniorMember')
-    ..aOM<$2.AvatarItem>(16, _omitFieldNames ? '' : 'avatar',
-        subBuilder: $2.AvatarItem.$_createMessage)
-    ..aOM<$3.NameRender>(17, _omitFieldNames ? '' : 'nameRender',
-        subBuilder: $3.NameRender.$_createMessage)
+    ..aOM<$1.AvatarItem>(16, _omitFieldNames ? '' : 'avatar',
+        subBuilder: $1.AvatarItem.$_createMessage)
+    ..aOM<$2.NameRender>(17, _omitFieldNames ? '' : 'nameRender',
+        subBuilder: $2.NameRender.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -45912,26 +45912,26 @@ class UserInfo extends $pb.GeneratedMessage {
   void clearIsSeniorMember() => $_clearField(15);
 
   @$pb.TagNumber(16)
-  $2.AvatarItem get avatar => $_getN(15);
+  $1.AvatarItem get avatar => $_getN(15);
   @$pb.TagNumber(16)
-  set avatar($2.AvatarItem value) => $_setField(16, value);
+  set avatar($1.AvatarItem value) => $_setField(16, value);
   @$pb.TagNumber(16)
   $core.bool hasAvatar() => $_has(15);
   @$pb.TagNumber(16)
   void clearAvatar() => $_clearField(16);
   @$pb.TagNumber(16)
-  $2.AvatarItem ensureAvatar() => $_ensure(15);
+  $1.AvatarItem ensureAvatar() => $_ensure(15);
 
   @$pb.TagNumber(17)
-  $3.NameRender get nameRender => $_getN(16);
+  $2.NameRender get nameRender => $_getN(16);
   @$pb.TagNumber(17)
-  set nameRender($3.NameRender value) => $_setField(17, value);
+  set nameRender($2.NameRender value) => $_setField(17, value);
   @$pb.TagNumber(17)
   $core.bool hasNameRender() => $_has(16);
   @$pb.TagNumber(17)
   void clearNameRender() => $_clearField(17);
   @$pb.TagNumber(17)
-  $3.NameRender ensureNameRender() => $_ensure(16);
+  $2.NameRender ensureNameRender() => $_ensure(16);
 }
 
 class UserItemStyle extends $pb.GeneratedMessage {
@@ -46689,8 +46689,8 @@ class WFItemDefault extends $pb.GeneratedMessage {
 class WaterFlowRcmdReq extends $pb.GeneratedMessage {
   factory WaterFlowRcmdReq({
     $fixnum.Int64? campusId,
-    $7.FeedPagination? page,
-    $1.PlayerArgs? playerArgs,
+    $6.FeedPagination? page,
+    $0.PlayerArgs? playerArgs,
     CampusRcmdReqFrom? from,
   }) {
     final result = WaterFlowRcmdReq._();
@@ -46716,10 +46716,10 @@ class WaterFlowRcmdReq extends $pb.GeneratedMessage {
           _omitMessageNames ? '' : 'bilibili.app.dynamic.v2'),
       createEmptyInstance: WaterFlowRcmdReq.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'campusId')
-    ..aOM<$7.FeedPagination>(2, _omitFieldNames ? '' : 'page',
-        subBuilder: $7.FeedPagination.$_createMessage)
-    ..aOM<$1.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$6.FeedPagination>(2, _omitFieldNames ? '' : 'page',
+        subBuilder: $6.FeedPagination.$_createMessage)
+    ..aOM<$0.PlayerArgs>(3, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aE<CampusRcmdReqFrom>(4, _omitFieldNames ? '' : 'from',
         enumValues: CampusRcmdReqFrom.values)
     ..hasRequiredFields = false;
@@ -46756,26 +46756,26 @@ class WaterFlowRcmdReq extends $pb.GeneratedMessage {
   void clearCampusId() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $7.FeedPagination get page => $_getN(1);
+  $6.FeedPagination get page => $_getN(1);
   @$pb.TagNumber(2)
-  set page($7.FeedPagination value) => $_setField(2, value);
+  set page($6.FeedPagination value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasPage() => $_has(1);
   @$pb.TagNumber(2)
   void clearPage() => $_clearField(2);
   @$pb.TagNumber(2)
-  $7.FeedPagination ensurePage() => $_ensure(1);
+  $6.FeedPagination ensurePage() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $1.PlayerArgs get playerArgs => $_getN(2);
+  $0.PlayerArgs get playerArgs => $_getN(2);
   @$pb.TagNumber(3)
-  set playerArgs($1.PlayerArgs value) => $_setField(3, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasPlayerArgs() => $_has(2);
   @$pb.TagNumber(3)
   void clearPlayerArgs() => $_clearField(3);
   @$pb.TagNumber(3)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(2);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(2);
 
   @$pb.TagNumber(4)
   CampusRcmdReqFrom get from => $_getN(3);
@@ -46790,7 +46790,7 @@ class WaterFlowRcmdReq extends $pb.GeneratedMessage {
 class WaterFlowRcmdResp extends $pb.GeneratedMessage {
   factory WaterFlowRcmdResp({
     $core.Iterable<CampusWaterFlowItem>? items,
-    $7.FeedPaginationReply? offset,
+    $6.FeedPaginationReply? offset,
   }) {
     final result = WaterFlowRcmdResp._();
     if (items != null) result.items.addAll(items);
@@ -46814,8 +46814,8 @@ class WaterFlowRcmdResp extends $pb.GeneratedMessage {
       createEmptyInstance: WaterFlowRcmdResp.$_createMessage)
     ..pPM<CampusWaterFlowItem>(1, _omitFieldNames ? '' : 'items',
         subBuilder: CampusWaterFlowItem.$_createMessage)
-    ..aOM<$7.FeedPaginationReply>(2, _omitFieldNames ? '' : 'offset',
-        subBuilder: $7.FeedPaginationReply.$_createMessage)
+    ..aOM<$6.FeedPaginationReply>(2, _omitFieldNames ? '' : 'offset',
+        subBuilder: $6.FeedPaginationReply.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -46844,15 +46844,15 @@ class WaterFlowRcmdResp extends $pb.GeneratedMessage {
   $pb.PbList<CampusWaterFlowItem> get items => $_getList(0);
 
   @$pb.TagNumber(2)
-  $7.FeedPaginationReply get offset => $_getN(1);
+  $6.FeedPaginationReply get offset => $_getN(1);
   @$pb.TagNumber(2)
-  set offset($7.FeedPaginationReply value) => $_setField(2, value);
+  set offset($6.FeedPaginationReply value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasOffset() => $_has(1);
   @$pb.TagNumber(2)
   void clearOffset() => $_clearField(2);
   @$pb.TagNumber(2)
-  $7.FeedPaginationReply ensureOffset() => $_ensure(1);
+  $6.FeedPaginationReply ensureOffset() => $_ensure(1);
 }
 
 class Weight extends $pb.GeneratedMessage {

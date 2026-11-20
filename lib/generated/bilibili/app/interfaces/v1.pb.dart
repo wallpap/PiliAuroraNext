@@ -15,10 +15,10 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../archive/middleware/v1.pb.dart' as $3;
-import '../archive/v1.pb.dart' as $1;
-import '../card/v1.pb.dart' as $2;
-import '../dynamic/v2.pb.dart' as $4;
+import '../archive/middleware/v1.pb.dart' as $2;
+import '../archive/v1.pb.dart' as $0;
+import '../card/v1.pb.dart' as $1;
+import '../dynamic/v2.pb.dart' as $3;
 import 'v1.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
@@ -27,7 +27,7 @@ export 'v1.pbenum.dart';
 
 class Arc extends $pb.GeneratedMessage {
   factory Arc({
-    $1.Arc? archive,
+    $0.Arc? archive,
     $core.String? uri,
     $core.String? viewContent,
     $fixnum.Int64? iconType,
@@ -66,8 +66,8 @@ class Arc extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.app.interfaces.v1'),
       createEmptyInstance: Arc.$_createMessage)
-    ..aOM<$1.Arc>(1, _omitFieldNames ? '' : 'archive',
-        subBuilder: $1.Arc.$_createMessage)
+    ..aOM<$0.Arc>(1, _omitFieldNames ? '' : 'archive',
+        subBuilder: $0.Arc.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'uri')
     ..aOS(3, _omitFieldNames ? '' : 'viewContent')
     ..aInt64(4, _omitFieldNames ? '' : 'iconType')
@@ -100,15 +100,15 @@ class Arc extends $pb.GeneratedMessage {
   static Arc? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.Arc get archive => $_getN(0);
+  $0.Arc get archive => $_getN(0);
   @$pb.TagNumber(1)
-  set archive($1.Arc value) => $_setField(1, value);
+  set archive($0.Arc value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasArchive() => $_has(0);
   @$pb.TagNumber(1)
   void clearArchive() => $_clearField(1);
   @$pb.TagNumber(1)
-  $1.Arc ensureArchive() => $_ensure(0);
+  $0.Arc ensureArchive() => $_ensure(0);
 
   @$pb.TagNumber(2)
   $core.String get uri => $_getSZ(1);
@@ -267,11 +267,11 @@ class BigItem extends $pb.GeneratedMessage {
     UserCard? userCard,
     LikeButton? likeButton,
     $fixnum.Int64? param,
-    $2.SharePlane? sharePlane,
-    $2.PanelMeta? threePointMeta,
-    $2.InlineProgressBar? inlineProgressBar,
+    $1.SharePlane? sharePlane,
+    $1.PanelMeta? threePointMeta,
+    $1.InlineProgressBar? inlineProgressBar,
     $core.int? canPlay,
-    $3.PlayerArgs? playerArgs,
+    $2.PlayerArgs? playerArgs,
     $core.bool? isFav,
   }) {
     final result = BigItem._();
@@ -322,15 +322,15 @@ class BigItem extends $pb.GeneratedMessage {
     ..aOM<LikeButton>(10, _omitFieldNames ? '' : 'likeButton',
         subBuilder: LikeButton.$_createMessage)
     ..aInt64(11, _omitFieldNames ? '' : 'param')
-    ..aOM<$2.SharePlane>(12, _omitFieldNames ? '' : 'sharePlane',
-        subBuilder: $2.SharePlane.$_createMessage)
-    ..aOM<$2.PanelMeta>(13, _omitFieldNames ? '' : 'threePointMeta',
-        subBuilder: $2.PanelMeta.$_createMessage)
-    ..aOM<$2.InlineProgressBar>(14, _omitFieldNames ? '' : 'inlineProgressBar',
-        subBuilder: $2.InlineProgressBar.$_createMessage)
+    ..aOM<$1.SharePlane>(12, _omitFieldNames ? '' : 'sharePlane',
+        subBuilder: $1.SharePlane.$_createMessage)
+    ..aOM<$1.PanelMeta>(13, _omitFieldNames ? '' : 'threePointMeta',
+        subBuilder: $1.PanelMeta.$_createMessage)
+    ..aOM<$1.InlineProgressBar>(14, _omitFieldNames ? '' : 'inlineProgressBar',
+        subBuilder: $1.InlineProgressBar.$_createMessage)
     ..aI(15, _omitFieldNames ? '' : 'canPlay')
-    ..aOM<$3.PlayerArgs>(16, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $3.PlayerArgs.$_createMessage)
+    ..aOM<$2.PlayerArgs>(16, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $2.PlayerArgs.$_createMessage)
     ..aOB(17, _omitFieldNames ? '' : 'isFav')
     ..hasRequiredFields = false;
 
@@ -458,37 +458,37 @@ class BigItem extends $pb.GeneratedMessage {
   void clearParam() => $_clearField(11);
 
   @$pb.TagNumber(12)
-  $2.SharePlane get sharePlane => $_getN(11);
+  $1.SharePlane get sharePlane => $_getN(11);
   @$pb.TagNumber(12)
-  set sharePlane($2.SharePlane value) => $_setField(12, value);
+  set sharePlane($1.SharePlane value) => $_setField(12, value);
   @$pb.TagNumber(12)
   $core.bool hasSharePlane() => $_has(11);
   @$pb.TagNumber(12)
   void clearSharePlane() => $_clearField(12);
   @$pb.TagNumber(12)
-  $2.SharePlane ensureSharePlane() => $_ensure(11);
+  $1.SharePlane ensureSharePlane() => $_ensure(11);
 
   @$pb.TagNumber(13)
-  $2.PanelMeta get threePointMeta => $_getN(12);
+  $1.PanelMeta get threePointMeta => $_getN(12);
   @$pb.TagNumber(13)
-  set threePointMeta($2.PanelMeta value) => $_setField(13, value);
+  set threePointMeta($1.PanelMeta value) => $_setField(13, value);
   @$pb.TagNumber(13)
   $core.bool hasThreePointMeta() => $_has(12);
   @$pb.TagNumber(13)
   void clearThreePointMeta() => $_clearField(13);
   @$pb.TagNumber(13)
-  $2.PanelMeta ensureThreePointMeta() => $_ensure(12);
+  $1.PanelMeta ensureThreePointMeta() => $_ensure(12);
 
   @$pb.TagNumber(14)
-  $2.InlineProgressBar get inlineProgressBar => $_getN(13);
+  $1.InlineProgressBar get inlineProgressBar => $_getN(13);
   @$pb.TagNumber(14)
-  set inlineProgressBar($2.InlineProgressBar value) => $_setField(14, value);
+  set inlineProgressBar($1.InlineProgressBar value) => $_setField(14, value);
   @$pb.TagNumber(14)
   $core.bool hasInlineProgressBar() => $_has(13);
   @$pb.TagNumber(14)
   void clearInlineProgressBar() => $_clearField(14);
   @$pb.TagNumber(14)
-  $2.InlineProgressBar ensureInlineProgressBar() => $_ensure(13);
+  $1.InlineProgressBar ensureInlineProgressBar() => $_ensure(13);
 
   @$pb.TagNumber(15)
   $core.int get canPlay => $_getIZ(14);
@@ -500,15 +500,15 @@ class BigItem extends $pb.GeneratedMessage {
   void clearCanPlay() => $_clearField(15);
 
   @$pb.TagNumber(16)
-  $3.PlayerArgs get playerArgs => $_getN(15);
+  $2.PlayerArgs get playerArgs => $_getN(15);
   @$pb.TagNumber(16)
-  set playerArgs($3.PlayerArgs value) => $_setField(16, value);
+  set playerArgs($2.PlayerArgs value) => $_setField(16, value);
   @$pb.TagNumber(16)
   $core.bool hasPlayerArgs() => $_has(15);
   @$pb.TagNumber(16)
   void clearPlayerArgs() => $_clearField(16);
   @$pb.TagNumber(16)
-  $3.PlayerArgs ensurePlayerArgs() => $_ensure(15);
+  $2.PlayerArgs ensurePlayerArgs() => $_ensure(15);
 
   @$pb.TagNumber(17)
   $core.bool get isFav => $_getBF(16);
@@ -2193,7 +2193,7 @@ class CursorReq extends $pb.GeneratedMessage {
     Cursor? cursor,
     $core.String? business,
     PlayerPreloadParams? playerPreload,
-    $3.PlayerArgs? playerArgs,
+    $2.PlayerArgs? playerArgs,
   }) {
     final result = CursorReq._();
     if (cursor != null) result.cursor = cursor;
@@ -2222,8 +2222,8 @@ class CursorReq extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'business')
     ..aOM<PlayerPreloadParams>(3, _omitFieldNames ? '' : 'playerPreload',
         subBuilder: PlayerPreloadParams.$_createMessage)
-    ..aOM<$3.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $3.PlayerArgs.$_createMessage)
+    ..aOM<$2.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $2.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2287,15 +2287,15 @@ class CursorReq extends $pb.GeneratedMessage {
 
   /// 秒开参数
   @$pb.TagNumber(4)
-  $3.PlayerArgs get playerArgs => $_getN(3);
+  $2.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($3.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($2.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $3.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $2.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 }
 
 /// 历史记录顶部 tab
@@ -2494,7 +2494,7 @@ class CursorV2Req extends $pb.GeneratedMessage {
     Cursor? cursor,
     $core.String? business,
     PlayerPreloadParams? playerPreload,
-    $3.PlayerArgs? playerArgs,
+    $2.PlayerArgs? playerArgs,
     $core.bool? isLocal,
   }) {
     final result = CursorV2Req._();
@@ -2525,8 +2525,8 @@ class CursorV2Req extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'business')
     ..aOM<PlayerPreloadParams>(3, _omitFieldNames ? '' : 'playerPreload',
         subBuilder: PlayerPreloadParams.$_createMessage)
-    ..aOM<$3.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $3.PlayerArgs.$_createMessage)
+    ..aOM<$2.PlayerArgs>(4, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $2.PlayerArgs.$_createMessage)
     ..aOB(5, _omitFieldNames ? '' : 'isLocal')
     ..hasRequiredFields = false;
 
@@ -2584,15 +2584,15 @@ class CursorV2Req extends $pb.GeneratedMessage {
   PlayerPreloadParams ensurePlayerPreload() => $_ensure(2);
 
   @$pb.TagNumber(4)
-  $3.PlayerArgs get playerArgs => $_getN(3);
+  $2.PlayerArgs get playerArgs => $_getN(3);
   @$pb.TagNumber(4)
-  set playerArgs($3.PlayerArgs value) => $_setField(4, value);
+  set playerArgs($2.PlayerArgs value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasPlayerArgs() => $_has(3);
   @$pb.TagNumber(4)
   void clearPlayerArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $3.PlayerArgs ensurePlayerArgs() => $_ensure(3);
+  $2.PlayerArgs ensurePlayerArgs() => $_ensure(3);
 
   @$pb.TagNumber(5)
   $core.bool get isLocal => $_getBF(4);
@@ -3172,7 +3172,7 @@ class DeviceType extends $pb.GeneratedMessage {
 
 class Dynamic extends $pb.GeneratedMessage {
   factory Dynamic({
-    $4.DynamicItem? dynamic,
+    $3.DynamicItem? dynamic,
   }) {
     final result = Dynamic._();
     if (dynamic != null) result.dynamic = dynamic;
@@ -3193,8 +3193,8 @@ class Dynamic extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.app.interfaces.v1'),
       createEmptyInstance: Dynamic.$_createMessage)
-    ..aOM<$4.DynamicItem>(1, _omitFieldNames ? '' : 'dynamic',
-        subBuilder: $4.DynamicItem.$_createMessage)
+    ..aOM<$3.DynamicItem>(1, _omitFieldNames ? '' : 'dynamic',
+        subBuilder: $3.DynamicItem.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3218,15 +3218,15 @@ class Dynamic extends $pb.GeneratedMessage {
   static Dynamic? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $4.DynamicItem get dynamic => $_getN(0);
+  $3.DynamicItem get dynamic => $_getN(0);
   @$pb.TagNumber(1)
-  set dynamic($4.DynamicItem value) => $_setField(1, value);
+  set dynamic($3.DynamicItem value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasDynamic() => $_has(0);
   @$pb.TagNumber(1)
   void clearDynamic() => $_clearField(1);
   @$pb.TagNumber(1)
-  $4.DynamicItem ensureDynamic() => $_ensure(0);
+  $3.DynamicItem ensureDynamic() => $_ensure(0);
 }
 
 class FacialRecognitionVerifyReply extends $pb.GeneratedMessage {
@@ -5140,7 +5140,7 @@ class MediaVideoReq extends $pb.GeneratedMessage {
     $fixnum.Int64? feedId,
     $core.String? offset,
     $core.int? ps,
-    $3.PlayerArgs? playerArgs,
+    $2.PlayerArgs? playerArgs,
   }) {
     final result = MediaVideoReq._();
     if (bizId != null) result.bizId = bizId;
@@ -5171,8 +5171,8 @@ class MediaVideoReq extends $pb.GeneratedMessage {
     ..aInt64(3, _omitFieldNames ? '' : 'feedId')
     ..aOS(5, _omitFieldNames ? '' : 'offset')
     ..aI(6, _omitFieldNames ? '' : 'ps')
-    ..aOM<$3.PlayerArgs>(7, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $3.PlayerArgs.$_createMessage)
+    ..aOM<$2.PlayerArgs>(7, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $2.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5243,15 +5243,15 @@ class MediaVideoReq extends $pb.GeneratedMessage {
   void clearPs() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $3.PlayerArgs get playerArgs => $_getN(5);
+  $2.PlayerArgs get playerArgs => $_getN(5);
   @$pb.TagNumber(7)
-  set playerArgs($3.PlayerArgs value) => $_setField(7, value);
+  set playerArgs($2.PlayerArgs value) => $_setField(7, value);
   @$pb.TagNumber(7)
   $core.bool hasPlayerArgs() => $_has(5);
   @$pb.TagNumber(7)
   void clearPlayerArgs() => $_clearField(7);
   @$pb.TagNumber(7)
-  $3.PlayerArgs ensurePlayerArgs() => $_ensure(5);
+  $2.PlayerArgs ensurePlayerArgs() => $_ensure(5);
 }
 
 class ModeStatusReply extends $pb.GeneratedMessage {
@@ -6773,7 +6773,7 @@ class SearchArchiveReq extends $pb.GeneratedMessage {
     $fixnum.Int64? mid,
     $fixnum.Int64? pn,
     $fixnum.Int64? ps,
-    $3.PlayerArgs? playerArgs,
+    $2.PlayerArgs? playerArgs,
   }) {
     final result = SearchArchiveReq._();
     if (keyword != null) result.keyword = keyword;
@@ -6802,8 +6802,8 @@ class SearchArchiveReq extends $pb.GeneratedMessage {
     ..aInt64(2, _omitFieldNames ? '' : 'mid')
     ..aInt64(3, _omitFieldNames ? '' : 'pn')
     ..aInt64(4, _omitFieldNames ? '' : 'ps')
-    ..aOM<$3.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $3.PlayerArgs.$_createMessage)
+    ..aOM<$2.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $2.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6865,15 +6865,15 @@ class SearchArchiveReq extends $pb.GeneratedMessage {
   void clearPs() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $3.PlayerArgs get playerArgs => $_getN(4);
+  $2.PlayerArgs get playerArgs => $_getN(4);
   @$pb.TagNumber(5)
-  set playerArgs($3.PlayerArgs value) => $_setField(5, value);
+  set playerArgs($2.PlayerArgs value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasPlayerArgs() => $_has(4);
   @$pb.TagNumber(5)
   void clearPlayerArgs() => $_clearField(5);
   @$pb.TagNumber(5)
-  $3.PlayerArgs ensurePlayerArgs() => $_ensure(4);
+  $2.PlayerArgs ensurePlayerArgs() => $_ensure(4);
 }
 
 class SearchDynamicReply extends $pb.GeneratedMessage {
@@ -6947,7 +6947,7 @@ class SearchDynamicReq extends $pb.GeneratedMessage {
     $fixnum.Int64? mid,
     $fixnum.Int64? pn,
     $fixnum.Int64? ps,
-    $3.PlayerArgs? playerArgs,
+    $2.PlayerArgs? playerArgs,
   }) {
     final result = SearchDynamicReq._();
     if (keyword != null) result.keyword = keyword;
@@ -6976,8 +6976,8 @@ class SearchDynamicReq extends $pb.GeneratedMessage {
     ..aInt64(2, _omitFieldNames ? '' : 'mid')
     ..aInt64(3, _omitFieldNames ? '' : 'pn')
     ..aInt64(4, _omitFieldNames ? '' : 'ps')
-    ..aOM<$3.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $3.PlayerArgs.$_createMessage)
+    ..aOM<$2.PlayerArgs>(5, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $2.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7039,15 +7039,15 @@ class SearchDynamicReq extends $pb.GeneratedMessage {
   void clearPs() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $3.PlayerArgs get playerArgs => $_getN(4);
+  $2.PlayerArgs get playerArgs => $_getN(4);
   @$pb.TagNumber(5)
-  set playerArgs($3.PlayerArgs value) => $_setField(5, value);
+  set playerArgs($2.PlayerArgs value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasPlayerArgs() => $_has(4);
   @$pb.TagNumber(5)
   void clearPlayerArgs() => $_clearField(5);
   @$pb.TagNumber(5)
-  $3.PlayerArgs ensurePlayerArgs() => $_ensure(4);
+  $2.PlayerArgs ensurePlayerArgs() => $_ensure(4);
 }
 
 class SearchReply extends $pb.GeneratedMessage {

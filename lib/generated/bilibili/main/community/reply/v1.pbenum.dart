@@ -428,8 +428,6 @@ class Operation_Type extends $pb.ProtobufEnum {
       Operation_Type._(1, _omitEnumNames ? '' : 'NOTE');
   static const Operation_Type TOPIC =
       Operation_Type._(2, _omitEnumNames ? '' : 'TOPIC');
-
-  /// @Deprecated
   static const Operation_Type NOTICE =
       Operation_Type._(3, _omitEnumNames ? '' : 'NOTICE');
 

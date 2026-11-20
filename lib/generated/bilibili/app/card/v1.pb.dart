@@ -5046,10 +5046,10 @@ class Relation extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearIsFollow() => $_clearField(2);
 
-  ///   UP 主关注用户
+  ///    UP 主关注用户
   ///
-  ///  - 0: 未被关注
-  ///  - 1: 已被关注
+  ///   - 0: 未被关注
+  ///   - 1: 已被关注
   @$pb.TagNumber(3)
   $core.int get isFollowed => $_getIZ(2);
   @$pb.TagNumber(3)

@@ -15,7 +15,7 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../type.pb.dart' as $1;
+import '../type.pb.dart' as $0;
 import 'v1.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
@@ -1733,7 +1733,7 @@ class ReqRemoveSession extends $pb.GeneratedMessage {
 
 class ReqSendMsg extends $pb.GeneratedMessage {
   factory ReqSendMsg({
-    $1.Msg? msg,
+    $0.Msg? msg,
     $core.String? cookie,
     $core.String? cookie2,
     $core.int? errorCode,
@@ -1762,8 +1762,8 @@ class ReqSendMsg extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.im.interfaces.v1'),
       createEmptyInstance: ReqSendMsg.$_createMessage)
-    ..aOM<$1.Msg>(1, _omitFieldNames ? '' : 'msg',
-        subBuilder: $1.Msg.$_createMessage)
+    ..aOM<$0.Msg>(1, _omitFieldNames ? '' : 'msg',
+        subBuilder: $0.Msg.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'cookie')
     ..aOS(3, _omitFieldNames ? '' : 'cookie2')
     ..aI(4, _omitFieldNames ? '' : 'errorCode')
@@ -1791,15 +1791,15 @@ class ReqSendMsg extends $pb.GeneratedMessage {
   static ReqSendMsg? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.Msg get msg => $_getN(0);
+  $0.Msg get msg => $_getN(0);
   @$pb.TagNumber(1)
-  set msg($1.Msg value) => $_setField(1, value);
+  set msg($0.Msg value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasMsg() => $_has(0);
   @$pb.TagNumber(1)
   void clearMsg() => $_clearField(1);
   @$pb.TagNumber(1)
-  $1.Msg ensureMsg() => $_ensure(0);
+  $0.Msg ensureMsg() => $_ensure(0);
 
   @$pb.TagNumber(2)
   $core.String get cookie => $_getSZ(1);
@@ -3058,7 +3058,7 @@ class RspGetDiscussListInImPage extends $pb.GeneratedMessage {
 
 class RspGetMsg extends $pb.GeneratedMessage {
   factory RspGetMsg({
-    $core.Iterable<$1.Msg>? msg,
+    $core.Iterable<$0.Msg>? msg,
   }) {
     final result = RspGetMsg._();
     if (msg != null) result.msg.addAll(msg);
@@ -3079,8 +3079,8 @@ class RspGetMsg extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.im.interfaces.v1'),
       createEmptyInstance: RspGetMsg.$_createMessage)
-    ..pPM<$1.Msg>(1, _omitFieldNames ? '' : 'msg',
-        subBuilder: $1.Msg.$_createMessage)
+    ..pPM<$0.Msg>(1, _omitFieldNames ? '' : 'msg',
+        subBuilder: $0.Msg.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3104,7 +3104,7 @@ class RspGetMsg extends $pb.GeneratedMessage {
   static RspGetMsg? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$1.Msg> get msg => $_getList(0);
+  $pb.PbList<$0.Msg> get msg => $_getList(0);
 }
 
 class RspLiveInfo extends $pb.GeneratedMessage {
@@ -3296,10 +3296,10 @@ class RspMyGroupUnread extends $pb.GeneratedMessage {
 class RspRelationSync extends $pb.GeneratedMessage {
   factory RspRelationSync({
     $core.int? full,
-    $core.Iterable<$1.RelationLog>? relationLogs,
-    $core.Iterable<$1.FriendRelation>? friendList,
+    $core.Iterable<$0.RelationLog>? relationLogs,
+    $core.Iterable<$0.FriendRelation>? friendList,
     $fixnum.Int64? serverRelationOplogSeqno,
-    $core.Iterable<$1.GroupRelation>? groupList,
+    $core.Iterable<$0.GroupRelation>? groupList,
   }) {
     final result = RspRelationSync._();
     if (full != null) result.full = full;
@@ -3326,13 +3326,13 @@ class RspRelationSync extends $pb.GeneratedMessage {
           _omitMessageNames ? '' : 'bilibili.im.interfaces.v1'),
       createEmptyInstance: RspRelationSync.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'full')
-    ..pPM<$1.RelationLog>(2, _omitFieldNames ? '' : 'relationLogs',
-        subBuilder: $1.RelationLog.$_createMessage)
-    ..pPM<$1.FriendRelation>(3, _omitFieldNames ? '' : 'friendList',
-        subBuilder: $1.FriendRelation.$_createMessage)
+    ..pPM<$0.RelationLog>(2, _omitFieldNames ? '' : 'relationLogs',
+        subBuilder: $0.RelationLog.$_createMessage)
+    ..pPM<$0.FriendRelation>(3, _omitFieldNames ? '' : 'friendList',
+        subBuilder: $0.FriendRelation.$_createMessage)
     ..aInt64(4, _omitFieldNames ? '' : 'serverRelationOplogSeqno')
-    ..pPM<$1.GroupRelation>(5, _omitFieldNames ? '' : 'groupList',
-        subBuilder: $1.GroupRelation.$_createMessage)
+    ..pPM<$0.GroupRelation>(5, _omitFieldNames ? '' : 'groupList',
+        subBuilder: $0.GroupRelation.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3367,10 +3367,10 @@ class RspRelationSync extends $pb.GeneratedMessage {
   void clearFull() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $pb.PbList<$1.RelationLog> get relationLogs => $_getList(1);
+  $pb.PbList<$0.RelationLog> get relationLogs => $_getList(1);
 
   @$pb.TagNumber(3)
-  $pb.PbList<$1.FriendRelation> get friendList => $_getList(2);
+  $pb.PbList<$0.FriendRelation> get friendList => $_getList(2);
 
   @$pb.TagNumber(4)
   $fixnum.Int64 get serverRelationOplogSeqno => $_getI64(3);
@@ -3382,7 +3382,7 @@ class RspRelationSync extends $pb.GeneratedMessage {
   void clearServerRelationOplogSeqno() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $pb.PbList<$1.GroupRelation> get groupList => $_getList(4);
+  $pb.PbList<$0.GroupRelation> get groupList => $_getList(4);
 }
 
 class RspSendMsg extends $pb.GeneratedMessage {
@@ -3390,8 +3390,8 @@ class RspSendMsg extends $pb.GeneratedMessage {
     $fixnum.Int64? msgKey,
     $core.Iterable<EmotionInfo>? eInfos,
     $core.String? msgContent,
-    $1.KeyHitInfos? keyHitInfos,
-    $1.RichTextMsgContent? richTextMsgContent,
+    $0.KeyHitInfos? keyHitInfos,
+    $0.RichTextMsgContent? richTextMsgContent,
     $fixnum.Int64? seqno,
   }) {
     final result = RspSendMsg._();
@@ -3423,10 +3423,10 @@ class RspSendMsg extends $pb.GeneratedMessage {
     ..pPM<EmotionInfo>(2, _omitFieldNames ? '' : 'eInfos',
         subBuilder: EmotionInfo.$_createMessage)
     ..aOS(3, _omitFieldNames ? '' : 'msgContent')
-    ..aOM<$1.KeyHitInfos>(4, _omitFieldNames ? '' : 'keyHitInfos',
-        subBuilder: $1.KeyHitInfos.$_createMessage)
-    ..aOM<$1.RichTextMsgContent>(5, _omitFieldNames ? '' : 'richTextMsgContent',
-        subBuilder: $1.RichTextMsgContent.$_createMessage)
+    ..aOM<$0.KeyHitInfos>(4, _omitFieldNames ? '' : 'keyHitInfos',
+        subBuilder: $0.KeyHitInfos.$_createMessage)
+    ..aOM<$0.RichTextMsgContent>(5, _omitFieldNames ? '' : 'richTextMsgContent',
+        subBuilder: $0.RichTextMsgContent.$_createMessage)
     ..aInt64(6, _omitFieldNames ? '' : 'seqno')
     ..hasRequiredFields = false;
 
@@ -3472,26 +3472,26 @@ class RspSendMsg extends $pb.GeneratedMessage {
   void clearMsgContent() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.KeyHitInfos get keyHitInfos => $_getN(3);
+  $0.KeyHitInfos get keyHitInfos => $_getN(3);
   @$pb.TagNumber(4)
-  set keyHitInfos($1.KeyHitInfos value) => $_setField(4, value);
+  set keyHitInfos($0.KeyHitInfos value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasKeyHitInfos() => $_has(3);
   @$pb.TagNumber(4)
   void clearKeyHitInfos() => $_clearField(4);
   @$pb.TagNumber(4)
-  $1.KeyHitInfos ensureKeyHitInfos() => $_ensure(3);
+  $0.KeyHitInfos ensureKeyHitInfos() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  $1.RichTextMsgContent get richTextMsgContent => $_getN(4);
+  $0.RichTextMsgContent get richTextMsgContent => $_getN(4);
   @$pb.TagNumber(5)
-  set richTextMsgContent($1.RichTextMsgContent value) => $_setField(5, value);
+  set richTextMsgContent($0.RichTextMsgContent value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasRichTextMsgContent() => $_has(4);
   @$pb.TagNumber(5)
   void clearRichTextMsgContent() => $_clearField(5);
   @$pb.TagNumber(5)
-  $1.RichTextMsgContent ensureRichTextMsgContent() => $_ensure(4);
+  $0.RichTextMsgContent ensureRichTextMsgContent() => $_ensure(4);
 
   @$pb.TagNumber(6)
   $fixnum.Int64 get seqno => $_getI64(5);
@@ -3505,7 +3505,7 @@ class RspSendMsg extends $pb.GeneratedMessage {
 
 class RspSessionDetails extends $pb.GeneratedMessage {
   factory RspSessionDetails({
-    $core.Iterable<$1.SessionInfo>? sessInfos,
+    $core.Iterable<$0.SessionInfo>? sessInfos,
   }) {
     final result = RspSessionDetails._();
     if (sessInfos != null) result.sessInfos.addAll(sessInfos);
@@ -3526,8 +3526,8 @@ class RspSessionDetails extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.im.interfaces.v1'),
       createEmptyInstance: RspSessionDetails.$_createMessage)
-    ..pPM<$1.SessionInfo>(1, _omitFieldNames ? '' : 'sessInfos',
-        subBuilder: $1.SessionInfo.$_createMessage)
+    ..pPM<$0.SessionInfo>(1, _omitFieldNames ? '' : 'sessInfos',
+        subBuilder: $0.SessionInfo.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3553,12 +3553,12 @@ class RspSessionDetails extends $pb.GeneratedMessage {
   static RspSessionDetails? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$1.SessionInfo> get sessInfos => $_getList(0);
+  $pb.PbList<$0.SessionInfo> get sessInfos => $_getList(0);
 }
 
 class RspSessionMsg extends $pb.GeneratedMessage {
   factory RspSessionMsg({
-    $core.Iterable<$1.Msg>? messages,
+    $core.Iterable<$0.Msg>? messages,
     $core.int? hasMore,
     $fixnum.Int64? minSeqno,
     $fixnum.Int64? maxSeqno,
@@ -3587,8 +3587,8 @@ class RspSessionMsg extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.im.interfaces.v1'),
       createEmptyInstance: RspSessionMsg.$_createMessage)
-    ..pPM<$1.Msg>(1, _omitFieldNames ? '' : 'messages',
-        subBuilder: $1.Msg.$_createMessage)
+    ..pPM<$0.Msg>(1, _omitFieldNames ? '' : 'messages',
+        subBuilder: $0.Msg.$_createMessage)
     ..aI(2, _omitFieldNames ? '' : 'hasMore')
     ..aInt64(3, _omitFieldNames ? '' : 'minSeqno')
     ..aInt64(4, _omitFieldNames ? '' : 'maxSeqno')
@@ -3619,7 +3619,7 @@ class RspSessionMsg extends $pb.GeneratedMessage {
   static RspSessionMsg? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$1.Msg> get messages => $_getList(0);
+  $pb.PbList<$0.Msg> get messages => $_getList(0);
 
   @$pb.TagNumber(2)
   $core.int get hasMore => $_getIZ(1);
@@ -3654,7 +3654,7 @@ class RspSessionMsg extends $pb.GeneratedMessage {
 
 class RspSessions extends $pb.GeneratedMessage {
   factory RspSessions({
-    $core.Iterable<$1.SessionInfo>? sessionList,
+    $core.Iterable<$0.SessionInfo>? sessionList,
     $core.int? hasMore,
     $core.bool? antiDisturbCleaning,
     $core.int? isAddressListEmpty,
@@ -3687,8 +3687,8 @@ class RspSessions extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'bilibili.im.interfaces.v1'),
       createEmptyInstance: RspSessions.$_createMessage)
-    ..pPM<$1.SessionInfo>(1, _omitFieldNames ? '' : 'sessionList',
-        subBuilder: $1.SessionInfo.$_createMessage)
+    ..pPM<$0.SessionInfo>(1, _omitFieldNames ? '' : 'sessionList',
+        subBuilder: $0.SessionInfo.$_createMessage)
     ..aI(2, _omitFieldNames ? '' : 'hasMore')
     ..aOB(3, _omitFieldNames ? '' : 'antiDisturbCleaning')
     ..aI(4, _omitFieldNames ? '' : 'isAddressListEmpty')
@@ -3723,7 +3723,7 @@ class RspSessions extends $pb.GeneratedMessage {
   static RspSessions? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$1.SessionInfo> get sessionList => $_getList(0);
+  $pb.PbList<$0.SessionInfo> get sessionList => $_getList(0);
 
   @$pb.TagNumber(2)
   $core.int get hasMore => $_getIZ(1);

@@ -15,7 +15,7 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../archive/middleware/v1.pb.dart' as $1;
+import '../archive/middleware/v1.pb.dart' as $0;
 import 'v1.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
@@ -3419,7 +3419,7 @@ class DynOurCityReq extends $pb.GeneratedMessage {
     $core.int? lbsState,
     $core.int? refreshCity,
     ExpConf? expConf,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
     $fixnum.Int64? cityCode,
     $fixnum.Int64? buildTime,
   }) {
@@ -3473,8 +3473,8 @@ class DynOurCityReq extends $pb.GeneratedMessage {
     ..aI(13, _omitFieldNames ? '' : 'refreshCity')
     ..aOM<ExpConf>(14, _omitFieldNames ? '' : 'expConf',
         subBuilder: ExpConf.$_createMessage)
-    ..aOM<$1.PlayerArgs>(15, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(15, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..aInt64(16, _omitFieldNames ? '' : 'cityCode')
     ..aInt64(17, _omitFieldNames ? '' : 'buildTime')
     ..hasRequiredFields = false;
@@ -3644,15 +3644,15 @@ class DynOurCityReq extends $pb.GeneratedMessage {
 
   /// 播放器参数 (供秒开)
   @$pb.TagNumber(15)
-  $1.PlayerArgs get playerArgs => $_getN(14);
+  $0.PlayerArgs get playerArgs => $_getN(14);
   @$pb.TagNumber(15)
-  set playerArgs($1.PlayerArgs value) => $_setField(15, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(15, value);
   @$pb.TagNumber(15)
   $core.bool hasPlayerArgs() => $_has(14);
   @$pb.TagNumber(15)
   void clearPlayerArgs() => $_clearField(15);
   @$pb.TagNumber(15)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(14);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(14);
 
   @$pb.TagNumber(16)
   $fixnum.Int64 get cityCode => $_getI64(15);
@@ -9805,7 +9805,7 @@ class SVideoReq extends $pb.GeneratedMessage {
     $core.String? fromSpmid,
     PlayerPreloadParams? playerPreload,
     $fixnum.Int64? focusAid,
-    $1.PlayerArgs? playerArgs,
+    $0.PlayerArgs? playerArgs,
   }) {
     final result = SVideoReq._();
     if (oid != null) result.oid = oid;
@@ -9852,8 +9852,8 @@ class SVideoReq extends $pb.GeneratedMessage {
     ..aOM<PlayerPreloadParams>(11, _omitFieldNames ? '' : 'playerPreload',
         subBuilder: PlayerPreloadParams.$_createMessage)
     ..aInt64(12, _omitFieldNames ? '' : 'focusAid')
-    ..aOM<$1.PlayerArgs>(13, _omitFieldNames ? '' : 'playerArgs',
-        subBuilder: $1.PlayerArgs.$_createMessage)
+    ..aOM<$0.PlayerArgs>(13, _omitFieldNames ? '' : 'playerArgs',
+        subBuilder: $0.PlayerArgs.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -9987,15 +9987,15 @@ class SVideoReq extends $pb.GeneratedMessage {
   void clearFocusAid() => $_clearField(12);
 
   @$pb.TagNumber(13)
-  $1.PlayerArgs get playerArgs => $_getN(12);
+  $0.PlayerArgs get playerArgs => $_getN(12);
   @$pb.TagNumber(13)
-  set playerArgs($1.PlayerArgs value) => $_setField(13, value);
+  set playerArgs($0.PlayerArgs value) => $_setField(13, value);
   @$pb.TagNumber(13)
   $core.bool hasPlayerArgs() => $_has(12);
   @$pb.TagNumber(13)
   void clearPlayerArgs() => $_clearField(13);
   @$pb.TagNumber(13)
-  $1.PlayerArgs ensurePlayerArgs() => $_ensure(12);
+  $0.PlayerArgs ensurePlayerArgs() => $_ensure(12);
 }
 
 class SVideoStatInfo extends $pb.GeneratedMessage {
