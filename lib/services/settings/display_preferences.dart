@@ -22,6 +22,7 @@ abstract final class DisplayPreferences {
   static Color? get dimOverlayColor => Pref.reduceLuxColor;
   static int get galleryQuality => Pref.previewQ;
   static bool get playLivePhotos => Pref.enableLivePhoto;
+  static bool get silentImageDownload => Pref.silentDownImg;
   static bool get landscapeImagePreview => Pref.horizontalPreview;
   static bool get showImageMenu => Pref.enableImgMenu;
 

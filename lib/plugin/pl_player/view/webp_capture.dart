@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/post_panel/popup_menu_text.dart';
 import 'package:pili_aurora_next/pages/video/post_panel/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/plugin/pl_player/widgets/mpv_convert_webp.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/mpv_convert_webp.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/webp_capture_operation.dart';
 import 'package:pili_aurora_next/common/media/image_actions.dart';
 import 'package:pili_aurora_next/platform/files/path_actions.dart';
@@ -188,7 +188,7 @@ class PlayerWebpCapture {
             file,
             segment.first,
             segment.second,
-            progress: operation.progress,
+            onProgress: (value) => operation.progress.value = value,
             preset: preset,
           ),
         );

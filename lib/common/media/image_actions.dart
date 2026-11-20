@@ -6,16 +6,15 @@ import 'dart:typed_data' show Uint8List;
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/services/live_photo_download.dart';
 import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:pili_aurora_next/platform/permissions.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
-import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/core/uri/file_name.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -25,7 +24,6 @@ import 'package:saver_gallery/saver_gallery.dart';
 import 'package:share_plus/share_plus.dart';
 
 abstract final class ImageUtils {
-  static bool silentDownImg = Pref.silentDownImg;
   static final _albumPath = Platform.isAndroid
       ? 'Pictures/${Constants.appName}'
       : Constants.appName;
@@ -126,7 +124,9 @@ abstract final class ImageUtils {
     required String liveUrl,
   }) async {
     if (!_beginDownload()) return false;
-    final loading = _ImageLoading(enabled: !silentDownImg);
+    final loading = _ImageLoading(
+      enabled: !DisplayPreferences.silentImageDownload,
+    );
     Directory? temporaryDirectory;
     try {
       if (PlatformUtils.isMobile && !await checkPermissionDependOnSdkInt()) {
@@ -139,16 +139,7 @@ abstract final class ImageUtils {
           .createTemp('live-image-');
       final videoPath = path.join(temporaryDirectory.path, videoName);
 
-      final res = await Request().downloadFile(liveUrl.http2https, videoPath);
-      if (res.statusCode != 200) {
-        final data = res.data;
-        throw Error(
-          data is Map && data['message'] is String
-              ? data['message']
-              : '视频下载失败，请重试',
-          code: res.statusCode,
-        );
-      }
+      await LivePhotoDownload.saveMotionClip(liveUrl, videoPath);
 
       if (loading.cancelled) return false;
       if (!PlatformUtils.isMobile) loading.close();
@@ -183,7 +174,9 @@ abstract final class ImageUtils {
       return false;
     }
     if (!_beginDownload()) return false;
-    final loading = _ImageLoading(enabled: !silentDownImg);
+    final loading = _ImageLoading(
+      enabled: !DisplayPreferences.silentImageDownload,
+    );
     try {
       if (PlatformUtils.isMobile && !await checkPermissionDependOnSdkInt()) {
         return false;

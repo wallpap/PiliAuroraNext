@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/webp_conversion.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/webp_capture_operation.dart';
 
 Future<void> settle(WidgetTester tester, Future<void> future) async {

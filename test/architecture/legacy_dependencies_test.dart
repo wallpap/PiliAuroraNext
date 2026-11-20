@@ -110,7 +110,8 @@ void main() {
       ) as Map<String, dynamic>;
       final vendoredImplementations = <String>[
         for (final entry in registry['packages'] as List<dynamic>)
-          'package:${entry['name']}/src/',
+          for (final path in ['src', 'ffi/src', 'generated'])
+            'package:${entry['name']}/$path/',
         '../third_party/',
       ];
       final baseTypes = <String, Set<String>>{};

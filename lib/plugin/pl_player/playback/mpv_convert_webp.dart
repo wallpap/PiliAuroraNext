@@ -7,10 +7,9 @@ import 'dart:isolate';
 import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
-import 'package:pili_aurora_next/plugin/pl_player/widgets/webp_capture_operation.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/webp_conversion.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:get/get_rx/get_rx.dart';
 import 'package:media_kit/ffi/src/allocation.dart';
 import 'package:media_kit/ffi/src/utf8.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
@@ -33,7 +32,7 @@ class MpvConvertWebp implements WebpConversion {
   final String outFile;
   final double start;
   final double duration;
-  final RxDouble? progress;
+  final void Function(double)? onProgress;
   final WebpPreset preset;
 
   MpvConvertWebp(
@@ -41,7 +40,7 @@ class MpvConvertWebp implements WebpConversion {
     this.outFile,
     this.start,
     double end, {
-    this.progress,
+    this.onProgress,
     this.preset = WebpPreset.def,
   }) : duration = end - start;
 
@@ -75,7 +74,7 @@ class MpvConvertWebp implements WebpConversion {
       userAgent: BrowserUa.pc,
       referer: HttpString.baseUrl,
     );
-    if (progress != null) {
+    if (onProgress != null) {
       _observeProperty('time-pos');
     }
     final level = (kDebugMode ? 'info' : 'error').toNativeUtf8();
@@ -151,7 +150,7 @@ class MpvConvertWebp implements WebpConversion {
         if (prop.name.toDartString() == 'time-pos' &&
             prop.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
           final value = (prop.data.cast<Double>().value - start) / duration;
-          if (value.isFinite) progress?.value = value.clamp(0.0, 1.0);
+          if (value.isFinite) onProgress?.call(value.clamp(0.0, 1.0));
         }
         break;
       case generated.mpv_event_id.MPV_EVENT_FILE_LOADED:
@@ -169,7 +168,7 @@ class MpvConvertWebp implements WebpConversion {
         }
         break;
       case generated.mpv_event_id.MPV_EVENT_SHUTDOWN:
-        progress?.value = 1;
+        onProgress?.call(1);
         unawaited(_finish(_success));
         break;
     }

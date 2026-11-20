@@ -7,6 +7,9 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/services/cache/image_cache.dart';
 import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+
+import '../support/memory_box.dart';
 
 class _Cache extends Fake implements cache.DefaultCacheManager {
   final file = _File();
@@ -48,7 +51,7 @@ void main() {
   final manager = _Cache();
   setUpAll(() {
     CacheManager.manager = manager;
-    ImageUtils.silentDownImg = false;
+    GStorage.setting = MemoryBox<dynamic>();
   });
 
   testWidgets('image failures close loading and preserve shared cache', (

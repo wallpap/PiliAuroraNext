@@ -3,6 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'dart_source.dart';
 
 void main() {
+  test('classifies shared media UI and player widgets as presentation', () {
+    expect(isPresentation('common/media/image_actions.dart'), isTrue);
+    expect(isPresentation('common/media/screenshot.dart'), isTrue);
+    expect(isPresentation('plugin/pl_player/widgets/new_widget.dart'), isTrue);
+    expect(isPresentation('common/media/image_preview_source.dart'), isFalse);
+    expect(
+      isPresentation('plugin/pl_player/playback/native_player.dart'),
+      isFalse,
+    );
+  });
+
   test('dependencies include conditional branches and exclude comments', () {
     final dependencies = sourceDependencies('''
 // import 'comment.dart';

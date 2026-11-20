@@ -55,7 +55,6 @@ import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:pili_aurora_next/common/input/filtering_text.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
-import 'package:pili_aurora_next/common/media/image_actions.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:pili_aurora_next/services/settings/storage_key.dart';
@@ -1078,13 +1077,12 @@ List<SettingsModel> get appearanceExtraSettings => [
     defaultVal: false,
     onChanged: (value) => CommonSlideMixin.slideDismissReplyPage = value,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '静默下载图片',
     subtitle: '不显示下载 Loading 弹窗',
-    leading: const Icon(Icons.download_for_offline_outlined),
+    leading: Icon(Icons.download_for_offline_outlined),
     setKey: SettingBoxKey.silentDownImg,
     defaultVal: false,
-    onChanged: (value) => ImageUtils.silentDownImg = value,
   ),
   SwitchModel(
     title: '长按/右键显示图片菜单',

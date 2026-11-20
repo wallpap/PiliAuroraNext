@@ -34,7 +34,10 @@ bool featureLayer(String source, String layer) {
 bool isPresentation(String source) =>
     source.startsWith('pages/') ||
     source.startsWith('common/widgets/') ||
+    source.startsWith('common/media/') &&
+        source != 'common/media/image_preview_source.dart' ||
     source.startsWith('plugin/pl_player/view/') ||
+    source.startsWith('plugin/pl_player/widgets/') ||
     featureLayer(source, 'presentation');
 
 CompilationUnit parseSource(String source) =>

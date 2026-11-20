@@ -8,12 +8,8 @@ import 'package:pili_aurora_next/common/widgets/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/webp_conversion.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-
-abstract interface class WebpConversion {
-  Future<bool> convert();
-  Future<void> dispose();
-}
 
 /// 配置弹窗之上打开新页面时，底层 Get 路由观察器不会收到覆盖事件。
 final class WebpCaptureDialogRoute extends DialogRoute<bool> {
