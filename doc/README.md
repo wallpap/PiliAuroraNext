@@ -41,7 +41,7 @@
 
 ## 维护与历史
 
-- [历史排障经验](diagnostic-notes/README.md)保留可复用的排查方法；当前采用项见[默认构建与策略](development/build-defaults.md)。本地 `doc/dev/` 保存专题摘要、必要报告与独有材料，可再生的编译产物和采集临时输出放在 `build/`，整理方式见[实验资料归档](../tool/experiments/README.md#实验资料归档)。
+- 可复用方法见[历史排障经验](diagnostic-notes/README.md)，当前采用项见[默认构建与策略](development/build-defaults.md)。本地 `doc/dev/` 保存调查摘要与按日期归档的证据。采集、生成及还原的工作副本放在 `build/`。整理和还原方式见[实验资料归档](../tool/experiments/README.md#实验资料归档)。
 - 依赖维护见[第三方依赖](../third_party/README.md)。来源、许可证与定制修订保留在登记和各包的 `UPSTREAM.md` 中。
 
 ## 维护文档
