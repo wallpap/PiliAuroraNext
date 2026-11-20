@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
 
 class FollowItemModel extends UpItem {
   int? attribute;

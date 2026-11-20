@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/features/subscriptions/application/subscription
 import 'package:pili_aurora_next/features/subscriptions/presentation/feed_view.dart';
 import 'package:pili_aurora_next/features/subscriptions/presentation/video_card.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 
 class SubDetailPage extends ConsumerStatefulWidget {
   const SubDetailPage({super.key, this.id, this.subInfo, this.heroTag});

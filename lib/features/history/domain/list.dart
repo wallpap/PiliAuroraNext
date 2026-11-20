@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/history/domain/history.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 
 class HistoryItemModel {
   String? title;

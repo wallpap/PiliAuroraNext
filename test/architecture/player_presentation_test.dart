@@ -36,7 +36,7 @@ void main() {
           target != null &&
               (target.startsWith('pages/') ||
                   target.startsWith('http/') ||
-                  target.startsWith('utils/storage')),
+                  target.startsWith('services/settings/storage')),
           isFalse,
           reason: '${file.path} -> $uri',
         );

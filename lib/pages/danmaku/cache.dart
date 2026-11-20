@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
 /// 按 100 毫秒分桶保存弹幕，按分段淘汰以避免只留下不完整分段。

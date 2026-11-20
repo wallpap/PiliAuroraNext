@@ -15,7 +15,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:path/path.dart' as path;
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
@@ -30,8 +30,8 @@ import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

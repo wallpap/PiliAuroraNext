@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/features/community/domain/article/article_view/ops.dart';
 import 'package:pili_aurora_next/features/community/domain/article/article_view/opus.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 
 class ArticleViewData {
   int? id;

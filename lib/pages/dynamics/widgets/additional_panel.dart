@@ -6,9 +6,9 @@ import 'package:pili_aurora_next/features/community/application/dynamic_details.
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:get/get.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';

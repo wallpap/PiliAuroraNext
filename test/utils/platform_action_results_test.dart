@@ -5,9 +5,9 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 
 void main() {
   late Completer<void> receipt;
@@ -49,7 +49,7 @@ void main() {
     var completed = false;
     late Future<void> pending;
     await tester.runAsync(() async {
-      pending = Utils.copyText('fixture').then((_) => completed = true);
+      pending = copyText('fixture').then((_) => completed = true);
       await Future<void>.delayed(Duration.zero);
     });
     await tester.pumpAndSettle();
@@ -71,7 +71,7 @@ void main() {
         fail = true;
         await (share
             ? ShareUtils.shareText('private text')
-            : Utils.copyText('private text'));
+            : copyText('private text'));
       });
       await tester.pumpAndSettle();
       expect(find.text('复制失败，请重试'), findsOneWidget);

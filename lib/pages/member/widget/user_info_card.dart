@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
+import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
 import 'package:pili_aurora_next/features/member_space/presentation/user_info_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space/card.dart';
@@ -26,19 +26,20 @@ import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/member_guard/view.dart';
 import 'package:pili_aurora_next/pages/member_upower_rank/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/bili_colors.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/common/appearance/bili_colors.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -175,7 +176,7 @@ class UserInfoCard extends StatelessWidget {
         backgroundColor = ColourUtils.parseColor(detailV2.medalColor!);
       } catch (e, s) {
         if (kDebugMode) {
-          Utils.reportError(e, s);
+          reportError(e, s);
         }
       }
       try {
@@ -190,7 +191,7 @@ class UserInfoCard extends StatelessWidget {
         );
       } catch (e, s) {
         if (kDebugMode) {
-          Utils.reportError(e, s);
+          reportError(e, s);
         }
       }
     }
@@ -202,7 +203,7 @@ class UserInfoCard extends StatelessWidget {
         crossAxisAlignment: .center,
         children: [
           GestureDetector(
-            onTap: () => Utils.copyText(card.name!),
+            onTap: () => copyText(card.name!),
             child: Text(
               card.name!,
               strutStyle: const StrutStyle(
@@ -221,7 +222,7 @@ class UserInfoCard extends StatelessWidget {
               ),
             ),
           ),
-          BiliUtils.levelPicture(
+          memberLevelPicture(
             card.levelInfo!.currentLevel!,
             isSeniorMember: card.levelInfo?.identity == 2,
             height: 11,
@@ -322,7 +323,7 @@ class UserInfoCard extends StatelessWidget {
         crossAxisAlignment: .center,
         children: [
           GestureDetector(
-            onTap: () => Utils.copyText(card.mid.toString()),
+            onTap: () => copyText(card.mid.toString()),
             child: Text(
               'UID: ${card.mid}',
               style: TextStyle(fontSize: 12, color: colorScheme.outline),
@@ -1087,7 +1088,7 @@ Widget _headerTitle(TopTitle title) {
     );
   } catch (e, s) {
     if (kDebugMode) {
-      Utils.reportError(e, s);
+      reportError(e, s);
     }
     return const SizedBox.shrink();
   }

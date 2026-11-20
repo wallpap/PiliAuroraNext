@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
+import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show Pic;
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart' show DynamicStat;
@@ -28,14 +28,14 @@ import 'package:pili_aurora_next/pages/article/widgets/sliver_to_box_adapter.dar
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -322,7 +322,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             ),
           ),
           AppPopupMenuItem(
-            onTap: () => Utils.copyText(controller.url),
+            onTap: () => copyText(controller.url),
             child: const Row(
               spacing: 10,
               mainAxisSize: .min,

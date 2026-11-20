@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/superchat/user_info.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 

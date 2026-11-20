@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/pages/search_panel/all/widgets/user.dart';
 import 'package:pili_aurora_next/pages/search_panel/pgc/widgets/item.dart';
 import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
 import 'package:pili_aurora_next/pages/search_panel/view.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
 

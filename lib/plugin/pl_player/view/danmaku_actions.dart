@@ -9,8 +9,8 @@ import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.
 import 'package:pili_aurora_next/features/playback/presentation/danmaku_like_control.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 
 class PlayerDanmakuActions extends ChangeNotifier {
   PlayerDanmakuActions({
@@ -247,7 +247,7 @@ class PlayerDanmakuActions extends ChangeNotifier {
                   CustomIcons.player_dm_tip_copy,
                   color: Colors.white,
                 ),
-                onTap: () => Utils.copyText(item.text),
+                onTap: () => copyText(item.text),
               ),
               if (item.selfSend)
                 _dmActionItem(
@@ -307,7 +307,7 @@ class PlayerDanmakuActions extends ChangeNotifier {
                   CustomIcons.player_dm_tip_copy,
                   color: Colors.white,
                 ),
-                onTap: () => Utils.copyText(item.text),
+                onTap: () => copyText(item.text),
               ),
               _dmActionItem(
                 const Icon(

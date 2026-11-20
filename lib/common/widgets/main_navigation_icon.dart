@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
 
 Icon mainNavigationIcon(NavigationBarType type, {bool selected = false}) =>
     switch ((type, selected)) {

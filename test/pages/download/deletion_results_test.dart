@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/presentation/deletion.dart';
 import 'package:pili_aurora_next/features/download/presentation/danmaku_update.dart';
 import 'package:pili_aurora_next/features/download/application/download_service.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../services/download/download_fixtures.dart';
 import '../../support/memory_box.dart';

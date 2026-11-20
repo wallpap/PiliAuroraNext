@@ -12,8 +12,8 @@ import 'package:pili_aurora_next/features/content_discovery/presentation/discove
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/widgets/item.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 

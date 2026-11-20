@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/features/search/application/scoped_search.dart'
 import 'package:pili_aurora_next/pages/live_search/child/view.dart';
 import 'package:pili_aurora_next/features/search/domain/live/search_type.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 
 class LiveSearchPage extends ConsumerStatefulWidget {
   const LiveSearchPage({super.key});

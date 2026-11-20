@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/features/community/domain/dynamics/article_cont
 import 'package:pili_aurora_next/pages/dynamics/widgets/rich_node_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/additional_panel.dart';
 import 'package:pili_aurora_next/pages/article/widgets/opus_content.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 

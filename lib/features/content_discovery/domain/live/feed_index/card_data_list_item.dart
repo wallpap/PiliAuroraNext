@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/feedback.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/watched_show.dart';
-import 'package:pili_aurora_next/utils/parse_string.dart';
+import 'package:pili_aurora_next/core/parsing/parse_string.dart';
 
 class CardLiveItem {
   int? roomid;

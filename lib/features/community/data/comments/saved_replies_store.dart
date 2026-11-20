@@ -2,8 +2,8 @@ import 'package:pili_aurora_next/features/community/data/comments/comment_protoc
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/core/serialization/pretty_json.dart';
 
 class SavedRepliesStore {
   const SavedRepliesStore();
@@ -17,7 +17,7 @@ class SavedRepliesStore {
       [];
 
   String exportReplies(List<CommentReply> replies) =>
-      Utils.jsonEncoder.convert([
+      prettyJsonEncoder.convert([
         for (final reply in replies) commentForArchive(reply).toProto3Json(),
       ]);
 

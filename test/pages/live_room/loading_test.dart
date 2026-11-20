@@ -13,9 +13,9 @@ import 'package:pili_aurora_next/pages/live_room/view.dart' show LiveRoomPage;
 import 'package:pili_aurora_next/pages/live_room/widgets/bottom_control.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/header_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_status.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
 import '../../support/memory_box.dart';
 

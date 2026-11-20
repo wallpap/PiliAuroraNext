@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 
 mixin ScrollOrRefreshMixin {
   ScrollController get scrollController;

@@ -8,10 +8,10 @@ import 'package:pili_aurora_next/features/community/application/comments/comment
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:get/route_manager.dart' show Get, GetNavigation, GetPageRoute;
 import 'package:material_ui/material_ui.dart';
 
@@ -91,7 +91,7 @@ Future<void> checkReplyVisibility({
                     uri = 'https://www.bilibili.com/opus/$oid';
                 }
                 if (uri != null) {
-                  Utils.copyText(uri);
+                  copyText(uri);
                 }
                 Get.toNamed(
                   '/webview',

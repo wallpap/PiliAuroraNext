@@ -5,9 +5,9 @@ import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_ba
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/danmaku_chart.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 
 class CompactVideoProgress extends StatelessWidget {
   const CompactVideoProgress({

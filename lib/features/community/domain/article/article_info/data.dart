@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/community/domain/article/article_info/stats.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/parse_bool.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/core/parsing/parse_bool.dart';
 
 class ArticleInfoData {
   bool? like;

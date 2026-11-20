@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.d
 import 'package:pili_aurora_next/features/playback/domain/video_detail/section.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SeasonPanel extends StatefulWidget {

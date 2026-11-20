@@ -35,7 +35,7 @@ import 'package:pili_aurora_next/features/member_space/domain/profiles/space_sho
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/http/client_fingerprint.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
@@ -286,8 +286,8 @@ abstract final class MemberHttp {
   }) async {
     try {
       account ??= Accounts.main;
-      String dmImgStr = Utils.base64EncodeRandomString(16, 64);
-      String dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      String dmImgStr = randomFingerprint(16, 64);
+      String dmCoverImgStr = randomFingerprint(32, 128);
       final params = await WbiSign.makSign({
         'mid': mid,
         'token': token,
@@ -359,8 +359,8 @@ abstract final class MemberHttp {
   }) async {
     try {
       account ??= Accounts.main;
-      String dmImgStr = Utils.base64EncodeRandomString(16, 64);
-      String dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      String dmImgStr = randomFingerprint(16, 64);
+      String dmCoverImgStr = randomFingerprint(32, 128);
       final params = await WbiSign.makSign({
         'mid': mid,
         'ps': ps,
@@ -472,8 +472,8 @@ abstract final class MemberHttp {
             'platform': 'web',
             'web_location': '333.1387',
             'dm_img_list': '[]',
-            'dm_img_str': Utils.base64EncodeRandomString(16, 64),
-            'dm_cover_img_str': Utils.base64EncodeRandomString(32, 128),
+            'dm_img_str': randomFingerprint(16, 64),
+            'dm_cover_img_str': randomFingerprint(32, 128),
             'dm_img_inter': '{"ds":[],"wh":[0,0,0],"of":[0,0,0]}',
             'x-bili-device-req-json':
                 '{"platform":"web","device":"pc","spmid":"333.1387"}',

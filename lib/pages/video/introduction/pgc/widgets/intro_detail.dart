@@ -4,14 +4,14 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/models/common/stat_type.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_tag/data.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/pgc_review/view.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -344,7 +344,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
               '/searchResult',
               parameters: {'keyword': tagName},
             ),
-            onLongPress: Utils.copyText,
+            onLongPress: copyText,
           ),
         )
         .toList(),

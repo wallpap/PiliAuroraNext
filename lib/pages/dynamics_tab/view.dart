@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/features/community/application/dynamics_feed.da
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
-import 'package:pili_aurora_next/utils/waterfall.dart';
+import 'package:pili_aurora_next/common/layout/waterfall.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'

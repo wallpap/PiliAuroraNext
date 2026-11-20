@@ -5,11 +5,12 @@ import 'dart:typed_data' show Uint8List;
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:pili_aurora_next/services/file_export.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/serialization/pretty_json.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart' show Clipboard;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -24,7 +25,7 @@ import 'package:re_highlight/styles/github-dark.dart';
 void exportToClipBoard({
   required ValueGetter<String> onExport,
 }) {
-  Utils.copyText(onExport());
+  copyText(onExport());
 }
 
 void exportToLocalFile({
@@ -73,7 +74,7 @@ Future<void> importFromClipBoard<T>(
     final String formatText;
     try {
       json = jsonDecode(text);
-      formatText = Utils.jsonEncoder.convert(json);
+      formatText = prettyJsonEncoder.convert(json);
     } catch (e) {
       SmartDialog.showToast('解析json失败：$e');
       return;

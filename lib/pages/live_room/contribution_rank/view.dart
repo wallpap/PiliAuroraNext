@@ -10,9 +10,9 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank/item.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
@@ -205,7 +205,7 @@ class _Item extends StatelessWidget {
         );
       } catch (e, s) {
         if (kDebugMode) {
-          Utils.reportError(e, s);
+          reportError(e, s);
         }
       }
     }

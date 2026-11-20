@@ -4,10 +4,10 @@ import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space_fav/list.dart';
 import 'package:pili_aurora_next/features/subscriptions/presentation/subscription_detail_page.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/motion/hero_tag.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -38,7 +38,7 @@ class MemberFavItem extends StatelessWidget {
               '/favDetail',
               parameters: {
                 'mediaId': item.id.toString(),
-                'heroTag': Utils.makeHeroTag(item.id),
+                'heroTag': makeHeroTag(item.id),
               },
             );
             onDelete?.call(isDeleted);
@@ -100,7 +100,7 @@ class MemberFavItem extends StatelessWidget {
                     const Spacer(),
                     Text(
                       item.type == 0
-                          ? '${item.mediaCount}个内容 · ${BiliUtils.isPublicFavText(item.attr)}'
+                          ? '${item.mediaCount}个内容 · ${FolderAttributes.isPublicFavText(item.attr)}'
                           : item.type == 11
                           ? '${item.mediaCount}个内容 · ${item.upper?.name}'
                           : item.type == 21

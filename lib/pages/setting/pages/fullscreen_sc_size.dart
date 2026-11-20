@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/extra_hittest_stack.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
@@ -8,9 +9,9 @@ import 'package:pili_aurora_next/features/playback/domain/live_layout_defaults.d
 import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -23,7 +24,7 @@ class FullScreenScSize extends StatefulWidget {
 
 class _FullScreenScSizeState extends State<FullScreenScSize> {
   double _width = Pref.fullScreenSCWidth;
-  final _randomSC = SuperChatItem.random;
+  final _randomSC = SuperChatItem.random(showFanMedals: DisplayPreferences.showFanMedals);
   late EdgeInsets _padding;
   late ColorScheme _colorScheme;
 

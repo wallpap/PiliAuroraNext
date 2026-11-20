@@ -11,15 +11,15 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/pages/setting/models/about_settings.dart';
 import 'package:pili_aurora_next/features/account/application/account_backup.dart';
 import 'package:pili_aurora_next/services/settings/application_settings.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/update.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/update/update.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -116,10 +116,10 @@ class _AboutPageState extends State<AboutPage> {
           ),
           ListTile(
             onTap: () => Update.checkUpdate(false),
-            onLongPress: () => Utils.copyText(currentVersion),
+            onLongPress: () => copyText(currentVersion),
             onSecondaryTap: PlatformUtils.isMobile
                 ? null
-                : () => Utils.copyText(currentVersion),
+                : () => copyText(currentVersion),
             title: const Text('当前版本'),
             leading: const Icon(Icons.commit_outlined),
             trailing: Text(
@@ -139,10 +139,10 @@ Commit Hash: ${BuildConfig.commitHash}''',
             onTap: () => PageUtils.launchURL(
               '${Constants.sourceCodeUrl}/commit/${BuildConfig.commitHash}',
             ),
-            onLongPress: () => Utils.copyText(BuildConfig.commitHash),
+            onLongPress: () => copyText(BuildConfig.commitHash),
             onSecondaryTap: PlatformUtils.isMobile
                 ? null
-                : () => Utils.copyText(BuildConfig.commitHash),
+                : () => copyText(BuildConfig.commitHash),
           ),
           Divider(
             thickness: 1,

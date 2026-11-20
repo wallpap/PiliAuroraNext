@@ -2,7 +2,6 @@ import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/chat/live_emote.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/medals/uinfo_medal.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
-import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 
 class DanmakuMsg {
   final String name;
@@ -23,7 +22,10 @@ class DanmakuMsg {
     this.medalInfo,
   });
 
-  factory DanmakuMsg.fromPrefetch(Map<String, dynamic> obj) {
+  factory DanmakuMsg.fromPrefetch(
+    Map<String, dynamic> obj, {
+    required bool showFanMedals,
+  }) {
     final user = obj['user'];
     BaseEmote? uemote;
     if ((obj['emoticon']?['emoticon_unique'] as String?)?.isNotEmpty == true) {
@@ -56,7 +58,7 @@ class DanmakuMsg {
         ts: checkInfo['ts'],
         ct: checkInfo['ct'],
       ),
-      medalInfo: !DisplayPreferences.showFanMedals || medal == null
+      medalInfo: !showFanMedals || medal == null
           ? null
           : UinfoMedal.fromJson(medal),
     );

@@ -1,10 +1,10 @@
 import 'dart:ui';
 
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
-import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_color_type.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 abstract final class ThemePreferences {
   static ThemeType get type => _enum(

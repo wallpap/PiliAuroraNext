@@ -10,10 +10,10 @@ import 'package:pili_aurora_next/common/widgets/cropped_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/preview_image_cache.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/uri/file_name.dart';
 
 Widget buildSeekPreviewWidget(
   PlPlayerController controller,
@@ -80,7 +80,7 @@ Future<ui.Image?> _getImage(
 ) async {
   final file = await CacheManager.manager.getSingleFile(
     ImageUtils.safeThumbnailUrl(url),
-    key: Utils.getFileName(url, fileExt: false),
+    key: uriFileName(url, fileExt: false),
     headers: Constants.baseHeaders,
   );
   if (!isCurrent()) return null;

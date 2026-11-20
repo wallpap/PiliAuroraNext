@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 
 class SpaceCheeseItem {
   String? cover;

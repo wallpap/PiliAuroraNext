@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/desktop_sidebar.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/live_list_sheet.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
 void main() {
   testWidgets('切换榜单后查看全部调用统一入口', (tester) async {

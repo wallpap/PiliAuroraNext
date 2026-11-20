@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/app/desktop_title_bar.dart';
-import 'package:pili_aurora_next/utils/desktop_window_background.dart';
+import 'package:pili_aurora_next/platform/desktop/window_background.dart';
 
 void main() {
   testWidgets('标题栏提示完整绘制在页面内容之上', (tester) async {

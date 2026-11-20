@@ -1,6 +1,6 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/grid.dart' as grid;
+import 'package:pili_aurora_next/common/layout/grid.dart' as grid;
 
 SliverConstraints _constraints(double width, AxisDirection direction) =>
     SliverConstraints(

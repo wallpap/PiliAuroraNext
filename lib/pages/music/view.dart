@@ -15,22 +15,23 @@ import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/music/bgm_detail.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
 import 'package:pili_aurora_next/features/playback/application/music_detail.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/pages/music/video/view.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -372,7 +373,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
               parameters: {'mid': mid.toString()},
             )
           : name != null && name.isNotEmpty
-          ? () => Utils.copyText(name)
+          ? () => copyText(name)
           : null,
       child: child,
     );
@@ -452,7 +453,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                       children: [
                         GestureDetector(
                           onTap: () => _searchMusic(item),
-                          onLongPress: () => Utils.copyText(item.musicTitle),
+                          onLongPress: () => copyText(item.musicTitle),
                           behavior: HitTestBehavior.opaque,
                           child: MarqueeText(
                             item.musicTitle,
@@ -693,9 +694,9 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
           return;
         }
       } catch (error, stackTrace) {
-        Utils.reportError(error, stackTrace);
+        reportError(error, stackTrace);
       }
     }
-    await Utils.copyText(item.musicTitle);
+    await copyText(item.musicTitle);
   }
 }

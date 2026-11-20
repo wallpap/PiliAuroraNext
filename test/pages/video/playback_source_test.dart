@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/features/playback/domain/media/video_decode_typ
 import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/pages/video/playback_source.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/memory_box.dart';
 

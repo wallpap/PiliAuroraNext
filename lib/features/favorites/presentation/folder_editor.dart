@@ -11,11 +11,11 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/file_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
+import 'package:pili_aurora_next/core/io/file_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
@@ -79,7 +79,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
           if (res case Success(:final response)) {
             _titleController.text = response.title;
             _introController.text = response.intro ?? '';
-            _isPublic = BiliUtils.isPublicFav(response.attr);
+            _isPublic = FolderAttributes.isPublicFav(response.attr);
             _cover = response.cover;
             _attr = response.attr;
           } else {
@@ -223,7 +223,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
       child: Column(
         spacing: 12,
         children: [
-          if (_attr == null || !BiliUtils.isDefaultFav(_attr!))
+          if (_attr == null || !FolderAttributes.isDefaultFav(_attr!))
             Builder(
               builder: (context) {
                 return ListTile(
@@ -327,11 +327,11 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
                 Expanded(
                   child: TextField(
                     autofocus: true,
-                    readOnly: _attr != null && BiliUtils.isDefaultFav(_attr!),
+                    readOnly: _attr != null && FolderAttributes.isDefaultFav(_attr!),
                     controller: _titleController,
                     style: TextStyle(
                       fontSize: 14,
-                      color: _attr != null && BiliUtils.isDefaultFav(_attr!)
+                      color: _attr != null && FolderAttributes.isDefaultFav(_attr!)
                           ? theme.colorScheme.outline
                           : null,
                     ),
@@ -356,7 +356,7 @@ class _CreateFavPageState extends ConsumerState<CreateFavPage> {
               ],
             ),
           ),
-          if (_attr == null || !BiliUtils.isDefaultFav(_attr!))
+          if (_attr == null || !FolderAttributes.isDefaultFav(_attr!))
             ListTile(
               tileColor: theme.colorScheme.onInverseSurface,
               title: Row(

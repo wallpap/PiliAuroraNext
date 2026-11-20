@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_activity_item.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -57,7 +57,7 @@ class DynLikeItem extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            BiliUtils.levelPicture(
+                            memberLevelPicture(
                               author.level,
                               isSeniorMember: author.isSeniorMember,
                               height: 11,

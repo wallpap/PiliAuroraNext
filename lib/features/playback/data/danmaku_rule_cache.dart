@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 abstract final class DanmakuRuleCache {
   static RuleFilter read() => GStorage.localCache.get(

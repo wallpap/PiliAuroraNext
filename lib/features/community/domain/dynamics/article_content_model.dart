@@ -1,8 +1,8 @@
 import 'package:pili_aurora_next/common/style.dart' as common_style;
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/hex_color.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
 
 class ArticleContentModel {
   int? align;
@@ -132,7 +132,7 @@ class Word {
     style = json['style'] == null ? null : Style.fromJson(json['style']);
     if (json['color'] case final String rawColor
         when rawColor.startsWith('#')) {
-      color = ColourUtils.parse2Int(rawColor);
+      color = parseOpaqueHexColor(rawColor);
     }
     fontLevel = json['font_level'];
   }

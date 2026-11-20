@@ -21,15 +21,15 @@ import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart'
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/view.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/latex_to_unicode.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/core/text/latex_to_unicode.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
@@ -366,7 +366,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                       if (!current()) return;
                       if (png == null) throw StateError('截图编码未返回数据');
                       temporaryPath =
-                          '$tmpDirPath/${Utils.generateRandomString(8)}.png';
+                          '$tmpDirPath/${generateRandomString(8)}.png';
                       await File(temporaryPath)
                           .writeAsBytes(png.buffer.asUint8List());
                       if (current() && imageList.length < limit) {

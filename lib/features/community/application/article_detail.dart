@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/community/application/dynamics_actions
 import 'package:pili_aurora_next/features/community/data/article_repository.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
+import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show ArticleContentModel;
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
@@ -13,9 +13,9 @@ import 'package:pili_aurora_next/features/community/domain/article/article_view/
 import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/url_utils.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/router/url_utils.dart';
 
 typedef _ArticleContext = ({
   Account account,

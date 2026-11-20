@@ -7,9 +7,9 @@ import 'dart:convert';
 
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/core/uri/file_name.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -80,8 +80,8 @@ abstract final class WbiSign {
       final wbiUrls = resp.data['data']['wbi_img'];
 
       final mixinKey = getMixinKey(
-        Utils.getFileName(wbiUrls['img_url'], fileExt: false) +
-            Utils.getFileName(wbiUrls['sub_url'], fileExt: false),
+        uriFileName(wbiUrls['img_url'], fileExt: false) +
+            uriFileName(wbiUrls['sub_url'], fileExt: false),
       );
 
       await _localCache.putAll({

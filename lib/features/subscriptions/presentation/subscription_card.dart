@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/subscriptions/domain/subscription.dart';
 import 'package:pili_aurora_next/features/subscriptions/presentation/subscription_detail_page.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/motion/hero_tag.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
@@ -21,7 +21,7 @@ class SubItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String heroTag = Utils.makeHeroTag(item.id);
+    String heroTag = makeHeroTag(item.id);
     final type = switch (item.type) {
       11 => '收藏夹',
       21 => '合集',

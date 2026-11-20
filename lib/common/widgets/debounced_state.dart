@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:flutter/widgets.dart';
 
 mixin DebounceStreamMixin<T> {

@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:pili_aurora_next/features/account/data/credential_cipher.dart';
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:pili_aurora_next/services/settings/gesture_defaults.dart';
-import 'package:pili_aurora_next/models/common/bar_hide_type.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/bar_hide_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/up_panel_position.dart';
 import 'package:pili_aurora_next/features/following/domain/follow_order_type.dart';
@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/features/member_space/domain/tab_type.dart';
 import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
 import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
@@ -27,12 +27,12 @@ import 'package:pili_aurora_next/plugin/pl_player/models/bottom_progress_behavio
 import 'package:pili_aurora_next/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/data/client_identity.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:get/route_manager.dart' show Transition;
 import 'package:hive_ce/hive.dart';

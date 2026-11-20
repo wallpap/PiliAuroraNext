@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
 
 /// 自动检测设备物理分辨率，作为 Android 视频 Surface 输出上限。
 abstract final class AndroidVideoOutputLimit {

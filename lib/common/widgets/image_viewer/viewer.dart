@@ -20,8 +20,8 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show touchSlopH;
 import 'package:pili_aurora_next/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/content_demand.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';

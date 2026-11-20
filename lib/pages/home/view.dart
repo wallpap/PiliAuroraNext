@@ -20,8 +20,8 @@ import 'package:pili_aurora_next/pages/hot/view.dart';
 import 'package:pili_aurora_next/pages/live/view.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

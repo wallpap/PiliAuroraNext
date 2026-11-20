@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 import 'package:pili_aurora_next/features/playback/domain/video_detail/dimension.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
-import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_orientation.dart';
 
 import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
 

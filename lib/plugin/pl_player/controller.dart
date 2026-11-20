@@ -5,7 +5,7 @@ import 'dart:convert' show ascii;
 import 'dart:io' show Platform;
 import 'dart:math' show min;
 
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, visibleForTesting;
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
@@ -59,23 +59,23 @@ import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/asset_utils.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/desktop_window_visibility.dart';
-import 'package:pili_aurora_next/utils/desktop_window_background.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/box_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/platform/files/bundled_assets.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/platform/desktop/window_visibility.dart';
+import 'package:pili_aurora_next/platform/desktop/window_background.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/services/settings/box_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
@@ -989,7 +989,7 @@ class PlPlayerController
       _runtime.released.then<void>(
         (_) => _disposeFacadeAfterRelease(),
         onError: (Object error, StackTrace stackTrace) {
-          Utils.reportError(error, stackTrace);
+          reportError(error, stackTrace);
           _disposeFacadeAfterRelease();
         },
       ),
@@ -1055,7 +1055,7 @@ class PlPlayerController
     _projectPlaybackSnapshot(_session.currentSnapshot, owner);
     _snapshotSubscription = owner.snapshots.listen(
       (snapshot) => _projectPlaybackSnapshot(snapshot, owner),
-      onError: Utils.reportError,
+      onError: reportError,
     );
   }
 
@@ -1088,7 +1088,7 @@ class PlPlayerController
                 },
                 onError: (Object error, StackTrace stackTrace) {
                   _acknowledgingActionIds.remove(action.id);
-                  Utils.reportError(error, stackTrace);
+                  reportError(error, stackTrace);
                 },
               ),
         );
@@ -1197,7 +1197,7 @@ class PlPlayerController
       try {
         listener(nextStatus);
       } catch (error, stackTrace) {
-        Utils.reportError(error, stackTrace);
+        reportError(error, stackTrace);
       }
     }
     if (nextStatus.isCompleted && !completedAction) {
@@ -1718,7 +1718,7 @@ class PlPlayerController
             ? PlaybackRecoveryTrack.audio
             : PlaybackRecoveryTrack.video,
       ),
-      onError: Utils.reportError,
+      onError: reportError,
       canRecover: () =>
           !_audioSeekInProgress &&
           !isSeeking.value &&
@@ -1879,7 +1879,7 @@ class PlPlayerController
           }
           _wakeLockHeld = next;
         } catch (error, stackTrace) {
-          Utils.reportError(error, stackTrace);
+          reportError(error, stackTrace);
           _wakeLockWanted = _wakeLockHeld;
         }
       }
@@ -1998,7 +1998,7 @@ class PlPlayerController
             level: DiagnosticLogLevel.error,
             details: {'error': error},
           );
-          Utils.reportError(error);
+          reportError(error);
         },
       );
     }
@@ -2093,7 +2093,7 @@ class PlPlayerController
             return;
           }
           if (!kDebugMode) {
-            Utils.reportError('$event\n${player.state.playlist}');
+            reportError('$event\n${player.state.playlist}');
           }
           // SmartDialog.showToast('视频加载错误, $event');
         }

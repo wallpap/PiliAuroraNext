@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/features/watch_later/application/later_library.
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/list.dart';
 import 'package:pili_aurora_next/features/watch_later/presentation/video_card.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:pili_aurora_next/features/content_library/application/library_preferences.dart';
 
 class LaterPage extends ConsumerStatefulWidget {

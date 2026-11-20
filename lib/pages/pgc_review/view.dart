@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/features/community/application/pgc_reviews.dart
 import 'package:pili_aurora_next/features/community/domain/pgc_review.dart';
 import 'package:pili_aurora_next/pages/pgc_review/child/view.dart';
 import 'package:pili_aurora_next/pages/pgc_review/post/view.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

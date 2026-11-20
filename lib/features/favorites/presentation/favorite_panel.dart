@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/features/favorites/presentation/transfer_dialog
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/pages/member_cheese/widgets/item.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 
 class FavoritePanel extends ConsumerStatefulWidget {
   const FavoritePanel({

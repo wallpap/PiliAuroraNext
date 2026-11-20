@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_favorites.dart';
 import 'package:pili_aurora_next/pages/member_favorite/widget/item.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberFavorite extends ConsumerStatefulWidget {

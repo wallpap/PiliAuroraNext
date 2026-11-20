@@ -26,10 +26,10 @@
 | 观看历史 | `lib/features/history/presentation/` | [历史模块](../../lib/features/history/README.md)；历史账号角色与游标分页 | `test/features/history/` |
 | 稍后再看 | `lib/features/watch_later/presentation/` | [稍后再看模块](../../lib/features/watch_later/README.md)；共享 [内容管理共享实现](../../lib/features/content_library/README.md) | `test/features/watch_later/` |
 | 下载与离线 | `lib/features/download/presentation/` | [下载模块](../../lib/features/download/README.md)；`data/`、`domain/`、`application/`；路径在 `lib/app/app_paths.dart` | `test/services/download/`、`test/features/download/`、`test/pages/download/` |
-| 设置与主题 | `setting/`、`settings_search/`、`space_setting/` | `lib/common/style.dart`、`lib/utils/theme_utils.dart`、`storage_pref.dart` | `test/pages/setting/`、`test/pages/space_setting/` |
+| 设置与主题 | `setting/`、`settings_search/`、`space_setting/` | `lib/services/settings/`、`lib/common/appearance/theme_builder.dart` | `test/pages/setting/`、`test/pages/space_setting/` |
 | WebView、DLNA、空降助手 | `webview/`、`dlna/`、`sponsor_block/` | 投屏地址和发现会话归 `features/playback/application/`。其他平台实现从 import 定位。 | `test/pages/webview/`、`test/features/playback/dlna_session_test.dart`、`test/pages/video/cast_results_test.dart`、`test/pages/sponsor_block/`、对应依赖包测试 |
 
-表中的 `models/` 相对 `lib/`；测试及探针路径相对仓库根目录。测试选择、夹具和设备边界见[测试目录](../../test/README.md)，设置生效时机见[设置行为](settings-behavior.md)。
+测试及探针路径相对仓库根目录。测试选择、夹具和设备边界见[测试目录](../../test/README.md)，设置生效时机见[设置行为](settings-behavior.md)。
 
 ## 首页与内容发现
 

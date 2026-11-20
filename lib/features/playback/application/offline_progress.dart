@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 abstract final class OfflineProgress {
   static Duration resume(int cid, int durationMs) {

@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/services/messaging/models/im_user_infos/datum.d
 import 'package:pili_aurora_next/services/messaging/models/msg_dnd/uid_setting.dart';
 import 'package:pili_aurora_next/pages/whisper_link_setting/controller.dart';
 import 'package:pili_aurora_next/services/messaging/settings.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

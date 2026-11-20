@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:pili_aurora_next/utils/random_id.dart';
-import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/core/random/random_id.dart';
+import 'package:pili_aurora_next/features/account/data/client_identity.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -22,7 +22,7 @@ void main() {
   });
 
   test('Buvid3 preserves uppercase UUID, five digit suffix and infoc', () {
-    final value = IdUtils.genBuvid3();
+    final value = ClientIdentity.generateBuvid3();
     expect(
       RegExp(
         r'^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}\d{5}infoc$',

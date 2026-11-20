@@ -2,7 +2,7 @@ import 'package:fixnum/fixnum.dart';
 import 'package:pili_aurora_next/grpc/audio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart' show Volume;
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 
 typedef AudioMediaSource = ({List<String> urls, Volume? volume});
 

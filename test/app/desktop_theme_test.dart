@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/app/desktop_theme.dart';
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
+import 'package:pili_aurora_next/services/settings/theme/app_icon_style.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

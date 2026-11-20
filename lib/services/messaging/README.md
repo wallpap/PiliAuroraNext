@@ -27,6 +27,7 @@
 
 - [`session_models.dart`](session_models.dart) 定义稳定的 `SessionKey`、文件夹、会话目标和列表快照。会话目标区分私信、群、折叠入口、系统及客服等类型，操作是否可用由目标类型决定。
 - [`message_models.dart`](message_models.dart) 定义聊天目标、消息内容、分页结果和操作结果。结构化内容复制并冻结嵌套集合，避免调用方后续修改影响发送内容。
+- `models/` 保存消息通知、收件设置和未读接口使用的数据结构，按通知和查询类型组织。
 - `session_adapter.dart`、`conversation_adapter.dart`、`feed_adapters.dart` 和 `sharing_adapter.dart` 调用 `lib/http/msg.dart`、`lib/grpc/im.dart`，转换协议响应并显式传入账号。
 
 新增消息行为时，先确定状态由 Session 还是页面持有，再接入对应句柄和 provider。协议字段转换放在适配器，页面使用业务模型和操作结果。

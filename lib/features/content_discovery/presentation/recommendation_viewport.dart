@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart' show SliverGridRegularTileLayout;
 import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/common/style.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 
 /// 容量与卡片共用网格几何，底部导航留白不计入可见内容高度。
 class RecommendationViewport extends StatelessWidget {

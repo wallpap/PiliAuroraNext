@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/selectable_region_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SelectionText extends StatelessWidget {

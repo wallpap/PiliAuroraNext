@@ -19,11 +19,12 @@ flowchart LR
         Http[http/ 与 grpc/<br/>远端 API]
         Services[services/<br/>跨页面与长生命周期能力]
         Player[plugin/pl_player/<br/>播放控制与输出协调]
-        Models[models/ 与 generated/<br/>共享模型和协议数据]
-        Shared[common/ 与 utils/<br/>通用组件和基础工具]
+        Protocols[generated/<br/>生成协议]
+        Shared[common/<br/>共享 UI]
+        Core[core/<br/>跨领域 Dart 基础能力]
         Local[(本地存储、缓存、下载文件)]
     end
-    Platform[Android / Windows 插件与原生能力]
+    Platform[platform/ 与 Android / Windows 原生能力]
     Media[media_kit / mpv / WebView / 音频库]
     Remote[(Bilibili 与第三方服务)]
 
@@ -34,14 +35,15 @@ flowchart LR
     Pages --> Features
     Pages --> Services
     Pages --> Player
-    Pages --> Models
     Pages --> Shared
     Features --> Http
     Features --> Services
+    Features --> Core
+    Shared --> Core
     Services --> Http
-    Services --> Models
+    Services --> Protocols
     Services --> Local
-    Http --> Models
+    Http --> Protocols
     Http --> Remote
     Player --> Media
     Player --> Platform
@@ -54,18 +56,20 @@ flowchart LR
 | 目录 | 主要职责 | 修改时先看 |
 | --- | --- | --- |
 | `lib/app/` | 启动装配、路径准备、平台初始化、根 Widget 与返回导航 | `bootstrap.dart`、`platform_setup.dart`、`app.dart` |
-| `lib/router/` | 集中注册 GetX 路由及页面入口 | `app_pages.dart` 与页面构造参数 |
+| `lib/router/` | 路由注册、深链接解析与页面跳转 | `app_pages.dart`、`app_scheme.dart`、`page_utils.dart` |
 | `lib/features/` | 领域模型、数据适配、应用状态与展示 | [功能地图](features.md)及各领域 README |
 | `lib/pages/` | 按用户功能组织 view、controller 和局部组件 | 路由、controller、对应测试 |
 | `lib/http/` | 业务 API 与请求层横切逻辑 | API 调用方、响应模型、`init.dart` |
-| `lib/services/` | 下载、消息、直播流、账号、诊断等跨页面或长生命周期能力 | 生命周期、资源所有者、对应测试 |
-| `lib/models/`、`lib/grpc/` | API 模型、共享数据、枚举及 gRPC 传输适配 | 功能层调用方、响应模型 |
+| `lib/services/` | 消息、设置与存储、直播流、缓存和诊断等跨页面能力 | 所属模块的状态与数据接口 |
+| `lib/grpc/` | gRPC 请求与传输适配 | 功能层调用方与协议转换 |
 | `lib/generated/bilibili/` | Bilibili protobuf 生成快照 | [协议产物更新约定](../../lib/generated/README.md) |
 | `lib/plugin/pl_player/` | 播放状态、媒体源、弹幕、原生输出和全屏控制 | `controller.dart`、对应平台实现和测试 |
-| `lib/common/`、`lib/utils/` | 通用 UI、存储、缓存、平台判断及辅助逻辑 | 全部调用方，避免把页面状态放进通用层 |
+| `lib/common/` | 共享控件、布局、样式与交互反馈 | 控件调用方及其测试 |
+| `lib/core/` | Dart 集合、解析、时间、文件与调度基础能力 | 纯 Dart 接口，禁止依赖应用层和 Flutter |
+| `lib/platform/` | 平台能力、桌面窗口和 Android JNI 桥接 | 对应平台实现与主机测试 |
 | `android/`、`windows/`、`third_party/` | 平台工程、插件和本地维护的依赖实现 | 依赖登记、生成脚本和平台构建配置 |
 
-展示层经由功能入口或服务发起请求，不直接访问 HTTP、gRPC 或对应的客户端。`models/` 同时包含远端响应和页面间共享对象，用途比数据库实体更宽。
+展示层经由功能入口或服务发起请求。业务类型归所属模块，`domain/` 保存页面可消费的领域数据和规则，`data/` 保存传输适配、持久化与协议转换。`features/media_catalog/domain/` 定义跨搜索、发现、空间与播放共享的视频和作者摘要。其余选源、音轨和直播房间模型归播放模块。
 
 Riverpod 由根 ProviderScope 装配，页面查询和应用级服务按各自生命周期管理。各功能的状态所有者、账号切换和异步失效约定见[状态管理](state-management.md)。
 
@@ -149,7 +153,7 @@ flowchart LR
 
 `test/architecture/legacy_dependencies_test.dart` 拒绝新增 GetX 业务继承、展示层直连传输和全局存储，以及对生成协议和定制包内部实现的直接依赖。迁移清除对应的存量清单项，CI 分析整个 `lib test tool`，生成快照与定制包不混入应用分析范围。
 
-新增业务模型和工具放在使用方所属的功能模块。确需在 `utils/` 或 `models/` 增加跨领域代码时，在变更说明中记录所属领域、调用方和保留在公共目录的原因。已迁出的公共入口由依赖测试防止回流。业务源码、生成协议和定制包的搜索入口见[协议产物](../../lib/generated/README.md)。
+新增模型和工具放在负责该业务规则的模块。`core/` 只接收不含业务规则的 Dart 基础代码，平台实现进入 `platform/`，展示适配与组件放在功能展示层或 `common/`。依赖测试防止恢复 `lib/utils/`、`lib/models/`，并检查 `core/` 的依赖方向。业务源码、生成协议和定制包的搜索入口见[协议产物](../../lib/generated/README.md)。
 
 ## 状态与本地数据
 

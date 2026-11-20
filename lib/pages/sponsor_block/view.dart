@@ -6,8 +6,8 @@ import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart
 import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/user_info.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
-import 'package:pili_aurora_next/utils/filtering_text.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/common/input/filtering_text.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';

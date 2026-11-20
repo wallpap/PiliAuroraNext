@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
@@ -16,8 +16,8 @@ import 'package:pili_aurora_next/features/search/domain/suggestions/search_rcmd/
 import 'package:pili_aurora_next/features/search/application/search_home.dart';
 import 'package:pili_aurora_next/pages/search/widgets/hot_keyword.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/em.dart' show Em;
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
+import 'package:pili_aurora_next/features/search/domain/highlighted_text.dart' show Em;
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

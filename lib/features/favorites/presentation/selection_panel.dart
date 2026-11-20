@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
 
 /// 播放器只提供固定目标、归属判断和确认回调，收藏草稿归面板持有。
 class FavoriteSelectionPanel extends ConsumerStatefulWidget {
@@ -147,7 +147,7 @@ class _FavoriteSelectionPanelState
                     final checked = _selected.contains(folder.id);
                     final full =
                         !data.selected.contains(folder.id) &&
-                        BiliUtils.isFavFolderFull(
+                        FolderAttributes.isFavFolderFull(
                           folder.attr,
                           folder.mediaCount,
                         );
@@ -167,7 +167,7 @@ class _FavoriteSelectionPanelState
                           : (_) => toggle(),
                       title: Text(folder.title),
                       subtitle: Text(
-                        '$count个内容${full ? '(已满)' : ''} · ${BiliUtils.isPublicFavText(folder.attr)}',
+                        '$count个内容${full ? '(已满)' : ''} · ${FolderAttributes.isPublicFavText(folder.attr)}',
                       ),
                     );
                   },

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
 
 /// 列表明确标识的合作视频及其已知作者；补查结果写回作者集合。
 class VideoAuthors {

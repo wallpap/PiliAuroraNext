@@ -6,8 +6,8 @@ import 'package:pili_aurora_next/features/playback/domain/live/room_info/data.da
 import 'package:pili_aurora_next/features/playback/domain/live/room_source/data.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/connectivity_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/platform/network/connectivity.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 class LiveRoomQueries {
   CancelToken? _details;

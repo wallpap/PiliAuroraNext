@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/services/messaging/overview.dart';
 import 'package:pili_aurora_next/services/messaging/preferences.dart';
 import 'package:pili_aurora_next/services/messaging/session_models.dart';
 import 'package:pili_aurora_next/services/messaging/session_providers.dart';
-import 'package:pili_aurora_next/utils/extension/three_dot_ext.dart';
+import 'package:pili_aurora_next/pages/common/messaging_session_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

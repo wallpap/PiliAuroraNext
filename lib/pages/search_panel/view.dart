@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart
 import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract class CommonSearchPanel extends ConsumerStatefulWidget {

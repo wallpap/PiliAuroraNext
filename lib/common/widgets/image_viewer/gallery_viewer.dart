@@ -29,18 +29,18 @@ import 'package:pili_aurora_next/common/widgets/image_viewer/viewer.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/app_viewport.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
+import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/max_screen_size.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/android/max_screen_size.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get.dart';
@@ -545,7 +545,7 @@ class _GalleryViewerState extends State<GalleryViewer>
           DialogOption(
             onPressed: () {
               Get.back();
-              Utils.copyText(item.url);
+              copyText(item.url);
             },
             child: const Text('复制链接', style: TextStyle(fontSize: 14)),
           ),
@@ -606,7 +606,7 @@ class _GalleryViewerState extends State<GalleryViewer>
         ),
         AppPopupMenuItem(
           height: 42,
-          onTap: () => Utils.copyText(item.url),
+          onTap: () => copyText(item.url),
           child: const Text('复制链接', style: TextStyle(fontSize: 14)),
         ),
         AppPopupMenuItem(

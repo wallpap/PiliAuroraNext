@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:pili_aurora_next/utils/asset_utils.dart';
+import 'package:pili_aurora_next/platform/files/bundled_assets.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

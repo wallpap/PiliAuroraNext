@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 
 abstract final class BrowserUa {
   static String get platform => PlatformUtils.isMobile ? mob : pc;

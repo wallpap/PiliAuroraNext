@@ -10,8 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/curated_feed.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PopularPreciousPage extends ConsumerStatefulWidget {

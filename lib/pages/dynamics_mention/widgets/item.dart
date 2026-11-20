@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:material_ui/material_ui.dart';
 
 class DynMentionItem extends StatelessWidget {

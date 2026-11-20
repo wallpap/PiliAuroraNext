@@ -14,9 +14,9 @@ import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/application/login_sync.dart';
 import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
 import 'package:pili_aurora_next/features/history/application/history_library.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 import '../support/controlled_http_adapter.dart';
 import '../support/memory_box.dart';

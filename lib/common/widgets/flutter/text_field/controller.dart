@@ -19,7 +19,7 @@ import 'dart:math';
 
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 

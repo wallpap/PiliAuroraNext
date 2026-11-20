@@ -36,7 +36,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../common/publish/upload_fixture.dart';

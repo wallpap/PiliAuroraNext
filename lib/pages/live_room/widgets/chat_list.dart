@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class LiveChatList<T> extends StatelessWidget {

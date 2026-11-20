@@ -17,8 +17,8 @@ import 'package:pili_aurora_next/pages/live_room/superchat/superchat_panel.dart'
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_panel.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

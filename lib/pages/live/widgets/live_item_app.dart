@@ -5,9 +5,9 @@ import 'package:pili_aurora_next/features/content_discovery/application/live_fee
 import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_data_list_item.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/feedback.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';

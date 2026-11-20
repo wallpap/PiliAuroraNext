@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
 import 'package:pili_aurora_next/pages/member_cheese/widgets/item.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberCheese extends ConsumerStatefulWidget {

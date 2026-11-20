@@ -31,12 +31,12 @@ import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/video_filter_preferences.dart';
 import 'package:pili_aurora_next/features/community/data/comments/reply_json.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/http/client_fingerprint.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
@@ -223,8 +223,8 @@ abstract final class VideoHttp {
       return Error('请求已取消', cause: error, stackTrace: error?.stackTrace);
     }
     try {
-      final dmImgStr = Utils.base64EncodeRandomString(16, 64);
-      final dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      final dmImgStr = randomFingerprint(16, 64);
+      final dmCoverImgStr = randomFingerprint(32, 128);
       final params = await WbiSign.makSign({
         'avid': ?avid,
         'bvid': ?bvid,

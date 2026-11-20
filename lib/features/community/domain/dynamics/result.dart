@@ -6,10 +6,10 @@ import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart' show VideoAuthors;
 import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/watched_show.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/parse_bool.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
-import 'package:pili_aurora_next/utils/parse_string.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/core/parsing/parse_bool.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/parse_string.dart';
 
 class DynamicsDecodeOptions {
   const DynamicsDecodeOptions({

@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/core/text/keyword_pattern.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 typedef ContentFilter = ({RegExp? keywords, bool hideGoods});
 

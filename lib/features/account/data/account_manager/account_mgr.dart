@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/data/api_type.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 

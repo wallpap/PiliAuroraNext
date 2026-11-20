@@ -27,25 +27,25 @@ void main() {
     'services/settings/settings_backup.dart': [
       ...sharedRestrictions,
       'package:dio/',
-      '/utils/storage',
+      '/services/settings/storage',
       '/logger.dart',
     ],
     'services/settings/webdav_sync.dart': [
       ...sharedRestrictions,
       'package:flutter_smart_dialog/',
-      '/utils/storage',
-      '/device_utils',
+      '/services/settings/storage',
+      '/platform/device_actions',
     ],
     'features/download/data/download_manager.dart': ['/http/'],
     'services/settings/window_preferences.dart': [
       'package:get/',
       '/pages/',
-      '/utils/storage_pref',
+      '/services/settings/stored_preferences',
     ],
     'services/settings/theme_preferences.dart': [
       'package:get/',
       '/pages/',
-      '/utils/storage_pref',
+      '/services/settings/stored_preferences',
     ],
   };
   test(
@@ -76,7 +76,7 @@ void main() {
                       uri.startsWith('package:dio/') ||
                       (target != null &&
                           !target.startsWith('features/download/domain/') &&
-                          !target.startsWith('utils/extension/')))) ||
+                          !target.startsWith('core/')))) ||
               (application &&
                   (target?.startsWith('features/download/presentation/') ==
                           true ||
@@ -86,7 +86,7 @@ void main() {
                   (target?.startsWith('features/download/data/') == true ||
                       (target?.startsWith('http/') == true &&
                           target != 'http/loading_state.dart') ||
-                      target?.startsWith('utils/storage') == true));
+                      target?.startsWith('services/settings/storage') == true));
           if (forbidden) violations.add('$source -> $uri');
         }
       }
@@ -140,7 +140,7 @@ void main() {
                       target?.contains('/application/') == true ||
                       target?.contains('/data/') == true ||
                       target?.contains('/presentation/') == true ||
-                      target?.startsWith('utils/storage') == true)) ||
+                      target?.startsWith('services/settings/storage') == true)) ||
               (data &&
                   (target?.startsWith('pages/') == true ||
                       target?.contains('/presentation/') == true)) ||
@@ -153,7 +153,7 @@ void main() {
                   (target?.contains('/data/') == true ||
                       (target?.startsWith('http/') == true &&
                           target != 'http/loading_state.dart') ||
-                      target?.startsWith('utils/storage') == true));
+                      target?.startsWith('services/settings/storage') == true));
           if (forbidden) violations.add('$source -> $uri');
         }
       }
@@ -258,7 +258,7 @@ void main() {
         if ((target?.startsWith('http/') == true &&
                 target != 'http/loading_state.dart') ||
             target?.contains('/data/') == true ||
-            target?.startsWith('utils/storage') == true ||
+            target?.startsWith('services/settings/storage') == true ||
             target == 'features/account/application/accounts.dart' ||
             (target?.startsWith('pages/common/common_') == true &&
                 target != 'pages/common/common_page.dart')) {
@@ -394,28 +394,8 @@ void main() {
     }
     expect(violations, isEmpty, reason: violations.join('\n'));
   });
-  test('migrated models and utilities have a single feature owner', () {
-    const legacy = [
-      'models/common/dm_block_type.dart',
-      'models/common/pgc_review_type.dart',
-      'models/user/danmaku_block.dart',
-      'models/user/danmaku_rule.dart',
-      'models/user/danmaku_rule_adapter.dart',
-      'models/remote/emote/',
-      'models/remote/live/live_emote/',
-      'models/remote/live/live_area_list/',
-      'models/remote/pgc/pgc_review/',
-      'models/remote/video/video_note_list/',
-      'models/dynamics/vote_model.dart',
-      'models/remote/dynamic/dyn_reserve_info/',
-      'models/remote/dynamic/dyn_topic_top/',
-      'models/remote/dynamic/dyn_topic_feed/',
-      'models/remote/dynamic/dyn_topic_pub_search/',
-      'models/remote/dynamic/dyn_mention/',
-      'services/danmaku/work_quota.dart',
-      'utils/danmaku_utils.dart',
-      'utils/reply_filter.dart',
-    ];
+  test('models and utilities stay with their owners and core stays neutral', () {
+    const retired = ['models/', 'utils/', 'services/danmaku/work_quota.dart'];
     final violations = <String>[];
     for (final root in ['lib', 'test', 'tool']) {
       for (final file in Directory(root).listSync(recursive: true)) {
@@ -423,12 +403,18 @@ void main() {
         final source = path
             .relative(file.path, from: root)
             .replaceAll('\\', '/');
-        if (root == 'lib' && legacy.any(source.startsWith)) {
+        if (root == 'lib' && retired.any(source.startsWith)) {
           violations.add(source);
         }
         for (final uri in dependencies(file)) {
           final target = localDependency(file, uri);
-          if (target != null && legacy.any(target.startsWith)) {
+          final isCore = root == 'lib' && source.startsWith('core/');
+          final coreDependency =
+              target?.startsWith('core/') == true ||
+              (uri.startsWith('dart:') && uri != 'dart:ui') ||
+              uri.startsWith('package:intl/');
+          if ((target != null && retired.any(target.startsWith)) ||
+              (isCore && !coreDependency)) {
             violations.add('$root/$source -> $uri');
           }
         }
@@ -472,7 +458,7 @@ void main() {
         dependencies(file).where(
           (uri) =>
               !(entry.key == 'services/settings/settings_backup.dart' &&
-                  localDependency(file, uri) == 'utils/storage_key.dart') &&
+                  localDependency(file, uri) == 'services/settings/storage_key.dart') &&
               entry.value.any(
                 (restriction) => restriction.startsWith('package:')
                     ? uri.startsWith(restriction)

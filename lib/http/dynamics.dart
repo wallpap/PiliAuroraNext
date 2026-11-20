@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
@@ -29,7 +29,7 @@ import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_i
 import 'package:pili_aurora_next/features/community/domain/votes/vote.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
@@ -231,7 +231,7 @@ abstract final class DynamicsHttp {
           'pics': ?pics,
           "attach_card": attachCard,
           "upload_id":
-              "${rid != null ? 0 : mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.random.nextInt(9000) + 1000}",
+              "${rid != null ? 0 : mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${sharedRandom.nextInt(9000) + 1000}",
           "meta": {
             "app_meta": {"from": "create.dynamic.web", "mobi_app": "web"},
           },
@@ -813,7 +813,7 @@ abstract final class DynamicsHttp {
   }) async {
     account ??= AccountManager.resolveAccount(Api.editDyn);
     final uploadId =
-        "${account.mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.random.nextInt(9000) + 1000}";
+        "${account.mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${sharedRandom.nextInt(9000) + 1000}";
     try {
       return await Request().requestApi(
         Api.editDyn,

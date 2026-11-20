@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_folder/list.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -64,7 +64,7 @@ class FavFolderItem extends StatelessWidget {
             maxLines: 1,
           ),
           Text(
-            ' 共${item.mediaCount}条视频 · ${BiliUtils.isPublicFavText(item.attr)}',
+            ' 共${item.mediaCount}条视频 · ${FolderAttributes.isPublicFavText(item.attr)}',
             style: theme.textTheme.labelSmall!.copyWith(
               color: theme.colorScheme.outline,
             ),

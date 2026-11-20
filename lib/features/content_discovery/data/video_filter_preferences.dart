@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/core/text/keyword_pattern.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/video_filter.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 abstract final class VideoFilterPreferences {
   static final _titles = KeywordPattern();

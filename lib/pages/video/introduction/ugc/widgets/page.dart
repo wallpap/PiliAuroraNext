@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';

@@ -1,3 +1,4 @@
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_layer.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
@@ -46,19 +47,20 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_loading.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/max_screen_size.dart';
-import 'package:pili_aurora_next/utils/mobile_observer.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/android/max_screen_size.dart';
+import 'package:pili_aurora_next/platform/mobile_observer.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -77,7 +79,7 @@ class LiveRoomPage extends StatefulWidget {
 class _LiveRoomPageState extends State<LiveRoomPage>
     with WidgetsBindingObserver, RouteAware, RouteAwareMixin {
   late final fullScreenSCWidth = LivePreferences.fullScreenSuperChatWidth;
-  final String heroTag = Utils.generateRandomString(6);
+  final String heroTag = generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
   late final _desktopRequest = _createDesktopRequest;
@@ -331,7 +333,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               right: 0,
               child: TextButton(
                 onPressed: () {
-                  final item = SuperChatItem.random;
+                  final item = SuperChatItem.random(showFanMedals: DisplayPreferences.showFanMedals);
                   _liveRoomController
                     ..fsSC.value = item
                     ..addDm(item);
@@ -645,7 +647,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                 'https://live.bilibili.com/${_liveRoomController.roomId}';
             return <PopupMenuEntry>[
               AppPopupMenuItem(
-                onTap: () => Utils.copyText(liveUrl),
+                onTap: () => copyText(liveUrl),
                 child: const Row(
                   spacing: 10,
                   mainAxisSize: .min,

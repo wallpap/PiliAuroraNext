@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/pages/follow/child/child_view.dart';
 import 'package:pili_aurora_next/features/following/application/following.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
 
 class FollowSearchPage extends ConsumerStatefulWidget {
   const FollowSearchPage({super.key, this.mid, this.isFromSelect = false});

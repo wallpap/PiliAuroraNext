@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/features/community/application/emote_management.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
 

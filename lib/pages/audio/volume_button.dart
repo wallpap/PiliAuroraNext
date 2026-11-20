@@ -1,7 +1,7 @@
 import 'dart:async' show Timer;
 import 'dart:math' as math;
 
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/vertical_slider.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
 import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';

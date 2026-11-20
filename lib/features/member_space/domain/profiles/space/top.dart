@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/parse_string.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/core/parsing/parse_string.dart';
 
 class Top {
   List<TopImage>? imgUrls;

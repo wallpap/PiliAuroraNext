@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/live_emote_panel.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
 import 'package:pili_aurora_next/features/community/domain/live_emote/datum.dart';
 import 'package:pili_aurora_next/pages/live_emote/view.dart';

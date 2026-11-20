@@ -4,7 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/action_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/post_segment_model.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
@@ -16,8 +16,8 @@ import 'package:pili_aurora_next/pages/video/post_panel/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/webp_capture_operation.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 
 class PlayerWebpCapture {
   Future<void> cancel() async => await _webpCapture?.cancel();

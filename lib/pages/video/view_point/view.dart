@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

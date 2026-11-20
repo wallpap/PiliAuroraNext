@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_ba
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/video_progress.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 import 'support/presentation_player.dart';

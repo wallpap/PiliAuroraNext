@@ -10,10 +10,10 @@ import 'package:pili_aurora_next/features/member_space/domain/guard/guard_top_li
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/guard_pendant.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/widget_ext.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
@@ -221,7 +221,7 @@ class _MemberGuardState extends ConsumerState<MemberGuard>
           type: .emote,
           width: pendentSize,
           height: pendentSize,
-          src: BiliUtils.liveGuardPendant(guardLevel),
+          src: liveGuardPendant(guardLevel),
           getPlaceHolder: () => const SizedBox.shrink(),
         ),
       ],

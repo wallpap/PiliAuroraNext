@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_type.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 abstract final class CommentPreferences {
   static ReplySortType get defaultSort => Pref.replySortType;

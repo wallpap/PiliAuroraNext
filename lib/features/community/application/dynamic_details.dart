@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart'
 import 'package:pili_aurora_next/features/community/domain/dynamics/dyn_reserve/data.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 final dynamicDetailsProvider = Provider(
   (ref) => DynamicDetails(ref.read(dynamicsRepositoryProvider)),

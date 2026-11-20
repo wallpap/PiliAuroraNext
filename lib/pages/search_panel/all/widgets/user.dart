@@ -6,11 +6,11 @@ import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart'
     show pushVideoH;
 import 'package:pili_aurora_next/features/search/domain/result.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
@@ -63,7 +63,7 @@ class SearchAllUserItem extends StatelessWidget {
                           spacing: 6,
                           children: [
                             Flexible(child: Text(item.uname!)),
-                            BiliUtils.levelPicture(
+                            memberLevelPicture(
                               item.level!,
                               isSeniorMember: item.isSeniorMember == 1,
                               height: 11,

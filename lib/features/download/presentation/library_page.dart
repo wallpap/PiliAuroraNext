@@ -21,16 +21,16 @@ import 'package:pili_aurora_next/features/download/application/download_provider
 import 'package:pili_aurora_next/features/download/application/download_progress.dart';
 import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/badge_type.dart';
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/presentation/deletion.dart';
 import 'package:pili_aurora_next/features/download/presentation/detail_page.dart';
 import 'package:pili_aurora_next/features/download/presentation/detail_item.dart';
 import 'package:pili_aurora_next/features/download/presentation/search_page.dart';
 import 'package:pili_aurora_next/features/download/application/download_service.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 
 enum DownloadViewMode { library, queued, detail, search }
 

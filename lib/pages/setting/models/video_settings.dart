@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/audio_output_type.dart'
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/video_buffer_policy.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';

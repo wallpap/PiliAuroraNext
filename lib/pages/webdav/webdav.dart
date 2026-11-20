@@ -1,11 +1,11 @@
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
 import 'package:pili_aurora_next/services/settings/application_settings.dart';
 import 'package:pili_aurora_next/services/settings/webdav_client.dart';
 import 'package:pili_aurora_next/services/settings/webdav_preferences.dart';
 import 'package:pili_aurora_next/services/settings/webdav_sync.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:get/get.dart';

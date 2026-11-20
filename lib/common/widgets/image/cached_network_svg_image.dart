@@ -2,7 +2,7 @@
 
 import 'dart:developer';
 
-import 'package:pili_aurora_next/utils/cache_manager.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_svg/flutter_svg.dart';

@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/features/account/domain/login/result.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
 import 'package:pili_aurora_next/features/account/data/client_identity.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:encrypt/encrypt.dart';
@@ -158,7 +158,7 @@ abstract final class LoginHttp {
       final dynamic publicKey = RSAKeyParser().parse(key);
       final encrypter = Encrypter(RSA(publicKey: publicKey));
       passwordEncrypted = encrypter.encrypt(salt + password).base64;
-      deviceToken = encrypter.encrypt(Utils.generateRandomString(16)).base64;
+      deviceToken = encrypter.encrypt(generateRandomString(16)).base64;
     } catch (_) {
       return LoginResult.failure('登录加密失败，请刷新后重试');
     }
@@ -222,7 +222,7 @@ abstract final class LoginHttp {
     try {
       final dynamic publicKey = RSAKeyParser().parse(key);
       deviceToken = Encrypter(RSA(publicKey: publicKey))
-          .encrypt(Utils.generateRandomString(16))
+          .encrypt(generateRandomString(16))
           .base64;
     } catch (_) {
       return LoginResult.failure('登录加密失败，请刷新后重试');

@@ -37,7 +37,7 @@ import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/features/community/presentation/comment_visibility_dialog.dart';
 
 import '../../support/controlled_interceptor.dart';

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/action_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
 

@@ -10,9 +10,9 @@ import 'package:pili_aurora_next/pages/dynamics/widgets/live_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/live_panel_sub.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/live_rcmd_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/video_panel.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 

@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/following/domain/list/list.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
 
 class FollowUpModel {
   LiveUsers? liveUsers;

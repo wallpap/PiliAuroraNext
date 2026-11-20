@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/features/search/domain/live/search_type.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';
+import 'package:pili_aurora_next/features/media_catalog/data/archive_dimensions.dart';
 
 typedef ScopedSearchPage = ({
   List<dynamic> rows,

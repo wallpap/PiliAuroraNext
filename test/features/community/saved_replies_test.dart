@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/community/application/comments/saved_r
 import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show Content, Emote, Picture, ReplyInfo;
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 

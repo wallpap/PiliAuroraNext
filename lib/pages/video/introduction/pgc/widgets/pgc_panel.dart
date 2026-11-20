@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.d
     hide EpisodeItem;
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';

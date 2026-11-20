@@ -7,8 +7,8 @@ import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 /// HTTP 与本地隐藏记录只在此适配；所有请求显式绑定发起账号。
 class SubscriptionRepository {

@@ -27,7 +27,8 @@ pwsh -NoProfile -File tool/run-ci-tests.ps1
 | `http/`、`grpc/` | 协议解码、请求转换、账号与重试策略 |
 | `plugin/pl_player/` | 播放会话、媒体源、原生输出与资源交接 |
 | `services/` | 跨页面服务、消息、诊断与平台能力 |
-| `utils/` | 工具函数、存储及账号状态 |
+| `core/` | 独立 Dart 基础能力 |
+| `utils/` | 存量行为回归，覆盖账号、存储、平台及共享界面 |
 | `support/` | 跨领域复用的测试辅助工具 |
 
 用例以 `_test.dart` 结尾，具体覆盖直接查看文件中的测试名称。功能与测试入口见[功能地图](../doc/development/features.md)，领域约束见各模块 README。

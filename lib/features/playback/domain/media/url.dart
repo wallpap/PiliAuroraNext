@@ -3,7 +3,11 @@ import 'dart:math' show max, min;
 import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+
+const _debugBuild =
+    !bool.fromEnvironment('dart.vm.product') &&
+    !bool.fromEnvironment('dart.vm.profile');
 
 class PlayUrlModel {
   PlayUrlModel({
@@ -139,10 +143,7 @@ class PlayUrlModel {
             .toList();
       }
     } catch (_) {
-      if (const !bool.fromEnvironment('dart.vm.product') &&
-          const !bool.fromEnvironment('dart.vm.profile')) {
-        rethrow;
-      }
+      if (_debugBuild) rethrow;
     }
   }
 }

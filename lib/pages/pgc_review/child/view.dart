@@ -15,13 +15,13 @@ import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.da
 import 'package:pili_aurora_next/features/community/application/pgc_reviews.dart';
 import 'package:pili_aurora_next/features/community/domain/pgc_review.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/pages/pgc_review/post/view.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -284,7 +284,7 @@ class _PgcReviewChildPageState extends ConsumerState<PgcReviewChildPage>
                                 fontSize: 13,
                               ),
                             ),
-                            BiliUtils.levelPicture(
+                            memberLevelPicture(
                               author?.level ?? 0,
                               height: 11,
                             ),

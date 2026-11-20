@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_folder/list.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
 import 'package:material_ui/material_ui.dart';
 
 class FavVideoItem extends StatelessWidget {
@@ -96,7 +96,7 @@ class FavVideoItem extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            BiliUtils.isPublicFavText(item.attr),
+            FolderAttributes.isPublicFavText(item.attr),
             style: TextStyle(
               fontSize: fontSize,
               color: color,

@@ -8,12 +8,12 @@ import 'package:pili_aurora_next/features/account/application/profile_editor.dar
 import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
 import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/file_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/io/file_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -192,7 +192,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             title: 'UID',
             needIcon: false,
             text: response.mid.toString(),
-            onTap: () => Utils.copyText(response.mid.toString()),
+            onTap: () => copyText(response.mid.toString()),
           ),
           divider1,
           _item(

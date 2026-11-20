@@ -11,9 +11,9 @@ import 'package:pili_aurora_next/features/favorites/presentation/favorite_sort_p
 import 'package:pili_aurora_next/features/favorites/domain/fav_order_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 
 class FavoriteDetailPage extends ConsumerStatefulWidget {
   const FavoriteDetailPage({super.key, this.search = false});
@@ -235,7 +235,7 @@ class _FavoriteDetailPageState extends ConsumerState<FavoriteDetailPage> {
                     child: const Text('排序'),
                   ),
                   const AppPopupMenuItem(value: 'clean', child: Text('清除失效内容')),
-                  if (folder != null && !BiliUtils.isDefaultFav(folder.attr))
+                  if (folder != null && !FolderAttributes.isDefaultFav(folder.attr))
                     const AppPopupMenuItem(
                       value: 'delete',
                       child: Text('删除收藏夹'),
@@ -245,7 +245,7 @@ class _FavoriteDetailPageState extends ConsumerState<FavoriteDetailPage> {
                     value: 'follow',
                     child: Text(folder.favState == 1 ? '取消收藏' : '收藏'),
                   ),
-                if (folder != null && BiliUtils.isPublicFav(folder.attr)) ...[
+                if (folder != null && FolderAttributes.isPublicFav(folder.attr)) ...[
                   const AppPopupMenuItem(value: 'share', child: Text('分享')),
                   const AppPopupMenuItem(value: 'repost', child: Text('分享至动态')),
                 ],
@@ -269,7 +269,7 @@ class _FavoriteDetailPageState extends ConsumerState<FavoriteDetailPage> {
                 ),
                 title: Text(folder.title),
                 subtitle: Text(
-                  '${folder.mediaCount}个内容 · ${BiliUtils.isPublicFavText(folder.attr)}${folder.intro?.isNotEmpty == true ? '\n${folder.intro}' : ''}',
+                  '${folder.mediaCount}个内容 · ${FolderAttributes.isPublicFavText(folder.attr)}${folder.intro?.isNotEmpty == true ? '\n${folder.intro}' : ''}',
                 ),
                 trailing: folder.upper?.name == null
                     ? null

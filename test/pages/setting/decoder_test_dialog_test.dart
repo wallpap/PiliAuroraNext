@@ -11,8 +11,8 @@ import 'package:pili_aurora_next/pages/setting/decoder_test.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_http_adapter.dart';
 import '../../support/memory_box.dart';

@@ -11,6 +11,7 @@ import 'package:pili_aurora_next/features/playback/domain/live/superchat/data.da
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:dio/dio.dart';
 
 abstract final class LiveChatRepository {
@@ -20,9 +21,12 @@ abstract final class LiveChatRepository {
     return await Request().requestApi(
       Api.liveRoomDmPrefetch,
       kind: ApiCallKind.query,
-      decode: (body) => (body['data']?['room'] as List?)
-          ?.map((e) => DanmakuMsg.fromPrefetch(e))
-          .toList(),
+      decode: (body) {
+        final showFanMedals = DisplayPreferences.showFanMedals;
+        return (body['data']?['room'] as List?)
+            ?.map((e) => DanmakuMsg.fromPrefetch(e, showFanMedals: showFanMedals))
+            .toList();
+      },
       queryParameters: {'roomid': roomId},
       options: Options(
         headers: {
@@ -83,7 +87,11 @@ abstract final class LiveChatRepository {
     return await Request().requestApi(
       Api.superChatMsg,
       kind: ApiCallKind.query,
-      decode: (body) => SuperChatData.fromJson(body['data'], roomId),
+      decode: (body) => SuperChatData.fromJson(
+        body['data'],
+        roomId,
+        showFanMedals: DisplayPreferences.showFanMedals,
+      ),
       queryParameters: {
         'room_id': roomId,
       },

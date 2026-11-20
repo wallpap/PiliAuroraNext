@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/features/community/data/dynamics_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 class DynamicUnread {
   final _count = ValueNotifier(0);

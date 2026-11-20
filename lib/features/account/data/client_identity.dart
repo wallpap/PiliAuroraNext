@@ -2,15 +2,15 @@ import 'dart:convert' show ascii, base64;
 
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show Digest;
-import 'package:pili_aurora_next/utils/random_id.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/random/random_id.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 
 abstract final class ClientIdentity {
   static final buvid = Pref.buvid;
 
   static String generateBuvid3() {
-    final suffix = Utils.random.nextInt(100000).toString().padLeft(5, '0');
+    final suffix = sharedRandom.nextInt(100000).toString().padLeft(5, '0');
     return '${newUuidV4().toUpperCase()}${suffix}infoc';
   }
 
@@ -26,7 +26,7 @@ abstract final class ClientIdentity {
 
   static String generateBuvid() {
     final md5Str = Digest(
-      List.generate(16, (_) => Utils.random.nextInt(256)),
+      List.generate(16, (_) => sharedRandom.nextInt(256)),
     ).toString();
     return 'XY${md5Str[2]}${md5Str[12]}${md5Str[22]}$md5Str';
   }
@@ -34,7 +34,7 @@ abstract final class ClientIdentity {
   static String generateDeviceId() {
     final time = DateTime.now();
     final bytes = <int>[
-      ...Iterable.generate(16, (_) => Utils.random.nextInt(256)),
+      ...Iterable.generate(16, (_) => sharedRandom.nextInt(256)),
       _decimalToBcd(time.year ~/ 100),
       _decimalToBcd(time.year % 100),
       _decimalToBcd(time.month),
@@ -42,7 +42,7 @@ abstract final class ClientIdentity {
       _decimalToBcd(time.hour),
       _decimalToBcd(time.minute),
       _decimalToBcd(time.second),
-      ...Iterable.generate(8, (_) => Utils.random.nextInt(256)),
+      ...Iterable.generate(8, (_) => sharedRandom.nextInt(256)),
     ];
     final check = (bytes.sum & 0xFF).toRadixString(16).padLeft(2, '0');
     return Digest(bytes).toString() + check;

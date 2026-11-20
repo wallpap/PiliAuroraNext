@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/search/domain/filters/user_search_type
 import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SearchUserController

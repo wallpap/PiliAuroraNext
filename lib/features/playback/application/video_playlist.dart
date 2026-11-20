@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/playlist/media_list.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 class VideoPlaylist {
   VideoPlaylist({

@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -61,7 +61,7 @@ extension DownloadEntryMenu on BiliDownloadEntryInfo {
           AppPopupMenuItem(
             height: 38,
             child: const Text('复制缓存路径', style: TextStyle(fontSize: 13)),
-            onTap: () => Utils.copyText(entryDirPath),
+            onTap: () => copyText(entryDirPath),
           ),
         if (ownerId case final mid?)
           AppPopupMenuItem(

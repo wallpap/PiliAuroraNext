@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/services/messaging/feed.dart';
 import 'package:pili_aurora_next/services/messaging/feed_adapters.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import 'messaging_fixtures.dart';
 

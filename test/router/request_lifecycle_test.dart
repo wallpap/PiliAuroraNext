@@ -5,10 +5,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/navigation_request.dart';
-import 'package:pili_aurora_next/utils/url_utils.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/router/navigation_request.dart';
+import 'package:pili_aurora_next/router/url_utils.dart';
 
 import 'route_request_fixture.dart';
 

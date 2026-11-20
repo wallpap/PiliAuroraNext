@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/features/member_space/application/member_feed.d
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
 import 'package:pili_aurora_next/pages/member_coin_arc/widgets/item.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberCoinArcPage extends ConsumerStatefulWidget {

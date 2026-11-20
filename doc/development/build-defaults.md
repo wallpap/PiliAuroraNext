@@ -24,7 +24,7 @@ Flutter 与引擎提交、模式、架构、补丁和 overlay、二进制摘要�
 | Android 呈现 | 帧计划身份、纹理合并、EGL 输出与普通调度回退 | [Android 引擎](../../tool/engine/frame_plan/README.md#输出流程) |
 | Windows 图形资源 | 窗口 raster 预算、ANGLE 上传策略、外部纹理导入与释放 | [架构](architecture.md#桌面窗口与标题栏)、[Windows 引擎](../../tool/engine/windows_frame_pacing/README.md) |
 | 视频资源交接 | 媒体卸载、首帧确认、降画质和超分重建的顺序 | [播放状态模型](playback-model.md)、[Windows 输出](../maintenance/windows-video-output.md) |
-| 点播缓存 | 默认策略、前后向预算、倍速换算及下一次加载的配置捕获 | [设置行为](settings-behavior.md)、[缓存策略](../../lib/plugin/pl_player/models/video_buffer_policy.dart)、[偏好](../../lib/utils/storage_pref.dart) |
+| 点播缓存 | 默认策略、前后向预算、倍速换算及下一次加载的配置捕获 | [设置行为](settings-behavior.md)、[缓存策略](../../lib/plugin/pl_player/models/video_buffer_policy.dart)、[偏好](../../lib/services/settings/stored_preferences.dart) |
 | Windows Gallery | 格式支持、区域预算、worker 生命周期与能力回退 | [图片模块](../../lib/common/widgets/image/README.md)、[测试契约](../../test/common/widgets/image/CONTRACTS.md) |
 | 弹幕 | 来源配额、候选选择、显示窗口与图片工作集的独立预算 | [架构](architecture.md#弹幕显示与来源)、[功能入口](features.md#弹幕合并与调度)、[密度对照方法](../../tool/experiments/README.md#配置选择) |
 

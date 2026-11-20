@@ -5,7 +5,7 @@ import 'package:dlna_dart/xmlParser.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/playback/application/dlna_session.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/permission_handler.dart';
+import 'package:pili_aurora_next/platform/permissions.dart';
 
 class _Manager extends DLNAManager {
   _Manager() {

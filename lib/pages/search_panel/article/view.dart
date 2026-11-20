@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/pages/search_panel/article/controller.dart';
 import 'package:pili_aurora_next/pages/search_panel/article/widgets/item.dart';
 import 'package:pili_aurora_next/pages/search_panel/view.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SearchArticlePanel extends CommonSearchPanel {

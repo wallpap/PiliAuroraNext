@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/generated/bilibili/im/type.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/random_id.dart';
+import 'package:pili_aurora_next/core/random/random_id.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:protobuf/protobuf.dart' show PbMap;
 

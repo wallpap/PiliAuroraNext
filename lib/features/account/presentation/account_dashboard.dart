@@ -7,8 +7,8 @@ import 'package:pili_aurora_next/features/account/presentation/folder_item.dart'
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/horizontal_wheel_scroll.dart';
 import 'package:pili_aurora_next/common/style.dart';
@@ -16,11 +16,11 @@ import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/player_bar.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/route_manager.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -382,7 +382,7 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
                                 overflow: .ellipsis,
                               ),
                             ),
-                            BiliUtils.levelPicture(
+                            memberLevelPicture(
                               levelInfo?.currentLevel ?? 0,
                               isSeniorMember: userInfo.isSeniorMember == 1,
                               height: 10,
@@ -618,7 +618,7 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
                       );
                     } else {
                       return FavFolderItem(
-                        heroTag: Utils.generateRandomString(8),
+                        heroTag: generateRandomString(8),
                         item: favFolderList[index],
                         onPop: _autoRefresh,
                       );

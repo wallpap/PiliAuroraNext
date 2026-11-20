@@ -18,7 +18,7 @@ void main(List<String> args) async {
     ),
     output: Output(
       dart: DartOutput(
-        path: packageRoot.resolve('lib/utils/android/bindings.g.dart'),
+        path: packageRoot.resolve('lib/platform/android/bindings.g.dart'),
         structure: .singleFile,
       ),
     ),

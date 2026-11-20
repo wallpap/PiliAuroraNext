@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/community/application/comments/reply_search.dart';
 import 'package:pili_aurora_next/features/community/domain/reply_search.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/child/view.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class ReplySearchPage extends ConsumerStatefulWidget {

@@ -10,7 +10,7 @@ import 'package:get/get.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/main/view.dart';
@@ -21,9 +21,9 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;

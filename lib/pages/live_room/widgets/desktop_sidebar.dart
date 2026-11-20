@@ -4,7 +4,7 @@ import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank/item.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/guard_rank/data.dart';

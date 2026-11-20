@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
 
 import '../../support/memory_box.dart';

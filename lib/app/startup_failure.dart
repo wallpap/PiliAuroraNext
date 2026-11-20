@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/app/startup.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/windows_update_exit.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 不读取设置或账号；存储尚未就绪时也能显示错误并明确结束失败的进程。

@@ -26,19 +26,19 @@ import 'package:pili_aurora_next/pages/video/introduction/ugc/description_link_a
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/season.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/bili_colors.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/common/appearance/bili_colors.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -254,7 +254,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     return GestureDetector(
       onLongPress: () {
         Feedback.forLongPress(context);
-        Utils.copyText(videoDetail.title ?? '');
+        copyText(videoDetail.title ?? '');
       },
       child: _buildVideoTitle(videoDetail, isExpand: isExpand),
     );
@@ -263,7 +263,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   List<Widget> _infos(VideoDetailData videoDetail) => [
     const SizedBox(height: 8, width: .infinity),
     GestureDetector(
-      onTap: () => Utils.copyText('${videoDetail.bvid}'),
+      onTap: () => copyText('${videoDetail.bvid}'),
       child: Text(
         videoDetail.bvid ?? '',
         style: TextStyle(fontSize: 14, color: colorScheme.secondary),
@@ -998,7 +998,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     parameters: {'keyword': tagName},
                   ),
                 },
-                onLongPress: Utils.copyText,
+                onLongPress: copyText,
               ),
             )
             .toList(),

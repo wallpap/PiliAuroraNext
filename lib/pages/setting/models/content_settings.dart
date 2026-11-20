@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 List<SettingsModel> get contentSettings => [

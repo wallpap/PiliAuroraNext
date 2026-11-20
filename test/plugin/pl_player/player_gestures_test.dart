@@ -6,7 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/danmaku_actions.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/player_gestures.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/double_tap_type.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 import 'support/presentation_player.dart';

@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/account/domain/stat.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 class ProfileRepository {
   const ProfileRepository();

@@ -4,6 +4,12 @@ import 'dart:ui';
 import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 
+Widget memberLevelPicture(
+  int level, {
+  bool isSeniorMember = false,
+  double height = 11,
+}) => UserLevel(level, height: height, flash: isSeniorMember);
+
 class UserLevel extends LeafRenderObjectWidget {
   const UserLevel(
     this.level, {

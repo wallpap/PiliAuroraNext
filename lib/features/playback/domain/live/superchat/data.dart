@@ -5,11 +5,19 @@ class SuperChatData {
 
   SuperChatData({this.list});
 
-  factory SuperChatData.fromJson(Map<String, dynamic> json, int roomId) =>
+  factory SuperChatData.fromJson(
+    Map<String, dynamic> json,
+    int roomId, {
+    required bool showFanMedals,
+  }) =>
       SuperChatData(
         list: (json['list'] as List<dynamic>?)
             ?.map(
-              (e) => SuperChatItem.fromJson(e as Map<String, dynamic>, roomId),
+              (e) => SuperChatItem.fromJson(
+                e as Map<String, dynamic>,
+                roomId,
+                showFanMedals: showFanMedals,
+              ),
             )
             .toList(),
       );

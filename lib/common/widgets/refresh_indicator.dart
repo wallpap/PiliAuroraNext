@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 // ignore: camel_case_types

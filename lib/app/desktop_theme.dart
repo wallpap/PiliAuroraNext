@@ -5,8 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/desktop_window_background.dart';
-import 'package:pili_aurora_next/utils/desktop_window_visibility.dart';
+import 'package:pili_aurora_next/platform/desktop/window_background.dart';
+import 'package:pili_aurora_next/platform/desktop/window_visibility.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 根节点同步窗口外观，主窗口和独立播放窗口共用。

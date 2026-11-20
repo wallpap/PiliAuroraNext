@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/play_info/subtitle.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 
 abstract final class SubtitleRepository {
   static Future<LoadingState<List<Subtitle>>> publicTracks(

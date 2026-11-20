@@ -20,8 +20,8 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/player_subtitle_view.d
 import 'package:pili_aurora_next/plugin/pl_player/widgets/seek_indicator.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/bottom_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/common_btn.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';

@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/pages/video/ai_conclusion/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -133,7 +133,7 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                   _VideoCustomAction(
                     videoItem.bvid!,
                     const Icon(CustomIcons.identifier_circle, size: 16),
-                    () => Utils.copyText(videoItem.bvid!),
+                    () => copyText(videoItem.bvid!),
                   ),
                   if (AccountScope.signedIn)
                     _VideoCustomAction(

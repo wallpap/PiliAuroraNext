@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/following/domain/list/list.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';

@@ -18,8 +18,8 @@ import 'package:pili_aurora_next/features/content_discovery/application/recommen
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_state.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_cover_prefetch.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_viewport.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
 import 'package:flutter/rendering.dart'
     show ScrollCacheExtent, SliverGridRegularTileLayout;
 import 'package:material_ui/material_ui.dart';

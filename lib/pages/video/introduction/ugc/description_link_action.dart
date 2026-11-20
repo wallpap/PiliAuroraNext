@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/navigation_request.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/router/navigation_request.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 
 /// 描述链接的查询、确认和写入由同一次页面操作持有。
 class UgcDescriptionLinkAction {

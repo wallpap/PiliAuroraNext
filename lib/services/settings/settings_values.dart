@@ -1,5 +1,5 @@
 import 'package:hive_ce/hive.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 enum SettingsValues {
   general,

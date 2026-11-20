@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:pili_aurora_next/pages/video/pay_coins/view.dart';
 import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';

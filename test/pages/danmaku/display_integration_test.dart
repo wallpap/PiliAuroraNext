@@ -23,7 +23,7 @@ import 'package:pili_aurora_next/pages/live_room/view.dart' as live;
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/media_clock.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 Widget host(Widget child) => ProviderScope(
   child: Directionality(

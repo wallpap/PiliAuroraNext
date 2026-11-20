@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/member_space/domain/profiles/space/dat
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space/setting.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 // 同一 MID 的两个路由独立刷新；凭据变化时废弃旧快照与在途交付。
 typedef SpaceQuery = ({Object owner, int mid, String? fromViewAid});

@@ -25,11 +25,11 @@ import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_d
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
-import 'package:pili_aurora_next/utils/connectivity_utils.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/platform/network/connectivity.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
 Future<void> showVideoMoreSettings(
   BuildContext context, {

@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/features/account/domain/login_device.dart';
 import 'package:pili_aurora_next/features/account/application/login_devices.dart';
-import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/widget_ext.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 

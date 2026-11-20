@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/data/response_adapter.dart';
 import 'package:pili_aurora_next/features/download/data/stream_writer.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:dio/dio.dart';
 
 /// 传输单条媒体流，并按已有文件长度请求剩余字节以支持续传。

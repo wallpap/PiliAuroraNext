@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/services/messaging/conversation.dart';
 import 'package:pili_aurora_next/services/messaging/conversation_adapter.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:protobuf/well_known_types/google/protobuf/any.pb.dart';
 
 import '../services/messaging/messaging_fixtures.dart';

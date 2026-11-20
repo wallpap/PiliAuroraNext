@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/generated/bilibili/metadata/fawkes.pb.dart';
 import 'package:pili_aurora_next/generated/bilibili/metadata/locale.pb.dart';
 import 'package:pili_aurora_next/generated/bilibili/metadata/network.pb.dart' as network;
 import 'package:pili_aurora_next/features/account/data/client_identity.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 
 abstract final class GrpcHeaders {
   static const _build = 2001100;
@@ -18,7 +18,7 @@ abstract final class GrpcHeaders {
 
   static String get _buvid => ClientIdentity.buvid;
   static String get _traceId => Constants.traceId;
-  static String get _sessionId => Utils.generateRandomString(8);
+  static String get _sessionId => generateRandomString(8);
 
   static final Map<String, String> _base = {
     'grpc-encoding': 'gzip',

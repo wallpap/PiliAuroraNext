@@ -6,8 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_preferences.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 void main() {
   setUpAll(() async {
@@ -40,7 +40,7 @@ void main() {
     );
     expect(
       SponsorBlockPreferences.colors[music.index],
-      const 0xff10101a,
+      const Color(0xff10101a),
     );
   });
 
@@ -66,7 +66,7 @@ void main() {
     expect(settings['intro'], SkipType.skipOnce);
     expect(
       SponsorBlockPreferences.colors[SegmentType.sponsor.index],
-      const 0xff123456,
+      const Color(0xff123456),
     );
     expect(
       SponsorBlockPreferences.colors[SegmentType.intro.index],

@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
 import 'package:pili_aurora_next/features/danmaku/application/danmaku_preferences.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
 
 /// 装配点播来源、媒体时钟与显示配置。
 class PlDanmaku extends StatefulWidget {

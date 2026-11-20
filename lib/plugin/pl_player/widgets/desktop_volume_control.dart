@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:flutter/gestures.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';

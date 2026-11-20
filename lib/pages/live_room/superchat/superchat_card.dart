@@ -10,16 +10,18 @@ import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/screenshot.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/selectable_region_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/media/screenshot.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/serialization/pretty_json.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -125,7 +127,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
         ),
         AppPopupMenuItem(
           height: 38,
-          onTap: () => Utils.copyText(Utils.jsonEncoder.convert(item.toJson())),
+          onTap: () => copyText(prettyJsonEncoder.convert(item.toJson())),
           child: const Text(
             '复制 SC 信息',
             style: TextStyle(fontSize: 13),
@@ -222,7 +224,7 @@ Widget _build({
       );
     } catch (e, s) {
       if (kDebugMode) {
-        Utils.reportError(e, s);
+        reportError(e, s);
       }
     }
   }

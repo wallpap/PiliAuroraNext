@@ -1,8 +1,8 @@
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/features/search/domain/suggestions/search_trending/list.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
 import 'package:flutter/rendering.dart'
     show
         ContainerRenderObjectMixin,

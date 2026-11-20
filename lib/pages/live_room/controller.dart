@@ -41,16 +41,16 @@ import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
 import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart'
     show kDebugMode, kReleaseMode, listEquals, protected, ValueListenable;
@@ -727,7 +727,7 @@ class LiveRoomController {
       }
     } else {
       if (kDebugMode) {
-        Utils.reportError(res.toString());
+        reportError(res.toString());
       }
     }
   }
@@ -1047,7 +1047,11 @@ class LiveRoomController {
           }
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
-          final item = SuperChatItem.fromJson(obj['data'], roomId);
+          final item = SuperChatItem.fromJson(
+            obj['data'],
+            roomId,
+            showFanMedals: DisplayPreferences.showFanMedals,
+          );
           addSuperChat(item);
           addDm(item);
           if (Platform.isAndroid && AndroidHelper.isPipMode) return;
@@ -1073,7 +1077,7 @@ class LiveRoomController {
       }
     } catch (e, s) {
       if (kDebugMode) {
-        Utils.reportError(e, s);
+        reportError(e, s);
       }
     }
   }

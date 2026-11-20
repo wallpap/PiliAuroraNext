@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/services/settings/settings_backup.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 abstract final class ApplicationSettings {
   static SettingsBackup get backup =>

@@ -39,24 +39,10 @@ const _getxRegistryCalls = {
   'GetInstance.replace',
 };
 
-const _legacyUtilities = {
+const _implementationEntries = {
   'features/account/application/accounts.dart',
   'features/account/application/login_sync.dart',
-  'utils/accounts.dart',
-  'utils/app_sign.dart',
-  'utils/credential_cipher.dart',
-  'utils/global_data.dart',
-  'utils/login_utils.dart',
-  'utils/media_author_filter.dart',
-  'utils/recommend_filter.dart',
-  'utils/reply_filter.dart',
-  'utils/reply_utils.dart',
-  'utils/request_utils.dart',
-  'utils/storage.dart',
-  'utils/storage_pref.dart',
-  'utils/storage_utils.dart',
-  'utils/video_utils.dart',
-  'utils/wbi_sign.dart',
+  'services/settings/storage.dart',
 };
 
 bool _isPresentation(String source) =>
@@ -69,7 +55,7 @@ bool _isRestricted(String target) =>
     target.startsWith('grpc/') ||
     target.startsWith('generated/') ||
     target.startsWith('features/account/data/') ||
-    _legacyUtilities.contains(target) ||
+    _implementationEntries.contains(target) ||
     target.startsWith('package:dlna_dart/') ||
     target.startsWith('package:dio/') ||
     target.startsWith('package:grpc/') ||

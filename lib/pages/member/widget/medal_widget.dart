@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/medals/uinfo_medal.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 const _kFontSize = 10.0;

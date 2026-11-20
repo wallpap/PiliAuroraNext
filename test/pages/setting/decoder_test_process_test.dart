@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/playback/domain/media/video_quality.da
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/pages/setting/decoder_test_process.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 

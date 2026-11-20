@@ -7,10 +7,10 @@ import 'package:pili_aurora_next/features/community/domain/dynamics/up_panel_pos
 import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
 import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
 import 'package:pili_aurora_next/pages/live_follow/view.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

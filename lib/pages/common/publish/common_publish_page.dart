@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math' show max;
 
 import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:material_ui/material_ui.dart';

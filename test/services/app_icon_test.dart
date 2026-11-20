@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
+import 'package:pili_aurora_next/services/settings/theme/app_icon_style.dart';
 import 'package:pili_aurora_next/services/app_icon.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 

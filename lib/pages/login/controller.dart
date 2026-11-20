@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/account/application/login_session.dart
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/login/model.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';

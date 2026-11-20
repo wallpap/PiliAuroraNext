@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.d
     show ReplyInfo, Content, Member;
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../../support/memory_box.dart';
 

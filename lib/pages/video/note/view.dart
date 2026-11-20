@@ -8,12 +8,12 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/features/community/application/video_notes.dart';
 import 'package:pili_aurora_next/features/community/domain/video_note.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/webview/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -278,7 +278,7 @@ class _NoteListPageState extends State<NoteListPage>
                           ),
                           const SizedBox(width: 6),
                           if (item.authorLevel case final level?)
-                            BiliUtils.levelPicture(
+                            memberLevelPicture(
                               level,
                               isSeniorMember: item.seniorAuthor,
                               height: 11,

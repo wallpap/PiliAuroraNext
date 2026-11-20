@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/connectivity_utils.dart';
+import 'package:pili_aurora_next/platform/network/connectivity.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

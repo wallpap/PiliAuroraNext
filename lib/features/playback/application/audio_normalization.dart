@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart' show Volume;
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 enum AudioNormalization {
   disable('禁用'),

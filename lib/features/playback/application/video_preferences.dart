@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/subtitle_pref_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 abstract final class VideoPreferences {
   static bool get autoplay => Pref.autoPlayEnable;

@@ -3,9 +3,9 @@ import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
 import 'package:pili_aurora_next/services/settings/settings_values.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 class DocProviderItem extends StatefulWidget {

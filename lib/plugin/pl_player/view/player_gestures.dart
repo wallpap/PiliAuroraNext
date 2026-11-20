@@ -16,10 +16,10 @@ import 'package:pili_aurora_next/plugin/pl_player/models/double_tap_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/gesture_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/danmaku_actions.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/scale_restore.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 
 class PlayerGestures {
   PlayerGestures({

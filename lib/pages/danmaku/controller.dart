@@ -18,9 +18,9 @@ import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:pili_aurora_next/features/danmaku/application/danmaku_preferences.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:path/path.dart' as path;
 
@@ -526,7 +526,7 @@ class PlDanmakuController implements DanmakuTimelineSource {
         _fileFailed = true;
         _invalidateFile();
       }
-      Utils.reportError(e, s);
+      reportError(e, s);
     } finally {
       _fileLoading = false;
       _coverageChanged();

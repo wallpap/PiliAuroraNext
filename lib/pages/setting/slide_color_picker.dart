@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/color_utils.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
 import 'package:flutter/services.dart'
     show LengthLimitingTextInputFormatter, FilteringTextInputFormatter;
 import 'package:get/get.dart';

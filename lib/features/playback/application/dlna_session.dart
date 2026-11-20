@@ -5,8 +5,8 @@ import 'package:dlna_dart/dlna.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/permission_handler.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/platform/permissions.dart';
 
 typedef DlnaTarget = ({String key, String name});
 

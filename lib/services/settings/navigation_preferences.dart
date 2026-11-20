@@ -1,8 +1,8 @@
 import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 class NavigationLayoutPreferences {
   NavigationLayoutPreferences()

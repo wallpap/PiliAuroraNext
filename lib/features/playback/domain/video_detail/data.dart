@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/playback/domain/video_detail/rights.da
 import 'package:pili_aurora_next/features/playback/domain/video_detail/staff.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/stat.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/ugc_season.dart';
-import 'package:pili_aurora_next/utils/parse_string.dart';
+import 'package:pili_aurora_next/core/parsing/parse_string.dart';
 
 class VideoDetailData {
   String? bvid;

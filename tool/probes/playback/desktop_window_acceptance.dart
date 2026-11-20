@@ -24,9 +24,9 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.
 import 'package:pili_aurora_next/plugin/pl_player/widgets/video_output_handoff.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 使用独立空账号存储、本地样片和生产 IPC/路由验收视频小窗。

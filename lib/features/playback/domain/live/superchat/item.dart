@@ -1,10 +1,9 @@
 import 'package:pili_aurora_next/features/playback/domain/live/medals/uinfo_medal.dart';
 import 'package:pili_aurora_next/features/playback/domain/live/superchat/user_info.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/services/settings/display_preferences.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
-import 'package:pili_aurora_next/utils/parse_string.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/guard_pendant.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
+import 'package:pili_aurora_next/core/parsing/parse_string.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 
 class SuperChatItem {
   int id;
@@ -45,19 +44,19 @@ class SuperChatItem {
     required this.roomid,
   });
 
-  static SuperChatItem get random {
+  static SuperChatItem random({required bool showFanMedals}) {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return SuperChatItem.fromJson(
       {
-        "id": Utils.random.nextInt(2147483647),
+        "id": sharedRandom.nextInt(2147483647),
         "uid": 0,
         "price": 66,
         "start_time": now,
         "end_time": now + 5,
-        "message": Utils.generateRandomString(55),
+        "message": generateRandomString(55),
         "user_info": {
           "face": "",
-          'face_frame': BiliUtils.liveGuardPendant(Utils.random.nextInt(4)),
+          'face_frame': liveGuardPendant(sharedRandom.nextInt(4)),
           "uname": "UNAME",
         },
         'token': '',
@@ -65,7 +64,7 @@ class SuperChatItem {
         'uinfo': {
           'medal': {
             "name": "Medal",
-            "level": Utils.random.nextInt(40),
+            "level": sharedRandom.nextInt(40),
             "id": 123,
             "ruid": 456,
             "v2_medal_color_start": "#4C7DFF99",
@@ -73,13 +72,18 @@ class SuperChatItem {
           },
         },
       },
-      Utils.random.nextInt(2147483647),
+      sharedRandom.nextInt(2147483647),
+      showFanMedals: showFanMedals,
     );
   }
 
-  factory SuperChatItem.fromJson(Map<String, dynamic> json, int roomid) =>
+  factory SuperChatItem.fromJson(
+    Map<String, dynamic> json,
+    int roomid, {
+    required bool showFanMedals,
+  }) =>
       SuperChatItem(
-        id: safeToInt(json['id']) ?? Utils.random.nextInt(2147483647),
+        id: safeToInt(json['id']) ?? sharedRandom.nextInt(2147483647),
         uid: safeToInt(json['uid'])!,
         price: json['price'],
         backgroundImage: nonNullOrEmptyString(json['background_image']),
@@ -94,7 +98,7 @@ class SuperChatItem {
         ts: safeToInt(json['ts'])!,
         userInfo: UserInfo.fromJson(json['user_info'] as Map<String, dynamic>),
         medalInfo:
-            !DisplayPreferences.showFanMedals || json['uinfo']?['medal'] == null
+            !showFanMedals || json['uinfo']?['medal'] == null
             ? null
             : UinfoMedal.fromJson(json['uinfo']['medal']),
         roomid: roomid,

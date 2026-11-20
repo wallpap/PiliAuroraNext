@@ -13,8 +13,8 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image_viewer/image_preview_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/member_space/presentation/user_info_type.dart';
 import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
@@ -24,12 +24,12 @@ import 'package:pili_aurora_next/features/member_space/domain/video_author.dart'
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/member_video/widgets/video_card_h_member_video.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -304,7 +304,7 @@ class _HorizontalMemberPageState extends ConsumerState<HorizontalMemberPage> {
       Row(
         children: [
           GestureDetector(
-            onTap: () => Utils.copyText(profile.name ?? ''),
+            onTap: () => copyText(profile.name ?? ''),
             child: Text(
               profile.name ?? '',
               style: TextStyle(
@@ -316,7 +316,7 @@ class _HorizontalMemberPageState extends ConsumerState<HorizontalMemberPage> {
           ),
           const SizedBox(width: 8),
           if (profile.level case final level?)
-            BiliUtils.levelPicture(
+            memberLevelPicture(
               level,
               isSeniorMember: profile.senior,
               height: 11,

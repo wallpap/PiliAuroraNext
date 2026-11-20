@@ -7,9 +7,9 @@ import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 
 enum SponsorBlockPreference {
   limit(SettingBoxKey.blockLimit),
@@ -119,7 +119,7 @@ abstract final class SponsorBlockPreferences {
   }
 
   static String generateUserId() =>
-      Digest(List.generate(16, (_) => Utils.random.nextInt(256))).toString();
+      Digest(List.generate(16, (_) => sharedRandom.nextInt(256))).toString();
 
   static Future<void> save(SponsorBlockPreference field, Object value) async {
     final stored = switch (field) {

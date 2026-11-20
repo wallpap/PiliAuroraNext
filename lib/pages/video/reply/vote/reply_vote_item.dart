@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:material_ui/material_ui.dart';
 
 Widget buildVoteCard(

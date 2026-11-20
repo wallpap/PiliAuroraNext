@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/features/community/application/dynamics_actions
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 
 Future<void> onLikeDynamic(
   BuildContext context,

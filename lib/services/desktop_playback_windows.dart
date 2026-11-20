@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/services/diagnostics/window_coordinator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_layout.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/windows_update_exit.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 

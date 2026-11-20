@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:collection/collection.dart';
 import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

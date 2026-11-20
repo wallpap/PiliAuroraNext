@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';
 import 'package:pili_aurora_next/pages/about/view.dart';
 import 'package:pili_aurora_next/pages/setting/common_setting.dart';
 import 'package:pili_aurora_next/pages/webdav/view.dart';
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;

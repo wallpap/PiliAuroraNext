@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/popup_menu.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
@@ -13,8 +14,10 @@ import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_list.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/serialization/pretty_json.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -88,7 +91,7 @@ class LiveRoomChatPanel extends StatelessWidget {
                     );
                   } catch (e, s) {
                     if (kDebugMode) {
-                      Utils.reportError(e, s);
+                      reportError(e, s);
                     }
                   }
                 }
@@ -159,7 +162,7 @@ class LiveRoomChatPanel extends StatelessWidget {
             right: 0,
             child: TextButton(
               onPressed: () {
-                final item = SuperChatItem.random;
+                final item = SuperChatItem.random(showFanMedals: DisplayPreferences.showFanMedals);
                 liveRoomController
                   ..addSuperChat(item)
                   ..addDm(item);
@@ -367,7 +370,7 @@ class LiveRoomChatPanel extends StatelessWidget {
         const CustomPopupMenuDivider(height: 1),
         AppPopupMenuItem(
           height: 38,
-          onTap: () => Utils.copyText(Utils.jsonEncoder.convert(item.toJson())),
+          onTap: () => copyText(prettyJsonEncoder.convert(item.toJson())),
           child: const Text('复制弹幕信息', style: TextStyle(fontSize: 13)),
         ),
         AppPopupMenuItem(

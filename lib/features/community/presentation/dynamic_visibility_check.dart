@@ -3,9 +3,9 @@ import 'package:pili_aurora_next/features/community/application/dynamic_details.
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart' show Get, GetNavigation;
 import 'package:material_ui/material_ui.dart';
@@ -43,7 +43,7 @@ Future<void> checkPublishedDynamic({
                 TextButton(
                   onPressed: () {
                     Get.back();
-                    Utils.copyText('https://www.bilibili.com/opus/$id');
+                    copyText('https://www.bilibili.com/opus/$id');
                     Get.toNamed(
                       '/webview',
                       parameters: {

@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 
 class PlayerSpeedIndicator extends StatelessWidget {
   const PlayerSpeedIndicator({

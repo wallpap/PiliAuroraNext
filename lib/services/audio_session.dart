@@ -4,7 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 
 class AudioSessionHandler {
   AudioSessionHandler({Future<AudioSession> Function()? loadSession})
@@ -91,10 +91,10 @@ class AudioSessionHandler {
     return setActive(active);
   });
   final PlaybackFocusInhibitor _focusInhibitor = PlaybackFocusInhibitor(
-    onError: Utils.reportError,
+    onError: reportError,
   );
   final PlaybackVolumeDucker _ducker = PlaybackVolumeDucker(
-    onError: Utils.reportError,
+    onError: reportError,
   );
 
   Future<bool> setActive(bool active) async {
@@ -143,7 +143,7 @@ class AudioSessionHandler {
       try {
         await _cancelSubscriptions();
       } catch (error, stack) {
-        Utils.reportError(error, stack);
+        reportError(error, stack);
       } finally {
         _initialization = null;
       }
@@ -216,7 +216,7 @@ class AudioSessionHandler {
       try {
         await owner.setPlaying(false);
       } catch (error, stackTrace) {
-        Utils.reportError(error, stackTrace);
+        reportError(error, stackTrace);
       }
     });
   }
@@ -297,7 +297,7 @@ class IndependentAudioLease {
   final int Function() _volumeRevision;
   final Future<void> Function(double) _setVolume;
   final _videoHolds = <PlPlayerController, PlaybackInhibitorToken?>{};
-  final _ducker = PlaybackVolumeDucker(onError: Utils.reportError);
+  final _ducker = PlaybackVolumeDucker(onError: reportError);
   Future<void> _commands = Future<void>.value();
   Future<void> _handover = Future<void>.value();
   Future<void>? _closingOperation;
@@ -388,7 +388,7 @@ class IndependentAudioLease {
   void _consume(Future<void> operation) {
     unawaited(
       operation.catchError((Object error, StackTrace stack) {
-        Utils.reportError(error, stack);
+        reportError(error, stack);
       }),
     );
   }
@@ -435,7 +435,7 @@ class IndependentAudioLease {
         await operation;
       } catch (error, stack) {
         // 辅助命令失败仍需销毁 Player，真实销毁结果才决定能否交还声音。
-        Utils.reportError(error, stack);
+        reportError(error, stack);
       }
     }
     await release();
@@ -445,7 +445,7 @@ class IndependentAudioLease {
         await _handler._changeIndependentActive(this, false);
       } catch (error, stack) {
         // Player 已确认销毁，焦点释放失败不能阻止后续播放器重新申请。
-        Utils.reportError(error, stack);
+        reportError(error, stack);
       }
     }
     _handler._independent.remove(this);
@@ -459,7 +459,7 @@ class IndependentAudioLease {
         try {
           await _handler.changeVideoActive(controller, true);
         } catch (error, stack) {
-          Utils.reportError(error, stack);
+          reportError(error, stack);
         }
       }
     }

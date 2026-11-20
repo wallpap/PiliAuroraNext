@@ -10,8 +10,8 @@ import 'package:pili_aurora_next/features/member_space/domain/profiles/space_opu
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_listings.dart';
 import 'package:pili_aurora_next/pages/member_opus/widgets/space_opus_item.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/waterfall.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/common/layout/waterfall.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:material_ui/material_ui.dart';

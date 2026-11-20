@@ -17,8 +17,8 @@ import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
@@ -68,7 +68,7 @@ class Request {
     account.activated = true;
     try {
       final String randPngEnd = base64.encode([
-        ...Iterable<int>.generate(32, (_) => Utils.random.nextInt(256)),
+        ...Iterable<int>.generate(32, (_) => sharedRandom.nextInt(256)),
         0,
         0,
         0,
@@ -77,7 +77,7 @@ class Request {
         69,
         78,
         68,
-        ...Iterable<int>.generate(4, (_) => Utils.random.nextInt(256)),
+        ...Iterable<int>.generate(4, (_) => sharedRandom.nextInt(256)),
       ]);
 
       final jsonData = json.encode({

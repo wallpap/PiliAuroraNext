@@ -1,6 +1,6 @@
-import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PBadge extends StatelessWidget {

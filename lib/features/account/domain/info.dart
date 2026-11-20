@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/extension/map_ext.dart';
+import 'package:pili_aurora_next/core/collections/map_ext.dart';
 import 'package:hive_ce/hive.dart';
 
 part 'info.g.dart';

@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 
 import '../../support/memory_box.dart';
 
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import 'dart:async';
 

@@ -19,11 +19,11 @@ import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart
 import 'package:pili_aurora_next/features/download/data/download_manager.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
 import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;

@@ -24,7 +24,7 @@ import 'package:pili_aurora_next/pages/pgc/widgets/pgc_card_v.dart';
 import 'package:pili_aurora_next/pages/pgc/widgets/pgc_card_v_timeline.dart';
 import 'package:pili_aurora_next/pages/pgc_index/view.dart';
 import 'package:pili_aurora_next/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

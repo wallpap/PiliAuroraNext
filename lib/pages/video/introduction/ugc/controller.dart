@@ -22,19 +22,19 @@ import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:material_ui/material_ui.dart';
@@ -209,7 +209,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
             ),
             onTap: () {
               Get.back();
-              Utils.copyText(videoUrl);
+              copyText(videoUrl);
             },
             trailing: playedTimePos.isNotEmpty
                 ? iconButton(
@@ -217,7 +217,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                     icon: const Icon(Icons.timer_outlined),
                     onPressed: () {
                       Get.back();
-                      Utils.copyText('$videoUrl$playedTimePos');
+                      copyText('$videoUrl$playedTimePos');
                     },
                   )
                 : null,

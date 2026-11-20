@@ -16,7 +16,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/playback_load_queue.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 
 /// 使用实际 Flutter、mpv、ANGLE、纹理通道验证超分切换；只播放指定本地文件。
 Future<void> main() async {

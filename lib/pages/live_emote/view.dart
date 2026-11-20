@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView, platformClampingPhysics;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/features/community/domain/live_emote/datum.dart';
 import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

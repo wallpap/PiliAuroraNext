@@ -23,14 +23,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/member_space.dart';
 import 'package:pili_aurora_next/features/member_space/data/space_repository.dart';
 import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:pili_aurora_next/pages/member/shortcut_action.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_wall.dart';
 import 'package:pili_aurora_next/pages/member/widget/reserve_button.dart';
 import 'package:pili_aurora_next/pages/member/widget/user_info_card.dart';
 import 'package:pili_aurora_next/pages/member_cheese/view.dart';
 import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
-import 'package:pili_aurora_next/utils/extension/nested_scroll_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/nested_scroll_ext.dart';
 import 'package:pili_aurora_next/pages/member_contribute/view.dart';
 import 'package:pili_aurora_next/pages/member_dynamics/view.dart';
 import 'package:pili_aurora_next/pages/member_favorite/view.dart';
@@ -39,12 +39,12 @@ import 'package:pili_aurora_next/pages/member_pgc/view.dart';
 import 'package:pili_aurora_next/pages/member_shop/view.dart';
 import 'package:pili_aurora_next/pages/member_video_web/archive/view.dart';
 import 'package:pili_aurora_next/pages/member_video_web/season_series/view.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/motion/hero_tag.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -131,7 +131,7 @@ class _MemberPageState extends ConsumerState<MemberPage>
   void initState() {
     super.initState();
     _mid = int.tryParse(Get.parameters['mid']!) ?? -1;
-    _heroTag = Utils.makeHeroTag(_mid);
+    _heroTag = makeHeroTag(_mid);
     _query = (
       owner: Object(),
       mid: _mid,

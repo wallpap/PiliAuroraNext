@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/features/community/domain/article_collection/stats.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 
 class ArticleListItemModel {
   final int? id;

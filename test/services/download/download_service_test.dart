@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/features/download/domain/download_media.dart';
 import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/features/download/application/download_service.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:path/path.dart' as path;
 
 import 'download_fixtures.dart';

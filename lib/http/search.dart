@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/features/playback/domain/parts/page_item.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
 import 'package:pili_aurora_next/features/search/domain/suggestions/search_rcmd/data.dart';
 import 'package:pili_aurora_next/features/search/domain/suggestions/search_trending/data.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';

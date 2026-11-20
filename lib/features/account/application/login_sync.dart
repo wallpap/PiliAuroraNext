@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/history/application/history_library.da
 import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 abstract final class LoginSync {
   static Future<void> onLoginMain() async {

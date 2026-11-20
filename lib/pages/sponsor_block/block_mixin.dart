@@ -12,8 +12,8 @@ import 'package:pili_aurora_next/features/sponsor_block/domain/action_type.dart'
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
 import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, ValueListenable;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart' show Get, GetNavigation;

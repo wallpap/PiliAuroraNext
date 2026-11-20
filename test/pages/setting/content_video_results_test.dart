@@ -7,10 +7,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/models/content_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/video_settings.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/video_buffer_policy.dart';
 
 import '../../support/memory_box.dart';

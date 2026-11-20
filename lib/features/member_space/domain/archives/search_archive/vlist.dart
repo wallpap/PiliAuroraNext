@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 
 class VListItemModel extends HorizontalVideoModel {
   VListItemModel.fromJson(Map<String, dynamic> json) {

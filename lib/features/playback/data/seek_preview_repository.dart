@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 
 abstract final class SeekPreviewRepository {
   static Future<LoadingState<SeekPreviewAtlas>> fetch(

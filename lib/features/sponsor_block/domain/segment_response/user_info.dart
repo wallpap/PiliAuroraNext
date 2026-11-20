@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 
 class UserInfo {
   final int viewCount;
