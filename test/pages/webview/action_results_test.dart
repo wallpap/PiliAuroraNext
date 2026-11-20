@@ -115,10 +115,15 @@ class _Platform extends InAppWebViewPlatform {
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   final platform = _Platform();
+  const launcher = MethodChannel('plugins.flutter.io/url_launcher');
+  const lotteryUrl =
+      'https://www.bilibili.com/h5/lottery/result?business_id=1270023556023975969&business_type=1';
   final copied = <String>[];
+  final launched = <String>[];
   setUpAll(() => InAppWebViewPlatform.instance = platform);
   setUp(() {
     copied.clear();
+    launched.clear();
     platform.cache
       ..calls.clear()
       ..fail = null
@@ -132,19 +137,33 @@ void main() {
         return null;
       },
     );
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(launcher, (
+      call,
+    ) async {
+      if (call.method != 'launch') return false;
+      launched.add((call.arguments as Map)['url'] as String);
+      return true;
+    });
   });
   tearDown(() {
     binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
       null,
     );
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(launcher, null);
     Get.reset();
   });
 
-  Future<void> mount(WidgetTester tester) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    String? initialUrl = 'https://example.test/page',
+  }) async {
     await tester.pumpWidget(
       GetMaterialApp(
-        initialRoute: '/webview?url=https%3A%2F%2Fexample.test%2Fpage',
+        initialRoute: Uri(
+          path: '/webview',
+          queryParameters: initialUrl == null ? null : {'url': initialUrl},
+        ).toString(),
         navigatorObservers: [routeObserver, FlutterSmartDialog.observer],
         builder: FlutterSmartDialog.init(),
         getPages: [
@@ -222,6 +241,31 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('空白 WebView 的浏览器菜单打开原始抽奖链接', (tester) async {
+    await mount(tester, initialUrl: lotteryUrl);
+    platform.view.native.url = 'about:blank';
+    await choose(tester, WebviewMenuItem.openInBrowser);
+    expect(launched, [lotteryUrl]);
+    await finish(tester);
+  });
+
+  testWidgets('浏览器菜单优先使用当前网页地址', (tester) async {
+    await mount(tester, initialUrl: lotteryUrl);
+    platform.view.native.url = 'https://example.test/redirected?next=1#details';
+    await choose(tester, WebviewMenuItem.openInBrowser);
+    expect(launched, ['https://example.test/redirected?next=1#details']);
+    await finish(tester);
+  });
+
+  testWidgets('没有可用网页地址时不启动外部应用', (tester) async {
+    await mount(tester, initialUrl: null);
+    platform.view.native.url = 'about:blank';
+    await choose(tester, WebviewMenuItem.openInBrowser);
+    expect(launched, isEmpty);
+    expect(find.text('暂无可用的网页链接'), findsOneWidget);
+    await finish(tester);
+  });
+
   testWidgets('缓存和历史均完成才提示清理成功，任一步失败允许重试', (tester) async {
     await mount(tester);
     final controller = platform.view.native;
@@ -263,6 +307,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('其他页面'), findsOneWidget);
       expect(copied, isEmpty);
+      expect(launched, isEmpty);
       expect(controller.calls, [
         action == WebviewMenuItem.goBack ? 'canGoBack' : 'getUrl',
       ]);

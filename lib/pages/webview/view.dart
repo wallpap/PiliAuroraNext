@@ -41,7 +41,7 @@ class WebviewPage extends StatefulWidget {
 }
 
 class _WebviewPageState extends State<WebviewPage> with RouteAware {
-  late String _currentUrl;
+  late final String _initialUrl;
   late final String userAgent;
   late final RxString _title;
   final RxDouble _progress = 1.0.obs;
@@ -58,8 +58,8 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
   void initState() {
     super.initState();
     final parameters = Get.parameters;
-    _currentUrl = (widget.url ?? parameters['url'] ?? 'about:blank').http2https;
-    _title = _currentUrl.obs;
+    _initialUrl = (widget.url ?? parameters['url'] ?? 'about:blank').http2https;
+    _title = _initialUrl.obs;
     userAgent = switch (parameters['uaType']) {
       'pc' => BrowserUa.pc,
       'mob' => BrowserUa.mob,
@@ -142,6 +142,13 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
     ];
   }
 
+  Uri? _browserUrl(Uri? uri) =>
+      uri != null &&
+          uri.host.isNotEmpty &&
+          (uri.scheme == 'http' || uri.scheme == 'https')
+      ? uri
+      : null;
+
   Future<void> _handleMenuItem(WebviewMenuItem item) async {
     if (_menuGeneration == _generation ||
         !mounted ||
@@ -174,11 +181,14 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
         case WebviewMenuItem.openInBrowser:
           final uri = await controller.getUrl();
           if (!current()) return;
-          if (uri == null) {
+          final url =
+              _browserUrl(uri?.uriValue) ??
+              _browserUrl(Uri.tryParse(_initialUrl));
+          if (url == null) {
             SmartDialog.showToast('暂无可用的网页链接');
             return;
           }
-          await PageUtils.launchURL(uri.toString());
+          await PageUtils.launchURL(url.toString());
           break;
         case WebviewMenuItem.clearCache:
           await InAppWebViewController.clearAllCache();
@@ -257,7 +267,7 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
           : AppBar(
               title: Obx(
                 () => Text(
-                  _title.value.isNotEmpty ? _title.value : _currentUrl,
+                  _title.value.isNotEmpty ? _title.value : _initialUrl,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -298,7 +308,7 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
                         MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
                   ),
                   initialUrlRequest: URLRequest(
-                    url: WebUri.uri(Uri.tryParse(_currentUrl) ?? Uri()),
+                    url: WebUri.uri(Uri.tryParse(_initialUrl) ?? Uri()),
                   ),
                   onWebViewCreated: (InAppWebViewController controller) {
                     if (!mounted || _isPop) return;
