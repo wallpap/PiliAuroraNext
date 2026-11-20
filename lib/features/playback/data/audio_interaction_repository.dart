@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pbenum.dart';
 import 'package:pili_aurora_next/grpc/audio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef AudioTripleReceipt = ({bool liked, bool coined, bool favored});
 

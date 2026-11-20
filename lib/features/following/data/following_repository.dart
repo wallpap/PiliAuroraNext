@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/models/common/follow_order_type.dart';
 import 'package:pili_aurora_next/models/remote/follow/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_follow/data.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';

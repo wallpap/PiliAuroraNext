@@ -26,7 +26,7 @@ import 'package:pili_aurora_next/utils/font_utils.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as font_result;
 import 'package:pili_aurora_next/services/diagnostics/report_handler.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
@@ -167,7 +167,7 @@ Future<void> _bootstrapApplication(
   );
   if (!playerWindow) {
     unawaited(
-      RequestUtils.syncHistoryStatus().catchError((
+      HistoryLibrary.legacy.syncActiveAccountStatus().catchError((
         Object error,
         StackTrace stackTrace,
       ) {

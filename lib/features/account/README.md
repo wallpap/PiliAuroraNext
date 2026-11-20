@@ -8,7 +8,9 @@
 - `data/profile_repository.dart`：显式账号的资料与统计请求、按 UID 隔离的 Hive 资料缓存。
 - `application/account_profile.dart`：资料发布顺序、查询代次、缓存串行写入，以及共享资料和统计 provider。登录同步与资料编辑共用 `AccountProfile.legacy`，不创建额外 ProviderContainer。
 - `application/coin_balance.dart`：余额绑定当前账号凭据。只接受当前查询或确认消费；换号不复用之前的余额。投币页面只接收打开时的余额快照。
-- `application/account_preferences.dart`：从心跳角色派生无痕状态，观察主题偏好。账号身份与角色持久化仍由 `utils/accounts.dart` 持有，Riverpod 桥接入口为 `services/account_providers.dart`。
+- `application/accounts.dart` 持有账号角色和凭据代次，`application/account_providers.dart` 提供 Riverpod 订阅。`application/account_preferences.dart` 从心跳角色派生无痕状态并观察主题偏好。
+- `data/` 保存凭证加密、Hive 适配、请求认证和网页 Cookie 同步。原 Hive typeId、字段和加密格式保持兼容。请求签名归 `http/`。
+- `application/login_sync.dart` 确认登录资料，启动网页 Cookie 与历史状态同步。实名导航从 `presentation/real_name_dialog.dart` 发起账号范围内的查询。
 - `application/profile_editor.dart` 与 `data/profile_editor_repository.dart`：编辑实例的资料查询、写入和待确认核对；页面持有文本、图片选择和弹窗。
 - `application/account_roles.dart` 与 `presentation/account_switch_dialog.dart`：账号切换草稿只保存 UID，确认时解析最新凭据。角色已改动时拒绝旧草稿。
 - `application/login_session.dart`：登录请求编排、App 与 Cookie 凭据保存。登录表单持有输入和验证码显示，编辑或关闭时忽略过期确认。
@@ -20,7 +22,7 @@
 
 主账号按对象身份隔离，同 UID 更换凭据也会使旧请求失效。共享资料与统计为 autoDispose provider；资料刷新检查账号、查询代次和观察者存活，统计由 Riverpod 隔离异步结果。旧未登录响应不能注销新账号。
 
-登录查询被同账号页面刷新淘汰时，仍交付确认登录成功，供 `LoginUtils` 完成网页 Cookie 与历史状态同步；旧资料不再覆盖较新快照。换凭据后则不交付。原生 Cookie 同步继续使用既有串行队列，后台失败单独记录。
+登录查询被同账号页面刷新淘汰时，仍交付确认登录成功，供 `LoginSync` 完成网页 Cookie 与历史状态同步；旧资料不再覆盖较新快照。换凭据后则不交付。原生 Cookie 同步继续使用既有串行队列，后台失败单独记录。
 
 已确认的改名和头像会创建新展示快照，立即通知其他入口并淘汰早先查询；本地保存失败单独交付，不把远端成功改为失败。资料写入按顺序执行，防止同 UID 的旧写入覆盖新凭据确认的资料。缓存使用 `userInfoCache:<mid>`，只在 UID 匹配时兼容读取旧 `userInfoCache`，匿名账号不读取缓存。
 

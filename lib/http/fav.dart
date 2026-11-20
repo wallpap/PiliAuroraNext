@@ -14,10 +14,10 @@ import 'package:pili_aurora_next/features/favorites/domain/fav_topic/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_cheese/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_fav/data.dart';
 import 'package:pili_aurora_next/features/subscriptions/domain/subscription_detail.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class FavHttp {

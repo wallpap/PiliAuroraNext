@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final class LiveFeedback {
   LiveFeedback.capture(this.roomId) : _account = LiveHttp.recommend;

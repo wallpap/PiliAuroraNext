@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/features/content_discovery/domain/discovery_pag
 import 'package:pili_aurora_next/features/content_discovery/domain/live_catalog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef LiveQuery = ({
   Object owner,

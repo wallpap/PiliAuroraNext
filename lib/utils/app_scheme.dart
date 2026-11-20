@@ -20,12 +20,12 @@ import 'package:pili_aurora_next/pages/rank/view.dart';
 import 'package:pili_aurora_next/features/subscriptions/presentation/subscription_detail_page.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/parse_string.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/account/presentation/real_name_dialog.dart';
 import 'package:pili_aurora_next/utils/url_utils.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 import 'package:app_links/app_links.dart';
@@ -174,7 +174,7 @@ abstract final class PiliScheme {
             String? mid = uriDigitRegExp.firstMatch(path)?.group(1);
             if (mid != null) {
               if (path.startsWith('/realname')) {
-                RequestUtils.showUserRealName(mid);
+                RealNameDialog.show(mid);
                 return true;
               }
               PageUtils.toDupNamed('/member?mid=$mid', off: off);

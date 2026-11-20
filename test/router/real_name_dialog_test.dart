@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/presentation/real_name_dialog.dart';
 
 import 'route_request_fixture.dart';
 
@@ -15,9 +15,9 @@ void main() {
 
   testWidgets('实名查询只交付最近操作，当前成功可关闭弹窗', (tester) async {
     await fixture.mount(tester);
-    final first = RequestUtils.showUserRealName('1');
+    final first = RealNameDialog.show('1');
     await fixture.until(tester, () => requests.length == 1);
-    final latest = RequestUtils.showUserRealName('2');
+    final latest = RealNameDialog.show('2');
     await fixture.until(tester, () => requests.length == 2);
     await fixture.complete(tester, first, 0, failed);
     expect(find.text('迟到错误'), findsNothing);
@@ -35,7 +35,7 @@ void main() {
 
   testWidgets('实名查询离页再返回后丢弃迟到成功', (tester) async {
     await fixture.mount(tester);
-    final operation = RequestUtils.showUserRealName('1');
+    final operation = RealNameDialog.show('1');
     await fixture.until(tester, () => requests.length == 1);
     Get.toNamed<void>('/other');
     await tester.pumpAndSettle();
@@ -53,7 +53,7 @@ void main() {
   testWidgets('实名查询账号替换后不显示旧响应', (tester) async {
     await fixture.mount(tester);
     final account = Accounts.main;
-    final operation = RequestUtils.showUserRealName('1');
+    final operation = RealNameDialog.show('1');
     await fixture.until(tester, () => requests.length == 1);
     expect(requests.single.options.extra['account'], same(account));
     Accounts.accountMode[AccountType.main.index] = LoginAccount(

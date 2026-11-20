@@ -8,8 +8,8 @@ import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart
 import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
 import 'package:pili_aurora_next/models/horizontal_video_model.dart';
 import 'package:pili_aurora_next/models/remote/member/search_archive/slist.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef SpaceWebQuery = ({
   Object owner,

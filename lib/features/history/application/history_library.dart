@@ -7,9 +7,9 @@ import 'package:pili_aurora_next/features/history/data/history_repository.dart';
 import 'package:pili_aurora_next/features/history/domain/list.dart';
 import 'package:pili_aurora_next/features/history/domain/tab.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class HistoryLibrary extends LibraryModule {
   HistoryLibrary(this._repository);
@@ -43,6 +43,11 @@ class HistoryLibrary extends LibraryModule {
 
   @override
   bool owns(Account account) => identical(account, Accounts.history);
+
+  Future<void> syncActiveAccountStatus() async {
+    final account = Accounts.history;
+    if (account.isLogin) await status(account);
+  }
 
   /// 启动和页面使用同一查询代次；持久化失败沿原 Future 交付。
   Future<LoadingState<bool>> status(Account account) async {

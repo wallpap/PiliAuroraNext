@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:pili_aurora_next/utils/credential_cipher.dart';
+import 'package:pili_aurora_next/features/account/data/credential_cipher.dart';
 import 'package:pili_aurora_next/utils/volume_utils.dart';
 import 'package:pili_aurora_next/services/settings/gesture_defaults.dart';
 import 'package:pili_aurora_next/models/common/bar_hide_type.dart';
@@ -28,8 +28,8 @@ import 'package:pili_aurora_next/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/data/client_identity.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -865,7 +865,7 @@ abstract final class Pref {
   static String get buvid {
     String? buvid = _localCache.get(LocalCacheKey.buvid);
     if (buvid == null) {
-      buvid = LoginUtils.generateBuvid();
+      buvid = ClientIdentity.generateBuvid();
       _localCache.put(LocalCacheKey.buvid, buvid);
     }
     return buvid;

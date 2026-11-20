@@ -8,7 +8,7 @@
 
 跨页面共享状态由领域模块或 Session 持有。页面退出只释放自己的订阅或租约；应用级任务在所属作用域结束时关闭。下载、消息及原生播放分别遵循自身的释放协议。
 
-账号按对象身份判断，同 UID 更换凭据也会使旧请求失效。请求与屏蔽规则可能使用不同角色，须分别捕获；仅推荐账号变化时，主账号查询和消息 Session 保持各自生命周期。角色来源见 `lib/services/account_providers.dart` 和 `lib/utils/accounts.dart`。
+账号按对象身份判断，同 UID 更换凭据也会使旧请求失效。请求与屏蔽规则可能使用不同角色，须分别捕获；仅推荐账号变化时，主账号查询和消息 Session 保持各自生命周期。角色来源见 `lib/features/account/application/account_providers.dart` 和 `lib/features/account/application/accounts.dart`。
 
 各领域的共享状态、写入锁和资源边界见[下载](../../lib/features/download/README.md)、[消息](../../lib/services/messaging/README.md)、[账号](../../lib/features/account/README.md)、[内容发现](../../lib/features/content_discovery/README.md)、[社区](../../lib/features/community/README.md)及[内容管理共享实现](../../lib/features/content_library/README.md)。
 

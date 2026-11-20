@@ -26,10 +26,10 @@ import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/topic_
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/top_details.dart';
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
 import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class DynamicsHttp {

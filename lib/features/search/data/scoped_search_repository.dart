@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/grpc/space.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/extension/dimension_ext.dart';
 
 typedef ScopedSearchPage = ({

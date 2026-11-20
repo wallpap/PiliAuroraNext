@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/features/favorites/application/favorite_library
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 
 typedef VideoInteractionTarget = ({String bvid, int? episode});

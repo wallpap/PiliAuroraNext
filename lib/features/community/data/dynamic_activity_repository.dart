@@ -14,7 +14,7 @@ import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
         UserInfo;
 import 'package:pili_aurora_next/grpc/dyn.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final dynamicActivityRepositoryProvider = Provider(
   (ref) => const DynamicActivityRepository(),

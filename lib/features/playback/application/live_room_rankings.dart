@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_contribution_rank/item.dart';
 import 'package:pili_aurora_next/models/remote/live/live_guard_top_list/data.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 
 typedef LiveRankingRoom = ({Object scope, Object room, Object anchor});
 typedef LiveContributionQuery = (LiveRankingRoom, LiveContributionRankType);

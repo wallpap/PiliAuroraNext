@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final class AccountScope {
   AccountScope.capture() : this._(AccountType.main, Accounts.mainChanges);

@@ -26,7 +26,7 @@ import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/remote/space/space/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_medal_wall/data.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final spaceRepositoryProvider = Provider((ref) => const SpaceRepository());
 

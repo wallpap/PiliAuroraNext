@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';

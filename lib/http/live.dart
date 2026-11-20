@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/login.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
 import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
 import 'package:pili_aurora_next/models/remote/live/live_contribution_rank/data.dart';
@@ -19,10 +19,10 @@ import 'package:pili_aurora_next/models/remote/live/live_room_info_h5/data.dart'
 import 'package:pili_aurora_next/models/remote/live/live_room_play_info/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_search/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_second_list/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class LiveHttp {

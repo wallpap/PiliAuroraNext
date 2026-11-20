@@ -13,7 +13,7 @@ import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/cache_manager.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/services/web_account_cookies.dart';
+import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';

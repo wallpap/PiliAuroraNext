@@ -40,7 +40,7 @@ import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';

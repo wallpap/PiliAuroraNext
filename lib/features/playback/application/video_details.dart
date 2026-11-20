@@ -11,8 +11,8 @@ import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/model_r
 import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
 import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 
 enum _Read { introduction, author, relation, online, tags }

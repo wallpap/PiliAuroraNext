@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/application/login_sync.dart';
 
 abstract final class AccountBackup {
   static String exportJson() =>
@@ -14,6 +14,6 @@ abstract final class AccountBackup {
     );
     await Accounts.account.putAll(accounts);
     await Accounts.refresh();
-    if (Accounts.main.isLogin) await LoginUtils.onLoginMain();
+    if (Accounts.main.isLogin) await LoginSync.onLoginMain();
   }
 }

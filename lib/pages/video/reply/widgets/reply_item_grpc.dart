@@ -31,7 +31,7 @@ import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';

@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final topicRepositoryProvider = Provider((ref) => const TopicRepository());
 

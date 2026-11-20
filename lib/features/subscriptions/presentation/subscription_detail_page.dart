@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/features/subscriptions/application/subscription_library.dart';
 import 'package:pili_aurora_next/features/subscriptions/presentation/feed_view.dart';
 import 'package:pili_aurora_next/features/subscriptions/presentation/video_card.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/utils/num_utils.dart';
 
 class SubDetailPage extends ConsumerStatefulWidget {

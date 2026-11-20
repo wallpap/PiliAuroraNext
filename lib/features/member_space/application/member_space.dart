@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/member/tab_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space/setting.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 // 同一 MID 的两个路由独立刷新；凭据变化时废弃旧快照与在途交付。

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/features/account/data/profile_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class FakeProfiles extends ProfileRepository {
   final requests = <Completer<LoadingState<UserInfoData>>>[];

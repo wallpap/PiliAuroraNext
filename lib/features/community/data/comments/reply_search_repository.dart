@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.d
     show SearchItem, SearchItemType, SearchItemVideoSubType;
 import 'package:pili_aurora_next/grpc/reply.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final replySearchRepositoryProvider = Provider(
   (ref) => const ReplySearchRepository(),

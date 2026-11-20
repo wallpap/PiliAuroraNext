@@ -3,7 +3,7 @@ import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/radio_widget.dart';
 import 'package:pili_aurora_next/features/account/application/account_roles.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 

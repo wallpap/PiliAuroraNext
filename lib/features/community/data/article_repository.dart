@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/dynamics/result.dart';
 import 'package:pili_aurora_next/models/remote/article/article_info/data.dart';
 import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class ArticleRepository {
   static Future<LoadingState<DynamicItemModel>> opus(

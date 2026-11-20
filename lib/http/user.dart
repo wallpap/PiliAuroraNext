@@ -10,12 +10,12 @@ import 'package:pili_aurora_next/features/watch_later/domain/data.dart';
 import 'package:pili_aurora_next/models/remote/media_list/data.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
 import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
-import 'package:pili_aurora_next/models/remote/user_real_name/data.dart';
+import 'package:pili_aurora_next/features/account/domain/real_name/data.dart';
 import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class UserHttp {

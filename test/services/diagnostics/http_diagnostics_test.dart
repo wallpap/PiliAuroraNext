@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/http_diagnostics.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

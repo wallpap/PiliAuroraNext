@@ -6,8 +6,8 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_privacy.dart';
 import 'package:pili_aurora_next/features/member_space/domain/privacy.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class SpaceSettingPage extends ConsumerStatefulWidget {
   const SpaceSettingPage({super.key});

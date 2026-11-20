@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/features/community/application/dynamics_updates
 import 'package:pili_aurora_next/features/community/data/dynamics_repository.dart';
 import 'package:pili_aurora_next/features/community/domain/dynamic_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final dynamicsPublishingProvider = Provider(
   (ref) => DynamicsPublishing(

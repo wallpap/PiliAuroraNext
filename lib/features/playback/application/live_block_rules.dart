@@ -3,8 +3,8 @@ import 'package:pili_aurora_next/features/playback/application/live_chat_queries
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_user_list.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 
 typedef LiveBlockRulesChanged = void Function(
   List<String> keywords,

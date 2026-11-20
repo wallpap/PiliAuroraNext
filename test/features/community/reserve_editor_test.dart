@@ -9,10 +9,10 @@ import 'package:pili_aurora_next/features/community/data/reserve_repository.dart
 import 'package:pili_aurora_next/features/community/domain/reserve.dart';
 import 'package:pili_aurora_next/features/community/domain/reserve_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_reserve/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 

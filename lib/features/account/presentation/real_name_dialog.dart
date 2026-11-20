@@ -1,52 +1,23 @@
 import 'dart:async' show unawaited;
 
-import 'package:pili_aurora_next/features/history/application/history_library.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/features/account/application/real_name_query.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
-abstract final class RequestUtils {
-  static Future<void> syncHistoryStatus() async {
-    final account = Accounts.history;
-    if (account.isLogin) await HistoryLibrary.legacy.status(account);
-  }
-
-  static ReplyInfo replyCast(Map res) {
-    Map? emote = res['content']['emote'];
-    emote?.forEach((key, value) {
-      value['size'] = value['meta']['size'];
-    });
-    return ReplyInfo.create()..mergeFromProto3Json(
-      res
-        ..['content'].remove('members')
-        ..['id'] = res['rpid']
-        ..['member']['name'] = res['member']['uname']
-        ..['member']['face'] = res['member']['avatar']
-        ..['member']['level'] = res['member']['level_info']['current_level']
-        ..['member']['vipStatus'] = res['member']['vip']['vipStatus']
-        ..['member']['vipType'] = res['member']['vip']['vipType']
-        ..['member']['officialVerifyType'] =
-            res['member']['official_verify']['type']
-        ..['content']['emotes'] = emote,
-      ignoreUnknownFields: true,
-    );
-  }
-
-  static Future<void> showUserRealName(String mid) async {
+abstract final class RealNameDialog {
+  static Future<void> show(String mid) async {
     final request = NavigationRequest();
-    final account = Accounts.main;
-    bool current() => request.isCurrent && identical(account, Accounts.main);
+    final scope = AccountScope.capture();
+    bool current() => request.isCurrent && scope.isCurrent;
     try {
-      final res = await UserHttp.getUserRealName(mid, account: account);
+      final res = await queryRealName(mid, scope);
       if (!current() || Get.context?.mounted != true) return;
       if (res case Success(:final response)) {
         final show = !response.name.isNullOrEmpty;

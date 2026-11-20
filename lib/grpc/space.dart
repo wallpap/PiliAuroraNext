@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/interfaces/v1.pb.dart'
     show SearchArchiveReply, SearchArchiveReq;

@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
 import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

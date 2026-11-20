@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/content_discovery/data/related_video_r
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final class RelatedVideoQuery {
   RelatedVideoQuery(this.bvid);

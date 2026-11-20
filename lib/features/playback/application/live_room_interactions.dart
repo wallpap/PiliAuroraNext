@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart'
     show LiveDanmaku;
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class LiveRoomInteractions {
   LiveRoomInteractions(int room, {required this._roomIsCurrent})

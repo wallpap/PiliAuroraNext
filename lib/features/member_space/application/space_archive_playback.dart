@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/features/member_space/data/space_repository.dar
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 
 import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';

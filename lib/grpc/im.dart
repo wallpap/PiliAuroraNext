@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart' hide SessionInfo;
 import 'package:pili_aurora_next/generated/bilibili/im/interfaces/v1.pb.dart';
 import 'package:pili_aurora_next/generated/bilibili/im/type.pb.dart';

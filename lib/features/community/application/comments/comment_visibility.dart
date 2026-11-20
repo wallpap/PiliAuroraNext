@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/community/data/comments/comment_visibi
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 
 enum CommentVisibility { public, directLinkOnly, ownViewOnly, missing }

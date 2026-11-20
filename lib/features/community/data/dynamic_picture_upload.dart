@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/msg.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final class DynamicPictureUpload {
   final _token = CancelToken();

@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/data.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final pgcRepositoryProvider = Provider((ref) => const PgcRepository());
 

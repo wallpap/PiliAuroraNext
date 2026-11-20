@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/match.dart';
 import 'package:pili_aurora_next/models/remote/match/match_info/contest.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class MatchQueries {
   static Future<LoadingState<MatchContest?>> detail(Account account, int id) {

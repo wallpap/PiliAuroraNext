@@ -4,13 +4,13 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/validate.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/models/login/gaia_result.dart';
+import 'package:pili_aurora_next/features/account/domain/login/gaia_result.dart';
 import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
 import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/models/search/suggest.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 
 class SearchRepository {
   const SearchRepository();

@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/features/account/application/account_logout.dar
 import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/multi_select_dialog.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 

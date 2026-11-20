@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 
 Response<dynamic> response(Object? body, {int status = 200}) =>
     Response<dynamic>(

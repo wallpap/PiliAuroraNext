@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/community/domain/reply_search.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef ReplySearchQuery = ({
   Object submission,

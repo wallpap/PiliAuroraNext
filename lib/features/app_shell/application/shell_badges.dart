@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_unread.dart';
 import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/services/messaging/overview.dart';
 import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
 

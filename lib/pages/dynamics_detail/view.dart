@@ -27,7 +27,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';
 import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/features/community/presentation/dynamic_like_action.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/pages/common/dyn/like_list/view.dart';
 import 'package:pili_aurora_next/pages/common/dyn/repost_list/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';

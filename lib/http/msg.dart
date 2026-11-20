@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 import 'dart:convert';
 
@@ -17,8 +17,8 @@ import 'package:pili_aurora_next/models/remote/msg/msg_sys/data.dart';
 import 'package:pili_aurora_next/models/remote/msg/session_ss/data.dart';
 import 'package:pili_aurora_next/models/remote/single_unread/data.dart';
 import 'package:pili_aurora_next/models/remote/upload_bfs/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class MsgHttp {

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:pili_aurora_next/utils/credential_cipher.dart';
+import 'package:pili_aurora_next/features/account/data/credential_cipher.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
 import 'package:flutter_test/flutter_test.dart';

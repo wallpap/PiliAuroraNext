@@ -8,9 +8,9 @@ import 'package:pili_aurora_next/models/remote/live/live_dm_block/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_info.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class LiveChatRepository {

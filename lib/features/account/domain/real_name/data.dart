@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/user_real_name/reject_page.dart';
+import 'package:pili_aurora_next/features/account/domain/real_name/reject_page.dart';
 
 class UserRealNameData {
   String? name;

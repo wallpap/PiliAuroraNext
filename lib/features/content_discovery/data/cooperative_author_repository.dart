@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/utils/parse_int.dart';
 
 class CooperativeAuthorRepository {

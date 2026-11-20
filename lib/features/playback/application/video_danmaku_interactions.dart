@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/playback/data/danmaku_rule_cache.dart'
 import 'package:pili_aurora_next/features/playback/domain/danmaku_block_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 
 typedef DanmakuBlockRules = ({
   RuleFilter Function() read,

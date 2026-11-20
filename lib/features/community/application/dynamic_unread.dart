@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/features/community/data/dynamics_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 class DynamicUnread {

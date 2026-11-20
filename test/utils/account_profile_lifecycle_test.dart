@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/features/account/application/login_sync.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../support/controlled_http_adapter.dart';
@@ -82,7 +82,7 @@ void main() {
   });
 
   test('登录查询在切号后不再同步旧头像、Cookie、缓存或余额', () async {
-    final pending = LoginUtils.onLoginMain();
+    final pending = LoginSync.onLoginMain();
     await dispatched(1);
     expect(adapter.requests.single.extra['account'], same(first));
     Accounts.accountMode[mainIndex] = account(456);

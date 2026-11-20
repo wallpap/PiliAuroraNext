@@ -4,7 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class WebAccountCookies {
   static Future<void> _webCookieTail = Future.value();

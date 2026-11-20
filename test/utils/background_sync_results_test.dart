@@ -7,13 +7,13 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as result;
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
-import 'package:pili_aurora_next/services/web_account_cookies.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/application/login_sync.dart';
+import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
+import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
@@ -176,7 +176,7 @@ void main() {
     select(AnonymousAccount());
     cookies.onDelete = () async => false;
     final logout = expectLater(
-      LoginUtils.onLogoutMain(),
+      LoginSync.onLogoutMain(),
       throwsA(
         isA<result.Error>().having(
           (error) => error.errMsg,
@@ -206,7 +206,7 @@ void main() {
     final old = WebAccountCookies.sync();
     await started.future;
     select(AnonymousAccount());
-    final logout = LoginUtils.onLogoutMain();
+    final logout = LoginSync.onLogoutMain();
     select(account(456));
     final current = WebAccountCookies.sync();
     cookies.onSet = () async => true;
@@ -226,7 +226,7 @@ void main() {
       return release.future;
     };
     var finished = false;
-    final operation = RequestUtils.syncHistoryStatus().whenComplete(() {
+    final operation = HistoryLibrary.legacy.syncActiveAccountStatus().whenComplete(() {
       finished = true;
     });
     final assertion = expectLater(operation, throwsA(same(failure)));
@@ -263,7 +263,7 @@ void main() {
     }
 
     var loggedIn = false;
-    final login = LoginUtils.onLoginMain()..then((_) => loggedIn = true);
+    final login = LoginSync.onLoginMain()..then((_) => loggedIn = true);
     await until(() => adapter.requests.length == 1);
     adapter.json(0, {
       'code': 0,

@@ -22,7 +22,7 @@
 | 定位功能、源码与测试入口 | [功能领域地图](development/features.md) |
 | 理解模块、平台边界和术语 | [架构](development/architecture.md)、[架构图](diagrams/README.md) |
 | 追踪启动、请求、播放、下载、消息 | [运行流程](development/runtime-flows.md) |
-| 修改账号、状态、分页或异步结果 | [状态管理](development/state-management.md)、[账号拦截器](../lib/utils/accounts/account_manager/README.md) |
+| 修改账号、状态、分页或异步结果 | [状态管理](development/state-management.md)、[账号拦截器](../lib/features/account/data/account_manager/README.md) |
 | 修改播放状态、原生输出与释放 | [播放状态模型](development/playback-model.md)、[Windows 视频输出](maintenance/windows-video-output.md) |
 | 修改播放器控件、手势、选集或截图 | [播放器展示模块](../lib/plugin/pl_player/view/README.md) |
 | 修改图片加载、交互预览与资源释放 | [图片模块](../lib/common/widgets/image/README.md)、[图片测试契约](../test/common/widgets/image/CONTRACTS.md) |

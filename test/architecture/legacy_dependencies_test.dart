@@ -40,6 +40,8 @@ const _getxRegistryCalls = {
 };
 
 const _legacyUtilities = {
+  'features/account/application/accounts.dart',
+  'features/account/application/login_sync.dart',
   'utils/accounts.dart',
   'utils/app_sign.dart',
   'utils/credential_cipher.dart',
@@ -66,6 +68,7 @@ bool _isRestricted(String target) =>
     (target.startsWith('http/') && target != 'http/loading_state.dart') ||
     target.startsWith('grpc/') ||
     target.startsWith('generated/') ||
+    target.startsWith('features/account/data/') ||
     _legacyUtilities.contains(target) ||
     target.startsWith('package:dlna_dart/') ||
     target.startsWith('package:dio/') ||

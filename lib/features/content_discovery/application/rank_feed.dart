@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/content_discovery/application/discover
 import 'package:pili_aurora_next/features/content_discovery/data/rank_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef RankQuery = ({Object owner, int? rid, int? seasonType});
 final rankFeedProvider = NotifierProvider.autoDispose

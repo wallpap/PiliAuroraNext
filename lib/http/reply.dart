@@ -6,9 +6,9 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/reply/data.dart';
 import 'package:pili_aurora_next/models/remote/reply2reply/data.dart';
 import 'package:pili_aurora_next/models/remote/reply_interaction/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 import 'package:dio/dio.dart';
 
 abstract final class ReplyHttp {

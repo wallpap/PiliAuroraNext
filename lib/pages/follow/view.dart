@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/features/following/application/following.dart';
 import 'package:pili_aurora_next/pages/follow/widgets/tag_dialog.dart';
 import 'package:pili_aurora_next/pages/follow_tag_sort/view.dart';
 import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/utils/parse_int.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 

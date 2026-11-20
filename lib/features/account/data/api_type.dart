@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 
 abstract final class ApiType {
   static const Map<AccountType, Set<String>> apiTypeSet = {

@@ -18,14 +18,14 @@ import 'package:pili_aurora_next/features/community/domain/topic_cursor.dart';
 import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic_rcmd/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 

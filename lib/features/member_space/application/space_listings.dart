@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/features/member_space/data/space_repository.dar
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/models/remote/space/space_opus/item.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef SpaceListQuery = ({Object owner, int mid});
 typedef SpaceOpusQuery = ({Object owner, int mid, String filter});

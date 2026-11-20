@@ -3,11 +3,11 @@ import 'dart:io' show Cookie;
 import 'package:pili_aurora_next/features/account/data/cookie_login_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/login.dart';
-import 'package:pili_aurora_next/models/login/model.dart';
-import 'package:pili_aurora_next/models/login/result.dart';
+import 'package:pili_aurora_next/features/account/domain/login/model.dart';
+import 'package:pili_aurora_next/features/account/domain/login/result.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class LoginSession {
   const LoginSession();

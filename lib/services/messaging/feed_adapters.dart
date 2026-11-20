@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/models/remote/msg/msg_reply/user.dart'
     as reply_model;
 import 'package:pili_aurora_next/models/remote/msg/msg_sys/data.dart';
 import 'package:pili_aurora_next/services/messaging/feed.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class MessagingFeedAdapters {
   static Future<LoadingState<FeedPage<MsgReplyItem>>> reply(

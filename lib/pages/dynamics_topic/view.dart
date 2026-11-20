@@ -22,7 +22,7 @@ import 'package:pili_aurora_next/features/community/application/topic_queries.da
 import 'package:pili_aurora_next/features/community/application/topic_header.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';

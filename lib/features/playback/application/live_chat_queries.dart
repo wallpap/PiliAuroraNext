@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dar
 import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_info.dart';
 import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
 import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class LiveChatQueries {
   static Future<LoadingState<List<DanmakuMsg>?>> history(int room) =>

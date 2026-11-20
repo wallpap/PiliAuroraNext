@@ -7,8 +7,8 @@ import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/top_det
 import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 /// 页面离开后仍持有已发出的写入锁，重新打开不能重复发送同一操作。
 class TopicWrites {

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:pili_aurora_next/utils/credential_cipher.dart';
+import 'package:pili_aurora_next/features/account/data/credential_cipher.dart';
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/grpc_headers.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/data/grpc_headers.dart';
 import 'package:pili_aurora_next/utils/id_utils.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';

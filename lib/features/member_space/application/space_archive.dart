@@ -9,8 +9,8 @@ import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/episodic_button.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 import 'package:pili_aurora_next/features/member_space/application/space_archive_playback.dart';
 

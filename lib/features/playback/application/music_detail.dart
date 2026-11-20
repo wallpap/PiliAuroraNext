@@ -1,10 +1,10 @@
 import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/application/music_queries.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_detail.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 
 class MusicDetailController extends ContentPageDetail {
   MusicDetailController({required this.musicId, super.onFeedback});

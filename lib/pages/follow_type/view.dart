@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/pages/follow/widgets/follow_item.dart';
 import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/widgets/item.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';

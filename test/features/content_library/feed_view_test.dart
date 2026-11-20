@@ -6,7 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/content_library/application/paged_feed.dart';
 import 'package:pili_aurora_next/features/content_library/presentation/feed_view.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/memory_box.dart';

@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/features/content_library/presentation/operation
 import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/features/history/domain/list.dart';
 import 'package:pili_aurora_next/features/history/presentation/history_item.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key, this.search = false, this.type});

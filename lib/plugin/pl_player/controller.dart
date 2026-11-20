@@ -12,7 +12,7 @@ import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/models/common/audio_normalization.dart';
 import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
 import 'package:pili_aurora_next/models/common/video/video_type.dart';
@@ -58,7 +58,7 @@ import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/android/bindings.g.dart';
 import 'package:pili_aurora_next/utils/asset_utils.dart';

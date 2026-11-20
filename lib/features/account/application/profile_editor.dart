@@ -8,8 +8,8 @@ import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
 import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 /// 每个编辑实例持有资料快照，查询和写入按账号对象及快照隔离。
 class ProfileEditor extends ChangeNotifier {

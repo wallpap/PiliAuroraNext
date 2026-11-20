@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/community/domain/reserve.dart';
 import 'package:pili_aurora_next/features/community/domain/reserve_draft.dart';
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final reserveRepositoryProvider = Provider((ref) => const ReserveRepository());
 

@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/features/content_discovery/domain/discovery_pag
 import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef WeeklyQuery = ({Object owner, int? number});
 final weeklyFeedProvider = NotifierProvider.autoDispose

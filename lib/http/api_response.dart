@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 
 enum ApiCallKind { query, mutation }
 

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 
 import 'dart:async';
 

@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
 
 /// 使用 HTTP 状态码的第三方协议，不套用 B 站 code/message/data 业务包体。
 abstract final class SponsorBlockTransport {

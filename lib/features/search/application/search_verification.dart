@@ -1,8 +1,8 @@
 import 'package:pili_aurora_next/features/search/data/search_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/login/gaia_result.dart';
+import 'package:pili_aurora_next/features/account/domain/login/gaia_result.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 Future<LoadingState<String>?> requestSearchVerification({
   required String voucher,

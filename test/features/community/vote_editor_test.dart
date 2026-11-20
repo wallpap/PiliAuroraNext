@@ -9,10 +9,10 @@ import 'package:pili_aurora_next/features/community/data/vote_repository.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/features/community/domain/vote_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 
 import '../../support/memory_box.dart';

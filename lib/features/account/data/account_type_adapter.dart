@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:hive_ce/hive.dart';
 
 class AccountTypeAdapter extends TypeAdapter<AccountType> {

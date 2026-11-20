@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/community/data/video_note_repository.dart';
 import 'package:pili_aurora_next/features/community/domain/video_note.dart';
 import 'package:pili_aurora_next/features/content_library/application/paged_feed.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef VideoNotesQuery = ({Object owner, int oid});
 

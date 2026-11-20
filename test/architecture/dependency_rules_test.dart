@@ -258,7 +258,7 @@ void main() {
                 target != 'http/loading_state.dart') ||
             target?.contains('/data/') == true ||
             target?.startsWith('utils/storage') == true ||
-            target?.startsWith('utils/accounts') == true ||
+            target == 'features/account/application/accounts.dart' ||
             (target?.startsWith('pages/common/common_') == true &&
                 target != 'pages/common/common_page.dart')) {
           violations.add('$entry -> $uri');
@@ -454,9 +454,9 @@ void main() {
         final target = localDependency(file, uri);
         if (target == null) continue;
         if (removed.any(target.startsWith) ||
-            ((source == 'utils/accounts.dart' ||
-                    source == 'utils/login_utils.dart' ||
-                    source == 'services/account_providers.dart') &&
+            ((source == 'features/account/application/accounts.dart' ||
+                    source == 'features/account/application/login_sync.dart' ||
+                    source == 'features/account/application/account_providers.dart') &&
                 target.startsWith('pages/'))) {
           violations.add('$source -> $uri');
         }

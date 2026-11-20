@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/content_library/presentation/operation_dialog.dart';
 import 'package:pili_aurora_next/features/subscriptions/application/subscription_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 
 Future<void> cancelSubscription(
   BuildContext context,

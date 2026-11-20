@@ -6,8 +6,8 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
 import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
 
 /// 账号资料查询及写入，账号和签名参数属于同一次操作。
 abstract final class ProfileEditorRepository {

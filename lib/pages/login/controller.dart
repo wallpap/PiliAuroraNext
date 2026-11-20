@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
 import 'package:pili_aurora_next/features/account/application/login_session.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/login/model.dart';
+import 'package:pili_aurora_next/features/account/domain/login/model.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:pili_aurora_next/utils/theme_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

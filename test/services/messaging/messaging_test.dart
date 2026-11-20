@@ -17,7 +17,7 @@ import 'package:pili_aurora_next/services/messaging/session_adapter.dart';
 import 'package:pili_aurora_next/services/messaging/session_models.dart';
 import 'package:pili_aurora_next/services/messaging/session_providers.dart';
 import 'package:pili_aurora_next/services/messaging/sessions.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 import 'messaging_fixtures.dart';
 

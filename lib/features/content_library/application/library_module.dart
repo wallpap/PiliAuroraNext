@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 /// 仅发布成功写入的失效信号，不保存另一份列表。历史入口与 Riverpod 共用此 Seam。
 abstract class LibraryModule {

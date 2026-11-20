@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/features/watch_later/application/later_library.
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/video/source_type.dart';
 import 'package:pili_aurora_next/models/remote/media_list/media_list.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
 class VideoPlaylist {

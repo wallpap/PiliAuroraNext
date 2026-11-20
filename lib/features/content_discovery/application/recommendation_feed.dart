@@ -13,8 +13,8 @@ import 'package:pili_aurora_next/features/content_discovery/application/recommen
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_state.dart';
 import 'package:pili_aurora_next/models/model_rec_video_item.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 

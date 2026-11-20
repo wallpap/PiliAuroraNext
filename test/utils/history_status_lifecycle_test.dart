@@ -3,10 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/history/application/history_library.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 
@@ -56,10 +56,10 @@ void main() {
     'old account response cannot replace current history pause',
     () async {
       Accounts.accountMode[AccountType.heartbeat.index] = account(123);
-      final old = RequestUtils.syncHistoryStatus();
+      final old = HistoryLibrary.legacy.syncActiveAccountStatus();
       await adapter.waitForRequests(1);
       Accounts.accountMode[AccountType.heartbeat.index] = account(456);
-      final latest = RequestUtils.syncHistoryStatus();
+      final latest = HistoryLibrary.legacy.syncActiveAccountStatus();
       await adapter.waitForRequests(2);
       adapter.json(1, {'code': 0, 'data': true});
       await latest;

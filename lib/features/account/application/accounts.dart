@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts/account_adapter.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/data/account_adapter.dart';
+import 'package:pili_aurora_next/features/account/application/login_sync.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -157,7 +157,7 @@ abstract final class Accounts {
     }
     _heartbeatChanges.value++;
     if (isLoginMain && !Accounts.main.isLogin) {
-      await LoginUtils.onLogoutMain();
+      await LoginSync.onLogoutMain();
     }
   }
 
@@ -180,8 +180,8 @@ abstract final class Accounts {
     switch (key) {
       case AccountType.main:
         await (account.isLogin
-            ? LoginUtils.onLoginMain()
-            : LoginUtils.onLogoutMain());
+            ? LoginSync.onLoginMain()
+            : LoginSync.onLogoutMain());
         break;
 
       default:

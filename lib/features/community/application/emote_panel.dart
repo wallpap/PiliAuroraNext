@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/features/community/domain/emote/recent_emote.da
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final emotePackagesProvider = NotifierProvider.autoDispose
     .family<EmotePackages, DiscoveryListingState<Package, void>, Object>(

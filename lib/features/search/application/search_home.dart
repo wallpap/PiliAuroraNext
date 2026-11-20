@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/search/suggest.dart';
 import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
 import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 
 const _local = SearchLocalStore();
 

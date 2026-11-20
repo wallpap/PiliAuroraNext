@@ -134,7 +134,7 @@ Dart 工作量。其他 GPU 与真实音视频仍须分别验证。
 
 ### 登录与账号
 
-`lib/pages/login/` → `lib/http/login.dart` → `lib/services/account_service.dart`、`lib/utils/accounts/` 与本地存储。日志和 issue 内容应去掉 Cookie、Token、二维码和签名信息。
+登录页面经[账号模块](../../lib/features/account/README.md)协调登录请求、凭证存储和状态同步。日志和 issue 内容应去掉 Cookie、Token、二维码和签名信息。
 
 ### 消息与私信分享
 

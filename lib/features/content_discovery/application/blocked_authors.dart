@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:pili_aurora_next/features/content_discovery/data/author_filter_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/blocked_author_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class BlockedAuthors {
   BlockedAuthors._(this._account, this._revision, this._mids);

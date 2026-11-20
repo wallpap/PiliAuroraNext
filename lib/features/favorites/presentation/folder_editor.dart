@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/features/favorites/application/favorite_library
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/bili_utils.dart';
 import 'package:pili_aurora_next/utils/extension/file_ext.dart';
 import 'package:pili_aurora_next/utils/extension/theme_ext.dart';

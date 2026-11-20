@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/community/data/vote_repository.dart';
 import 'package:pili_aurora_next/features/community/domain/vote_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef VoteEditorQuery = ({Object owner, int? id});
 final voteEditorProvider = NotifierProvider.autoDispose

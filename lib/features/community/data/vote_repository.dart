@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/vote.dart';
 import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final voteRepositoryProvider = Provider((ref) => const VoteRepository());
 

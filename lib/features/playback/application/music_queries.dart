@@ -5,9 +5,9 @@ import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_detail.dart';
 import 'package:pili_aurora_next/models/remote/music/bgm_recommend_list.dart';
 import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef MusicRecommendArgs = ({String id, MusicDetail item});
 typedef MusicVideoTarget = ({String bvid, int cid, Dimension? dimension});
