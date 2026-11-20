@@ -86,7 +86,7 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
       mounted &&
       !_isPop &&
       generation == _generation &&
-      identical(controller, _webViewController);
+      identical(controller.platform, _webViewController?.platform);
 
   bool _currentController(InAppWebViewController controller, int generation) =>
       _ownsController(controller, generation) &&
@@ -338,11 +338,7 @@ class _WebviewPageState extends State<WebviewPage> with RouteAware {
                       );
                   },
                   onLoadStart: (controller, uri) {
-                    if (!mounted ||
-                        !identical(controller, _webViewController)) {
-                      return;
-                    }
-                    _generation++;
+                    if (_ownsController(controller, _generation)) _generation++;
                   },
                   onProgressChanged: (controller, progress) {
                     if (_currentController(controller, _generation)) {

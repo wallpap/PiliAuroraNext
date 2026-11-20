@@ -9,6 +9,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/pages/webview/menu_type.dart';
 import 'package:pili_aurora_next/pages/webview/view.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+
+import '../../support/memory_box.dart';
 
 class _Controller extends PlatformInAppWebViewController {
   _Controller()
@@ -120,7 +123,10 @@ void main() {
       'https://www.bilibili.com/h5/lottery/result?business_id=1270023556023975969&business_type=1';
   final copied = <String>[];
   final launched = <String>[];
-  setUpAll(() => InAppWebViewPlatform.instance = platform);
+  setUpAll(() {
+    InAppWebViewPlatform.instance = platform;
+    GStorage.localCache = MemoryBox<dynamic>();
+  });
   setUp(() {
     copied.clear();
     launched.clear();
@@ -241,6 +247,27 @@ void main() {
     await finish(tester);
   });
 
+  testWidgets('同一个原生 WebView 的不同 Dart 包装允许抽奖页首跳', (tester) async {
+    await mount(tester, initialUrl: lotteryUrl);
+    final view = platform.view;
+    final callbackController = InAppWebViewController.fromPlatform(
+      platform: view.native,
+    );
+    expect(identical(callbackController, view.controller), isFalse);
+    final action = NavigationAction(
+      request: URLRequest(url: WebUri(lotteryUrl)),
+      isForMainFrame: true,
+    );
+    expect(
+      await view.params.shouldOverrideUrlLoading!(callbackController, action),
+      NavigationActionPolicy.ALLOW,
+    );
+    view.params.onTitleChanged!(callbackController, '抽奖详情');
+    await tester.pump();
+    expect(find.text('抽奖详情'), findsOneWidget);
+    await finish(tester);
+  });
+
   testWidgets('空白 WebView 的浏览器菜单打开原始抽奖链接', (tester) async {
     await mount(tester, initialUrl: lotteryUrl);
     platform.view.native.url = 'about:blank';
@@ -335,7 +362,7 @@ void main() {
     view.native.pendingUrl = oldUrl;
     await choose(tester, WebviewMenuItem.copy);
     view.params.onLoadStart!(
-      view.controller,
+      view.controllerFromPlatform<InAppWebViewController>(view.native),
       WebUri('https://example.test/new'),
     );
     final newUrl = Completer<WebUri?>();
