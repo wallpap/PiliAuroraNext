@@ -34,7 +34,7 @@ abstract final class AppWebViewEnvironment {
           released.complete();
           return;
         }
-        // 给原生 Widget 的异步销毁和连续打开页面留出交接时间。
+        // 连续打开页面时复用环境；Windows 原生视图另有实际释放屏障。
         late final Timer idle;
         _idle = idle = Timer(const Duration(seconds: 5), () {
           unawaited(_disposeIdle(idle));

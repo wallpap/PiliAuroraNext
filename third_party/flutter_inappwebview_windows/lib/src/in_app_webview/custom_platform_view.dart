@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import '../webview_environment/webview_environment.dart';
 import '_static_channel.dart';
 
 const Map<String, SystemMouseCursor> _cursors = {
@@ -99,7 +100,8 @@ class CustomFlutterViewControllerValue {
 class CustomPlatformViewController
     extends ValueNotifier<CustomFlutterViewControllerValue> {
   final Completer<void> _creatingCompleter = Completer<void>();
-  int _textureId = 0;
+  final Completer<void> _released = Completer<void>();
+  int? _textureId;
   bool _isDisposed = false;
 
   Future<void> get ready => _creatingCompleter.future;
@@ -120,46 +122,63 @@ class CustomPlatformViewController
   /// Initializes the underlying platform view.
   Future<void> initialize(
       {Function(int id)? onPlatformViewCreated, dynamic arguments}) async {
-    if (_isDisposed) {
-      return;
+    try {
+      if (_isDisposed) return;
+      final id = await _pluginChannel.invokeMethod<int>(
+          'createInAppWebView', arguments);
+      if (id == null) throw StateError('Native WebView returned no texture');
+      _textureId = id;
+      if (_isDisposed) return;
+
+      _methodChannel =
+          MethodChannel('com.pichillilorenzo/custom_platform_view_$id');
+      _eventChannel = EventChannel(
+          'com.pichillilorenzo/custom_platform_view_${id}_events');
+      _eventStreamSubscription =
+          _eventChannel.receiveBroadcastStream().listen((event) {
+        final map = event as Map<dynamic, dynamic>;
+        switch (map['type']) {
+          case 'cursorChanged':
+            _cursorStreamController.add(_getCursorByName(map['value']));
+            break;
+        }
+      });
+
+      _methodChannel.setMethodCallHandler((call) {
+        throw MissingPluginException('Unknown method ${call.method}');
+      });
+
+      value = value.copyWith(isInitialized: true);
+      onPlatformViewCreated?.call(id);
+    } finally {
+      _creatingCompleter.complete();
     }
-    _textureId = (await _pluginChannel.invokeMethod<int>(
-        'createInAppWebView', arguments))!;
-
-    _methodChannel =
-        MethodChannel('com.pichillilorenzo/custom_platform_view_$_textureId');
-    _eventChannel = EventChannel(
-        'com.pichillilorenzo/custom_platform_view_${_textureId}_events');
-    _eventStreamSubscription =
-        _eventChannel.receiveBroadcastStream().listen((event) {
-      final map = event as Map<dynamic, dynamic>;
-      switch (map['type']) {
-        case 'cursorChanged':
-          _cursorStreamController.add(_getCursorByName(map['value']));
-          break;
-      }
-    });
-
-    _methodChannel.setMethodCallHandler((call) {
-      throw MissingPluginException('Unknown method ${call.method}');
-    });
-
-    value = value.copyWith(isInitialized: true);
-
-    _creatingCompleter.complete();
-
-    onPlatformViewCreated?.call(_textureId);
   }
 
   @override
-  Future<void> dispose() async {
-    await _creatingCompleter.future;
+  Future<void> dispose() {
     if (!_isDisposed) {
       _isDisposed = true;
-      await _eventStreamSubscription?.cancel();
-      await _pluginChannel.invokeMethod('dispose', {"id": _textureId});
+      _released.complete(_dispose());
     }
-    super.dispose();
+    return _released.future;
+  }
+
+  Future<void> _dispose() async {
+    await ready;
+    try {
+      try {
+        if (value.isInitialized) _methodChannel.setMethodCallHandler(null);
+        await _eventStreamSubscription?.cancel();
+      } finally {
+        if (_textureId case final id?) {
+          await _pluginChannel.invokeMethod<void>('dispose', {'id': id});
+        }
+      }
+    } finally {
+      unawaited(_cursorStreamController.close());
+      super.dispose();
+    }
   }
 
   /// Limits the number of frames per second to the given value.
@@ -248,10 +267,12 @@ class CustomPlatformView extends StatefulWidget {
   final dynamic creationParams;
 
   final Function(int id)? onPlatformViewCreated;
+  final WindowsWebViewEnvironment? environment;
 
   const CustomPlatformView(
       {super.key, this.creationParams,
       this.onPlatformViewCreated,
+      this.environment,
       this.scaleFactor,
       this.filterQuality = FilterQuality.none});
 
@@ -276,12 +297,19 @@ class _CustomPlatformViewState extends State<CustomPlatformView> {
   void initState() {
     super.initState();
 
-    _controller.initialize(
-        onPlatformViewCreated: (id) {
-          widget.onPlatformViewCreated?.call(id);
-          setState(() {});
-        },
-        arguments: widget.creationParams);
+    widget.environment?.trackViewRelease(_controller._released.future);
+    unawaited(_controller
+        .initialize(
+          onPlatformViewCreated: (id) {
+            if (!mounted) return;
+            widget.onPlatformViewCreated?.call(id);
+            if (mounted) setState(() {});
+          },
+          arguments: widget.creationParams,
+        )
+        .catchError((Object error, StackTrace stack) {
+      if (mounted) _reportLifecycleError(error, stack);
+    }));
 
     // Report initial surface size and widget position
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -334,7 +362,7 @@ class _CustomPlatformViewState extends State<CustomPlatformView> {
                       if (!_focusNode.hasFocus) {
                         _focusNode.requestFocus();
                         Future.delayed(const Duration(milliseconds: 50), () {
-                          if (!_focusNode.hasFocus) {
+                          if (mounted && !_focusNode.hasFocus) {
                             _focusNode.requestFocus();
                           }
                         });
@@ -403,7 +431,7 @@ class _CustomPlatformViewState extends State<CustomPlatformView> {
                     child: MouseRegion(
                         cursor: _cursor,
                         child: Texture(
-                          textureId: _controller._textureId,
+                          textureId: _controller._textureId!,
                           filterQuality: widget.filterQuality,
                         )),
                   )
@@ -411,29 +439,36 @@ class _CustomPlatformViewState extends State<CustomPlatformView> {
   }
 
   void _reportSurfaceSize() async {
+    await _controller.ready;
+    if (!mounted || !_controller.value.isInitialized) return;
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null) {
-      await _controller.ready;
+    if (box != null && box.attached && box.hasSize) {
       unawaited(_controller._setSize(
           box.size, widget.scaleFactor ?? window.devicePixelRatio));
     }
   }
 
   void _reportWidgetPosition() async {
+    await _controller.ready;
+    if (!mounted || !_controller.value.isInitialized) return;
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null) {
-      await _controller.ready;
+    if (box != null && box.attached && box.hasSize) {
       final position = box.localToGlobal(Offset.zero);
       unawaited(_controller._setPosition(
           position, widget.scaleFactor ?? window.devicePixelRatio));
     }
   }
 
+  static void _reportLifecycleError(Object error, StackTrace stack) {
+    FlutterError.reportError(FlutterErrorDetails(
+        exception: error, stack: stack, library: 'Windows WebView'));
+  }
+
   @override
   void dispose() {
-    super.dispose();
     _cursorSubscription?.cancel();
-    _controller.dispose();
+    unawaited(_controller.dispose().catchError(_reportLifecycleError));
     _focusNode.dispose();
+    super.dispose();
   }
 }
