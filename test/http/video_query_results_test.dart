@@ -4,6 +4,7 @@ import 'package:pili_aurora_next/features/community/data/video_note_repository.d
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/recommendation_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/related_video_repository.dart';
+import 'package:pili_aurora_next/features/playback/application/video_media_query.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
@@ -83,6 +84,27 @@ void main() {
     });
   });
   tearDownAll(() => Request.dio.close(force: true));
+  test(
+    'play metadata discards in-flight results after main credentials change',
+    () async {
+      final owner = Accounts.main;
+      body = {
+        'code': 0,
+        'data': {'last_play_cid': 20},
+      };
+      onRequest = (options) {
+        expect(options.path, Api.playInfo);
+        Accounts.replaceCredentials(account(owner.mid));
+      };
+      expect(await VideoMediaQuery.metadata(bvid: 'BV-test', cid: 1), isNull);
+      expect(requests.single.extra['account'], same(owner));
+
+      onRequest = null;
+      final fresh = await VideoMediaQuery.metadata(bvid: 'BV-test', cid: 1);
+      expect(fresh?.data.lastPlayCid, 20);
+      expect(requests.last.extra['account'], same(Accounts.main));
+    },
+  );
   test(
     'discovery decodes each page with the saved title and zone filters',
     () async {

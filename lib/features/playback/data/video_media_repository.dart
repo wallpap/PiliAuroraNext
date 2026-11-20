@@ -48,12 +48,18 @@ abstract final class VideoMediaRepository {
   }
 
   static Future<LoadingState<PlayInfoData>> metadata({
+    required Account account,
     required String bvid,
     required int cid,
     int? seasonId,
     int? epId,
-  }) =>
-      VideoHttp.playInfo(bvid: bvid, cid: cid, seasonId: seasonId, epId: epId);
+  }) => VideoHttp.playInfo(
+    account: account,
+    bvid: bvid,
+    cid: cid,
+    seasonId: seasonId,
+    epId: epId,
+  );
 
   static Future<LoadingState<MediaListData>> playlist({
     required Account account,

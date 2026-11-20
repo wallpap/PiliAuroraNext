@@ -1510,18 +1510,21 @@ class VideoDetailController with BlockMixin {
 
   Future<void> _queryPlayInfo({required bool Function() isCurrent}) async {
     if (!isCurrent()) return;
-    subtitleSources.clear();
-    vttSubtitlesIndex.value = 0;
-    if (plPlayerController.showViewPoints) {
-      _viewPoints.value = const [];
-    }
+    final owner = AccountScope.capture();
+    bool valid() => isCurrent() && owner.isCurrent;
     final res = await VideoMediaQuery.metadata(
+      owner: owner,
       bvid: bvid,
       cid: cid.value,
       seasonId: seasonId,
       epId: epId,
     );
-    if (!isCurrent()) return;
+    if (!valid() || res == null) return;
+    subtitleSources.clear();
+    vttSubtitlesIndex.value = 0;
+    if (plPlayerController.showViewPoints) {
+      _viewPoints.value = const [];
+    }
     if (res case Success(:final response)) {
       // interactive video
       final introCtr = _ugcIntro;
@@ -1552,7 +1555,7 @@ class VideoDetailController with BlockMixin {
         }
       }
 
-      if (!isCurrent()) return;
+      if (!valid()) return;
       if (plPlayerController.showViewPoints &&
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
@@ -1575,12 +1578,12 @@ class VideoDetailController with BlockMixin {
       }
 
       if (response.subtitle?.subtitles case final sub? when (sub.isNotEmpty)) {
-        _setSubtitle(sub, isCurrent: isCurrent);
-      } else if (!AccountScope.signedIn) {
+        _setSubtitle(sub, isCurrent: valid);
+      } else if (!owner.account.isLogin) {
         final res = await SubtitleSources.publicTracks(aid, cid.value);
-        if (!isCurrent()) return;
+        if (!valid()) return;
         if (res case Success(:final response)) {
-          if (response.isNotEmpty) _setSubtitle(response, isCurrent: isCurrent);
+          if (response.isNotEmpty) _setSubtitle(response, isCurrent: valid);
         } else {
           res.toast();
         }

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
@@ -46,15 +47,22 @@ final class VideoMediaQuery {
         cancelToken: _token,
       );
 
-  static Future<LoadingState<PlayInfoData>> metadata({
+  static Future<LoadingState<PlayInfoData>?> metadata({
     required String bvid,
     required int cid,
     int? seasonId,
     int? epId,
-  }) => VideoMediaRepository.metadata(
-    bvid: bvid,
-    cid: cid,
-    seasonId: seasonId,
-    epId: epId,
-  );
+    AccountScope? owner,
+  }) async {
+    final scope = owner ?? AccountScope.capture();
+    if (!scope.isCurrent) return null;
+    final result = await VideoMediaRepository.metadata(
+      account: scope.account,
+      bvid: bvid,
+      cid: cid,
+      seasonId: seasonId,
+      epId: epId,
+    );
+    return scope.isCurrent ? result : null;
+  }
 }

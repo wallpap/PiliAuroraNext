@@ -985,6 +985,7 @@ abstract final class VideoHttp {
   }
 
   static Future<LoadingState<PlayInfoData>> playInfo({
+    Account? account,
     String? aid,
     String? bvid,
     required int cid,
@@ -992,7 +993,7 @@ abstract final class VideoHttp {
     dynamic epId,
   }) async {
     try {
-      final account = Accounts.main;
+      final requestAccount = account ?? Accounts.main;
 
       assert(aid != null || bvid != null);
       return await Request().requestApi(
@@ -1004,7 +1005,7 @@ abstract final class VideoHttp {
           'season_id': ?seasonId,
           'ep_id': ?epId,
         }),
-        options: Options(extra: {'account': account}),
+        options: Options(extra: {'account': requestAccount}),
         kind: ApiCallKind.query,
         decode: (body) {
           return PlayInfoData.fromJson(body['data']);
