@@ -43,9 +43,14 @@ class FavoriteLibrary extends LibraryModule {
   late final StreamSubscription<Account> _revisionSubscription;
   int _revision = 0;
   int get revision => _revision;
-  static final legacy = FavoriteLibrary(FavoriteRepository());
+  static FavoriteLibrary? _applicationLibrary;
+  static FavoriteLibrary get legacy =>
+      _applicationLibrary ??= FavoriteLibrary(FavoriteRepository());
+  static Future<void> closeApplication() =>
+      _applicationLibrary?.close() ?? Future.value();
+
   @override
-  bool owns(Account account) => identical(account, Accounts.main);
+  bool owns(Account account) => !isClosed && identical(account, Accounts.main);
   Future<List<FavFolderInfo>> destinations(Account account) {
     if (!owns(account) || !account.isLogin) {
       return Future.error(const Error('账号已切换或未登录'));

@@ -2,12 +2,40 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 
 void main() {
+  test('配置加载失败后释放已经打开的应用数据文件', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'pili-partial-storage-',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final root = directory.path;
+    await Directory('$root/hive/setting.hive').create(recursive: true);
+    final result = await Isolate.run(() async {
+      appSupportDirPath = root;
+      var failed = false;
+      try {
+        await GStorage.init();
+      } on FileSystemException {
+        failed = true;
+      }
+      final opened = Hive.isBoxOpen('watchProgress');
+      await GStorage.close();
+      return (
+        failed,
+        opened,
+        Hive.isBoxOpen('watchProgress'),
+        Hive.isBoxOpen('account'),
+      );
+    });
+    expect(result, (true, true, false, false));
+  });
+
   test('子窗口内存快照保留类型与配置，写入不影响主窗口文件', () async {
     final directory = Directory.systemTemp.createTempSync(
       'pili-window-storage-test-',

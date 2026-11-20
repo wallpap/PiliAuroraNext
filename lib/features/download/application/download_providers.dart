@@ -19,7 +19,11 @@ final downloadBackgroundErrorProvider = Provider<void Function(String)>(
 );
 
 /// 应用级保活：最后一个页面离开后仍保留任务及调度器。
-final downloadServiceProvider = Provider<DownloadService>((ref) {
+final downloadServiceProvider = Provider<DownloadService>(
+  createDownloadService,
+);
+
+DownloadService createDownloadService(Ref ref) {
   final service = DownloadService(
     repository: ref.watch(downloadRepositoryProvider),
     downloadClient: ref.watch(downloadClientProvider),
@@ -28,7 +32,7 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   unawaited(service.initDownloadList());
   ref.onDispose(() => unawaited(service.close()));
   return service;
-});
+}
 
 final downloadLibraryProvider =
     NotifierProvider<DownloadLibrary, LoadingState<DownloadSnapshot>>(

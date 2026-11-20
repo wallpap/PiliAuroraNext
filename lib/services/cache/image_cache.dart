@@ -9,8 +9,11 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
 abstract final class CacheManager {
-  static late final DefaultCacheManager manager;
+  static DefaultCacheManager? _manager;
+  static DefaultCacheManager get manager => _manager!;
+  static set manager(DefaultCacheManager value) => _manager = value;
   static ImageSourceStore? _imageSources;
+  static void Function()? _unregisterSources;
 
   static Directory get _previewDirectory => Directory(
     path.join(path.dirname(manager.cacheDir), 'image_preview_v1'),
@@ -18,7 +21,10 @@ abstract final class CacheManager {
 
   static ImageSourceStore get imageSources => _imageSources ??= (() {
     final store = ImageSourceStore(_previewDirectory);
-    Diagnostics.instance.register('image.sources', () => store.statistics);
+    _unregisterSources = Diagnostics.instance.register(
+      'image.sources',
+      () => store.statistics,
+    );
     return store;
   })();
 
@@ -30,6 +36,12 @@ abstract final class CacheManager {
           : () async => directory,
     );
     await imageSources.ready;
+  }
+
+  static Future<void> close() async {
+    _unregisterSources?.call();
+    _unregisterSources = null;
+    await _manager?.dispose();
   }
 
   /// 读取失败保留异常；0 仅表示实际没有缓存文件。

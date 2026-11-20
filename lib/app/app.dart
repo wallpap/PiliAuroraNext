@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:ui' show AppExitResponse;
 
-import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:pili_aurora_next/features/download/application/download_progress.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -21,11 +22,8 @@ import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart';
 import 'package:pili_aurora_next/router/app_pages.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
-import 'package:pili_aurora_next/services/messaging/session.dart';
-import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
+import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/settings/window_preferences.dart';
-import 'package:pili_aurora_next/services/webview_environment.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
@@ -36,45 +34,42 @@ import 'package:material_ui/material_ui.dart';
 
 /// 提供应用主题、本地化、路由、全局对话框和导航观察器。
 class PiliAuroraNextApp extends StatefulWidget {
-  const PiliAuroraNextApp({super.key, this.playbackRequest});
+  const PiliAuroraNextApp({
+    super.key,
+    required this.exit,
+    this.playbackRequest,
+  });
+  final AppExit exit;
   final DesktopPlaybackRequest? playbackRequest;
 
   @override
   State<PiliAuroraNextApp> createState() => _PiliAuroraNextAppState();
 }
 
-class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
+class _PiliAuroraNextAppState extends State<PiliAuroraNextApp>
+    with WidgetsBindingObserver {
   late final _showTitleBar = WindowPreference.showTitleBar.read();
+  DownloadService? _downloads;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.exit.beforeCleanup('downloads', () async {
+      await _downloads?.close();
+    });
+  }
+
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    await widget.exit.release();
+    return AppExitResponse.exit;
+  }
 
   @override
   void dispose() {
-    Messaging.closeApplicationSession();
-    DanmakuWorkQuota.disposeProcessQuota();
-    closeApplicationShutdownTimer();
-    unawaited(
-      AppWebViewEnvironment.close().catchError((Object error, StackTrace stack) {
-        logger.w('关闭网页环境失败', error: error.runtimeType, stackTrace: stack);
-      }),
-    );
-    unawaited(
-      closePlatformAudioSession().catchError((Object error, StackTrace stack) {
-        logger.w('关闭系统音频会话失败', error: error.runtimeType, stackTrace: stack);
-      }),
-    );
-    if (widget.playbackRequest == null) {
-      unawaited(
-        GStorage.close().then<void>((_) {}).catchError((
-          Object error,
-          StackTrace stackTrace,
-        ) {
-          logger.w(
-            '关闭应用存储失败',
-            error: error.runtimeType,
-            stackTrace: stackTrace,
-          );
-        }),
-      );
-    }
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(widget.exit.release());
     super.dispose();
   }
 
@@ -84,6 +79,9 @@ class _PiliAuroraNextAppState extends State<PiliAuroraNextApp> {
     final (light, dark) = ThemeUtils.getAllTheme();
     return ProviderScope(
       overrides: [
+        downloadServiceProvider.overrideWith(
+          (ref) => _downloads = createDownloadService(ref),
+        ),
         downloadProgressStoreProvider.overrideWithValue(
           _DownloadProgressStore(),
         ),

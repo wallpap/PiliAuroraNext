@@ -494,7 +494,7 @@ class PlPlayerController
     try {
       await DesktopPlaybackWindows.instance.playerReady();
     } catch (_) {
-      DesktopPlaybackWindows.instance.playerFailed();
+      await DesktopPlaybackWindows.instance.failPlayerWindow();
     }
   }
 

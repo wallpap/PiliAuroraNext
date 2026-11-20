@@ -9,13 +9,16 @@ abstract class LibraryModule {
   final _changes = StreamController<Account>.broadcast(sync: true);
   final _writing = HashSet<Account>.identity();
   Stream<Account> get changes => _changes.stream;
+  bool get isClosed => _changes.isClosed;
   bool owns(Account account);
 
   Future<LoadingState<T>> write<T>(
     Account account,
     Future<LoadingState<T>> Function() send,
   ) async {
-    if (!owns(account) || !account.isLogin) return const Error('账号已切换或未登录');
+    if (isClosed || !owns(account) || !account.isLogin) {
+      return const Error('账号已切换或未登录');
+    }
     // Account 的值相等语义不能合并同 UID 的新凭据。
     if (!_writing.add(account)) {
       return const Error('操作进行中');

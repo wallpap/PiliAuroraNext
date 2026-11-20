@@ -26,7 +26,12 @@ class AccountProfile {
   AccountProfile(this.repository, {Account Function()? currentAccount})
     : _currentAccount = currentAccount ?? (() => Accounts.main);
 
-  static final legacy = AccountProfile(const ProfileRepository());
+  static AccountProfile? _applicationProfile;
+  static AccountProfile get legacy =>
+      _applicationProfile ??= AccountProfile(const ProfileRepository());
+  static Future<void> closeApplication() =>
+      _applicationProfile?.dispose() ?? Future.value();
+
   final ProfileRepository repository;
   final Account Function() _currentAccount;
   final _changes = StreamController<(Account, UserInfoData)>.broadcast(
@@ -37,7 +42,8 @@ class AccountProfile {
   (Account, UserInfoData)? _confirmed;
   Future<void>? _cacheTail;
 
-  bool owns(Account account) => identical(account, _currentAccount());
+  bool owns(Account account) =>
+      !_changes.isClosed && identical(account, _currentAccount());
   UserInfoData? get currentInfo => cached(_currentAccount());
 
   UserInfoData? cached(Account account) => !account.isLogin
@@ -143,7 +149,7 @@ class AccountProfile {
     return ProfileReceipt(Success(info), cacheError: cacheError);
   }
 
-  Future<void> dispose() => _changes.close();
+  Future<void> dispose() => Future.wait([_changes.close(), ?_cacheTail]);
 }
 
 final accountProfileModuleProvider = Provider<AccountProfile>(

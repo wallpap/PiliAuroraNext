@@ -14,7 +14,11 @@ import 'package:pili_aurora_next/features/account/application/account.dart';
 class HistoryLibrary extends LibraryModule {
   HistoryLibrary(this._repository);
   final HistoryRepository _repository;
-  static final legacy = HistoryLibrary(HistoryRepository());
+  static HistoryLibrary? _applicationLibrary;
+  static HistoryLibrary get legacy =>
+      _applicationLibrary ??= HistoryLibrary(HistoryRepository());
+  static Future<void> closeApplication() =>
+      _applicationLibrary?.close() ?? Future.value();
   final _pauseChanges =
       StreamController<({Account account, bool paused})>.broadcast(sync: true);
   Stream<({Account account, bool paused})> get pauseChanges =>
@@ -42,7 +46,8 @@ class HistoryLibrary extends LibraryModule {
   }
 
   @override
-  bool owns(Account account) => identical(account, Accounts.history);
+  bool owns(Account account) =>
+      !isClosed && identical(account, Accounts.history);
 
   Future<void> syncActiveAccountStatus() async {
     final account = Accounts.history;
@@ -107,10 +112,11 @@ class HistoryLibrary extends LibraryModule {
   }
 
   @override
-  Future<void> close() async {
-    await _pauseChanges.close();
-    await super.close();
-  }
+  Future<void> close() => Future.wait([
+    super.close(),
+    _pauseChanges.close(),
+    ?_cacheInFlight,
+  ]);
 }
 
 final historyLibraryProvider = Provider<HistoryLibrary>(

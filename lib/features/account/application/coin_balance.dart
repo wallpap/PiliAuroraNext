@@ -8,10 +8,23 @@ final class CoinBalance {
     Accounts.mainChanges.addListener(_onAccountChanged);
   }
 
-  static final instance = CoinBalance._();
+  static CoinBalance? _instance;
+  static CoinBalance get instance => _instance ??= CoinBalance._();
+  static void closeApplication() => _instance?._close();
+
   Account? _owner;
   num? _amount;
   int _revision = 0;
+  bool _closed = false;
+
+  void _close() {
+    if (_closed) return;
+    _closed = true;
+    ++_revision;
+    Accounts.mainChanges.removeListener(_onAccountChanged);
+    _owner = null;
+    _amount = null;
+  }
 
   num? get amount => identical(_owner, Accounts.main) ? _amount : null;
 
@@ -24,7 +37,7 @@ final class CoinBalance {
   }
 
   void confirm(Account account, num? amount) {
-    if (!identical(account, Accounts.main)) return;
+    if (_closed || !identical(account, Accounts.main)) return;
     _revision++;
     _owner = account;
     _amount = amount;
@@ -37,6 +50,7 @@ final class CoinBalance {
   }
 
   Future<void> restore() async {
+    if (_closed) return;
     final account = Accounts.main;
     if (!account.isLogin) return;
     final cached = const ProfileRepository().cached(account)?.money;
@@ -48,6 +62,7 @@ final class CoinBalance {
   }
 
   Future<void> refresh() async {
+    if (_closed) return;
     final account = Accounts.main;
     if (!account.isLogin) return;
     final before = amount;

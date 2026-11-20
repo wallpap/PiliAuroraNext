@@ -73,6 +73,22 @@ void main() {
     expect(attempts, 2);
   });
 
+  test('启动失败可只释放资源，随后退出沿用同一次清理', () async {
+    final calls = <String>[];
+    final exit = AppExit(
+      cleanup: [('storage', () => calls.add('storage'))],
+      terminate: () => calls.add('terminate'),
+    );
+    final unregister = exit.beforeCleanup('stale route', () => fail('已卸载'));
+    unregister();
+    exit.beforeCleanup('download', () => calls.add('download'));
+
+    await exit.release();
+    expect(calls, ['download', 'storage']);
+    await exit.close();
+    expect(calls, ['download', 'storage', 'terminate']);
+  });
+
   testWidgets('诊断刷新超时后继续退出，迟到失败不会成为未处理异常', (tester) async {
     final flushing = Completer<void>();
     final failures = <(String, Object)>[];

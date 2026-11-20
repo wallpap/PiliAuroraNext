@@ -4,7 +4,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/platform/device_actions.dart';
 
 enum ShutdownAction { pause, exit }
 
@@ -23,7 +22,7 @@ final _scheduledExit = AppExit(
       },
     ),
   ],
-  terminate: DeviceUtils.exitApp,
+  terminate: () => AppExit.application!.close(),
 );
 
 ShutdownTimerService? _applicationTimer;

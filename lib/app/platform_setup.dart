@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
@@ -91,8 +90,6 @@ Future<void> initializePlatformWindow() async {
         );
       }
     }
-    FocusManager.instance.addEarlyKeyEventHandler(handleAppKeyEvent);
-
     await windowManager.ensureInitialized();
     if (Platform.isWindows) {
       final (light, dark) = ThemeUtils.getAllTheme();

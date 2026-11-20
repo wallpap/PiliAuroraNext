@@ -24,9 +24,9 @@ class _DesktopPlaybackLaunchState extends State<DesktopPlaybackLaunch> {
         // 首个 Flutter 帧已有加载反馈，窗口显示无需等待远端流和视频纹理。
         final windows = DesktopPlaybackWindows.instance;
         unawaited(
-          windows.showPlayerWindow().catchError((Object _) {
-            windows.playerFailed();
-          }),
+          windows.showPlayerWindow().catchError(
+            (Object _) => windows.failPlayerWindow(),
+          ),
         );
         Get.offNamed(widget.request.route, arguments: widget.request.arguments);
       }

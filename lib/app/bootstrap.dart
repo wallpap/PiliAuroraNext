@@ -1,15 +1,24 @@
-import 'dart:async' show unawaited;
+import 'dart:async';
 import 'dart:io';
 
 import 'package:pili_aurora_next/plugin/pl_player/playback/presentation_profile.dart';
 
 import 'package:pili_aurora_next/app/app.dart';
 import 'package:pili_aurora_next/app/app_paths.dart';
+import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/app/platform_setup.dart';
 import 'package:pili_aurora_next/app/startup.dart';
 import 'package:pili_aurora_next/app/startup_failure.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart'
@@ -27,8 +36,12 @@ import 'package:pili_aurora_next/http/loading_state.dart' as font_result;
 import 'package:pili_aurora_next/services/diagnostics/report_handler.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/features/history/application/history_library.dart';
+import 'package:pili_aurora_next/services/messaging/session.dart';
+import 'package:pili_aurora_next/services/service_locator.dart';
+import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/services/webview_environment.dart';
 import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 import 'package:catcher_2/catcher_2.dart';
 import 'package:flutter/widgets.dart';
@@ -41,8 +54,26 @@ Future<StartupResult> bootstrapApplication([
   List<String> arguments = const [],
 ]) async {
   final progress = StartupProgress();
+  final windows = DesktopPlaybackWindows.instance;
+  final playerWindow =
+      Platform.isWindows &&
+      arguments.firstOrNull == DesktopPlaybackWindows.argument;
+  final startupSettled = Completer<void>();
+  final cleanup = <AppExitCleanup>[];
+  final appExit = AppExit(
+    cleanup: cleanup,
+    flushDiagnostics: playerWindow ? null : Diagnostics.instance.shutdown,
+    terminate: playerWindow ? windows.onWindowClose : DeviceUtils.terminateApp,
+  );
+  AppExit.application = appExit;
+  if (playerWindow) {
+    windows.onPlayerClose = () async {
+      await startupSettled.future;
+      await appExit.release();
+    };
+  }
   final result = await progress.run(
-    () => _bootstrapApplication(arguments, progress),
+    () => _bootstrapApplication(progress, appExit, cleanup, playerWindow),
   );
   if (result is StartupFailure) {
     exitCode = 1;
@@ -51,25 +82,8 @@ Future<StartupResult> bootstrapApplication([
       error: result.cause.runtimeType,
       stackTrace: result.stackTrace,
     );
-    final playerWindow =
-        Platform.isWindows &&
-        arguments.firstOrNull == DesktopPlaybackWindows.argument;
-    if (playerWindow) {
-      try {
-        DesktopPlaybackWindows.instance.playerFailed();
-      } catch (error, stackTrace) {
-        logger.w('通知主窗口失败', error: error.runtimeType, stackTrace: stackTrace);
-      }
-    }
-    try {
-      await Diagnostics.instance.flush().timeout(const Duration(seconds: 2));
-    } catch (error, stackTrace) {
-      logger.w(
-        '启动失败后的日志刷新未完成',
-        error: error.runtimeType,
-        stackTrace: stackTrace,
-      );
-    }
+    startupSettled.complete();
+    await appExit.release();
     if (playerWindow) exit(1);
     try {
       await showStartupFailure(result);
@@ -77,22 +91,95 @@ Future<StartupResult> bootstrapApplication([
       logger.e('启动错误页显示失败', error: error.runtimeType, stackTrace: stackTrace);
       Error.throwWithStackTrace(result, result.stackTrace);
     }
+  } else {
+    startupSettled.complete();
   }
   return result;
 }
 
 Future<void> _bootstrapApplication(
-  List<String> arguments,
   StartupProgress progress,
+  AppExit appExit,
+  List<AppExitCleanup> cleanup,
+  bool playerWindow,
 ) async {
+  final windows = DesktopPlaybackWindows.instance;
+  final diagnostics = Diagnostics.instance;
+  final previousHttpOverrides = HttpOverrides.current;
+  var storageStarted = false;
+  var startupComplete = false;
+  var overridesInstalled = false;
+  var keyHandlerInstalled = false;
+  cleanup.addAll([
+    (
+      'keyboard',
+      () {
+        if (keyHandlerInstalled) {
+          FocusManager.instance.removeEarlyKeyEventHandler(handleAppKeyEvent);
+        }
+      },
+    ),
+    ('shutdown timer', closeApplicationShutdownTimer),
+    ('messaging', Messaging.closeApplicationSession),
+    if (playerWindow) ('player bounds', windows.preparePlayerClose),
+    if (!playerWindow && Platform.isWindows)
+      ('diagnostics writes', diagnostics.resumeWrites),
+    if (!playerWindow && Platform.isWindows)
+      ('playback windows', windows.closeAll),
+    if (!playerWindow && Platform.isWindows)
+      ('offline progress', _saveOfflineProgress),
+    if (!playerWindow)
+      (
+        'platform audio',
+        () => closePlatformAudioSession().timeout(const Duration(seconds: 3)),
+      ),
+    ('playback', () => _releasePlayback(playerWindow: playerWindow)),
+    ('danmaku', DanmakuWorkQuota.disposeProcessQuota),
+    ('requests', Request.close),
+    ('account profile', AccountProfile.closeApplication),
+    ('coin balance', CoinBalance.closeApplication),
+    ('history', HistoryLibrary.closeApplication),
+    ('favorites', FavoriteLibrary.closeApplication),
+    ('watch later', LaterLibrary.closeApplication),
+    (
+      'HTTP overrides',
+      () {
+        if (overridesInstalled) HttpOverrides.global = previousHttpOverrides;
+      },
+    ),
+    (
+      'webview',
+      () => AppWebViewEnvironment.close().timeout(const Duration(seconds: 3)),
+    ),
+    ('image cache', CacheManager.close),
+    if (!playerWindow)
+      (
+        'compact',
+        () async {
+          if (startupComplete) await GStorage.compact();
+        },
+      ),
+    (
+      'storage',
+      () async {
+        if (storageStarted) await GStorage.close();
+      },
+    ),
+    if (playerWindow) ...[
+      (
+        'diagnostics',
+        () => diagnostics.shutdown().timeout(const Duration(seconds: 3)),
+      ),
+      (
+        'player IPC',
+        () => windows.finishPlayerConnection(startupFailed: !startupComplete),
+      ),
+    ],
+  ]);
   initializePresentationEngineConfiguration();
   ScaledWidgetsFlutterBinding.ensureInitialized();
   progress.phase = StartupPhase.supportPath;
   await initializeSupportPath();
-  final windows = DesktopPlaybackWindows.instance;
-  final playerWindow =
-      Platform.isWindows &&
-      arguments.firstOrNull == DesktopPlaybackWindows.argument;
   progress.phase = StartupPhase.diagnostics;
   await LoggerUtils.prepare(
     windowId: playerWindow
@@ -115,6 +202,7 @@ Future<void> _bootstrapApplication(
   progress.phase = StartupPhase.engine;
   MediaKit.ensureInitialized();
   progress.phase = StartupPhase.storage;
+  storageStarted = true;
   await GStorage.init(memorySnapshot: initialization?.storage);
   FeedLayoutPreferences.initialize();
   AppIcon.load();
@@ -149,6 +237,7 @@ Future<void> _bootstrapApplication(
     }),
   ]);
   HttpOverrides.global = _CustomHttpOverrides();
+  overridesInstalled = true;
   if (Pref.badCertificateCallback) {
     logger.w('已显式禁用 TLS 证书验证，仅应用于受控调试；请在调试结束后恢复验证');
   }
@@ -186,42 +275,13 @@ Future<void> _bootstrapApplication(
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 
   progress.phase = StartupPhase.window;
+  if (PlatformUtils.isDesktop) {
+    FocusManager.instance.addEarlyKeyEventHandler(handleAppKeyEvent);
+    keyHandlerInstalled = true;
+  }
   await initializePlatformWindow();
   if (playerWindow) {
     await windows.watchPlayerWindow();
-    windows.onPlayerClose = () async {
-      final controller = PlPlayerController.instance;
-      if (controller?.videoPlayerController != null &&
-          controller!.isFileSource &&
-          controller.cid != null) {
-        windows.savePlaybackProgress(
-          controller.cid!,
-          controller.positionInMilliseconds,
-        );
-      }
-      final shutdown = await controller?.shutdownPlaybackFacade();
-      final directory = windows.cacheDirectory!;
-      Future<void> cleanupWindowResources() async {
-        await CacheManager.manager.dispose();
-        await GStorage.close();
-        if (directory.existsSync()) await directory.delete(recursive: true);
-      }
-
-      if (shutdown?.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
-        logger.w('播放器在关闭时未能于预算内完成清理', error: shutdown?.failure);
-        try {
-          await controller!.playbackReleased.timeout(
-            const Duration(seconds: 3),
-          );
-          await cleanupWindowResources();
-        } catch (error, stackTrace) {
-          logger.e('播放器延迟清理未完成，窗口结束清理等待', error: error, stackTrace: stackTrace);
-        }
-        return;
-      }
-      if (controller != null) await controller.playbackReleased;
-      await cleanupWindowResources();
-    };
   }
 
   progress.phase = StartupPhase.application;
@@ -242,7 +302,7 @@ Future<void> _bootstrapApplication(
 
   Catcher2(
     [DiagnosticReportHandler()],
-    PiliAuroraNextApp(playbackRequest: initialization?.request),
+    PiliAuroraNextApp(exit: appExit, playbackRequest: initialization?.request),
     logger: (level, message, {error, stackTrace}) {
       final log = switch (level) {
         ReportLogLevel.debug => logger.d,
@@ -254,6 +314,7 @@ Future<void> _bootstrapApplication(
     },
     customParameters: customParameters,
   );
+  startupComplete = true;
   if (!playerWindow) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (Platform.isAndroid) {
@@ -275,6 +336,35 @@ Future<void> _bootstrapApplication(
         );
       }
     });
+  }
+}
+
+Future<void> _saveOfflineProgress() async {
+  final player = PlPlayerController.instance;
+  final cid = player?.cid;
+  if (player != null && player.isFileSource && cid != null) {
+    await OfflineProgress.record(cid, player.positionInMilliseconds);
+  }
+}
+
+Future<void> _releasePlayback({required bool playerWindow}) async {
+  final player = PlPlayerController.instance;
+  if (player == null) return;
+  if (playerWindow &&
+      player.videoPlayerController != null &&
+      player.isFileSource &&
+      player.cid != null) {
+    DesktopPlaybackWindows.instance.savePlaybackProgress(
+      player.cid!,
+      player.positionInMilliseconds,
+    );
+  }
+  final result = await player.shutdownPlaybackFacade();
+  if (result.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
+    logger.w('播放器退出清理未完成', error: result.failure);
+    await player.playbackReleased.timeout(const Duration(seconds: 3));
+  } else {
+    await player.playbackReleased;
   }
 }
 

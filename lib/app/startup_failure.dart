@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/app/desktop_title_bar.dart';
 import 'package:pili_aurora_next/app/startup.dart';
 import 'package:pili_aurora_next/common/constants.dart';
@@ -14,7 +13,6 @@ import 'package:window_manager/window_manager.dart';
 /// 不读取设置或账号；存储尚未就绪时也能显示错误并明确结束失败的进程。
 Future<void> showStartupFailure(StartupFailure failure) async {
   WidgetsFlutterBinding.ensureInitialized();
-  FocusManager.instance.removeEarlyKeyEventHandler(handleAppKeyEvent);
   runApp(StartupFailureApp(failure: failure, onClose: () => exit(1)));
   await WidgetsBinding.instance.endOfFrame;
   if (PlatformUtils.isDesktop) {

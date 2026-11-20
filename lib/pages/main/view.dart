@@ -25,8 +25,6 @@ import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/app_exit.dart';
-import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
-import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
@@ -34,7 +32,6 @@ import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/services/windows_update_exit.dart';
 import 'package:pili_aurora_next/platform/android/android_helper.dart';
 import 'package:pili_aurora_next/router/app_scheme.dart';
-import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
 import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
 import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
@@ -42,8 +39,6 @@ import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:pili_aurora_next/platform/mobile_observer.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/core/async/rate_limiter.dart';
-import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
-import 'package:pili_aurora_next/services/settings/storage_shutdown.dart';
 import 'package:pili_aurora_next/services/update/update.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -102,42 +97,11 @@ class MainAppState extends PopScopeState<MainApp>
   tray.Menu? _trayMenu;
   tray.MenuItem? _trayShowItem;
   tray.MenuItem? _trayExitItem;
-  late final _exit = AppExit(
-    cleanup: [
-      ('shutdown timer', closeApplicationShutdownTimer),
-      ('tray', _disposeTray),
-      // 小窗会回传播放进度和窗口位置，先关闭小窗再关闭主进程存储。
-      if (Platform.isWindows) ...[
-        ('windows', DesktopPlaybackWindows.instance.closeAll),
-        (
-          'progress',
-          () async {
-            final player = PlPlayerController.instance;
-            final cid = player?.cid;
-            if (player != null && player.isFileSource && cid != null) {
-              await OfflineProgress.record(
-                cid,
-                player.positionInMilliseconds,
-              );
-            }
-          },
-        ),
-        (
-          'player',
-          () async {
-            final result = await PlPlayerController.instance
-                ?.shutdownPlaybackFacade();
-            if (result?.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
-              logger.w('主窗口播放器退出清理未完成', error: result?.failure);
-            }
-          },
-        ),
-      ],
-      ...storageShutdown,
-    ],
-    terminate: DeviceUtils.exitApp,
-  );
-  bool get _isClosing => _exit.isClosing;
+  VoidCallback? _unregisterTrayCleanup;
+  VoidCallback? _unregisterLinkCleanup;
+  VoidCallback? _unregisterBadgesCleanup;
+  late final Future<void> Function() _closeLinks;
+  bool get _isClosing => AppExit.application?.isClosing ?? false;
   PlaybackOwner? _minimizeOwner;
   PlaybackInhibitorToken? _minimizeToken;
 
@@ -172,6 +136,10 @@ class MainAppState extends PopScopeState<MainApp>
       hasHome: _hasHome,
       hasDynamics: tabs.contains(NavigationBarType.dynamics),
     );
+    _unregisterBadgesCleanup = AppExit.application?.beforeCleanup(
+      'badges',
+      _detachBadges,
+    );
     _unregisterDiagnostics = Diagnostics.instance.register(
       'mainPage',
       () => {'page': _selectedTab.name},
@@ -190,9 +158,17 @@ class MainAppState extends PopScopeState<MainApp>
         ..setPreventClose(true);
       if (WindowPreference.showTrayIcon.read()) {
         _handleTray();
+        _unregisterTrayCleanup = AppExit.application?.beforeCleanup(
+          'tray',
+          _disposeTray,
+        );
       }
     }
-    PiliScheme.init();
+    _closeLinks = PiliScheme.listenForAppLinks();
+    _unregisterLinkCleanup = AppExit.application?.beforeCleanup(
+      'app links',
+      _closeLinks,
+    );
   }
 
   @override
@@ -250,6 +226,9 @@ class MainAppState extends PopScopeState<MainApp>
 
   @override
   void dispose() {
+    _unregisterBadgesCleanup?.call();
+    _unregisterTrayCleanup?.call();
+    _unregisterLinkCleanup?.call();
     _unregisterDiagnostics();
     _detachBadges();
     _badgesSub.close();
@@ -266,7 +245,7 @@ class MainAppState extends PopScopeState<MainApp>
       _releaseMinimizeInhibitor();
     }
     removeObserverMobile(this);
-    PiliScheme.listener?.cancel();
+    unawaited(_closeLinks());
     super.dispose();
   }
 
@@ -309,7 +288,7 @@ class MainAppState extends PopScopeState<MainApp>
     }
   }
 
-  Future<void> _onClose() => _exit.close();
+  Future<void> _onClose() => AppExit.application!.close();
 
   void _requestClose() {
     unawaited(

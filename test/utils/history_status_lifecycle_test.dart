@@ -7,6 +7,7 @@ import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/history/application/history_library.dart';
+import 'package:pili_aurora_next/features/history/data/history_repository.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
@@ -69,4 +70,21 @@ void main() {
       expect(Pref.historyPause, isTrue);
     },
   );
+
+  test('关闭历史服务后忽略迟到的暂停状态', () async {
+    final owner = account(789);
+    Accounts.accountMode[AccountType.heartbeat.index] = owner;
+    final previous = Pref.historyPause;
+    final library = HistoryLibrary(HistoryRepository());
+    final updates = library.pauseChanges.toList();
+    final pending = library.status(owner);
+    await adapter.waitForRequests(1);
+
+    await library.close();
+    adapter.json(0, {'code': 0, 'data': !previous});
+
+    expect((await pending).isSuccess, isFalse);
+    expect(await updates, isEmpty);
+    expect(Pref.historyPause, previous);
+  });
 }

@@ -13,15 +13,21 @@ class LaterLibrary extends LibraryModule {
   LaterLibrary(this._repository);
   final LaterRepository _repository;
 
+  static LaterLibrary? _applicationLibrary;
+
   /// 兼容尚未迁移的播放器入口；新页面通过 provider 注入同一个 Module。
-  static final legacy = LaterLibrary(LaterRepository());
+  static LaterLibrary get legacy =>
+      _applicationLibrary ??= LaterLibrary(LaterRepository());
+  static Future<void> closeApplication() =>
+      _applicationLibrary?.close() ?? Future.value();
+
   Future<List<FavFolderInfo>> destinations(Account account) {
     if (!owns(account)) return Future.error(const Error('账号已切换'));
     return _repository.folders(account);
   }
 
   @override
-  bool owns(Account account) => identical(account, Accounts.main);
+  bool owns(Account account) => !isClosed && identical(account, Accounts.main);
   Future<LoadingState<void>> add({
     String? bvid,
     Object? aid,

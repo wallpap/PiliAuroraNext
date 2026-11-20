@@ -1,6 +1,6 @@
 // ignore_for_file: constant_identifier_names
 
-import 'dart:async' show StreamSubscription, unawaited;
+import 'dart:async' show unawaited;
 
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -35,35 +35,41 @@ import 'package:material_ui/material_ui.dart';
 import 'package:window_manager/window_manager.dart';
 
 abstract final class PiliScheme {
-  static late AppLinks appLinks;
-  static StreamSubscription? listener;
   static final uriDigitRegExp = RegExp(r'/(\d+)');
   static final _prefixRegex = RegExp(r'^\S+://');
 
-  static void init() {
-    // Register our protocol only on Windows platform
-    // registerProtocolHandler('bilibili');
-    appLinks = AppLinks();
-
-    listener?.cancel();
-    listener = appLinks.uriLinkStream.listen(
-      (uri) => unawaited(_handleAppLink(uri)),
+  static Future<void> Function() listenForAppLinks() {
+    var active = true;
+    final listener = AppLinks().uriLinkStream.listen(
+      (uri) => unawaited(_handleAppLink(uri, () => active)),
       onError: (Object error, StackTrace stackTrace) {
         logger.w('读取应用链接失败', error: error.runtimeType, stackTrace: stackTrace);
       },
     );
+    Future<void>? closing;
+    return () {
+      active = false;
+      return closing ??= listener.cancel().catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        logger.w('关闭应用链接失败', error: error.runtimeType, stackTrace: stackTrace);
+      });
+    };
   }
 
-  static Future<void> _handleAppLink(Uri uri) async {
+  static Future<void> _handleAppLink(Uri uri, bool Function() isActive) async {
+    if (!isActive()) return;
     if (PlatformUtils.isDesktop) {
       try {
         await windowManager.show();
+        if (!isActive()) return;
         await windowManager.focus();
       } catch (error, stackTrace) {
         logger.w('显示应用窗口失败', error: error.runtimeType, stackTrace: stackTrace);
       }
     }
-    await routePush(uri);
+    if (isActive()) await routePush(uri);
   }
 
   static int? _videoProgress(Map<String, String> queryParameters) {

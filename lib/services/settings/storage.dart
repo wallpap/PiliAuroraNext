@@ -152,18 +152,7 @@ abstract final class GStorage {
     ]);
   }
 
-  static Future<List<void>> close() {
-    return Future.wait([
-      userInfo.close(),
-      historyWord.close(),
-      localCache.close(),
-      setting.close(),
-      video.close(),
-      Accounts.account.close(),
-      watchProgress.close(),
-      ?reply?.close(),
-    ]);
-  }
+  static Future<void> close() => Hive.close();
 
   static Future<List<void>> clear() {
     return Future.wait([

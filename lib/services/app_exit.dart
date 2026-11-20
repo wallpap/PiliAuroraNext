@@ -13,28 +13,56 @@ class AppExit {
     this.onFailure = _reportFailure,
   });
 
+  static AppExit? application;
+
   final List<AppExitCleanup> cleanup;
   final Future<void> Function()? flushDiagnostics;
   final FutureOr<void> Function() terminate;
   final void Function(String phase, Object error, StackTrace stackTrace)
   onFailure;
+  final _ingress = <AppExitCleanup>[];
+  Future<void>? _released;
   Future<void>? _pending;
+  bool _releasing = false;
 
-  bool get isClosing => _pending != null;
+  bool get isClosing => _pending != null || _releasing;
+
+  void Function() beforeCleanup(
+    String phase,
+    FutureOr<void> Function() action,
+  ) {
+    final entry = (phase, action);
+    if (_released == null) _ingress.add(entry);
+    return () => _ingress.remove(entry);
+  }
+
+  Future<void> release() {
+    if (_released case final pending?) return pending;
+    _releasing = true;
+    return _released = Future<void>.microtask(_releaseAll).whenComplete(() {
+      _releasing = false;
+    });
+  }
 
   Future<void> close() => _pending ??= Future<void>.microtask(_close);
 
+  Future<void> _releaseAll() async {
+    final ingress = _ingress.reversed.toList();
+    _ingress.clear();
+    for (final (phase, action) in [...ingress, ...cleanup]) {
+      await _release(phase, action);
+    }
+    if (flushDiagnostics case final flush?) {
+      await _release(
+        'diagnostics',
+        () => flush().timeout(const Duration(seconds: 3)),
+      );
+    }
+  }
+
   Future<void> _close() async {
     try {
-      for (final (phase, action) in cleanup) {
-        await _release(phase, action);
-      }
-      if (flushDiagnostics case final flush?) {
-        await _release(
-          'diagnostics',
-          () => flush().timeout(const Duration(seconds: 3)),
-        );
-      }
+      await release();
       try {
         await terminate();
       } catch (error, stackTrace) {
