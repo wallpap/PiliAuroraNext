@@ -1,47 +1,42 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:pili_aurora_next/common/dial_prefix.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
-import 'package:pili_aurora_next/common/widgets/radio_widget.dart';
-import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
+import 'package:pili_aurora_next/features/account/application/login_session.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/login.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/login/model.dart';
+import 'package:pili_aurora_next/features/account/domain/login/model.dart';
 import 'package:pili_aurora_next/pages/login/geetest/geetest_webview_dialog.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:dio/dio.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class LoginPageController extends GetxController
-    with GetSingleTickerProviderStateMixin {
+class LoginPageController {
+  static const _session = LoginSession();
   final TextEditingController telTextController = TextEditingController();
   final TextEditingController usernameTextController = TextEditingController();
   final TextEditingController passwordTextController = TextEditingController();
   final TextEditingController smsCodeTextController = TextEditingController();
   final TextEditingController cookieTextController = TextEditingController();
 
-  late final codeInfo =
-      LoadingState<({String authCode, String url})>.loading().obs;
+  final codeInfo = ValueNotifier<LoadingState<({String authCode, String url})>>(
+    LoadingState.loading(),
+  );
 
   late final TabController tabController;
 
   late final CaptchaDataModel captchaData = CaptchaDataModel();
-  late final RxInt qrCodeLeftTime = 180.obs;
-  late final RxString statusQRCode = ''.obs;
+  final qrCodeLeftTime = ValueNotifier(180);
+  final statusQRCode = ValueNotifier('');
 
   late var selectedCountryCodeId = Login.dialPrefix.first;
   late String captchaKey = '';
-  late final RxInt smsSendCooldown = 0.obs;
-  late final RxBool smsSending = false.obs;
+  final smsSendCooldown = ValueNotifier(0);
+  final smsSending = ValueNotifier(false);
   late int smsSendTimestamp = 0;
+  ({String tel, Object country})? _smsRecipient;
 
   // 定时器
   Timer? qrCodeTimer;
@@ -50,17 +45,19 @@ class LoginPageController extends GetxController
   bool _isReq = false;
   int _qrGeneration = 0;
   int _smsLoginGeneration = 0;
+  int _passwordGeneration = 0;
   int _lastTabIndex = 0;
 
-  @override
-  void onInit() {
-    super.onInit();
-    tabController = TabController(length: 4, vsync: this)
+  bool _closed = false;
+  bool get isClosed => _closed;
+
+  void attach(TickerProvider vsync) {
+    tabController = TabController(length: 4, vsync: vsync)
       ..addListener(_handleTabChange);
   }
 
-  @override
-  void onClose() {
+  void dispose() {
+    _closed = true;
     tabController
       ..removeListener(_handleTabChange)
       ..dispose();
@@ -68,12 +65,17 @@ class LoginPageController extends GetxController
     _qrGeneration++;
     _smsLoginGeneration++;
     smsSendCooldownTimer?.cancel();
+    smsSending.value = false;
+    smsSending.dispose();
+    smsSendCooldown.dispose();
+    codeInfo.dispose();
+    qrCodeLeftTime.dispose();
+    statusQRCode.dispose();
     telTextController.dispose();
     usernameTextController.dispose();
     passwordTextController.dispose();
     smsCodeTextController.dispose();
     cookieTextController.dispose();
-    super.onClose();
   }
 
   Future<void> refreshQRCode() async {
@@ -86,7 +88,7 @@ class LoginPageController extends GetxController
     statusQRCode.value = '';
     late final LoadingState<({String authCode, String url})> res;
     try {
-      res = await LoginHttp.getHDcode();
+      res = await _session.requestQr();
     } catch (_) {
       if (!isClosed && generation == _qrGeneration) {
         codeInfo.value = const Error('二维码申请失败，请重试');
@@ -106,6 +108,7 @@ class LoginPageController extends GetxController
         final left = 180 - t.tick;
         if (left <= 0) {
           t.cancel();
+          _qrGeneration++;
           statusQRCode.value = '二维码已过期，请刷新';
           qrCodeLeftTime.value = 0;
           return;
@@ -114,7 +117,8 @@ class LoginPageController extends GetxController
         if (_isReq || tabController.index != 2) return;
 
         _isReq = true;
-        LoginHttp.codePoll(response.authCode)
+        _session
+            .pollQr(response.authCode)
             .then((value) async {
               if (isClosed || generation != _qrGeneration) return;
               if (value.isSuccess) {
@@ -187,105 +191,71 @@ class LoginPageController extends GetxController
     }
   }
 
-  static String validateCookie(String cookie) {
-    return cookie
-        .split(';')
-        .where((e) {
-          try {
-            Cookie.fromSetCookieValue(e.trim());
-          } catch (_) {
-            return false;
-          }
-          return true;
-        })
-        .join(';');
-  }
+  bool _cookieLoginPending = false;
 
-  // cookie登录
   Future<void> loginByCookie() async {
-    if (cookieTextController.text.isEmpty) {
-      SmartDialog.showToast('cookie不能为空');
-      return;
-    }
+    if (isClosed || _cookieLoginPending) return;
+    final input = cookieTextController.text;
+    bool isCurrent() => !isClosed && cookieTextController.text == input;
+    _cookieLoginPending = true;
     try {
-      final result = await Request().get(
-        "/x/member/web/account",
-        options: Options(
-          headers: {
-            "cookie": validateCookie(cookieTextController.text),
-          },
-          extra: {'account': AnonymousAccount()},
-        ),
+      final result = await _session.loginWithCookie(
+        input,
+        isCurrent: isCurrent,
       );
-      if (result.data['code'] == 0) {
-        try {
-          await LoginAccount(
-            BiliCookieJar.fromJson(
-              Map.fromEntries(
-                cookieTextController.text.split(';').map((item) {
-                  final list = item.split('=');
-                  return MapEntry(list.first, list.skip(1).join());
-                }),
-              ),
-            ),
-            null,
-            null,
-          ).onChange();
-          if (!Accounts.main.isLogin) await switchAccountDialog(Get.context!);
-          SmartDialog.showToast('登录成功');
-          Get.back();
-        } catch (e) {
-          SmartDialog.showToast("登录失败: $e");
-        }
-      } else {
-        SmartDialog.showToast("哔哩哔哩登录已失效，请重新登录");
+      if (!isCurrent() || result == null) return;
+      if (!result.isSuccess) {
+        unawaited(result.toast());
+        return;
       }
-    } catch (e) {
-      SmartDialog.showToast("获取哔哩哔哩用户信息失败，可前往账号管理重试");
+      if (!_session.mainIsLoggedIn) await showAccountSwitchDialog(Get.context!);
+      if (!isCurrent()) return;
+      SmartDialog.showToast('登录成功');
+      Get.back();
+    } finally {
+      _cookieLoginPending = false;
     }
   }
 
   // app端密码登录
   Future<void> loginByPassword() async {
-    String username = usernameTextController.text;
-    String password = passwordTextController.text;
+    if (isClosed) return;
+    final generation = ++_passwordGeneration;
+    final username = usernameTextController.text;
+    final password = passwordTextController.text;
+    bool isCurrent() =>
+        !isClosed &&
+        generation == _passwordGeneration &&
+        usernameTextController.text == username &&
+        passwordTextController.text == password;
     if (username.isEmpty || password.isEmpty) {
       SmartDialog.showToast('用户名或密码不能为空');
       return;
     }
-    // if ((passwordFormKey.currentState as FormState).validate()) {
-    final webKeyRes = await LoginHttp.getWebKey();
-    if (!webKeyRes.isSuccess) {
-      SmartDialog.showToast(webKeyRes.message);
-      return;
-    }
-    final salt = webKeyRes.data['hash'];
-    if (salt is! String) {
-      SmartDialog.showToast('登录服务返回的数据不完整，请重试');
-      return;
-    }
-    String key = webKeyRes.data['key'];
-    final res = await LoginHttp.loginByPwd(
+    final res = await _session.submitPassword(
       username: username,
       password: password,
-      key: key,
-      salt: salt,
-      geeValidate: captchaData.validate,
-      geeSeccode: captchaData.seccode,
-      geeChallenge: captchaData.geetest?.challenge,
-      recaptchaToken: captchaData.token,
+      captcha: captchaData,
+      isCurrent: isCurrent,
     );
+    if (!isCurrent() || res == null) return;
     if (res.isSuccess) {
       final data = res.data;
       if (data['status'] == 2) {
         SmartDialog.showToast(data['message']);
         // return;
         //{"code":0,"message":"0","ttl":1,"data":{"status":2,"message":"本次登录环境存在风险, 需使用手机号进行验证或绑定","url":"https://passport.bilibili.com/h5-app/passport/risk/verify?tmp_token=9e785433940891dfa78f033fb7928181&request_id=e5a6d6480df04097870be56c6e60f7ef&source=risk","token_info":null,"cookie_info":null,"sso":null,"is_new":false,"is_tourist":false}}
-        String url = data['url']!;
-        Uri currentUri = Uri.parse(url);
-        final safeCenterRes = await LoginHttp.safeCenterGetInfo(
-          tmpCode: currentUri.queryParameters['tmp_token']!,
-        );
+        final url = data['url'];
+        final currentUri = url is String ? Uri.tryParse(url) : null;
+        if (currentUri == null ||
+            ['tmp_token', 'request_id', 'source'].any(
+              (name) => currentUri.queryParameters[name]?.isNotEmpty != true,
+            )) {
+          SmartDialog.showToast('验证信息不完整，请重试或使用其他登录方式');
+          return;
+        }
+        final safeCenterRes = await _session.getRiskAccount(currentUri);
+        if (!isCurrent()) return;
         //{"code":0,"message":"0","ttl":1,"data":{"account_info":{"hide_tel":"111*****111","hide_mail":"aaa*****aaaa.aaa","bind_mail":true,"bind_tel":true,"tel_verify":true,"mail_verify":true,"unneeded_check":false,"bind_safe_question":false,"mid":1111111},"member_info":{"nickname":"xxxxxxx","face":"https://i0.hdslb.com/bfs/face/xxxxxxx.jpg","realname_status":false},"sns_info":{"bind_google":false,"bind_fb":false,"bind_apple":false,"bind_qq":true,"bind_weibo":true,"bind_wechat":false},"account_safe":{"score":80}}}
         if (!safeCenterRes.isSuccess) {
           SmartDialog.showToast(
@@ -359,7 +329,8 @@ class LoginPageController extends GetxController
               TextButton(
                 child: const Text("发送验证码"),
                 onPressed: () async {
-                  final preCaptureRes = await LoginHttp.preCapture();
+                  final preCaptureRes = await _session.requestCaptcha();
+                  if (!isCurrent() || !context.mounted) return;
                   if (!preCaptureRes.isSuccess) {
                     SmartDialog.showToast(
                       "获取验证码失败，请尝试其它登录方式\n"
@@ -382,15 +353,14 @@ class LoginPageController extends GetxController
                     geeGt,
                     geeChallenge,
                     () async {
-                      final safeCenterSendSmsCodeRes =
-                          await LoginHttp.safeCenterSmsCode(
-                            tmpCode: currentUri.queryParameters['tmp_token']!,
-                            geeChallenge: geeChallenge,
-                            geeSeccode: captchaData.seccode,
-                            geeValidate: captchaData.validate,
-                            recaptchaToken: captchaData.token,
-                            refererUrl: url,
+                      if (!isCurrent() || !context.mounted) return;
+                      final safeCenterSendSmsCodeRes = await _session
+                          .requestRiskSms(
+                            uri: currentUri,
+                            challenge: geeChallenge,
+                            captcha: captchaData,
                           );
+                      if (!isCurrent() || !context.mounted) return;
                       if (!safeCenterSendSmsCodeRes.isSuccess) {
                         SmartDialog.showToast(
                           "发送短信验证码失败，请尝试其它登录方式\n"
@@ -418,15 +388,12 @@ class LoginPageController extends GetxController
                     SmartDialog.showToast("请输入短信验证码");
                     return;
                   }
-                  final safeCenterSmsVerifyRes =
-                      await LoginHttp.safeCenterSmsVerify(
-                        code: code,
-                        tmpCode: currentUri.queryParameters['tmp_token']!,
-                        requestId: currentUri.queryParameters['request_id']!,
-                        source: currentUri.queryParameters['source']!,
-                        captchaKey: captchaKey,
-                        refererUrl: url,
-                      );
+                  final safeCenterSmsVerifyRes = await _session.verifyRiskSms(
+                    uri: currentUri,
+                    code: code,
+                    captchaKey: captchaKey,
+                  );
+                  if (!isCurrent() || !context.mounted) return;
                   if (!safeCenterSmsVerifyRes.isSuccess) {
                     SmartDialog.showToast(
                       "验证短信验证码失败，请尝试其它登录方式\n"
@@ -435,10 +402,10 @@ class LoginPageController extends GetxController
                     return;
                   }
                   SmartDialog.showToast("验证成功，正在登录");
-                  final oauth2AccessTokenRes =
-                      await LoginHttp.oauth2AccessToken(
-                        code: safeCenterSmsVerifyRes.data['code'],
-                      );
+                  final oauth2AccessTokenRes = await _session.exchangeRiskCode(
+                    safeCenterSmsVerifyRes.data['code'],
+                  );
+                  if (!isCurrent() || !context.mounted) return;
                   if (!oauth2AccessTokenRes.isSuccess) {
                     SmartDialog.showToast(
                       "登录失败，请尝试其它登录方式\n"
@@ -459,9 +426,13 @@ class LoginPageController extends GetxController
                     data['token_info'],
                     data['cookie_info']['cookies'],
                   );
-                  Get
-                    ..back()
-                    ..back();
+                  if (isCurrent() &&
+                      context.mounted &&
+                      ModalRoute.of(context)?.isCurrent == true) {
+                    Get
+                      ..back()
+                      ..back();
+                  }
                 },
                 child: const Text("确认"),
               ),
@@ -479,7 +450,7 @@ class LoginPageController extends GetxController
       }
       SmartDialog.showToast('正在保存身份信息');
       await setAccount(data['token_info'], data['cookie_info']['cookies']);
-      Get.back();
+      if (isCurrent()) Get.back();
     } else {
       // handle login result
       switch (res.code) {
@@ -498,7 +469,9 @@ class LoginPageController extends GetxController
             SmartDialog.showToast('验证信息不完整，请重试或使用其他登录方式');
             return;
           }
-          await getCaptcha(geeGt!, geeChallenge!, loginByPassword);
+          await getCaptcha(geeGt!, geeChallenge!, () async {
+            if (isCurrent()) await loginByPassword();
+          });
           break;
         default:
           SmartDialog.showToast(res.message);
@@ -506,22 +479,34 @@ class LoginPageController extends GetxController
           break;
       }
     }
-    // }
   }
 
   // 短信验证码登录
   Future<void> loginBySmsCode() async {
     if (isClosed) return;
     final generation = ++_smsLoginGeneration;
-    if (telTextController.text.isEmpty) {
+    final tel = telTextController.text;
+    final code = smsCodeTextController.text;
+    final key = captchaKey;
+    final country = selectedCountryCodeId.countryId;
+    bool isCurrent() =>
+        !isClosed &&
+        generation == _smsLoginGeneration &&
+        telTextController.text == tel &&
+        smsCodeTextController.text == code &&
+        captchaKey == key &&
+        selectedCountryCodeId.countryId == country;
+    if (tel.isEmpty) {
       SmartDialog.showToast('手机号不能为空');
       return;
     }
-    if (captchaKey.isEmpty) {
+    if (key.isEmpty ||
+        (_smsRecipient != null &&
+            _smsRecipient != (tel: tel, country: country))) {
       SmartDialog.showToast('请先点击获取验证码');
       return;
     }
-    if (smsCodeTextController.text.isEmpty) {
+    if (code.isEmpty) {
       SmartDialog.showToast('验证码不能为空');
       return;
     }
@@ -530,26 +515,19 @@ class LoginPageController extends GetxController
       SmartDialog.showToast('验证码已过期，请重新获取');
       return;
     }
-    final webKeyRes = await LoginHttp.getWebKey();
-    if (isClosed || generation != _smsLoginGeneration) return;
-    if (!webKeyRes.isSuccess) {
-      SmartDialog.showToast(webKeyRes.message);
-      return;
-    }
-    String key = webKeyRes.data['key'];
-    final res = await LoginHttp.loginBySms(
-      tel: telTextController.text,
-      code: smsCodeTextController.text,
-      captchaKey: captchaKey,
-      cid: selectedCountryCodeId.countryId,
-      key: key,
+    final res = await _session.submitSms(
+      tel: tel,
+      code: code,
+      captchaKey: key,
+      cid: country,
+      isCurrent: isCurrent,
     );
-    if (isClosed || generation != _smsLoginGeneration) return;
+    if (!isCurrent() || res == null) return;
     if (res.isSuccess) {
       SmartDialog.showToast('登录成功');
       final data = res.data;
       await setAccount(data['token_info'], data['cookie_info']['cookies']);
-      if (!isClosed && generation == _smsLoginGeneration) Get.back();
+      if (isCurrent()) Get.back();
     } else {
       SmartDialog.showToast(res.message);
     }
@@ -559,41 +537,49 @@ class LoginPageController extends GetxController
   Future<void> sendSmsCode() async {
     if (isClosed || smsSending.value || smsSendCooldown.value > 0) return;
     smsSending.value = true;
+    final tel = telTextController.text;
+    final country = selectedCountryCodeId.countryId;
+    bool isCurrent() =>
+        !isClosed &&
+        telTextController.text == tel &&
+        selectedCountryCodeId.countryId == country;
     try {
-      await _sendSmsCode();
+      await _sendSmsCode(tel, country, isCurrent);
     } catch (_) {
-      if (!isClosed) SmartDialog.showToast('发送验证码失败，请重试');
+      if (isCurrent()) SmartDialog.showToast('发送验证码失败，请重试');
     } finally {
-      smsSending.value = false;
+      if (!isClosed) smsSending.value = false;
     }
   }
 
-  Future<void> _sendSmsCode() async {
-    if (isClosed) return;
-    if (telTextController.text.isEmpty) {
+  Future<void> _sendSmsCode(
+    String tel,
+    Object country,
+    bool Function() isCurrent,
+  ) async {
+    if (!isCurrent()) return;
+    if (tel.isEmpty) {
       SmartDialog.showToast('手机号不能为空');
       return;
     }
-    final res = await LoginHttp.sendSmsCode(
-      tel: telTextController.text,
-      cid: selectedCountryCodeId.countryId,
-      geeValidate: captchaData.validate,
-      geeSeccode: captchaData.seccode,
-      geeChallenge: captchaData.geetest?.challenge,
-      recaptchaToken: captchaData.token,
+    final res = await _session.requestSms(
+      tel: tel,
+      cid: country,
+      captcha: captchaData,
     );
-    if (isClosed) return;
+    if (!isCurrent()) return;
     if (res.isSuccess) {
       SmartDialog.showToast('发送成功');
       smsSendTimestamp = DateTime.now().millisecondsSinceEpoch;
       smsSendCooldown.value = 60;
       captchaKey = res.data['captcha_key'];
+      _smsRecipient = (tel: tel, country: country);
       smsSendCooldownTimer?.cancel();
       smsSendCooldownTimer = Timer.periodic(const Duration(seconds: 1), (
         timer,
       ) {
         smsSendCooldown.value = 60 - timer.tick;
-        if (smsSendCooldown <= 0) {
+        if (smsSendCooldown.value <= 0) {
           timer.cancel();
           smsSendCooldown.value = 0;
         }
@@ -617,8 +603,8 @@ class LoginPageController extends GetxController
             logger.w(
               '验证信息错误：${res.message}，尝试另一个验证码接口',
             );
-            final preCaptureRes = await LoginHttp.preCapture();
-            if (isClosed) return;
+            final preCaptureRes = await _session.requestCaptcha();
+            if (!isCurrent()) return;
             if (!preCaptureRes.isSuccess) {
               SmartDialog.showToast(
                 "获取验证码失败，请尝试其它登录方式\n"
@@ -636,7 +622,9 @@ class LoginPageController extends GetxController
             return;
           }
 
-          await getCaptcha(geeGt!, geeChallenge!, _sendSmsCode);
+          await getCaptcha(geeGt!, geeChallenge!, () {
+            return _sendSmsCode(tel, country, isCurrent);
+          });
           break;
         default:
           SmartDialog.showToast(res.message);
@@ -652,144 +640,13 @@ class LoginPageController extends GetxController
   }
 
   Future<void> setAccount(Map tokenInfo, List cookieInfo) async {
-    final account = LoginAccount(
-      BiliCookieJar.fromList(cookieInfo),
-      tokenInfo['access_token'],
-      tokenInfo['refresh_token'],
-    );
-    Accounts.replaceCredentials(account);
-    await Future.wait([?account.onChange(), AnonymousAccount().delete()]);
-    if (Accounts.main.isLogin) {
+    await _session.loginWithAppCredentials(tokenInfo, cookieInfo);
+    if (isClosed) return;
+    if (_session.mainIsLoggedIn) {
       SmartDialog.showToast('登录成功');
     } else {
       SmartDialog.showToast('登录成功, 请先设置账号模式');
-      await switchAccountDialog(Get.context!);
+      await showAccountSwitchDialog(Get.context!);
     }
-  }
-
-  static Future<void>? switchAccountDialog(BuildContext context) {
-    if (Accounts.account.isEmpty) {
-      SmartDialog.showToast('请先登录');
-      return Get.toNamed('/loginPage');
-    }
-    final colorScheme = ColorScheme.of(context);
-    final selectAccount = List.of(Accounts.accountMode);
-    final options = {
-      AnonymousAccount(): '0',
-      ...Accounts.account.toMap().map(
-        (k, v) => MapEntry(v, k as String),
-      ),
-    };
-    bool quickSelect = selectAccount.every((e) => e == selectAccount.first);
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          crossAxisAlignment: .start,
-          mainAxisAlignment: .spaceBetween,
-          children: [
-            Text.rich(
-              style: const TextStyle(height: 1.5),
-              TextSpan(
-                children: [
-                  const TextSpan(text: '账号切换'),
-                  TextSpan(
-                    text: '\nmid为0时使用匿名',
-                    style: TextStyle(fontSize: 14, color: colorScheme.outline),
-                  ),
-                ],
-              ),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                visualDensity: .compact,
-                tapTargetSize: .shrinkWrap,
-              ),
-              onPressed: () {
-                quickSelect = !quickSelect;
-                (context as Element).markNeedsBuild();
-              },
-              child: Text(quickSelect ? '详细' : '快速'),
-            ),
-          ],
-        ),
-        titlePadding: const .only(left: 22, top: 16, right: 22, bottom: 3),
-        contentPadding: const .symmetric(vertical: 5),
-        actionsPadding: const .only(left: 16, right: 16, bottom: 10),
-        content: SingleChildScrollView(
-          child: AnimatedSize(
-            curve: Curves.easeIn,
-            alignment: .topCenter,
-            duration: const Duration(milliseconds: 200),
-            child: quickSelect
-                ? Builder(
-                    builder: (context) => RadioGroup<Account>(
-                      groupValue: selectAccount[0],
-                      onChanged: (v) {
-                        selectAccount.fillRange(0, selectAccount.length, v);
-                        (context as Element).markNeedsBuild();
-                      },
-                      child: Column(
-                        crossAxisAlignment: .start,
-                        children: options.entries
-                            .map(
-                              (entry) => RadioWidget<Account>(
-                                value: entry.key,
-                                title: entry.value,
-                                mainAxisSize: .max,
-                                padding: PlatformUtils.isDesktop
-                                    ? const .only(left: 12)
-                                    : const .only(left: 12, top: 2, bottom: 2),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: .start,
-                    children: AccountType.values
-                        .map(
-                          (e) => Builder(
-                            builder: (context) => RadioGroup<Account>(
-                              groupValue: selectAccount[e.index],
-                              onChanged: (v) {
-                                selectAccount[e.index] = v!;
-                                (context as Element).markNeedsBuild();
-                              },
-                              child: WrapRadioOptionsGroup<Account>(
-                                groupTitle: e.title,
-                                options: options,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: Text('取消', style: TextStyle(color: colorScheme.outline)),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              for (final type in AccountType.values) {
-                final index = type.index;
-                final account = quickSelect
-                    ? selectAccount.first
-                    : selectAccount[index];
-                if (account != Accounts.accountMode[index]) {
-                  Accounts.set(type, account);
-                }
-              }
-            },
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
   }
 }

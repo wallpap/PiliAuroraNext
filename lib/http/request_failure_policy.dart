@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 
 final _backgroundEndpoints = {
   for (final url in [

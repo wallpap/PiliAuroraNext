@@ -8,7 +8,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show TabBarView, TabController;
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
-import 'package:pili_aurora_next/utils/screenshot.dart';
+import 'package:pili_aurora_next/common/media/screenshot.dart';
 
 class _RetainedImages extends StatefulWidget {
   const _RetainedImages({required this.tab, required this.cache});

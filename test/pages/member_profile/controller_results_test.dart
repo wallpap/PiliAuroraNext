@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/member/profile_type.dart';
-import 'package:pili_aurora_next/models/remote/account_myinfo/data.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
-import 'package:pili_aurora_next/pages/member_profile/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:pili_aurora_next/features/account/application/profile_editor.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -27,7 +27,7 @@ void main() {
   final interceptor = ControlledInterceptor();
   final cache = _Cache();
   final requests = interceptor.requests;
-  late MemberProfileController controller;
+  late ProfileEditor controller;
   LoginAccount login(String key) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': key}),
     key,
@@ -52,7 +52,7 @@ void main() {
     cache.fail = false;
     await cache.clear();
     Accounts.accountMode[AccountType.main.index] = login('old');
-    controller = MemberProfileController()
+    controller = ProfileEditor()
       ..state = Success(
         AccountMyInfoData(mid: 1, name: '原昵称', coins: 10, sign: '原签名'),
       );
@@ -208,7 +208,7 @@ void main() {
     final disposed = controller
       ..addListener(() => notified++)
       ..dispose();
-    controller = MemberProfileController();
+    controller = ProfileEditor();
     requests.single.reply.complete(info('迟到'));
     await pending;
     expect(disposed.state, isA<Loading>());

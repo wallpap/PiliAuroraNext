@@ -1,0 +1,36 @@
+{
+  "windows": [
+    "test/app/desktop_playback_launch_test.dart",
+    "test/app/desktop_theme_test.dart",
+    "test/app/desktop_title_bar_test.dart",
+    "test/app/platform_setup_test.dart",
+    "test/common/widgets/image/retained_layer_release_test.dart",
+    "test/common/widgets/inactive_sliver_cache_test.dart",
+    "test/common/widgets/inactive_sliver_semantics_test.dart",
+    "test/common/widgets/pipeline_owner_semantics_test.dart",
+    "test/pages/setting/decoder_test_process_test.dart",
+    "test/plugin/pl_player/volume_controller_test.dart",
+    "test/services/desktop_playback_windows_test.dart",
+    "test/services/diagnostics/windows_graphics_memory_metrics_test.dart",
+    "test/utils/desktop_window_background_test.dart"
+  ],
+  "androidHost": [
+    "test/plugin/pl_player/android/"
+  ],
+  "bothHosts": [
+    "test/app/startup_failure_test.dart",
+    "test/plugin/pl_player/fullscreen_model_test.dart",
+    "test/plugin/pl_player/fullscreen_transition_test.dart",
+    "test/plugin/pl_player/hardware_video_configuration_test.dart",
+    "test/plugin/pl_player/player_gestures_test.dart",
+    "test/plugin/pl_player/playback/controller_recovery_test.dart",
+    "test/plugin/pl_player/playback/native_shutdown_test.dart",
+    "test/services/diagnostics/diagnostics_test.dart"
+  ],
+  "nativeImages": [
+    "test/common/widgets/image/native_backend_extension_test.dart",
+    "test/common/widgets/image/native_content_image_test.dart",
+    "test/common/widgets/image/native_demand_base_test.dart",
+    "test/common/widgets/image/native_fidelity_test.dart"
+  ]
+}

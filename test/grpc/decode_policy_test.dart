@@ -4,9 +4,9 @@ import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/grpc/decode_policy.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_protobuf.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 
 Uint8List _frame(Uint8List bytes, {bool compressed = false}) {
@@ -26,7 +26,7 @@ void main() {
     ]) {
       expect(
         inspectDanmakuProtobuf(element.writeToBuffer(), element: true),
-        greaterThanOrEqualTo(estimateDanmakuElementBytes(element)),
+        greaterThanOrEqualTo(projectDanmakuElement(element).storageBytes),
       );
     }
   });
@@ -55,7 +55,10 @@ void main() {
       final decodedStorage = inspectDanmakuProtobuf(wire);
       final retained = 2 * wire.length + 2 * wire.length + decodedStorage;
       expect(
-        retained + estimateDanmakuWorkBytes(reply.elems),
+        retained +
+            estimateDanmakuWorkBytes(
+              reply.elems.map(projectDanmakuElement).toList(),
+            ),
         lessThan(DanmakuWorkQuota.instance.maxBytes),
       );
     },
@@ -76,8 +79,8 @@ void main() {
     );
     final unknownBytes = DanmakuElem.fromBuffer([0xc2, 0x0c, 3, 1, 2, 3]);
     expect(
-      estimateDanmakuElementBytes(unknownBytes),
-      greaterThan(estimateDanmakuElementBytes(DanmakuElem())),
+      projectDanmakuElement(unknownBytes).storageBytes,
+      greaterThan(projectDanmakuElement(DanmakuElem()).storageBytes),
     );
     final valid = DmSegMobileReply(
       elems: [DanmakuElem(content: '测试', extra: 'metadata')],
@@ -85,9 +88,9 @@ void main() {
     expect(
       inspectDanmakuProtobuf(valid),
       greaterThan(
-        estimateDanmakuElementBytes(
+        projectDanmakuElement(
           DmSegMobileReply.fromBuffer(valid).elems.single,
-        ),
+        ).storageBytes,
       ),
     );
   });

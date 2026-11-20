@@ -1,18 +1,19 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/skeleton/video_reply.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/video/video_note_list/list.dart';
+import 'package:pili_aurora_next/features/community/application/video_notes.dart';
+import 'package:pili_aurora_next/features/community/domain/video_note.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/pages/video/note/controller.dart';
 import 'package:pili_aurora_next/pages/webview/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -20,13 +21,11 @@ class NoteListPage extends CommonSlidePage {
   const NoteListPage({
     super.key,
     super.enableSlide,
-    required this.heroTag,
     required this.oid,
     required this.isStein,
     required this.title,
   });
 
-  final String? heroTag;
   final int oid;
   final bool isStein;
   final String? title;
@@ -36,23 +35,9 @@ class NoteListPage extends CommonSlidePage {
 }
 
 class _NoteListPageState extends State<NoteListPage>
-    with SingleTickerProviderStateMixin, CommonSlideMixin {
-  late final NoteListPageCtr _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      NoteListPageCtr(oid: widget.oid),
-      tag: widget.heroTag,
-    );
-  }
-
-  @override
-  void dispose() {
-    Get.delete<NoteListPageCtr>(tag: widget.heroTag);
-    super.dispose();
-  }
+    with SingleTickerProviderStateMixin, CommonSlideMixin<NoteListPage> {
+  final _owner = Object();
+  VideoNotesQuery get _query => (owner: _owner, oid: widget.oid);
 
   @override
   Widget buildPage(ThemeData theme) {
@@ -73,13 +58,20 @@ class _NoteListPageState extends State<NoteListPage>
                 children: [
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Obx(() {
-                      final count = _controller.count.value;
-                      return Text(
-                        '笔记${count == -1 ? '' : '($count)'}',
-                        style: const TextStyle(fontSize: 16),
-                      );
-                    }),
+                    child: Consumer(
+                      builder: (context, ref, _) {
+                        final provider = videoNotesProvider(_query);
+                        ref.watch(provider);
+                        final count = ref
+                            .read(provider.notifier)
+                            .displayState
+                            ?.metadata;
+                        return Text(
+                          '笔记${count == null ? '' : '($count)'}',
+                          style: const TextStyle(fontSize: 16),
+                        );
+                      },
+                    ),
                   ),
                   IconButton(
                     tooltip: '关闭',
@@ -102,30 +94,73 @@ class _NoteListPageState extends State<NoteListPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final controller = PrimaryScrollController.of(context);
-    _key = ValueKey(controller.hashCode);
+    _key = ObjectKey(PrimaryScrollController.maybeOf(context));
   }
 
   @override
-  Widget buildList(ThemeData theme) {
-    final child = refreshIndicator(
-      onRefresh: _controller.onRefresh,
-      child: CustomScrollView(
-        key: _key,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const .only(bottom: 100),
-            sliver: Obx(
-              () => _buildBody(theme, _controller.loadingState.value),
-            ),
+  Widget buildList(ThemeData theme) => Consumer(
+    builder: (context, ref, _) {
+      final provider = videoNotesProvider(_query);
+      final value = ref.watch(provider);
+      final notes = ref.read(provider.notifier);
+      final data = notes.displayState;
+      final canWrite = ref.watch(
+        mainAccountProvider.select((account) => account.isLogin),
+      );
+      Future<void> refresh() async {
+        try {
+          await notes.refresh();
+        } catch (_) {
+          // 失败由查询状态显示。
+        }
+      }
+
+      final child = FeedPagination.notifications(
+        dataSource: data?.source,
+        dataRevision: data,
+        canLoadMore: () =>
+            !value.isLoading && !value.hasError && data?.canLoadMore == true,
+        onLoadMore: notes.loadMore,
+        child: refreshIndicator(
+          onRefresh: refresh,
+          child: CustomScrollView(
+            key: _key,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              _buildBody(
+                theme,
+                data?.items ?? const [],
+                value.isLoading && data == null,
+                data == null ? value.error?.toString() : null,
+                refresh,
+                canContinue: data?.error != null && !value.hasError,
+              ),
+              if (data != null && value.hasError)
+                _retryFooter('${value.error}', refresh)
+              else if (data?.error case final error?)
+                _retryFooter('$error', () => notes.loadMore(retry: true)),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
           ),
-        ],
-      ),
-    );
-    if (!Accounts.main.isLogin) {
-      return child;
-    }
+        ),
+      );
+      return canWrite ? _withEditorButton(context, theme, child) : child;
+    },
+  );
+
+  Widget _retryFooter(String message, Future<void> Function() retry) =>
+      SliverToBoxAdapter(
+        child: TextButton(
+          onPressed: retry,
+          child: Text('$message，点击重试'),
+        ),
+      );
+
+  Widget _withEditorButton(
+    BuildContext context,
+    ThemeData theme,
+    Widget child,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -166,51 +201,45 @@ class _NoteListPageState extends State<NoteListPage>
 
   Widget _buildBody(
     ThemeData theme,
-    LoadingState<List<VideoNoteItemModel>?> loadingState,
-  ) {
-    switch (loadingState) {
-      case Loading():
-        return const SliverPrototypeExtentList(
-          prototypeItem: VideoReplySkeleton(),
-          delegate: SliverSingleChildDelegate(
-            count: 8,
-            child: VideoReplySkeleton(),
-          ),
-        );
-      case Success(:final response):
-        if (response != null && response.isNotEmpty) {
-          final divider = Divider(
-            height: 1,
-            color: theme.colorScheme.outline.withValues(alpha: 0.1),
-          );
-          return SliverList.separated(
-            itemBuilder: (context, index) {
-              if (index == response.length - 1) {
-                _controller.onLoadMore();
-              }
-              return _itemWidget(theme, response[index]);
-            },
-            itemCount: response.length,
-            separatorBuilder: (context, index) => divider,
-          );
-        }
-        return HttpError(onReload: _controller.onReload);
-      case Error(:final errMsg):
-        return HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        );
+    List<VideoNote> items,
+    bool loading,
+    String? error,
+    Future<void> Function() refresh, {
+    required bool canContinue,
+  }) {
+    if (loading) {
+      return const SliverPrototypeExtentList(
+        prototypeItem: VideoReplySkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 8,
+          child: VideoReplySkeleton(),
+        ),
+      );
     }
+    if (items.isEmpty && !canContinue) {
+      return HttpError(errMsg: error, onReload: refresh);
+    }
+    final divider = Divider(
+      height: 1,
+      color: theme.colorScheme.outline.withValues(alpha: 0.1),
+    );
+    return SliverList.separated(
+      itemBuilder: (context, index) => _itemWidget(theme, items[index]),
+      itemCount: items.length,
+      separatorBuilder: (context, index) => divider,
+    );
   }
 
-  Widget _itemWidget(ThemeData theme, VideoNoteItemModel item) {
+  Widget _itemWidget(ThemeData theme, VideoNote item) {
+    final mid = item.authorId;
+    void openAuthor() => Get.toNamed('/member?mid=$mid');
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: () => Get.toNamed(
           '/articlePage',
           parameters: {
-            'id': item.cvid!.toString(),
+            'id': item.id.toString(),
             'type': 'read',
           },
         ),
@@ -220,11 +249,11 @@ class _NoteListPageState extends State<NoteListPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               GestureDetector(
-                onTap: () => Get.toNamed('/member?mid=${item.author!.mid}'),
+                onTap: mid == null ? null : openAuthor,
                 child: NetworkImgLayer(
                   height: 34,
                   width: 34,
-                  src: item.author!.face,
+                  src: item.authorAvatar,
                   type: ImageType.avatar,
                 ),
               ),
@@ -235,35 +264,32 @@ class _NoteListPageState extends State<NoteListPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
-                      onTap: () =>
-                          Get.toNamed('/member?mid=${item.author!.mid}'),
+                      onTap: mid == null ? null : openAuthor,
                       child: Row(
                         children: [
                           Text(
-                            item.author!.name!,
+                            item.authorName ?? '',
                             style: TextStyle(
-                              color:
-                                  item.author?.vipInfo?.status != null &&
-                                      item.author!.vipInfo!.status > 0 &&
-                                      item.author!.vipInfo!.type == 2
+                              color: item.vipAuthor
                                   ? theme.colorScheme.vipColor
                                   : theme.colorScheme.outline,
                               fontSize: 13,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          BiliUtils.levelPicture(
-                            item.author!.level!,
-                            isSeniorMember: item.author!.isSeniorMember == 1,
-                            height: 11,
-                          ),
+                          if (item.authorLevel case final level?)
+                            memberLevelPicture(
+                              level,
+                              isSeniorMember: item.seniorAuthor,
+                              height: 11,
+                            ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 4),
-                    if (item.pubtime != null)
+                    if (item.publishedAt case final publishedAt?)
                       Text(
-                        item.pubtime!,
+                        publishedAt,
                         style: TextStyle(
                           color: theme.colorScheme.outline,
                           fontSize: 12,

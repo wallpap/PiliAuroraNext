@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 

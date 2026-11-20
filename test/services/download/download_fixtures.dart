@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 
 BiliDownloadEntryInfo downloadEntry({
   int aid = 1,

@@ -6,20 +6,20 @@ import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.da
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_publishing.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamic_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:collection/collection.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 
 class RepostPanel extends CommonRichTextPubPage {
@@ -55,7 +55,13 @@ class RepostPanel extends CommonRichTextPubPage {
 class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     with SingleTickerProviderStateMixin {
   bool _expanded = false;
-  final _publishing = false.obs;
+  final _publishing = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _publishing.dispose();
+    super.dispose();
+  }
 
   late final String? _pic;
   late final String _text;
@@ -85,14 +91,6 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
         '';
 
     _uname = widget.uname ?? modules?.moduleAuthor?.name;
-  }
-
-  @override
-  void dispose() {
-    Get
-      ..delete<EmotePanelController>()
-      ..delete<DynMentionController>();
-    super.dispose();
   }
 
   @override
@@ -230,8 +228,9 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ),
   );
 
-  Widget _buildEditWidget() => Obx(
-    () => RichTextField(
+  Widget _buildEditWidget() => ValueListenableBuilder(
+    valueListenable: readOnly,
+    builder: (context, readOnly, _) => RichTextField(
       key: key,
       controller: editController,
       minLines: 4,
@@ -239,7 +238,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
       autofocus: false,
       focusNode: focusNode,
       onSubmitted: onSubmitted,
-      readOnly: readOnly.value,
+      readOnly: readOnly,
       decoration: InputDecoration(
         hintText: '说点什么吧',
         hintStyle: TextStyle(color: theme.colorScheme.outline),
@@ -253,8 +252,9 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     ),
   );
 
-  Widget _buildAppBar() => Obx(
-    () => !_expanded
+  Widget _buildAppBar() => ListenableBuilder(
+    listenable: _publishing,
+    builder: (context, _) => !_expanded
         ? Row(
             children: [
               const SizedBox(width: 16),
@@ -424,7 +424,8 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (!mounted || _publishing.value) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final item = widget.item;
     final dynIdStr = item?.idStr ?? widget.dynIdStr;
     final rid = widget.rid;
@@ -439,9 +440,13 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
         ? repostContent
         : [...draft, ...?repostContent];
     final images = pictureDraft;
+    final publishing = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(dynamicsPublishingProvider);
     bool isCurrent() =>
         mounted &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         identical(item, widget.item) &&
         rid == widget.rid &&
         dynIdStr == (widget.item?.idStr ?? widget.dynIdStr) &&
@@ -449,19 +454,20 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
     _publishing.value = true;
     feedBack();
     try {
-      pictures ??= await uploadPictures(account: account);
-      if (!isCurrent()) return;
-      final result = await DynamicsHttp.createDynamic(
-        account: account,
-        mid: account.mid,
-        dynIdStr: dynIdStr,
-        rid: rid,
-        dynType: dynType,
-        rawText: draft == null ? text : null,
-        pics: pictures,
-        extraContent: extraContent,
+      final result = await publishing.submit(
+        account,
+        DynamicDraft(
+          repostId: dynIdStr,
+          videoId: rid,
+          videoType: dynType,
+          rawText: draft == null ? text : null,
+          richText: extraContent,
+        ),
+        preparePictures: () async =>
+            pictures ?? await uploadPictures(account: account),
+        canSubmit: isCurrent,
       );
-      if (!isCurrent()) return;
+      if (!isCurrent() || result == null) return;
       if (result case Success(:final response)) {
         const equality = DeepCollectionEquality();
         hasPub =
@@ -483,12 +489,11 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
           );
         }
         if (response != null) {
-          unawaited(RequestUtils.insertCreatedDyn(response, account: account));
           unawaited(
-            RequestUtils.checkCreatedDyn(
+            checkPublishedDynamic(
               id: response,
               dynText: rawText,
-              account: account,
+              owner: identity,
             ),
           );
         }

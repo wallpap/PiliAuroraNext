@@ -1,0 +1,431 @@
+import 'dart:io' show File;
+
+import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
+import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/favorites/domain/folder_attributes.dart';
+import 'package:pili_aurora_next/core/io/file_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
+import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/route_manager.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
+
+class CreateFavPage extends ConsumerStatefulWidget {
+  const CreateFavPage({super.key});
+
+  @override
+  ConsumerState<CreateFavPage> createState() => _CreateFavPageState();
+}
+
+class _CreateFavPageState extends ConsumerState<CreateFavPage> {
+  final _owner = AccountScope.capture();
+  Account get _account => _owner.account;
+  bool _saving = false;
+  bool _uploading = false;
+  bool _loadingFolder = false;
+  int? _mediaId;
+  late final TextEditingController _titleController;
+  late final TextEditingController _introController;
+  String? _cover;
+  bool _isPublic = true;
+  late final _imagePicker = ImagePicker();
+  String? _errMsg;
+  int? _attr;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController();
+    _introController = TextEditingController();
+    _mediaId = int.tryParse(Get.parameters['mediaId'] ?? '');
+    if (_mediaId != null) {
+      _getFolderInfo();
+    }
+  }
+
+  void _getFolderInfo() {
+    setState(() {
+      _errMsg = null;
+      _loadingFolder = true;
+    });
+    ref
+        .read(favoriteLibraryProvider)
+        .folder(_account, _mediaId!)
+        .then<LoadingState<FavFolderInfo>>(
+          Success.new,
+          onError: (Object error, StackTrace stack) =>
+              error is Error ? error : Error.fromException(error, stack),
+        )
+        .then((res) {
+          if (!mounted) return;
+          _loadingFolder = false;
+          if (!_owner.isCurrent) {
+            setState(() => _errMsg = '账号已切换，请重新打开页面');
+            return;
+          }
+          if (res case Success(:final response)) {
+            _titleController.text = response.title;
+            _introController.text = response.intro ?? '';
+            _isPublic = FolderAttributes.isPublicFav(response.attr);
+            _cover = response.cover;
+            _attr = response.attr;
+          } else {
+            _errMsg = res.toString();
+          }
+          setState(() {});
+        });
+  }
+
+  Future<void> _saveFolder() async {
+    if (_saving || _uploading || _loadingFolder) return;
+    if (!_owner.isCurrent) {
+      SmartDialog.showToast('账号已切换，请重新打开页面');
+      return;
+    }
+    if (_titleController.text.isEmpty) {
+      SmartDialog.showToast('名称不能为空');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final res = await ref
+          .read(favoriteLibraryProvider)
+          .saveFolder(
+            _account,
+            id: _mediaId,
+            title: _titleController.text,
+            public: _isPublic,
+            cover: _cover ?? '',
+            intro: _introController.text,
+          );
+      if (!mounted ||
+          ModalRoute.of(context)?.isCurrent != true ||
+          !_owner.isCurrent) {
+        return;
+      }
+      if (res case Success(:final response)) {
+        SmartDialog.showToast('${_mediaId != null ? '编辑' : '创建'}成功');
+        Get.back(result: response);
+      } else {
+        res.toast();
+      }
+    } catch (error, stackTrace) {
+      logger.w('保存收藏夹未完成', error: error.runtimeType, stackTrace: stackTrace);
+      if (mounted && _owner.isCurrent) {
+        SmartDialog.showToast('操作结果待确认，请核对收藏夹后再操作');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _introController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SimpleScaffold(
+      appBar: AppBar(
+        title: Text(_mediaId != null ? '编辑' : '创建'),
+        actions: [
+          TextButton(
+            onPressed: _saving || _uploading || _loadingFolder
+                ? null
+                : _saveFolder,
+            child: const Text('完成'),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: _loadingFolder
+          ? m3eLoading
+          : _errMsg != null
+          ? scrollErrorWidget(errMsg: _errMsg, onReload: _getFolderInfo)
+          : _buildBody(theme),
+    );
+  }
+
+  Future<void> _pickImg(BuildContext context, ThemeData theme) async {
+    if (_saving || _uploading || !_owner.isCurrent) return;
+    String? temporaryPath;
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 100,
+        requestFullMetadata: false,
+      );
+      if (pickedFile != null && mounted) {
+        String imgPath = pickedFile.path;
+        if (PlatformUtils.isMobile) {
+          temporaryPath = imgPath;
+          final croppedFile = await ImageCropper.platform.cropImage(
+            sourcePath: imgPath,
+            uiSettings: [
+              AndroidUiSettings(
+                toolbarTitle: '裁剪',
+                toolbarColor: theme.colorScheme.secondaryContainer,
+                toolbarWidgetColor: theme.colorScheme.onSecondaryContainer,
+                statusBarLight: theme.isLight,
+                aspectRatioPresets: [CropAspectRatioPreset.ratio16x9],
+                lockAspectRatio: true,
+                hideBottomControls: true,
+                initAspectRatio: CropAspectRatioPreset.ratio16x9,
+              ),
+            ],
+          );
+          if (croppedFile == null) return;
+          await File(imgPath).tryDel();
+          temporaryPath = imgPath = croppedFile.path;
+        }
+        if (!mounted || !_owner.isCurrent) return;
+        setState(() => _uploading = true);
+        final location = await ref
+            .read(favoriteLibraryProvider)
+            .uploadCover(_account, imgPath);
+        if (!mounted || !_owner.isCurrent) return;
+        if (location.isEmpty) throw const FormatException('上传响应缺少封面地址');
+        setState(() => _cover = location);
+      }
+    } catch (error, stackTrace) {
+      logger.w('收藏夹封面更新失败', error: error.runtimeType, stackTrace: stackTrace);
+      if (mounted && _owner.isCurrent) {
+        SmartDialog.showToast('封面更新失败，请重试');
+      }
+    } finally {
+      if (temporaryPath != null) await File(temporaryPath).tryDel();
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  final leadingStyle = const TextStyle(fontSize: 14);
+
+  Widget _buildBody(ThemeData theme) => ViewInsetsSafeArea(
+    child: SingleChildScrollView(
+      padding: .only(bottom: MediaQuery.viewPaddingOf(context).bottom + 25),
+      child: Column(
+        spacing: 12,
+        children: [
+          if (_attr == null || !FolderAttributes.isDefaultFav(_attr!))
+            Builder(
+              builder: (context) {
+                return ListTile(
+                  visualDensity: .standard,
+                  tileColor: theme.colorScheme.onInverseSurface,
+                  onTap: () {
+                    ActionThrottle.run(
+                      'imagePicker',
+                      const Duration(milliseconds: 500),
+                      () {
+                        if (_cover?.isNotEmpty == true) {
+                          showDialog(
+                            context: context,
+                            builder: (_) => SimpleDialog(
+                              clipBehavior: Clip.hardEdge,
+                              contentPadding: const .symmetric(vertical: 12),
+                              children: [
+                                DialogOption(
+                                  onPressed: () {
+                                    Get.back();
+                                    _pickImg(context, theme);
+                                  },
+                                  child: const Text(
+                                    '替换封面',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                                DialogOption(
+                                  onPressed: () {
+                                    Get.back();
+                                    _cover = null;
+                                    (context as Element).markNeedsBuild();
+                                  },
+                                  child: const Text(
+                                    '移除封面',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else {
+                          _pickImg(context, theme);
+                        }
+                      },
+                    );
+                  },
+                  leading: Text(
+                    '封面',
+                    style: leadingStyle,
+                  ),
+                  trailing: Row(
+                    spacing: 10,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_cover?.isNotEmpty == true)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: NetworkImgLayer(
+                            src: _cover,
+                            height: 55,
+                            width: 88,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(6),
+                            ),
+                          ),
+                        ),
+                      Icon(
+                        Icons.keyboard_arrow_right,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ListTile(
+            tileColor: theme.colorScheme.onInverseSurface,
+            title: Row(
+              children: [
+                SizedBox(
+                  width: 55,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '*',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: '名称',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    autofocus: true,
+                    readOnly: _attr != null && FolderAttributes.isDefaultFav(_attr!),
+                    controller: _titleController,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _attr != null && FolderAttributes.isDefaultFav(_attr!)
+                          ? theme.colorScheme.outline
+                          : null,
+                    ),
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(20),
+                    ],
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '名称',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.outline,
+                      ),
+                      border: const OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        gapPadding: 0,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_attr == null || !FolderAttributes.isDefaultFav(_attr!))
+            ListTile(
+              tileColor: theme.colorScheme.onInverseSurface,
+              title: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 55,
+                    child: Text(
+                      '简介',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      minLines: 6,
+                      maxLines: 6,
+                      controller: _introController,
+                      style: const TextStyle(fontSize: 14),
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(200),
+                      ],
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: '可填写简介',
+                        hintStyle: TextStyle(
+                          fontSize: 14,
+                          color: theme.colorScheme.outline,
+                        ),
+                        border: const OutlineInputBorder(
+                          borderSide: BorderSide.none,
+                          gapPadding: 0,
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Builder(
+            builder: (context) {
+              void onTap() {
+                _isPublic = !_isPublic;
+                (context as Element).markNeedsBuild();
+              }
+
+              return ListTile(
+                onTap: onTap,
+                tileColor: theme.colorScheme.onInverseSurface,
+                leading: Text(
+                  '公开',
+                  style: leadingStyle,
+                ),
+                trailing: Transform.scale(
+                  alignment: Alignment.centerRight,
+                  scale: 0.8,
+                  child: Switch(
+                    value: _isPublic,
+                    onChanged: (value) => onTap(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}

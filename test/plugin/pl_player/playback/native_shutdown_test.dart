@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 
 import 'package:flutter_test/flutter_test.dart';

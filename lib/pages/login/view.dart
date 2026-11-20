@@ -5,16 +5,17 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/login/controller.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
-import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/widget_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -26,14 +27,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.createController = LoginPageController.new});
+
+  final LoginPageController Function() createController;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final LoginPageController _loginPageCtr = Get.put(LoginPageController());
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
+  late final LoginPageController _loginPageCtr;
   // 二维码生成时间
   bool showPassword = false;
   GlobalKey globalKey = GlobalKey();
@@ -47,6 +51,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    _loginPageCtr = widget.createController()..attach(this);
     _lastTabIndex = _loginPageCtr.tabController.index;
     _loginPageCtr.tabController.addListener(_onQrTabChanged);
     routeObserver.addNavigationListener(_onNavigation);
@@ -66,9 +71,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void dispose() {
     routeObserver.removeNavigationListener(_onNavigation);
-    if (!_loginPageCtr.isClosed) {
-      _loginPageCtr.tabController.removeListener(_onQrTabChanged);
-    }
+    _loginPageCtr.tabController.removeListener(_onQrTabChanged);
+    _loginPageCtr.dispose();
     super.dispose();
   }
 
@@ -201,7 +205,6 @@ class _LoginPageState extends State<LoginPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _pageRoute = ModalRoute.of(context);
-    _loginPageCtr.didChangeDependencies(context);
   }
 
   Widget loginByQRCode(ThemeData theme) {
@@ -210,9 +213,10 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 20),
         const Text('使用 bilibili 官方 App 扫码登录'),
         const SizedBox(height: 20),
-        Obx(
-          () => Text(
-            '剩余有效时间: ${_loginPageCtr.qrCodeLeftTime} 秒',
+        ValueListenableBuilder(
+          valueListenable: _loginPageCtr.qrCodeLeftTime,
+          builder: (_, seconds, _) => Text(
+            '剩余有效时间: $seconds 秒',
             style: TextStyle(
               fontFeatures: const [FontFeature.tabularFigures()],
               color: theme.colorScheme.primaryFixedDim,
@@ -243,8 +247,9 @@ class _LoginPageState extends State<LoginPage> {
         ),
         RepaintBoundary(
           key: globalKey,
-          child: Obx(
-            () => switch (_loginPageCtr.codeInfo.value) {
+          child: ValueListenableBuilder(
+            valueListenable: _loginPageCtr.codeInfo,
+            builder: (_, state, _) => switch (state) {
               Loading() => const SizedBox(
                 height: 200,
                 width: 200,
@@ -273,17 +278,19 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         const SizedBox(height: 10),
-        Obx(
-          () => Text(
-            _loginPageCtr.statusQRCode.value,
+        ValueListenableBuilder(
+          valueListenable: _loginPageCtr.statusQRCode,
+          builder: (_, status, _) => Text(
+            status,
             style: TextStyle(color: theme.colorScheme.secondaryFixedDim),
           ),
         ),
-        Obx(
-          () {
-            final url = _loginPageCtr.codeInfo.value.dataOrNull?.url ?? '';
+        ValueListenableBuilder(
+          valueListenable: _loginPageCtr.codeInfo,
+          builder: (_, state, _) {
+            final url = state.dataOrNull?.url ?? '';
             return GestureDetector(
-              onTap: () => Utils.copyText(
+              onTap: () => copyText(
                 url,
                 toastText: '已复制到剪贴板，可粘贴至已登录的app私信处发送，然后点击已发送的链接打开',
               ),
@@ -613,17 +620,21 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-                Obx(
-                  () => TextButton.icon(
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    _loginPageCtr.smsSendCooldown,
+                    _loginPageCtr.smsSending,
+                  ]),
+                  builder: (_, _) => TextButton.icon(
                     onPressed:
-                        _loginPageCtr.smsSendCooldown > 0 ||
+                        _loginPageCtr.smsSendCooldown.value > 0 ||
                             _loginPageCtr.smsSending.value
                         ? null
                         : _loginPageCtr.sendSmsCode,
                     icon: const Icon(Icons.send),
                     label: Text(
-                      _loginPageCtr.smsSendCooldown > 0
-                          ? '等待${_loginPageCtr.smsSendCooldown}秒'
+                      _loginPageCtr.smsSendCooldown.value > 0
+                          ? '等待${_loginPageCtr.smsSendCooldown.value}秒'
                           : '获取验证码',
                     ),
                   ),

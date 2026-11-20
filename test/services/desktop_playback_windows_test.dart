@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 class _Process implements Process {
   final exited = Completer<int>();
@@ -51,7 +51,8 @@ class _PlayerPeer {
     final socket = await WebSocket.connect(
       'ws://127.0.0.1:${environment['PILIAURORANEXT_WINDOW_PORT']}',
       headers: {
-        HttpHeaders.authorizationHeader: environment['PILIAURORANEXT_WINDOW_TOKEN'],
+        HttpHeaders.authorizationHeader:
+            environment['PILIAURORANEXT_WINDOW_TOKEN'],
       },
     );
     final initialization = Completer<Map<String, dynamic>>();
@@ -281,6 +282,17 @@ void main() {
     ]);
     expect(ids.toSet(), {'0', '1'});
     await windows.closeAll();
+  });
+
+  test('退出释放被诊断维护暂停的启动请求', () async {
+    final windows = DesktopPlaybackWindows(
+      startProcess: (_) async => fail('退出期间启动了新进程'),
+    );
+    await windows.pauseWindowDiagnostics();
+    final opening = windows.open(const DesktopPlaybackRequest.live(1));
+    final rejected = expectLater(opening, throwsStateError);
+    await windows.closeAll();
+    await rejected;
   });
 
   test('声音归属：旧小窗退出不覆盖新目标，当前声音窗口退出才恢复主声', () async {

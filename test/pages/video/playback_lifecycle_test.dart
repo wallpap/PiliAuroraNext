@@ -4,24 +4,33 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/playback/application/video_playlist.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
+import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
+import 'package:pili_aurora_next/features/playback/domain/play_info/subtitle.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
+import 'package:pili_aurora_next/pages/video/introduction/local/view.dart';
+import 'package:pili_aurora_next/pages/video/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+
+import '../../services/download/download_fixtures.dart';
+import '../../support/memory_box.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,10 +40,10 @@ void main() {
     directory = await Directory.systemTemp.createTemp(
       'pili-playback-lifecycle-',
     );
-    Hive.init(directory.path);
-    GStorage.setting = await Hive.openBox('setting');
-    GStorage.video = await Hive.openBox('video');
-    GStorage.localCache = await Hive.openBox('cache');
+    GStorage.setting = MemoryBox();
+    GStorage.video = MemoryBox();
+    GStorage.localCache = MemoryBox();
+    GStorage.watchProgress = MemoryBox<int>();
     await GStorage.setting.put(SettingBoxKey.autoPlayEnable, true);
     await GStorage.localCache.put(
       LocalCacheKey.timeStamp,
@@ -48,7 +57,6 @@ void main() {
   });
   tearDownAll(() async {
     Request.dio.close(force: true);
-    await Hive.close();
     await directory.delete(recursive: true);
   });
 
@@ -56,10 +64,177 @@ void main() {
     ..args = <String, Object>{}
     ..bvid = 'BV-test'
     ..aid = 1
-    ..cid = 1.obs
+    ..cid.value = 1
     ..videoType = VideoType.ugc
     ..isFileSource = false
-    ..isVertical = false.obs;
+    ..isVertical.value = false;
+
+  testWidgets('同一转场标识的点播路由独立持有播放与窗口交接', (tester) async {
+    await GStorage.setting.put(SettingBoxKey.autoPlayEnable, false);
+    await GStorage.watchProgress.putAll({'11': 12000, '12': 59800});
+    ThemeUtils.getAllTheme();
+    addTearDown(() async {
+      Get.reset();
+      await GStorage.setting.put(SettingBoxKey.autoPlayEnable, true);
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        child: GetMaterialApp(
+          navigatorObservers: [routeObserver],
+          home: const Scaffold(),
+          getPages: [
+            GetPage(name: '/videoV', page: () => const VideoDetailPageV()),
+          ],
+        ),
+      ),
+    );
+    Future<VideoDetailController> open(int cid) async {
+      final entry = downloadEntry(cid: cid, completed: true)
+        ..entryDirPath = directory.path;
+      unawaited(
+        Get.toNamed<void>(
+          '/videoV',
+          preventDuplicates: false,
+          arguments: {
+            'heroTag': 'same-hero',
+            'videoType': VideoType.ugc,
+            'sourceType': SourceType.file,
+            'entry': entry,
+            'aid': entry.avid,
+            'cid': cid,
+            'bvid': entry.bvid,
+            'title': '离线视频 $cid',
+          },
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+      return tester
+          .widget<LocalIntroPanel>(find.byType(LocalIntroPanel))
+          .controller
+          .videoDetailCtr;
+    }
+
+    final first = await open(11);
+    final second = await open(12);
+    expect(second, isNot(same(first)));
+    expect(first.cid.value, 11);
+    expect(second.cid.value, 12);
+    expect(first.defaultST, const Duration(seconds: 12));
+    expect(second.defaultST, Duration.zero);
+    expect(second.playbackOwner.isActive, isTrue);
+    int? windowCid() =>
+        (first.plPlayerController.desktopPlaybackRequest?.call().arguments
+            as Map?)?['cid'];
+    expect(windowCid(), 12);
+
+    Get.back<void>();
+    await tester.pumpAndSettle();
+    expect(second.isClosed, isTrue);
+    expect(first.playbackOwner.isActive, isTrue);
+    expect(windowCid(), 11);
+    Get.back<void>();
+    await tester.pumpAndSettle();
+    expect(first.isClosed, isTrue);
+    expect(windowCid(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('点播与直播弹幕开关分别保存，临时设置不落盘', () async {
+    final controller = page();
+    final player = controller.plPlayerController;
+    final video = player.enableShowDanmaku.value;
+    final live = player.enableShowLiveDanmaku.value;
+    try {
+      await player.toggleDanmakuVisibility(live: false);
+      expect(player.enableShowDanmaku.value, !video);
+      expect(player.enableShowLiveDanmaku.value, live);
+      expect(GStorage.setting.get(SettingBoxKey.enableShowDanmaku), !video);
+
+      await player.toggleDanmakuVisibility(live: true);
+      expect(player.enableShowLiveDanmaku.value, !live);
+      expect(GStorage.setting.get(SettingBoxKey.enableShowLiveDanmaku), !live);
+
+      await GStorage.setting.put(SettingBoxKey.tempPlayerConf, true);
+      await player.toggleDanmakuVisibility(live: true);
+      expect(player.enableShowLiveDanmaku.value, live);
+      expect(GStorage.setting.get(SettingBoxKey.enableShowLiveDanmaku), !live);
+    } finally {
+      player.enableShowDanmaku.value = video;
+      player.enableShowLiveDanmaku.value = live;
+      await GStorage.setting.delete(SettingBoxKey.enableShowDanmaku);
+      await GStorage.setting.delete(SettingBoxKey.enableShowLiveDanmaku);
+      await GStorage.setting.delete(SettingBoxKey.tempPlayerConf);
+      controller.closePlayback();
+    }
+  });
+
+  test('切序与换号使在途分页失效，同向分页不重复请求', () async {
+    LoginAccount account(String csrf) => LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '42', 'bili_jct': csrf}),
+      null,
+      null,
+    );
+    final previous = Accounts.main;
+    final original = account('original');
+    Accounts.accountMode[AccountType.main.index] = original;
+    addTearDown(() => Accounts.accountMode[AccountType.main.index] = previous);
+    final playlist = VideoPlaylist(
+      source: SourceType.watchLater,
+      id: 1,
+      type: 2,
+      descending: false,
+      continueFromAnchor: true,
+      anchor: 99,
+    );
+    addTearDown(playlist.close);
+    Map<String, Object?> items(List<int> ids) => {
+      'media_list': [
+        for (final id in ids)
+          {
+            'id': id,
+            'type': 2,
+            'pages': [
+              {'id': id},
+            ],
+          },
+      ],
+    };
+    final initial = playlist.load();
+    final first = await adapter.next();
+    expect(first.options.queryParameters['oid'], 99);
+    expect(first.options.queryParameters['with_current'], isTrue);
+    expect(first.options.extra['account'], same(original));
+    first.complete(items([99, 100]));
+    await initial;
+
+    final append = playlist.load();
+    final old = await adapter.next();
+    expect(old.options.queryParameters['oid'], 100);
+    expect(await playlist.load(), isNull);
+    final reverse = playlist.load(reverse: true);
+    final newest = await adapter.next();
+    expect(newest.options.queryParameters['desc'], isTrue);
+    expect(newest.options.queryParameters['oid'], isNull);
+    expect(newest.options.queryParameters['with_current'], isFalse);
+    newest.complete(items([105, 104]));
+    expect((await reverse)?.dataOrNull?.aid, 105);
+
+    old.complete(items([101, 102]));
+    expect(await append, isNull);
+    expect(playlist.items.value.map((item) => item.aid), [105, 104]);
+
+    final tail = playlist.load();
+    (await adapter.next()).complete(items([104, 103]));
+    await tail;
+    expect(playlist.items.value.map((item) => item.aid), [105, 104, 103]);
+    final pending = playlist.load();
+    final inFlight = await adapter.next();
+    Accounts.replaceCredentials(account('replacement'));
+    inFlight.complete(items([102]));
+    expect(await pending, isNull);
+    expect(playlist.items.value, isEmpty);
+  });
 
   test('快速切集执行新请求，旧响应不能初始化新集', () async {
     final controller = page();
@@ -116,12 +291,14 @@ void main() {
     expect(next.mediaOptions['demuxer-max-bytes'], '${32 * 1024 * 1024}');
     expect(first.mediaOptions['video-sync'], 'display-resample');
     controller.closePlayback();
-    await GStorage.setting.deleteAll([
+    for (final key in [
       SettingBoxKey.videoSync,
       SettingBoxKey.autosync,
       SettingBoxKey.bufferSec,
       SettingBoxKey.bufferSize,
-    ]);
+    ]) {
+      await GStorage.setting.delete(key);
+    }
   });
 
   test('缓存策略只影响下一次点播配置，直播保留独立预算', () async {
@@ -144,6 +321,46 @@ void main() {
     await GStorage.setting.delete(SettingBoxKey.videoBufferPolicy);
   });
 
+  test('首包满足起播画质，补档不阻塞且只更新菜单', () async {
+    final controller = page();
+    final query = controller.queryVideoUrl();
+    (await adapter.next()).complete(media(1, supplement: true));
+    final supplement = await adapter.next();
+    expect(controller.loads.map((entry) => entry.cid), [1]);
+    await query;
+    final sourceData = controller.data;
+    final updated = Completer<Set<int>>();
+    final qualities = controller.availableVideoQualities;
+    void onQualityChanged() {
+      if (!qualities.value.contains(64)) return;
+      qualities.removeListener(onQualityChanged);
+      updated.complete(qualities.value);
+    }
+
+    qualities.addListener(onQualityChanged);
+    supplement.complete(media(1, quality: 64));
+    expect(await updated.future.timeout(const Duration(seconds: 2)), {80, 64});
+    expect(controller.data, same(sourceData));
+    expect(sourceData.dash!.video!.availableVideoQualities, {80, 64});
+    expect(controller.currentVideoQa.value?.code, 80);
+    expect(controller.loads, hasLength(1));
+    controller.closePlayback();
+  });
+
+  test('缺少起播画质时等待补档，补档失败仍选择实际存在的轨道', () async {
+    final controller = page();
+    controller.plPlayerController.cacheVideoQa = 64;
+    final query = controller.queryVideoUrl();
+    (await adapter.next()).complete(media(1, supplement: true));
+    final supplement = await adapter.next();
+    expect(controller.loads, isEmpty);
+    supplement.complete({'code': -1, 'message': '补档失败'}, raw: true);
+    await query;
+    expect(controller.currentVideoQa.value?.code, 80);
+    expect(controller.loads, hasLength(1));
+    controller.closePlayback();
+  });
+
   test('补充画质请求也绑定原媒体，迟到补充不能污染当前数据', () async {
     final controller = page();
     final old = controller.queryVideoUrl();
@@ -158,7 +375,7 @@ void main() {
     supplement.complete(media(1, quality: 64));
     await old;
     expect(controller.data.dash!.video!.map((e) => e.id), [80]);
-    expect(controller.loads.map((e) => e.cid), [2]);
+    expect(controller.loads.map((e) => e.cid), [1, 2]);
     controller.closePlayback();
   });
 
@@ -194,19 +411,49 @@ void main() {
   });
 
   test('字幕响应迟到且列表已切集清空时，不缓存或应用旧字幕', () async {
-    final controller = page();
-    controller.subtitles.add(
-      Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
-    );
+    final controller = page()
+      ..currentSubtitleTracks = [
+        Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
+      ];
     final loading = controller.setSubtitle(1);
     final request = await adapter.next();
     controller.cid.value = 2;
-    controller.subtitles.clear();
+    controller.currentSubtitleTracks = const [];
     request.complete({'body': []}, raw: true);
     await loading;
     expect(controller.vttSubtitles, isEmpty);
     expect(controller.vttSubtitlesIndex.value, -1);
     controller.closePlayback();
+  });
+
+  test('互动视频先返回新节点，迟到的旧节点不覆盖可选分支', () async {
+    final controller = page()..graphVersion = 1;
+    addTearDown(controller.closePlayback);
+
+    final old = controller.getSteinEdgeInfo(1);
+    final oldRequest = await adapter.next();
+    final current = controller.getSteinEdgeInfo(2);
+    final currentRequest = await adapter.next();
+    Map<String, Object?> branch(int edge) => {
+      'edges': {
+        'questions': [
+          {
+            'choices': [
+              {'id': edge, 'cid': edge, 'option': '分支 $edge'},
+            ],
+          },
+        ],
+      },
+    };
+    currentRequest.complete(branch(2));
+    await current;
+    oldRequest.complete(branch(1));
+    await old;
+
+    expect(
+      controller.steinEdgeInfo?.edges?.questions?.single.choices?.single.id,
+      2,
+    );
   });
 
   test('本地文件暂停且关闭预加载时，手动重试仍执行页面加载', () async {
@@ -274,10 +521,10 @@ void main() {
   });
 
   test('字幕加载期间选择关闭，以最新选择为准', () async {
-    final controller = page();
-    controller.subtitles.add(
-      Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
-    );
+    final controller = page()
+      ..currentSubtitleTracks = [
+        Subtitle(lan: 'zh-CN', subtitleUrl: '//example.com/subtitle'),
+      ];
     final loading = controller.setSubtitle(1);
     final request = await adapter.next();
     await controller.setSubtitle(0);
@@ -533,6 +780,9 @@ class _VideoController extends VideoDetailController {
     plPlayerController.cacheVideoQa = 80;
   }
   bool closed = false;
+  List<Subtitle>? currentSubtitleTracks;
+  @override
+  List<Subtitle> get subtitles => currentSubtitleTracks ?? super.subtitles;
   int _queryGeneration = 0;
   int _routeLoadGeneration = 0;
   void Function()? _cancelQuery;

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/models/search/search_esports.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
+import 'package:pili_aurora_next/features/search/domain/search_esports.dart';
 import 'package:pili_aurora_next/pages/search_panel/all/widgets/esports.dart';
 
 void main() {

@@ -4,9 +4,9 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart' show UniqueKey;
 import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
 
 /// 页面持有操作；系统仅接收创建请求，最终添加由启动器与用户确认。
 class MemberShortcutAction {

@@ -14,12 +14,12 @@ import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
+import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:path/path.dart' as path;
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/audio_recovery.dart';
@@ -30,8 +30,8 @@ import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1024,6 +1024,23 @@ void main() {
     expect(f.controller.position.value, 42);
     expect(f.controller.positionInMilliseconds, 42000);
     expect(f.controller.playerStatus, PlayerStatus.paused);
+  });
+
+  _recoveryTest('时长确认不足一秒时也能完成等待中的跳转', (f) async {
+    await f.load(start: PlaybackStartPolicy.pause);
+    f.runtime.onSeek = (target) async {
+      f.runtime.player.state.position = target;
+      return const PlaybackRuntimeCommandResult();
+    };
+    await f.tester.runAsync(() async {
+      f.controller.updateDuration(Duration.zero);
+      final seek = f.controller.seekTo(const Duration(milliseconds: 400));
+      expect(f.controller.positionInMilliseconds, 10000);
+      f.controller.updateDuration(const Duration(milliseconds: 800));
+      await seek.timeout(const Duration(seconds: 1));
+    });
+    expect(f.controller.durationInMilliseconds, 800);
+    expect(f.controller.positionInMilliseconds, 400);
   });
 
   _recoveryTest('片尾连续跳转时旧结果不覆盖最新进度', (f) async {

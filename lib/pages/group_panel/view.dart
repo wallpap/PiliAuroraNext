@@ -3,10 +3,10 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
-import 'package:pili_aurora_next/pages/follow/controller.dart';
+import 'package:pili_aurora_next/features/following/application/following.dart';
 import 'package:pili_aurora_next/pages/follow/widgets/tag_dialog.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class GroupPanel extends ConsumerStatefulWidget {
   const GroupPanel({

@@ -1,5 +1,4 @@
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pbenum.dart'
-    show PlaylistSource;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/pages/audio/view.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
@@ -7,12 +6,12 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space_audio/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_audio/item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/pages/common/member_feed.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 import 'package:pili_aurora_next/pages/common/member_feed_view.dart';
 import 'package:pili_aurora_next/pages/member_audio/widgets/item.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MemberAudio extends ConsumerStatefulWidget {
@@ -96,7 +95,7 @@ class _MemberAudioState extends ConsumerState<MemberAudio>
                                   itemType: 3,
                                   id: item.uid!,
                                   oid: item.id!,
-                                  from: PlaylistSource.MEM_SPACE,
+                                  from: AudioPlaylistSource.memberSpace,
                                 );
                               },
                               icon: Icon(

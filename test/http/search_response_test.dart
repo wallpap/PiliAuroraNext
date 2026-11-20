@@ -5,14 +5,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/search/application/search_verification_failure.dart';
 import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 

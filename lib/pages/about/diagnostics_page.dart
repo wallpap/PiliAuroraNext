@@ -7,7 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_select_field.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:share_plus/share_plus.dart';
 
 Future<void> showDiagnosticLogLevelDialog(

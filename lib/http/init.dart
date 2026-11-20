@@ -3,24 +3,23 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:pili_aurora_next/services/diagnostics/http_diagnostics.dart';
-import 'package:pili_aurora_next/services/download/response_adapter.dart';
+import 'package:pili_aurora_next/features/download/data/response_adapter.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/http/request_failure_feedback.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
 import 'package:pili_aurora_next/http/response_decoder.dart';
 import 'package:pili_aurora_next/http/response_transformer.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
@@ -30,17 +29,35 @@ class Request {
   static final Request _instance = Request._internal();
   static late AccountManager accountManager;
   static final _enableHttp2 = Pref.enableHttp2;
-  static late final Dio dio;
+  static Dio? _dio;
+  static Dio get dio => _dio!;
   static Dio? _http11Dio;
+  static HttpClientAdapter? _http2Fallback;
 
   /// 返回 HTTP/1.1 客户端，HTTP/2 开启时复用其 fallback adapter。
   static Dio get http11Dio =>
       _http11Dio ??= _enableHttp2 ? _cloneHttp11Dio() : dio;
   factory Request() => _instance;
 
+  static void close() {
+    final client = _dio;
+    if (client == null) return;
+    try {
+      client.close(force: true);
+    } finally {
+      if (_http2Fallback case final fallback?) {
+        if (_http11Dio case final http11?) {
+          http11.close(force: true);
+        } else {
+          fallback.close(force: true);
+        }
+      }
+    }
+  }
+
   /// 设置cookie
   static void setCookie({bool syncWebView = true}) {
-    accountManager = AccountManager();
+    accountManager = AccountManager(onFailure: showRequestFailure);
     dio.interceptors.add(accountManager);
     unawaited(
       Accounts.refresh().catchError((Object error, StackTrace stackTrace) {
@@ -49,7 +66,7 @@ class Request {
     );
     if (syncWebView) {
       unawaited(
-        LoginUtils.setWebCookie().catchError((
+        WebAccountCookies.sync().catchError((
           Object error,
           StackTrace stackTrace,
         ) {
@@ -62,32 +79,6 @@ class Request {
         }),
       );
     }
-
-    if (Accounts.main.isLogin) {
-      final coin = Pref.userInfoCache?.money;
-      if (coin == null) {
-        unawaited(
-          setCoin().catchError((Object error, StackTrace stackTrace) {
-            logger.w(
-              '启动余额同步失败',
-              error: error.runtimeType,
-              stackTrace: stackTrace,
-            );
-          }),
-        );
-      } else {
-        GlobalData().coins = coin;
-      }
-    }
-  }
-
-  static Future<void> setCoin() async {
-    final account = Accounts.main;
-    final res = await UserHttp.getCoin(account: account);
-    if (!identical(account, Accounts.main)) return;
-    if (res case Success(:final response)) {
-      GlobalData().coins = response;
-    }
   }
 
   static Future<void> buvidActive(Account account) async {
@@ -96,7 +87,7 @@ class Request {
     account.activated = true;
     try {
       final String randPngEnd = base64.encode([
-        ...Iterable<int>.generate(32, (_) => Utils.random.nextInt(256)),
+        ...Iterable<int>.generate(32, (_) => sharedRandom.nextInt(256)),
         0,
         0,
         0,
@@ -105,7 +96,7 @@ class Request {
         69,
         78,
         68,
-        ...Iterable<int>.generate(4, (_) => Utils.random.nextInt(256)),
+        ...Iterable<int>.generate(4, (_) => sharedRandom.nextInt(256)),
       ]);
 
       final jsonData = json.encode({
@@ -215,7 +206,8 @@ class Request {
 
     final (h11, connectionManager) = _createPool();
 
-    dio = Dio(options)
+    _http2Fallback = _enableHttp2 ? h11 : null;
+    _dio = Dio(options)
       ..httpClientAdapter = _enableHttp2
           ? Http2Adapter(connectionManager, fallbackAdapter: h11)
           : h11;
@@ -326,7 +318,7 @@ class Request {
         cancelToken: cancelToken,
       );
     } on DioException catch (e) {
-      AccountManager.toast(e);
+      showRequestFailure(e);
       return _failureResponse(e);
     }
   }

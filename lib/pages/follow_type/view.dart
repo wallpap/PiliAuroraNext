@@ -12,17 +12,17 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as loading;
 import 'package:pili_aurora_next/pages/follow/widgets/follow_item.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/widgets/item.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/parse_int.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/parsing/parse_int.dart';
 
 class FollowTypePage extends ConsumerStatefulWidget {
   const FollowTypePage({

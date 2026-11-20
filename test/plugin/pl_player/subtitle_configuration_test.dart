@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/memory_box.dart';
 

@@ -1,38 +1,48 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/match/match_info/contest.dart';
-import 'package:pili_aurora_next/models/remote/match/match_info/team.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/match/match_info/contest.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/match/match_info/team.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
-import 'package:pili_aurora_next/pages/match_info/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/match_detail.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/widget_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MatchInfoPage extends StatefulWidget {
+class MatchInfoPage extends ConsumerStatefulWidget {
   const MatchInfoPage({super.key});
 
   @override
-  State<MatchInfoPage> createState() => _MatchInfoPageState();
+  ConsumerState<MatchInfoPage> createState() => _MatchInfoPageState();
 }
 
 class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
   @override
-  final MatchInfoController controller = Get.putOrFind(
-    MatchInfoController.new,
-    tag: Get.parameters['cid'] ?? '',
-  );
+  late final MatchInfoController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = MatchInfoController(
+      oid: int.tryParse(Get.parameters['cid'] ?? '') ?? 0,
+    )..open();
+  }
+
+  @override
+  void dispose() {
+    controller.close();
+    super.dispose();
+  }
 
   @override
   dynamic get arguments => null;
@@ -48,14 +58,19 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
         appBar: AppBar(title: const Text('比赛详情')),
         body: ViewSafeArea(
           child: refreshIndicator(
-            onRefresh: controller.onRefresh,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                Obx(() => _buildInfo(controller.infoState.value)),
-                buildReplyHeader(),
-                Obx(() => replyList(controller.loadingState.value)),
-              ],
+            onRefresh: refreshDetailsAndComments,
+            child: commentPagination(
+              CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  ValueListenableBuilder(
+                    valueListenable: controller.infoState,
+                    builder: (context, value, _) => _buildInfo(value),
+                  ),
+                  buildReplyHeader(),
+                  replyList(),
+                ],
+              ),
             ),
           ),
         ).constraintWidth(),
@@ -209,7 +224,7 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
   }
 
   @override
-  void replyReply(BuildContext context, ReplyInfo replyItem, int? id) {
+  void replyReply(BuildContext context, CommentReply replyItem, int? id) {
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
@@ -232,7 +247,7 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
               isVideoDetail: false,
               replyType: controller.replyType,
               firstFloor: replyItem,
-              onUpdate: controller.loadingState.refresh,
+              onUpdate: commentUpdate(),
             ),
           ).constraintWidth(),
         ),

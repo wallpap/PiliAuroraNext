@@ -8,11 +8,11 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/whisper_secondary/view.dart';
 import 'package:pili_aurora_next/services/messaging/session_models.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -105,13 +105,14 @@ class WhisperSessionItem extends StatelessWidget {
                 child: Text('${item.isMuted ? '关闭' : '开启'}免打扰'),
               ),
               DialogOption(
-                onPressed: () {
+                onPressed: () async {
                   Get.back();
-                  showConfirmDialog(
+                  final confirmed = await showConfirmDialog(
                     context: context,
                     title: const Text('确定删除该对话？'),
-                    onConfirm: () => onRemove(item.key),
                   );
+                  if (!confirmed || !context.mounted) return;
+                  onRemove(item.key);
                 },
                 child: const Text('删除'),
               ),
@@ -144,11 +145,14 @@ class WhisperSessionItem extends StatelessWidget {
                   const PopupMenuDivider(height: 10),
                   AppPopupMenuItem(
                     height: 42,
-                    onTap: () => showConfirmDialog(
-                      context: context,
-                      title: const Text('确定删除该对话？'),
-                      onConfirm: () => onRemove(item.key),
-                    ),
+                    onTap: () async {
+                      final confirmed = await showConfirmDialog(
+                        context: context,
+                        title: const Text('确定删除该对话？'),
+                      );
+                      if (!confirmed || !context.mounted) return;
+                      onRemove(item.key);
+                    },
                     child: Text(
                       '删除',
                       style: TextStyle(color: theme.colorScheme.error),

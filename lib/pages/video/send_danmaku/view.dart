@@ -4,26 +4,24 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/http/danmaku.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
+import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:canvas_danmaku/models/danmaku_content_item.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SendDanmakuPanel extends CommonTextPubPage {
   // video
-  final dynamic cid;
-  final dynamic bvid;
-  final dynamic progress;
+  final int cid;
+  final String bvid;
+  final int progress;
 
   final ValueChanged<DanmakuContentItem<DanmakuExtra>> onSuccess;
 
@@ -35,9 +33,9 @@ class SendDanmakuPanel extends CommonTextPubPage {
     super.key,
     super.initialValue,
     super.onSave,
-    this.cid,
-    this.bvid,
-    this.progress,
+    required this.cid,
+    required this.bvid,
+    required this.progress,
     required this.onSuccess,
     this.dmConfig,
     this.onSaveDmConfig,
@@ -48,10 +46,11 @@ class SendDanmakuPanel extends CommonTextPubPage {
 }
 
 class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
-  late final RxInt _mode;
-  late final RxInt _fontSize;
-  late final Rx<Color> _color;
-  final _sending = false.obs;
+  late final ValueNotifier<int> _mode;
+  late final ValueNotifier<int> _fontSize;
+  late final ValueNotifier<Color> _color;
+  final _sending = ValueNotifier(false);
+  late final _sendButton = Listenable.merge([enablePublish, _sending]);
 
   final List<Color> _colorList = [
     Colors.white,
@@ -73,10 +72,10 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   @override
   void initState() {
     super.initState();
-    _mode = (widget.dmConfig?.mode ?? 1).obs;
-    _fontSize = (widget.dmConfig?.fontSize ?? 25).obs;
-    _color = (widget.dmConfig?.color ?? Colors.white).obs;
-    if (Pref.userInfoCache?.vipStatus == 1) {
+    _mode = ValueNotifier(widget.dmConfig?.mode ?? 1);
+    _fontSize = ValueNotifier(widget.dmConfig?.fontSize ?? 25);
+    _color = ValueNotifier(widget.dmConfig?.color ?? Colors.white);
+    if (AccountProfile.legacy.currentInfo?.vipStatus == 1) {
       _colorList.add(Colors.transparent);
     }
   }
@@ -88,13 +87,18 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
       fontSize: _fontSize.value,
       color: _color.value,
     ));
+    _mode.dispose();
+    _fontSize.dispose();
+    _color.dispose();
+    _sending.dispose();
     super.dispose();
   }
 
   Widget get _buildColorPanel => Expanded(
-    child: Obx(
-      () {
-        final bool isCustomColor = !_colorList.contains(_color.value);
+    child: ValueListenableBuilder(
+      valueListenable: _color,
+      builder: (context, color, _) {
+        final bool isCustomColor = !_colorList.contains(color);
         final int length = _colorList.length + (isCustomColor ? 1 : 0) + 1;
         return GridView.builder(
           shrinkWrap: true,
@@ -127,7 +131,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
                 ),
               );
             } else if (index == length - 2 && isCustomColor) {
-              return _buildColorItem(_color.value);
+              return _buildColorItem(color);
             }
             return _buildColorItem(_colorList[index]);
           },
@@ -279,8 +283,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   }
 
   Widget _buildPositionItem(int mode, String title) {
-    return Obx(
-      () => Expanded(
+    return ListenableBuilder(
+      listenable: _mode,
+      builder: (context, _) => Expanded(
         child: GestureDetector(
           onTap: () => _mode.value = mode,
           child: Container(
@@ -307,8 +312,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   }
 
   Widget _buildFontSizeItem(int fontSize, String title) {
-    return Obx(
-      () => Expanded(
+    return ListenableBuilder(
+      listenable: _fontSize,
+      builder: (context, _) => Expanded(
         child: GestureDetector(
           onTap: () => _fontSize.value = fontSize,
           child: Container(
@@ -339,9 +345,10 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
       padding: const EdgeInsets.only(left: 8, top: 2, right: 8),
       child: Row(
         children: [
-          Obx(
-            () {
-              final isEmoji = panelType.value == PanelType.emoji;
+          ValueListenableBuilder(
+            valueListenable: panelType,
+            builder: (context, panel, _) {
+              final isEmoji = panel == PanelType.emoji;
               return iconButton(
                 tooltip: '弹幕样式',
                 iconSize: 24,
@@ -355,11 +362,12 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Obx(
-              () => TextField(
+            child: ValueListenableBuilder(
+              valueListenable: readOnly,
+              builder: (context, readOnly, _) => TextField(
                 controller: editController,
                 autofocus: false,
-                readOnly: readOnly.value,
+                readOnly: readOnly,
                 inputFormatters: [
                   LengthLimitingTextInputFormatter(100),
                 ],
@@ -379,8 +387,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               ),
             ),
           ),
-          Obx(
-            () => enablePublish.value
+          ValueListenableBuilder(
+            valueListenable: enablePublish,
+            builder: (context, enabled, _) => enabled
                 ? iconButton(
                     iconSize: 22,
                     iconColor: theme.colorScheme.onSurfaceVariant,
@@ -393,8 +402,9 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
                 : const SizedBox.shrink(),
           ),
           const SizedBox(width: 12),
-          Obx(
-            () => iconButton(
+          ListenableBuilder(
+            listenable: _sendButton,
+            builder: (context, _) => iconButton(
               tooltip: _sending.value ? '发送中' : '发送',
               iconSize: 22,
               iconColor: enablePublish.value
@@ -421,7 +431,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
         content: SlideColorPicker(
           color: _color.value,
           onChanged: (Color? color) {
-            if (color != null) {
+            if (mounted && color != null) {
               _color.value = color;
             }
           },
@@ -432,8 +442,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
 
   @override
   Future<void> onCustomPublish({List? pictures}) async {
-    if (_sending.value) return;
-    final account = Accounts.main;
+    if (!mounted || _sending.value) return;
     final cid = widget.cid;
     final bvid = widget.bvid;
     final text = editController.text;
@@ -443,29 +452,31 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
     final isColorful = color == Colors.transparent;
     final player = PlPlayerController.instance;
     final midHash = player?.midHash;
+    final ownsPlayback = player?.activePlaybackOwner?.guard();
+    final interaction = VideoDanmakuInteractions(
+      cid,
+      mediaIsCurrent: () =>
+          mounted &&
+          cid == widget.cid &&
+          bvid == widget.bvid &&
+          (player == null ||
+              (identical(player, PlPlayerController.instance) &&
+                  player.cid == cid &&
+                  (ownsPlayback?.call() ?? true))),
+    );
     final route = ModalRoute.of(context);
     _sending.value = true;
     try {
-      final res = await DanmakuHttp.shootDanmaku(
-        account: account,
-        oid: cid,
+      final res = await interaction.send(
         bvid: bvid,
         progress: widget.progress,
-        msg: text,
+        message: text,
         mode: mode,
         fontSize: fontSize,
         color: isColorful ? null : color.toARGB32() & 0xFFFFFF,
         colorful: isColorful,
       );
-      if (!mounted ||
-          !identical(account, Accounts.main) ||
-          cid != widget.cid ||
-          bvid != widget.bvid ||
-          (player != null &&
-              (!identical(player, PlPlayerController.instance) ||
-                  player.cid != cid))) {
-        return;
-      }
+      if (res == null || !interaction.isCurrent) return;
       if (res case Success(:final response)) {
         hasPub =
             text == editController.text &&
@@ -483,8 +494,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
             },
             selfSend: true,
             isColorful: isColorful,
-            extra: response.dmid != null && midHash != null
-                ? VideoDanmaku(id: response.dmid!, mid: midHash)
+            extra: response != null && midHash != null
+                ? VideoDanmaku(id: response, mid: midHash)
                 : null,
           ),
         );

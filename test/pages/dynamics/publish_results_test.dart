@@ -9,19 +9,22 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_create_reserve/controller.dart';
-import 'package:pili_aurora_next/pages/dynamics_create_vote/controller.dart';
+import 'package:pili_aurora_next/features/community/application/reserve_editor.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_updates.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/vote_editor.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
+import '../common/publish/upload_fixture.dart';
 import '../../support/memory_box.dart';
 
 void main() {
@@ -77,9 +80,11 @@ void main() {
       await dismissal;
     });
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: const Scaffold(body: Text('原页面')),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: const Scaffold(body: Text('原页面')),
+        ),
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
@@ -112,14 +117,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Object uploaded() => {
-    'code': 0,
-    'data': {
-      'image_url': 'https://example.invalid/image.png',
-      'image_width': 1,
-      'image_height': 1,
-    },
-  };
+  ({ProviderContainer container, VoteEditor editor, VoteEditorQuery query})
+  voteEditor(int? id) {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final query = (owner: Object(), id: id);
+    container.listen(voteEditorProvider(query), (_, _) {});
+    return (
+      container: container,
+      editor: container.read(voteEditorProvider(query).notifier),
+      query: query,
+    );
+  }
+
+  ({
+    ProviderContainer container,
+    ReserveEditor editor,
+    ReserveEditorQuery query,
+  })
+  reserveEditor(int? id) {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final query = (owner: Object(), id: id);
+    container.listen(reserveEditorProvider(query), (_, _) {});
+    return (
+      container: container,
+      editor: container.read(reserveEditorProvider(query).notifier),
+      query: query,
+    );
+  }
 
   testWidgets('动态发布在图片上传前固定草稿，成功保留新草稿且阻止并发提交', (tester) async {
     var saved = 0;
@@ -136,26 +162,22 @@ void main() {
       find.byType(CreateDynPanel),
     );
     state.editController.text = '原草稿';
-    state.imageList.add(FilePicModel(path: image.path));
-    late Future<void> pending;
-    await tester.runAsync(() async {
-      pending = state.onPublish();
-      await state.onPublish();
-      await interceptor.waitForRequests(1);
-    });
-    expect(requests.single.options.path, Api.uploadBfs);
-    state.editController.text = '新草稿';
-    state.imageList.clear();
-    await tester.runAsync(() async {
-      requests[0].reply.complete(uploaded());
-      await interceptor.waitForRequests(2);
-    });
-    final body = requests[1].options.data as Map;
+    state.addDraftImage(FilePicModel(path: image.path));
+    final submission = await reachPublishRequest(
+      tester,
+      interceptor: interceptor,
+      publish: state.onPublish,
+      replaceDraft: () {
+        state.editController.text = '新草稿';
+        state.removeDraftImage(0);
+      },
+    );
+    final body = submission.request.data as Map;
     expect(body['dyn_req']['content']['contents'].first['raw_text'], '原草稿');
     expect(body['dyn_req']['pics'], hasLength(1));
     await tester.runAsync(() async {
       requests[1].reply.complete({'code': 0});
-      await pending;
+      await submission.completion;
     });
     await settle(tester);
     expect(saved, 1);
@@ -173,7 +195,7 @@ void main() {
       find.byType(CreateDynPanel),
     );
     state.editController.text = '草稿';
-    state.imageList.add(FilePicModel(path: image.path));
+    state.addDraftImage(FilePicModel(path: image.path));
     late Future<void> uploading;
     await tester.runAsync(() async {
       uploading = state.onPublish();
@@ -181,12 +203,12 @@ void main() {
     });
     Accounts.accountMode[AccountType.main.index] = replacement;
     await tester.runAsync(() async {
-      requests[0].reply.complete(uploaded());
+      requests[0].reply.complete(uploadedPicture());
       await uploading;
     });
     await settle(tester);
     expect(requests, hasLength(1));
-    state.imageList.clear();
+    state.removeDraftImage(0);
     final saving = state.onPublish();
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': '0'});
@@ -200,9 +222,15 @@ void main() {
 
   testWidgets('转发成功和迟到失败不会关闭之后打开的页面', (tester) async {
     await mount(tester, const RepostPanel(dynIdStr: '1'));
-    final state = tester.state<CommonRichTextPubPageState>(
-      find.byType(RepostPanel),
-    );
+    final panel = find.byType(RepostPanel);
+    final container = ProviderScope.containerOf(tester.element(panel));
+    final notifications = <DynamicsChange>[];
+    final subscription = container
+        .read(dynamicsUpdatesProvider)
+        .changes
+        .listen(notifications.add);
+    addTearDown(subscription.cancel);
+    final state = tester.state<CommonRichTextPubPageState>(panel);
     state.editController.text = '转发内容';
     final pending = state.onPublish();
     await until(tester, () => requests.length == 1);
@@ -212,6 +240,7 @@ void main() {
     await settle(tester);
     await pending;
     expect(find.text('新页面'), findsOneWidget);
+    expect(notifications.map((event) => event.account), [original]);
     Get.back();
     await settle(tester);
     final second = state.onPublish();
@@ -224,18 +253,47 @@ void main() {
     await finish(tester);
   });
 
+  test('动态失效事件按应用作用域隔离，释放后忽略迟到通知', () async {
+    final closedScope = ProviderContainer.test();
+    final activeScope = ProviderContainer.test();
+    final closedUpdates = closedScope.read(dynamicsUpdatesProvider);
+    final activeUpdates = activeScope.read(dynamicsUpdatesProvider);
+    final closedEvents = <DynamicsChange>[];
+    final activeEvents = <DynamicsChange>[];
+    final closedSubscription = closedUpdates.changes.listen(closedEvents.add);
+    final activeSubscription = activeUpdates.changes.listen(activeEvents.add);
+    addTearDown(closedSubscription.cancel);
+    addTearDown(activeSubscription.cancel);
+    final completed = closedSubscription.asFuture<void>();
+
+    closedUpdates.removed(original, '1');
+    closedScope.dispose();
+    closedUpdates.removed(original, '2');
+    activeUpdates.removed(original, '3');
+    await completed;
+
+    expect(closedEvents.map((event) => event.removed), ['1']);
+    expect(activeEvents.map((event) => event.removed), ['3']);
+  });
+
   testWidgets('投票保存互斥并返回提交时的选项副本，待确认后允许核对再操作', (tester) async {
     await mount(tester);
-    final controller = CreateVoteController(null)..onInit();
-    addTearDown(controller.onDelete.call);
-    controller.title.value = '原标题';
-    controller.options[0].optDesc = '甲';
-    controller.options[1].optDesc = '乙';
+    final fixture = voteEditor(null);
+    final controller = fixture.editor
+      ..update((draft) => draft.copy(title: '原标题'));
+    final options = fixture.container
+        .read(voteEditorProvider(fixture.query))
+        .draft
+        .options;
+    controller
+      ..optionText(options[0].id, '甲')
+      ..optionText(options[1].id, '乙');
     final pending = controller.onCreate();
     expect(await controller.onCreate(), isA<Error>());
     await until(tester, () => requests.length == 1);
-    controller.title.value = '新标题';
-    controller.options[0].optDesc = '新选项';
+    controller
+      ..update((draft) => draft.copy(title: '新标题'))
+      ..optionText(options[0].id, '新选项');
     requests[0].reply.complete({
       'code': 0,
       'data': {'vote_id': 7},
@@ -245,41 +303,52 @@ void main() {
     expect(result.data.title, '原标题');
     expect(result.data.options.first.optDesc, '甲');
     expect(result.data.voteId, 7);
-    expect(controller.title.value, '新标题');
+    expect(
+      fixture.container.read(voteEditorProvider(fixture.query)).draft.title,
+      '新标题',
+    );
+    expect(controller.voteId, 7);
     final retry = controller.onCreate();
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': '0'});
     await settle(tester);
     expect(await retry, isA<UnknownResult>());
-    expect(controller.saving.value, isFalse);
+    expect(
+      fixture.container.read(voteEditorProvider(fixture.query)).saving,
+      isFalse,
+    );
     await finish(tester);
   });
 
   testWidgets('预约保存返回提交快照，切号或关闭后不交付旧成功结果', (tester) async {
     await mount(tester);
-    final controller = CreateReserveController(null)..onInit();
-    controller.title.value = '原预约';
+    final fixture = reserveEditor(null);
+    final controller = fixture.editor
+      ..update((draft) => draft.copy(title: '原预约', subType: 1));
     final pending = controller.onCreate();
     expect(await controller.onCreate(), isA<Error>());
     await until(tester, () => requests.length == 1);
-    controller.title.value = '新预约';
+    controller.update((draft) => draft.copy(title: '新预约'));
     requests[0].reply.complete({
       'code': 0,
       'data': {'sid': 7},
     });
     await settle(tester);
     expect((await pending).data.title, '原预约');
+    expect(requests[0].options.extra['account'], same(original));
+    expect((requests[0].options.data as Map)['sub_type'], 1);
     final stale = controller.onCreate();
     await until(tester, () => requests.length == 2);
-    controller.onDelete();
+    expect(requests[1].options.path, Api.updateReserve);
+    expect((requests[1].options.data as Map)['id'], 7);
+    fixture.container.dispose();
     requests[1].reply.complete({
       'code': 0,
       'data': {'sid': 8},
     });
     await settle(tester);
     expect(await stale, isA<Error>());
-    final switched = CreateVoteController(null)..onInit();
-    addTearDown(switched.onDelete.call);
+    final switched = voteEditor(null).editor;
     Accounts.accountMode[AccountType.main.index] = replacement;
     expect(await switched.onCreate(), isA<Error>());
     expect(requests, hasLength(2));
@@ -288,17 +357,21 @@ void main() {
 
   testWidgets('投票与预约详情失败可重试，关闭后拒绝迟到的必需字段', (tester) async {
     await mount(tester);
-    final vote = CreateVoteController(7)..onInit();
-    final reserve = CreateReserveController(8)..onInit();
+    final voteFixture = voteEditor(7);
+    final vote = voteFixture.editor;
+    final voteProvider = voteEditorProvider(voteFixture.query);
+    final reserveFixture = reserveEditor(8);
+    final reserve = reserveFixture.editor;
+    final reserveProvider = reserveEditorProvider(reserveFixture.query);
     await until(tester, () => requests.length == 2);
     for (final request in requests) {
       request.reply.complete({'code': -403, 'message': '加载失败'});
     }
     await settle(tester);
-    expect(vote.loadError.value?.code, -403);
-    expect(reserve.loadError.value?.code, -403);
-    expect(vote.canCreate.value, isFalse);
-    expect(reserve.canCreate.value, isFalse);
+    expect(voteFixture.container.read(voteProvider).error?.code, -403);
+    expect(reserveFixture.container.read(reserveProvider).error?.code, -403);
+    expect(vote.canCreate, isFalse);
+    expect(reserve.canCreate, isFalse);
     final retry = reserve.queryData();
     await until(tester, () => requests.length == 3);
     requests[2].reply.complete({
@@ -307,22 +380,22 @@ void main() {
     });
     await settle(tester);
     await retry;
-    expect(reserve.title.value, '预约');
-    expect(reserve.canCreate.value, isTrue);
+    expect(reserveFixture.container.read(reserveProvider).draft.title, '预约');
+    expect(reserve.canCreate, isTrue);
     final stale = vote.queryData();
     await until(tester, () => requests.length == 4);
-    vote.onDelete();
+    voteFixture.container.dispose();
     requests[3].reply.complete({'code': -403, 'message': '旧错误'});
     await settle(tester);
     await stale;
-    expect(vote.loadError.value, isNull);
-    reserve.onDelete();
+    expect(vote.isCurrent, isFalse);
+    reserveFixture.container.dispose();
     await finish(tester);
   });
 
   testWidgets('动态可见性查询故障只报告无法确认，不误报仅自己可见', (tester) async {
     await mount(tester);
-    final pending = RequestUtils.checkCreatedDyn(id: '1', isManual: true);
+    final pending = checkPublishedDynamic(id: '1', isManual: true);
     await until(tester, () => requests.length == 1);
     requests.single.reply.complete({'code': -500, 'message': '服务暂不可用'});
     await settle(tester);

@@ -6,9 +6,9 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -38,7 +38,7 @@ void main() {
     requests.clear();
     casts.clear();
     controller = _Video()
-      ..cid = 1.obs
+      ..cid.value = 1
       ..aid = 1
       ..bvid = 'BV1xx411c7mD'
       ..heroTag = 'cast-test'

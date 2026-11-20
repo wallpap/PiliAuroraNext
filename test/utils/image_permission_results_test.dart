@@ -9,9 +9,9 @@ import 'package:permission_handler_platform_interface/permission_handler_platfor
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../support/memory_box.dart';
 

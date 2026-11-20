@@ -3,21 +3,28 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/data/emote_repository.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/pages/emote/manage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/features/community/application/emote_panel.dart';
 
 import '../../support/memory_box.dart';
+import '../../support/controlled_interceptor.dart';
 
-class _Controller extends EmotePanelController {
-  _Controller(this.package);
-  final Package package;
+class _Repository extends EmoteRepository {
+  _Repository(Package package) : current = [package];
+  List<Package> current;
   @override
-  Future<LoadingState<List<Package>?>> customGetData() async =>
-      Success([package]);
+  Future<LoadingState<List<Package>?>> packages(Account account) async =>
+      Success(current);
 }
 
 void main() {
@@ -42,21 +49,26 @@ void main() {
           url: 'https://example.test/emote-$index.webp',
         ),
       );
-      final controller = Get.put<EmotePanelController>(
-        _Controller(Package(type: 1, text: 'synthetic', emote: emotes)),
+      final repository = _Repository(
+        Package(type: 1, text: 'synthetic', emote: emotes),
       );
       Emote? chosen;
       await tester.pumpWidget(
         ImageLoadingScope(
           enabled: false,
-          child: MaterialApp(
-            home: Scaffold(
-              body: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 320,
-                  height: 300,
-                  child: EmotePanel(onChoose: (emote, _, _) => chosen = emote),
+          child: ProviderScope(
+            overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 320,
+                    height: 300,
+                    child: EmotePanel(
+                      onChoose: (emote, _, _) => chosen = emote,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -100,8 +112,6 @@ void main() {
       await tester.tap(selectable.first);
       expect(chosen?.url, emotes.last.url);
       await tester.pumpWidget(const SizedBox.shrink());
-      Get.delete<EmotePanelController>(force: true);
-      expect(controller.isClosed, isTrue);
     },
   );
 
@@ -109,24 +119,27 @@ void main() {
     tester,
   ) async {
     final emote = Emote(text: '(synthetic text)');
-    Get.put<EmotePanelController>(
-      _Controller(Package(type: 4, text: 'text', emote: [emote])),
+    final repository = _Repository(
+      Package(type: 4, text: 'text', emote: [emote]),
     );
     Emote? chosen;
     double? chosenWidth = 1;
     await tester.pumpWidget(
       ImageLoadingScope(
         enabled: false,
-        child: MaterialApp(
-          home: Scaffold(
-            body: SizedBox(
-              width: 320,
-              height: 300,
-              child: EmotePanel(
-                onChoose: (value, width, _) {
-                  chosen = value;
-                  chosenWidth = width;
-                },
+        child: ProviderScope(
+          overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                height: 300,
+                child: EmotePanel(
+                  onChoose: (value, width, _) {
+                    chosen = value;
+                    chosenWidth = width;
+                  },
+                ),
               ),
             ),
           ),
@@ -138,6 +151,120 @@ void main() {
     expect(chosen, same(emote));
     expect(chosenWidth, isNull);
     await tester.pumpWidget(const SizedBox.shrink());
-    Get.delete<EmotePanelController>(force: true);
+  });
+  testWidgets('多个表情面板拥有独立 Tab，共享历史，单面板卸载不销毁其他面板', (tester) async {
+    final repository = _Repository(
+      Package(type: 4, emote: [Emote(text: '共享历史')]),
+    );
+    final container = ProviderContainer(
+      overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    Widget panels(bool second) => UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        home: Row(
+          children: [
+            Expanded(
+              child: EmotePanel(
+                key: const ValueKey('first'),
+                onChoose: (_, _, _) {},
+              ),
+            ),
+            if (second)
+              Expanded(
+                child: EmotePanel(
+                  key: const ValueKey('second'),
+                  onChoose: (_, _, _) {},
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpWidget(panels(true));
+    await tester.pumpAndSettle();
+    final tabs = tester
+        .widgetList<TabBar>(find.byType(TabBar))
+        .map((tab) => tab.controller!)
+        .toList();
+    expect(tabs, hasLength(2));
+    expect(identical(tabs[0], tabs[1]), isFalse);
+    await tester.tap(find.text('共享历史').first);
+    await tester.pumpAndSettle();
+    expect(container.read(recentEmotesProvider).single.emote.text, '共享历史');
+    tabs[1].animateTo(0);
+    await tester.pump();
+    await tester.pumpWidget(panels(false));
+    await tester.pumpAndSettle();
+    expect(tabs[1].animation, isNull);
+    expect(tabs[0].animation, isNotNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    expect(tabs[0].animation, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('从表情管理返回后按包 ID 恢复，删除当前包后回退到有效位置', (tester) async {
+    final interceptor = ControlledInterceptor();
+    Request();
+    Request.dio.interceptors
+      ..clear()
+      ..add(interceptor);
+    addTearDown(() async {
+      Request.dio.close(force: true);
+      await interceptor.close();
+    });
+    Package pack(int id) => Package(
+      id: id,
+      type: 4,
+      url: 'https://example.test/pack-$id.png',
+      emote: [Emote(text: '表情 $id')],
+    );
+    final repository = _Repository(pack(1))
+      ..current = [pack(1), pack(2), pack(3)];
+    await tester.pumpWidget(
+      ImageLoadingScope(
+        enabled: false,
+        child: ProviderScope(
+          overrides: [emoteRepositoryProvider.overrideWithValue(repository)],
+          child: GetMaterialApp(
+            home: Scaffold(body: EmotePanel(onChoose: (_, _, _) {})),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tab = tester.widget<TabBar>(find.byType(TabBar)).tabs.last;
+    await tester.tapAt(tester.getCenter(find.byWidget(tab)));
+    await tester.pumpAndSettle();
+    expect(find.text('表情 3'), findsOneWidget);
+
+    Future<void> returnFromManage(List<Package> next) async {
+      final expected = interceptor.requests.length + 1;
+      await tester.tap(find.byIcon(Icons.settings));
+      final deadline = tester.binding.clock.now().add(
+        const Duration(seconds: 1),
+      );
+      while (interceptor.requests.length < expected &&
+          tester.binding.clock.now().isBefore(deadline)) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+      expect(interceptor.requests, hasLength(expected));
+      final request = interceptor.requests.last;
+      expect(request.options.path, Api.emoteSettingPanel);
+      request.reply.complete({'code': -42, 'message': '测试管理页'});
+      await tester.pumpAndSettle();
+      expect(find.byType(EmoteManagePage), findsOneWidget);
+      repository.current = next;
+      Get.back();
+      await tester.pumpAndSettle();
+    }
+
+    await returnFromManage([pack(1), pack(3), pack(2)]);
+    expect(find.text('表情 3'), findsOneWidget);
+    await returnFromManage([pack(1)]);
+    expect(find.text('表情 1'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 }

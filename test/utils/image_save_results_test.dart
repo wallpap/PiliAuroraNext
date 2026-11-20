@@ -9,10 +9,11 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 
@@ -29,17 +30,16 @@ void main() {
     GStorage.setting = MemoryBox<dynamic>();
     manager = _Cache(File('${directory.path}/unused.png'));
     CacheManager.manager = manager;
-    ImageUtils.silentDownImg = false;
     Request();
     Request.dio.interceptors.clear();
   });
-  setUp(() {
+  setUp(() async {
     previous = FilePickerPlatform.instance;
     picker = _Picker();
     FilePickerPlatform.instance = picker;
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
-    ImageUtils.silentDownImg = false;
+    await GStorage.setting.delete(SettingBoxKey.silentDownImg);
     manager
       ..gate = null
       ..calls = 0;
@@ -172,7 +172,7 @@ void main() {
     expect(manager.calls, 1);
     expect(adapter.calls, 0);
     SmartDialog.showLoading(msg: '其他操作');
-    ImageUtils.silentDownImg = true;
+    await GStorage.setting.put(SettingBoxKey.silentDownImg, true);
     cacheGate.complete(source);
     expect(await saving, isFalse); // 取消目录选择。
     await settleLoading(tester);

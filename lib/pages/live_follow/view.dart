@@ -6,9 +6,9 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
-import 'package:pili_aurora_next/pages/live_follow/controller.dart';
+import 'package:pili_aurora_next/features/following/application/live_following.dart';
 import 'package:pili_aurora_next/pages/live_follow/widgets/live_item_follow.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 

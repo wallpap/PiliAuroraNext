@@ -7,16 +7,16 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' as result;
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/application/login_sync.dart';
+import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
+import 'package:pili_aurora_next/features/history/application/history_library.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 import '../support/controlled_http_adapter.dart';
 import '../support/memory_box.dart';
@@ -115,7 +115,6 @@ void main() {
       ..onSet = (() async => true)
       ..onDelete = (() async => true);
     select(account(123));
-    Get.put(AccountService());
   });
   tearDown(() {
     adapter.close();
@@ -127,7 +126,7 @@ void main() {
   test('Cookie 原生拒绝与异常沿 Future 返回，失败后队列仍可继续', () async {
     cookies.onSet = () async => false;
     await expectLater(
-      LoginUtils.setWebCookie(),
+      WebAccountCookies.sync(),
       throwsA(
         isA<result.Error>().having(
           (error) => error.errMsg,
@@ -138,9 +137,9 @@ void main() {
     );
     final failure = StateError('fixture native failure');
     cookies.onSet = () async => throw failure;
-    await expectLater(LoginUtils.setWebCookie(), throwsA(same(failure)));
+    await expectLater(WebAccountCookies.sync(), throwsA(same(failure)));
     cookies.onSet = () async => true;
-    expect(await LoginUtils.setWebCookie(), isTrue);
+    expect(await WebAccountCookies.sync(), isTrue);
   });
 
   test('Cookie 批次串行交接，排队的旧账号不分发，迟到结果失效', () async {
@@ -150,11 +149,11 @@ void main() {
       if (!started.isCompleted) started.complete();
       return release.future;
     };
-    final old = LoginUtils.setWebCookie();
+    final old = WebAccountCookies.sync();
     await started.future;
-    final stale = LoginUtils.setWebCookie();
+    final stale = WebAccountCookies.sync();
     select(account(456));
-    final current = LoginUtils.setWebCookie();
+    final current = WebAccountCookies.sync();
     await Future<void>.delayed(Duration.zero);
     expect(cookies.events, ['set:123']);
     cookies.onSet = () async => true;
@@ -172,12 +171,12 @@ void main() {
       if (!started.isCompleted) started.complete();
       return release.future;
     };
-    final old = LoginUtils.setWebCookie();
+    final old = WebAccountCookies.sync();
     await started.future;
     select(AnonymousAccount());
     cookies.onDelete = () async => false;
     final logout = expectLater(
-      LoginUtils.onLogoutMain(),
+      LoginSync.onLogoutMain(),
       throwsA(
         isA<result.Error>().having(
           (error) => error.errMsg,
@@ -193,7 +192,7 @@ void main() {
     await logout;
     select(account(456));
     cookies.onSet = () async => true;
-    expect(await LoginUtils.setWebCookie(), isTrue);
+    expect(await WebAccountCookies.sync(), isTrue);
     expect(cookies.events, ['set:123', 'delete', 'set:456']);
   });
 
@@ -204,12 +203,12 @@ void main() {
       if (!started.isCompleted) started.complete();
       return release.future;
     };
-    final old = LoginUtils.setWebCookie();
+    final old = WebAccountCookies.sync();
     await started.future;
     select(AnonymousAccount());
-    final logout = LoginUtils.onLogoutMain();
+    final logout = LoginSync.onLogoutMain();
     select(account(456));
-    final current = LoginUtils.setWebCookie();
+    final current = WebAccountCookies.sync();
     cookies.onSet = () async => true;
     release.complete(true);
     expect(await old, isFalse);
@@ -227,7 +226,7 @@ void main() {
       return release.future;
     };
     var finished = false;
-    final operation = RequestUtils.syncHistoryStatus().whenComplete(() {
+    final operation = HistoryLibrary.legacy.syncActiveAccountStatus().whenComplete(() {
       finished = true;
     });
     final assertion = expectLater(operation, throwsA(same(failure)));
@@ -264,7 +263,7 @@ void main() {
     }
 
     var loggedIn = false;
-    final login = LoginUtils.onLoginMain()..then((_) => loggedIn = true);
+    final login = LoginSync.onLoginMain()..then((_) => loggedIn = true);
     await until(() => adapter.requests.length == 1);
     adapter.json(0, {
       'code': 0,
@@ -280,7 +279,7 @@ void main() {
     adapter.json(1, {'code': 0, 'data': true});
     await until(() => historyFailed.isCompleted);
     await tester.pump();
-    expect(Get.find<AccountService>().isLogin.value, isTrue);
+    expect(Accounts.main.isLogin, isTrue);
     expect(Pref.userInfoCache?.mid, 123);
     expect(cache.data, isEmpty);
     final dismissal = SmartDialog.dismiss(status: SmartStatus.allToast);

@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/user_status.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/user_status.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -38,7 +38,7 @@ void main() {
     requests.clear();
     Accounts.accountMode[AccountType.main.index] = login('old');
   });
-  tearDown(() => controller.onDelete());
+  tearDown(() => controller.close());
   tearDownAll(() async {
     Request.dio.close(force: true);
     await interceptor.close();
@@ -81,13 +81,16 @@ void main() {
         await controller.onFavPugv();
         await interceptor.waitForRequests(index + 1);
       });
-      expect(controller.pugvFavBusy.value, isTrue);
+      expect(controller.collection.bookmark.value.busy, isTrue);
       expect((requests.last.options.data as Map)['csrf'], 'old');
       expect(requests.last.options.extra['account'], same(Accounts.main));
       await resolve(tester, index, response);
       await tester.runAsync(() async => await pending);
-      expect(controller.pugvFavBusy.value, isFalse);
-      expect(controller.pugvFavState.value.data, response['code'] == 0);
+      expect(controller.collection.bookmark.value.busy, isFalse);
+      expect(
+        controller.collection.bookmark.value.result.data,
+        response['code'] == 0,
+      );
     }
     await finish(tester);
   });
@@ -100,14 +103,14 @@ void main() {
     });
     await resolve(tester, 0, {'message': 'missing code'});
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value, isA<UnknownResult>());
+    expect(controller.collection.bookmark.value.result, isA<UnknownResult>());
     await tester.runAsync(() async {
       pending = controller.onFavPugv();
       await interceptor.waitForRequests(2);
     });
     await resolve(tester, 1, {'code': -403, 'message': '查询失败'});
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value, isA<Error>());
+    expect(controller.collection.bookmark.value.result, isA<Error>());
     await tester.runAsync(() async {
       pending = controller.onFavPugv();
       await interceptor.waitForRequests(3);
@@ -119,7 +122,7 @@ void main() {
       },
     });
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value.data, isTrue);
+    expect(controller.collection.bookmark.value.result.data, isTrue);
     expect(requests.last.options.queryParameters['season_id'], 1);
     await finish(tester);
   });
@@ -134,7 +137,7 @@ void main() {
     controller.seasonId = 2;
     await resolve(tester, 0, {'code': 0});
     await tester.runAsync(() async => await pending);
-    expect(controller.pugvFavState.value.data, isFalse);
+    expect(controller.collection.bookmark.value.result.data, isFalse);
     expect(find.text('收藏成功'), findsNothing);
     await finish(tester);
   });

@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/skeleton/media_bangumi.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
-import 'package:pili_aurora_next/models/search/result.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/pages/search_panel/filter_controller.dart';
 import 'package:pili_aurora_next/pages/search_panel/pgc/widgets/item.dart';
 import 'package:pili_aurora_next/pages/search_panel/view.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
 

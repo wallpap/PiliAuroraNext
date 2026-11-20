@@ -25,7 +25,7 @@ import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.da
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/editable.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/spell_check.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_selection.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart'

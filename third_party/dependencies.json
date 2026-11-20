@@ -140,7 +140,7 @@
     },
     {
       "name": "flutter_inappwebview_windows",
-      "version": "0.6.0+piliauroranext.1",
+      "version": "0.6.0+piliauroranext.2",
       "upstream_version": "0.6.0",
       "path": "third_party/flutter_inappwebview_windows",
       "source": {
@@ -151,7 +151,7 @@
       "licenses": [
         "LICENSE"
       ],
-      "reason": "保留 Windows WebView 生命周期及当前 Flutter API 修正；首次嵌入网页时才初始化共享图形资源。"
+      "reason": "按需初始化共享图形资源，等待嵌入式 WebView 的原生创建和销毁回执后再释放环境。"
     },
     {
       "name": "flutter_sortable_wrap",

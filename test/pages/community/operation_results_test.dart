@@ -6,35 +6,55 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_publish_page.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/emote/manage.dart';
 import 'package:pili_aurora_next/pages/emote/preview.dart';
-import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_page_detail.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comments_repository.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+
+import '../../support/comment_fixture.dart';
+
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:pili_aurora_next/pages/video/send_danmaku/view.dart';
-import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/reply_utils.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_visibility_dialog.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
+class _PinFixture extends CommentFixture {
+  @override
+  Future<LoadingState<void>> togglePinned(
+    Account account,
+    CommentTarget target,
+    CommentReply item,
+  ) => const CommentsRepository().togglePinned(account, target, item);
+}
+
 class _Detail extends DynamicDetailController {
+  _Detail(super.details) : super(onFeedback: SmartDialog.showToast);
+
   int reloads = 0;
   @override
   Future<void> onReload() async {
@@ -55,7 +75,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  Account account(int id) => LoginAccount(
+  LoginAccount account(int id) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': 'fixture-$id'}),
     null,
     null,
@@ -84,9 +104,11 @@ void main() {
 
   Future<void> mount(WidgetTester tester, Widget child) async {
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: Scaffold(body: child),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: Scaffold(body: child),
+        ),
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
@@ -113,11 +135,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  ReplyInfo reply(int id) => ReplyInfo(
-    id: Int64(id),
-    oid: Int64(1),
-    type: Int64.ONE,
-    like: Int64(4),
+  CommentReply reply(int id, {Int64? root}) => commentFromProtocol(
+    ReplyInfo(
+      id: Int64(id),
+      oid: Int64(1),
+      type: Int64.ONE,
+      like: Int64(4),
+      root: root,
+    ),
   );
 
   testWidgets('评论赞踩共用在途状态，待确认保留计数并允许失败后重试', (tester) async {
@@ -260,28 +285,125 @@ void main() {
   testWidgets('弹幕操作拒绝切号迟到结果，保留服务端已点赞纠正语义', (tester) async {
     await mount(tester, const SizedBox());
     final extra = VideoDanmaku(id: 2, mid: 'sender', like: 3);
-    final like = HeaderControl.likeDanmaku(extra, 1);
+    final like = VideoDanmakuInteractions(
+      1,
+      mediaIsCurrent: () => true,
+    ).toggleLike(extra);
     await until(tester, () => requests.length == 1);
     Accounts.accountMode[AccountType.main.index] = replacement;
     requests[0].reply.complete({'code': 0});
     await settle(tester);
-    expect(await like, isFalse);
+    expect(await like, isNull);
     expect(extra.isLike, isFalse);
     expect(extra.like, 3);
-    final reconcile = HeaderControl.likeDanmaku(extra, 1);
+    final reconcile = VideoDanmakuInteractions(
+      1,
+      mediaIsCurrent: () => true,
+    ).toggleLike(extra);
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': 65006});
     await settle(tester);
-    expect(await reconcile, isTrue);
+    expect((await reconcile)!.isSuccess, isTrue);
     expect(extra.isLike, isTrue);
     expect(extra.like, 3);
     await finish(tester);
   });
 
-  testWidgets('表情包设置切号后显示可重试提示，旧数据不会进入页面', (tester) async {
+  testWidgets('旧点赞查询不会覆盖另一个弹幕菜单的确认写入', (tester) async {
+    await mount(tester, const SizedBox());
+    final readEntry = VideoDanmaku(id: 2, mid: 'sender');
+    final writeEntry = VideoDanmaku(id: 2, mid: 'sender', like: 3);
+    final first = VideoDanmakuInteractions(1, mediaIsCurrent: () => true);
+    final second = VideoDanmakuInteractions(1, mediaIsCurrent: () => true);
+    final stats = first.refreshLike(readEntry);
+    await until(tester, () => requests.length == 1);
+    final write = second.toggleLike(writeEntry);
+    await until(tester, () => requests.length == 2);
+    requests[1].reply.complete({'code': 0});
+    await settle(tester);
+    expect((await write)!.isSuccess, isTrue);
+    expect(writeEntry.isLike, isTrue);
+    expect(writeEntry.like, 4);
+
+    requests[0].reply.complete({
+      'code': 0,
+      'data': {
+        '2': {'likes': 3, 'user_like': 0},
+      },
+    });
+    await until(tester, () => requests.length == 3);
+    expect(readEntry.like, 0);
+    expect(requests[2].options.path, Api.danmakuLikeStats);
+    requests[2].reply.complete({
+      'code': 0,
+      'data': {
+        '2': {'likes': 4, 'user_like': 1},
+      },
+    });
+    await settle(tester);
+    expect((await stats)!.isSuccess, isTrue);
+    expect(readEntry.isLike, isTrue);
+    expect(readEntry.like, 4);
+    await finish(tester);
+  });
+
+  testWidgets('撤回失败或切换视频后的回执不移除显示项', (tester) async {
+    await mount(tester, const SizedBox());
+    var removed = 0;
+    var mediaCurrent = true;
+    final interaction = VideoDanmakuInteractions(
+      1,
+      mediaIsCurrent: () => mediaCurrent,
+    );
+    Future<void> recall() => recallVideoDanmaku(
+      interaction,
+      2,
+      onRecalled: () => removed++,
+    );
+
+    final failed = recall();
+    await until(tester, () => requests.length == 1);
+    requests[0].reply.complete({'code': -403, 'message': '无法撤回'});
+    await settle(tester);
+    await failed;
+    expect(removed, 0);
+
+    final stale = recall();
+    await until(tester, () => requests.length == 2);
+    mediaCurrent = false;
+    requests[1].reply.complete({'code': 0});
+    await settle(tester);
+    await stale;
+    expect(removed, 0);
+
+    mediaCurrent = true;
+    final confirmed = recall();
+    await until(tester, () => requests.length == 3);
+    requests[2].reply.complete({'code': 0});
+    await settle(tester);
+    await confirmed;
+    expect(removed, 1);
+    await finish(tester);
+  });
+
+  testWidgets('表情包重新登录后加载新数据，旧数据不会进入页面', (tester) async {
     await mount(tester, const EmoteManagePage());
     await until(tester, () => requests.length == 1);
-    Accounts.accountMode[AccountType.main.index] = replacement;
+    Accounts.replaceCredentials(account(1));
+    await until(tester, () => requests.length == 2);
+    requests[1].reply.complete({
+      'code': 0,
+      'data': {
+        'user_panel_packages': [
+          {'id': 2, 'text': '新表情'},
+        ],
+      },
+    });
+    await until(tester, () => requests.length == 3);
+    requests[2].reply.complete({
+      'code': 0,
+      'data': {'total': 0, 'packages': []},
+    });
     requests[0].reply.complete({
       'code': 0,
       'data': {
@@ -292,7 +414,7 @@ void main() {
     });
     await settle(tester);
     expect(find.text('旧表情'), findsNothing);
-    expect(find.text('账号已切换，请刷新重试'), findsOneWidget);
+    expect(find.text('新表情'), findsOneWidget);
     await finish(tester);
   });
 
@@ -418,39 +540,80 @@ void main() {
 
   testWidgets('评论管理：置顶防重复，待确认保留列表，成功才调整置顶归属', (tester) async {
     await mount(tester, const SizedBox());
-    final controller = VideoReplyController(
-      aid: 1,
-      videoType: .ugc,
-      heroTag: 'top',
+    final first = ReplyInfo(id: Int64.ONE);
+    final second = ReplyInfo(id: Int64(2));
+    final fixture = _PinFixture()
+      ..responses.add(
+        Success(
+          MainListReply(
+            replies: [first, second],
+            cursor: CursorReply(isEnd: true),
+          ),
+        ),
+      );
+    final container = ProviderContainer.test(
+      overrides: [commentsRepositoryProvider.overrideWithValue(fixture)],
     );
-    final first = reply(2);
-    final second = reply(3);
-    final list = [first, second];
-    controller.loadingState.value = Success(list);
-    final rejected = controller.onToggleTop(second, 1, 1, 1);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    final comments = container.read(provider.notifier);
+    await tester.pump();
+    List<CommentReply> rows() => container.read(provider).loading.data;
+    final target = rows().last;
+    final rejected = comments.togglePinned(target);
     await until(tester, () => requests.length == 1);
-    await controller.onToggleTop(first, 0, 1, 1);
-    expect(requests, hasLength(1));
-    requests[0].reply.complete({'code': '0'});
+    expect(await comments.togglePinned(target), isNull);
+    requests.first.reply.complete({'code': '0'});
     await settle(tester);
-    await rejected;
-    expect(controller.hasUpTop, isFalse);
-    expect(list, [first, second]);
-    final confirmed = controller.onToggleTop(second, 1, 1, 1);
+    expect(await rejected, isA<Error>());
+    expect(rows().map((item) => item.id.toInt()), [1, 2]);
+    final confirmed = comments.togglePinned(target);
     await until(tester, () => requests.length == 2);
     requests[1].reply.complete({'code': 0});
     await settle(tester);
-    await confirmed;
-    expect(controller.hasUpTop, isTrue);
-    expect(list, [second, first]);
-    expect(second.replyControl.isUpTop, isTrue);
-    controller.onClose();
+    expect(await confirmed, isA<Success>());
+    expect(rows().map((item) => item.id.toInt()), [2, 1]);
+    expect(rows().first.replyControl.isUpTop, isTrue);
+    await finish(tester);
+  });
+
+  testWidgets('置顶确认跨刷新保留操作锁，并重读已确认的顺序', (tester) async {
+    await mount(tester, const SizedBox());
+    final first = ReplyInfo(id: Int64.ONE);
+    final second = ReplyInfo(id: Int64(2));
+    MainListReply page({ReplyInfo? pinned}) => MainListReply(
+      replies: [first, second],
+      upTop: pinned,
+      cursor: CursorReply(isEnd: true),
+    );
+    final fixture = _PinFixture()..responses.add(Success(page()));
+    final container = commentContainer(fixture);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    final comments = container.read(provider.notifier);
+    await tester.pump();
+    List<CommentReply> rows() => container.read(provider).loading.data;
+    final pending = comments.togglePinned(rows().last);
+    await until(tester, () => requests.length == 1);
+    fixture.responses.add(Success(page()));
+    await comments.refresh();
+    expect(await comments.togglePinned(rows().last), isNull);
+    expect(requests, hasLength(1));
+    fixture.responses.add(Success(page(pinned: second)));
+    requests.single.reply.complete({'code': 0});
+    await settle(tester);
+    expect(await pending, isA<Success>());
+    expect(fixture.reads, hasLength(3));
+    expect(rows().first.id, second.id);
+    expect(rows().first.replyControl.isUpTop, isTrue);
     await finish(tester);
   });
 
   testWidgets('评论管理：评论开关保留失败与成功文案，切号取消延迟刷新', (tester) async {
     await mount(tester, const SizedBox());
-    final controller = _Detail()
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = _Detail(container.read(dynamicDetailsProvider))
       ..oid = 1
       ..replyType = 1
       ..dynItem = DynamicItemModel.fromJson({'id_str': '1'});
@@ -476,11 +639,11 @@ void main() {
     expect(find.text('评论已关闭'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(controller.reloads, 0);
-    controller.onClose();
+    controller.close();
     await finish(tester);
   });
 
-  Future<void> checkReply(ReplyInfo item) => ReplyUtils.onCheckReply(
+  Future<void> checkReply(CommentReply item) => checkReplyVisibility(
     replyInfo: item,
     biliSendCommAntifraud: false,
     sourceId: 1,
@@ -522,7 +685,7 @@ void main() {
 
   testWidgets('评论管理：自动检查延迟期间离开后不发请求', (tester) async {
     await mountReplyCheck(tester);
-    final action = ReplyUtils.onCheckReply(
+    final action = checkReplyVisibility(
       replyInfo: reply(2),
       biliSendCommAntifraud: false,
       sourceId: 1,
@@ -544,7 +707,7 @@ void main() {
     final sourceRoute = Get.routing.route;
     Get.to<void>(() => const Scaffold(body: Text('发布页')));
     await settle(tester);
-    final action = ReplyUtils.onCheckReply(
+    final action = checkReplyVisibility(
       replyInfo: reply(2),
       biliSendCommAntifraud: false,
       sourceId: 1,
@@ -575,7 +738,7 @@ void main() {
   testWidgets('评论管理：来源替换或账号切换不交付旧检查结果', (tester) async {
     await mountReplyCheck(tester);
     var current = true;
-    final replaced = ReplyUtils.onCheckReply(
+    final replaced = checkReplyVisibility(
       replyInfo: reply(2),
       biliSendCommAntifraud: false,
       sourceId: 1,
@@ -619,7 +782,7 @@ void main() {
 
   testWidgets('评论管理：可见性查询故障和重复页不会误报 shadow ban', (tester) async {
     await mount(tester, const SizedBox());
-    final item = reply(2)..root = Int64.ONE;
+    final item = reply(2, root: Int64.ONE);
     final failed = checkReply(item);
     await until(tester, () => requests.length == 1);
     requests[0].reply.complete({'code': -403, 'message': '访问被拒绝'});
@@ -672,10 +835,14 @@ void main() {
       tester,
       Builder(
         builder: (context) => TextButton(
-          onPressed: () => HeaderControl.reportDanmaku(
+          onPressed: () => reportVideoDanmaku(
             context,
-            extra: VideoDanmaku(id: 7, mid: 'sender'),
-            ctr: player,
+            VideoDanmakuInteractions(player.cid!, mediaIsCurrent: () => true),
+            VideoDanmaku(id: 7, mid: 'sender'),
+            blockRules: (
+              read: () => player.filters,
+              publish: (rules) => player.filters = rules,
+            ),
           ),
           child: const Text('举报入口'),
         ),

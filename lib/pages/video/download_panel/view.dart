@@ -5,30 +5,34 @@ import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart'
     as pgc;
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart'
     as ugc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/pages/download/view.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
+import 'package:pili_aurora_next/features/download/presentation/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -38,7 +42,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_select_field.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-class DownloadPanel extends StatefulWidget {
+class DownloadPanel extends ConsumerStatefulWidget {
   const DownloadPanel({
     super.key,
     required this.index,
@@ -47,7 +51,6 @@ class DownloadPanel extends StatefulWidget {
     required this.episodes,
     required this.scrollController,
     required this.videoDetailController,
-    required this.heroTag,
     this.ugcIntroController,
     required this.cidSet,
   });
@@ -58,22 +61,25 @@ class DownloadPanel extends StatefulWidget {
   final List<ugc.BaseEpisodeItem> episodes;
   final ScrollController scrollController;
   final VideoDetailController videoDetailController;
-  final String heroTag;
   final UgcIntroController? ugcIntroController;
   final Set<int> cidSet;
 
   @override
-  State<DownloadPanel> createState() => _DownloadPanelState();
+  ConsumerState<DownloadPanel> createState() => _DownloadPanelState();
 }
 
-class _DownloadPanelState extends State<DownloadPanel> {
-  final DownloadService _downloadService = Get.find<DownloadService>();
+class _DownloadPanelState extends ConsumerState<DownloadPanel> {
+  late final DownloadService _downloadService = ref.read(
+    downloadServiceProvider,
+  );
   final ListController _listController = ListController();
 
   late final cidSet = widget.cidSet;
   final _creating = <int>{};
-  VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
-  AudioQuality _audioQuality = AudioQuality.fromCode(Pref.defaultAudioQa);
+  VideoQuality _quality = VideoQuality.fromCode(VideoPreferences.qualityCode());
+  AudioQuality _audioQuality = AudioQuality.fromCode(
+    AudioPreferences.qualityCode(),
+  );
 
   @override
   void initState() {
@@ -218,7 +224,6 @@ class _DownloadPanelState extends State<DownloadPanel> {
                           child: PagesPanel(
                             list: episode.pages,
                             cover: episode.arc?.pic,
-                            heroTag: widget.heroTag,
                             ugcIntroController: widget.ugcIntroController!,
                             bvid: episode.bvid ?? IdUtils.av2bv(episode.aid!),
                             cidSet: cidSet,
@@ -242,7 +247,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
     );
   }
 
-  late final int? vipStatus = Pref.userInfoCache?.vipStatus;
+  late final int? vipStatus = AccountProfile.legacy.currentInfo?.vipStatus;
   @pragma('vm:notify-debugger-on-exception')
   Future<bool> _onDownload({
     required int index,
@@ -266,7 +271,9 @@ class _DownloadPanelState extends State<DownloadPanel> {
       return false;
     }
 
-    if (kReleaseMode && episode.badge == '会员' && Accounts.mainEqVideo) {
+    if (kReleaseMode &&
+        episode.badge == '会员' &&
+        AccountScope.mainUsesVideoCredentials) {
       if (vipStatus != 1) {
         if (!isDownloadAll) {
           SmartDialog.showToast('需要大会员');
@@ -575,22 +582,21 @@ class _DownloadPanelState extends State<DownloadPanel> {
         children: [
           _buildBottomBtn(
             text: '缓存全部',
-            onTap: () {
-              showConfirmDialog(
+            onTap: () async {
+              final confirmed = await showConfirmDialog(
                 context: context,
                 title: const Text('确定缓存全部？'),
-                onConfirm: () async {
-                  for (int i = 0; i < widget.episodes.length; i++) {
-                    if (!mounted) break;
-                    await _onDownload(
-                      index: i,
-                      episode: widget.episodes[i],
-                      isDownloadAll: true,
-                    );
-                  }
-                  if (mounted) setState(() {});
-                },
               );
+              if (!confirmed || !context.mounted) return;
+              for (int i = 0; i < widget.episodes.length; i++) {
+                if (!mounted) break;
+                await _onDownload(
+                  index: i,
+                  episode: widget.episodes[i],
+                  isDownloadAll: true,
+                );
+              }
+              if (mounted) setState(() {});
             },
           ),
           SizedBox(

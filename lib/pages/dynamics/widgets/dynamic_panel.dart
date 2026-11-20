@@ -1,14 +1,14 @@
 import 'package:pili_aurora_next/common/widgets/avatars.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/action_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dyn_content.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/interaction.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:material_ui/material_ui.dart';
 
 class DynamicPanel extends StatelessWidget {

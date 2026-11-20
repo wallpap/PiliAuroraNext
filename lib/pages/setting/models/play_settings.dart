@@ -7,10 +7,10 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
-import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/subtitle_pref_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
@@ -22,10 +22,11 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 List<SettingsModel> get playSettings => [
   SettingsGroup(
@@ -55,17 +56,12 @@ List<SettingsModel> get playSettings => [
         defaultVal: false,
       ),
       if (PlatformUtils.isDesktop)
-        SwitchModel(
+        SwitchModel.window(
           title: '最小化时暂停/还原时播放',
           leading: const Icon(Icons.pause_circle_outline),
-          setKey: SettingBoxKey.pauseOnMinimize,
-          defaultVal: false,
-          onChanged: (value) {
-            PlPlayerController.instance?.pauseOnMinimize.value = value;
-            try {
-              Get.find<MainController>().pauseOnMinimize = value;
-            } catch (_) {}
-          },
+          preference: WindowPreference.pauseOnMinimize,
+          onChanged: (value) =>
+              PlPlayerController.instance?.pauseOnMinimize.value = value,
         ),
       if (PlatformUtils.isMobile)
         SwitchModel(
@@ -115,8 +111,8 @@ List<SettingsModel> get playSettings => [
         leading: const Icon(Icons.repeat),
         value: () => Pref.playRepeat,
         items: PlayRepeat.values,
-        onSelected: (value, setState) => GStorage.video
-            .put(VideoBoxKey.playRepeat, value.index)
+        onSelected: (value, setState) => SettingsValues.video
+            .save(VideoBoxKey.playRepeat, value.index)
             .whenComplete(setState),
       ),
       const SwitchModel(
@@ -281,8 +277,8 @@ List<SettingsModel> get playSettings => [
         leading: const Icon(Icons.border_bottom_outlined),
         value: () => Pref.btmProgressBehavior,
         items: BtmProgressBehavior.values,
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.btmProgressBehavior, value.index)
+        onSelected: (value, setState) => SettingsValues.general
+            .save(SettingBoxKey.btmProgressBehavior, value.index)
             .whenComplete(setState),
       ),
     ],
@@ -327,8 +323,8 @@ List<SettingsModel> get playSettings => [
         leading: const Icon(Icons.live_tv),
         value: () => Pref.superChatType,
         items: SuperChatType.values,
-        onSelected: (value, setState) => GStorage.setting
-            .put(SettingBoxKey.superChatType, value.index)
+        onSelected: (value, setState) => SettingsValues.general
+            .save(SettingBoxKey.superChatType, value.index)
             .whenComplete(setState),
       ),
       NormalModel(
@@ -354,7 +350,7 @@ Future<void> _showSubtitleDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(
+    await SettingsValues.general.save(
       SettingBoxKey.subtitlePreferenceV2,
       res.index,
     );
@@ -375,7 +371,7 @@ Future<void> _showFullScreenModeDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.fullScreenMode, res.index);
+    await SettingsValues.general.save(SettingBoxKey.fullScreenMode, res.index);
     setState();
   }
 }
@@ -397,7 +393,7 @@ Future<void> _showAngleDegreesDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
+    await SettingsValues.general.save(SettingBoxKey.angleDegrees, res.toInt());
     setState();
   }
 }
@@ -413,8 +409,8 @@ Future<void> showPlayerVolumeDialog(
     title: const Text('播放器音量'),
     value: value ?? Pref.playerVolume,
     onChanging: onChanged,
-    onChanged: (value) => GStorage.setting
-        .put(SettingBoxKey.playerVolume, value.roundToDouble())
+    onChanged: (value) => SettingsValues.general
+        .save(SettingBoxKey.playerVolume, value.roundToDouble())
         .whenComplete(setState),
   );
 }
@@ -466,10 +462,10 @@ List<SettingsModel> get playEnhancementSettings => [
   PopupModel<SkipType>(
     title: '番剧片头/片尾跳过类型',
     leading: const Icon(MdiIcons.debugStepOver),
-    value: () => Pref.pgcSkipType,
+    value: () => BlockConfigMixin.defaultPgcSkipType,
     items: SkipType.values,
-    onSelected: (value, setState) => GStorage.setting
-        .put(SettingBoxKey.pgcSkipType, value.index)
+    onSelected: (value, setState) => SettingsValues.general
+        .save(SettingBoxKey.pgcSkipType, value.index)
         .whenComplete(setState),
   ),
   const SwitchModel(
@@ -590,7 +586,7 @@ Future<void> _showMergeScaleDialog(
     ),
   );
   if (value == null) return;
-  await GStorage.setting.put(
+  await SettingsValues.general.save(
     threshold
         ? SettingBoxKey.mergeDanmakuThreshold
         : SettingBoxKey.mergeDanmakuLogBase,
@@ -645,8 +641,8 @@ void _showDmChartColorDialog(BuildContext context, VoidCallback setState) {
           await saveSetting(
             key: SettingBoxKey.dmChartColor,
             write: () => color == null
-                ? GStorage.setting.delete(SettingBoxKey.dmChartColor)
-                : GStorage.setting.put(
+                ? SettingsValues.general.reset(SettingBoxKey.dmChartColor)
+                : SettingsValues.general.save(
                     SettingBoxKey.dmChartColor,
                     color.toARGB32(),
                   ),
@@ -680,7 +676,7 @@ Future<void> _showDanmakuFrameRateDialog(
     ),
   );
   if (result == null || result == Pref.danmakuFrameRate) return;
-  await GStorage.setting.put(SettingBoxKey.danmakuFrameRate, result);
+  await SettingsValues.general.save(SettingBoxKey.danmakuFrameRate, result);
   if (context.mounted) setState();
 }
 
@@ -700,7 +696,7 @@ Future<void> _showDmHeightDialog(
     ),
   );
   if (result == null) return;
-  await GStorage.setting.put(SettingBoxKey.danmakuLineHeight, result);
+  await SettingsValues.general.save(SettingBoxKey.danmakuLineHeight, result);
   DanmakuOptions.danmakuLineHeight = result;
   if (context.mounted) setState();
 }

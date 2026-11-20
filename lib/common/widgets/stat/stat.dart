@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:material_ui/material_ui.dart';
 
 class StatWidget extends StatelessWidget {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/app_release.dart';
+import 'package:pili_aurora_next/services/update/app_release.dart';
 
 Map<String, Object?> release(String tag, {List<String> assets = const []}) => {
   'tag_name': tag,

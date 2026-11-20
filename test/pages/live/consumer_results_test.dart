@@ -1,45 +1,32 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_list.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/feedback.dart'
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/danmaku_msg.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/feedback.dart'
     as live_feedback;
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
-import 'package:pili_aurora_next/pages/live/controller.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/live/widgets/live_item_app.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/child/controller.dart';
-import 'package:pili_aurora_next/pages/live_area_detail/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/chat_buffer.dart';
-import 'package:pili_aurora_next/pages/live_room/contribution_rank/controller.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_panel.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/desktop_sidebar.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
-
-class _Live extends LiveController {
-  @override
-  Future<void>? prepareQuery() => null;
-}
-
-class _AreaChild extends LiveAreaChildController {
-  _AreaChild() : super(7, 8);
-  @override
-  Future<void>? prepareQuery() => null;
-}
 
 class _Room implements LiveRoomController {
   @override
@@ -49,17 +36,21 @@ class _Room implements LiveRoomController {
   @override
   bool autoScroll = false;
   @override
-  final onlineCount = RxnString('12');
+  final onlineCount = ValueNotifier<String?>('12');
   @override
-  final messages = Rx<List<LiveChatMessage<dynamic>>>([]);
+  final ValueNotifier<
+    ({List<LiveChatMessage<dynamic>> messages, bool truncated})
+  >
+  chatHistory =
+      ValueNotifier<
+        ({List<LiveChatMessage<dynamic>> messages, bool truncated})
+      >((messages: const [], truncated: false));
   @override
   final chatBuffer = LiveChatBuffer<dynamic>();
   @override
-  final historyTruncated = false.obs;
+  final disableAutoScroll = ValueNotifier(false);
   @override
-  final disableAutoScroll = false.obs;
-  @override
-  final unreadMessages = (0, 0).obs;
+  final unreadMessages = ValueNotifier((0, 0));
   @override
   final scrollController = ScrollController();
   @override
@@ -74,7 +65,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
   late LoginAccount main;
   late LoginAccount recommend;
   LoginAccount account(int mid, [String csrf = 'fixture']) => LoginAccount(
@@ -82,57 +72,6 @@ void main() {
     null,
     null,
   )..activated = true;
-  T own<T extends GetxController>(T controller) {
-    controllers.add(controller);
-    return controller;
-  }
-
-  Map<String, dynamic> feed(int roomId, {int areaId = 7}) => {
-    'code': 0,
-    'data': {
-      'has_more': 0,
-      'card_list': [
-        {
-          'card_type': 'my_idol_v1',
-          'card_data': {
-            'my_idol_v1': {
-              'list': [
-                {'roomid': roomId},
-              ],
-            },
-          },
-        },
-        {
-          'card_type': 'area_entrance_v3',
-          'card_data': {
-            'area_entrance_v3': {
-              'list': [
-                {'area_v2_id': areaId, 'area_v2_parent_id': 8},
-              ],
-            },
-          },
-        },
-        {
-          'card_type': 'small_card_v1',
-          'card_data': {
-            'small_card_v1': {'roomid': roomId},
-          },
-        },
-      ],
-    },
-  };
-  Map<String, dynamic> second(int roomId) => {
-    'code': 0,
-    'data': {
-      'count': 1,
-      'list': [
-        {'roomid': roomId},
-      ],
-      'new_tags': [
-        {'name': '标签$roomId', 'sort_type': 'online'},
-      ],
-    },
-  };
   Map<String, dynamic> rank(String name) => {
     'code': 0,
     'data': {
@@ -173,10 +112,6 @@ void main() {
     requests.clear();
   });
   tearDown(() {
-    for (final controller in controllers.reversed) {
-      if (!controller.isClosed) controller.onDelete();
-    }
-    controllers.clear();
     for (final request in requests) {
       if (!request.reply.isCompleted) {
         request.reply.complete({'code': -1, 'message': 'closed'});
@@ -225,151 +160,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  test('直播推荐换凭据重载，旧列表和顶部结果不能覆盖新账号', () async {
-    final controller = own(_Live())..onInit();
-    await interceptor.waitForRequests(1);
-    final oldTop = controller.queryTop();
-    await interceptor.waitForRequests(2);
-    expect(requests.first.options.extra['account'], same(recommend));
-    final replacement = account(3, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(3);
-    expect(requests.last.options.extra['account'], same(replacement));
-    expect(requests.last.options.queryParameters['page'], 1);
-    requests.last.reply.complete(feed(22));
-    await flush();
-    requests.first.reply.complete(feed(11));
-    requests[1].reply.complete(feed(12));
-    await oldTop;
-    await flush();
-    final item = controller.loadingState.value.data!.single as LiveCardList;
-    expect(item.cardData?.smallCardV1?.roomid, 22);
-    expect(
-      controller.topState.value.first?.cardData?.myIdolV1?.list?.single.roomid,
-      22,
-    );
-    expect(controller.page, 2);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(3, 'closed'));
-    await controller.queryTop();
-    expect(requests, hasLength(3));
-  });
-
-  test('直播顶部分区拒绝乱序，未收藏的当前分区继续沿原来源加载', () async {
-    final controller = own(_Live())
-      ..areaId = 7
-      ..parentAreaId = 8;
-    controller.areaIndex.value = 1;
-    final old = controller.queryTop();
-    await interceptor.waitForRequests(1);
-    final current = controller.queryTop();
-    await interceptor.waitForRequests(2);
-    requests.last.reply.complete(feed(22, areaId: 9));
-    await current;
-    expect(controller.areaIndex.value, -1);
-    requests.first.reply.complete(feed(11));
-    await old;
-    expect(controller.areaIndex.value, -1);
-    final query = controller.queryData();
-    await interceptor.waitForRequests(3);
-    expect(requests.last.options.path, Api.liveSecondList);
-    expect(requests.last.options.queryParameters['area_id'], 7);
-    requests.last.reply.complete(second(22));
-    await query;
-    final top = controller.topState.value;
-    final stale = controller.queryTop();
-    await interceptor.waitForRequests(4);
-    controller.areaId = 9;
-    requests.last.reply.complete(feed(11));
-    await stale;
-    expect(controller.topState.value, same(top));
-  });
-
-  test('直播子分区隔离推荐账号并保留错误结果和重试入口', () async {
-    final controller = own(_AreaChild())..onInit();
-    await interceptor.waitForRequests(1);
-    final replacement = account(3, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(2);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete(second(22));
-    await flush();
-    requests.first.reply.complete(second(11));
-    await flush();
-    expect(controller.loadingState.value.data!.single.roomid, 22);
-    expect(controller.newTags?.single.name, '标签22');
-    Accounts.replaceCredentials(account(1, 'new-filter-owner'));
-    await interceptor.waitForRequests(3);
-    expect(requests.last.options.extra['account'], same(replacement));
-    expect(controller.newTags, isNull);
-    requests.last.reply.complete({'code': -42, 'message': '分区暂不可用'});
-    await flush();
-    expect(controller.loadingState.value.toString(), '分区暂不可用');
-    final retry = controller.onReload();
-    await interceptor.waitForRequests(4);
-    requests.last.reply.complete(second(23));
-    await retry;
-    expect(controller.loadingState.value.data!.single.roomid, 23);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(3, 'closed'));
-    expect(requests, hasLength(4));
-  });
-
-  test('直播分区目录重载替换标签控制器，切号及关闭拒绝旧结果', () async {
-    final controller = own(LiveAreaDetailController('3', 8))..onInit();
-    await interceptor.waitForRequests(1);
-    requests.last.reply.complete({
-      'code': 0,
-      'data': [
-        {'id': '2'},
-        {'id': '3'},
-      ],
-    });
-    await flush();
-    final first = controller.tabController!;
-    expect(first.index, 1);
-    var reload = controller.onRefresh();
-    await interceptor.waitForRequests(2);
-    requests.last.reply.complete({
-      'code': 0,
-      'data': [
-        {'id': '3'},
-      ],
-    });
-    await reload;
-    expect(controller.tabController, isNot(same(first)));
-    expect(first.animation, isNull);
-    expect(controller.tabController!.length, 1);
-    reload = controller.onRefresh();
-    await interceptor.waitForRequests(3);
-    final replacement = account(3, 'replacement');
-    Accounts.replaceCredentials(replacement);
-    await interceptor.waitForRequests(4);
-    expect(requests.last.options.extra['account'], same(replacement));
-    requests.last.reply.complete({'code': 0, 'data': <dynamic>[]});
-    await flush();
-    requests[2].reply.complete({
-      'code': 0,
-      'data': [
-        {'id': '2'},
-      ],
-    });
-    await reload;
-    expect(controller.tabController, isNull);
-    expect(controller.loadingState.value.data, isEmpty);
-    controller.onDelete();
-    Accounts.replaceCredentials(account(3, 'closed'));
-    expect(requests, hasLength(4));
-  });
-
   test('直播贡献榜固定主账号并丢弃旧凭据和关闭后的结果', () async {
-    final controller = own(
-      ContributionRankController(
-        ruid: 2,
-        roomId: 1,
-        type: .online_rank,
-      ),
-    )..onInit();
+    final container = ProviderContainer.test();
+    final provider = liveContributionProvider((
+      (scope: Object(), room: 1, anchor: 2),
+      .online_rank,
+    ));
+    final names = <String?>[];
+    final subscription = container.listen(provider, (_, next) {
+      if (next is AsyncData && !next.isLoading) {
+        names.add(next.requireValue.dataOrNull?.single.name);
+      }
+    });
     await interceptor.waitForRequests(1);
     final replacement = account(1, 'replacement');
     Accounts.replaceCredentials(replacement);
@@ -379,15 +181,65 @@ void main() {
     await flush();
     requests.first.reply.complete(rank('旧观众'));
     await flush();
-    expect(controller.loadingState.value.data!.single.name, '当前观众');
-    final query = controller.onRefresh();
+    expect(names, ['当前观众']);
+    container.invalidate(provider);
     await interceptor.waitForRequests(3);
-    controller.onDelete();
+    subscription.close();
+    await container.pump();
     requests.last.reply.complete(rank('关闭后的观众'));
-    await query;
-    expect(controller.loadingState.value.data!.single.name, '当前观众');
+    await flush();
+    expect(names, ['当前观众']);
     Accounts.replaceCredentials(account(1, 'closed'));
     expect(requests, hasLength(3));
+  });
+
+  testWidgets('直播点赞分批结算，不清空在途期间的新点击或提交已失效批次', (tester) async {
+    final previousHeartbeat = Accounts.heartbeat;
+    Accounts.accountMode[AccountType.heartbeat.index] = main;
+    addTearDown(
+      () =>
+          Accounts.accountMode[AccountType.heartbeat.index] = previousHeartbeat,
+    );
+    var count = 0;
+    final receipts = <bool>[];
+    final likes = LiveRoomLikes(
+      room: () => 1,
+      anchor: () => 9,
+      onCount: (value) => count = value,
+      onReceipt: (result) => receipts.add(result.isSuccess),
+    );
+    addTearDown(likes.dispose);
+    Future<void> click() async {
+      likes
+        ..tapDown()
+        ..tapUp();
+      await tester.pump(const Duration(milliseconds: 800));
+    }
+
+    await click();
+    await until(tester, () => requests.length == 1);
+    await click();
+    expect(requests, hasLength(1));
+    requests.first.reply.complete({'code': 0});
+    await until(tester, () => requests.length == 2);
+    expect(count, 1);
+    expect(requests.map((request) => request.options.data['click_time']), [
+      1,
+      1,
+    ]);
+    likes
+      ..tapDown()
+      ..tapUp();
+    Accounts.accountMode[AccountType.main.index] = account(
+      1,
+      'new-credentials',
+    );
+    requests.last.reply.complete({'code': 0});
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpAndSettle();
+    expect(receipts, [true]);
+    expect(count, 0);
+    expect(requests, hasLength(2));
   });
 
   testWidgets('直播侧栏切房清理旧榜单，舰长结果绑定房间和账号', (tester) async {
@@ -397,37 +249,29 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     });
-    Widget sidebar(int roomId) => MaterialApp(
-      home: Scaffold(
-        body: SizedBox(
-          width: 380,
-          height: 600,
-          child: DesktopLiveSidebar(
-            roomId: roomId,
-            anchorUid: roomId + 10,
-            anchorName: '主播',
-            liveRoomController: room,
-            chat: const SizedBox.expand(),
-            input: const SizedBox(height: 48),
-            onShowRank: () {},
+    Widget sidebar(int roomId) => ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 380,
+            height: 600,
+            child: DesktopLiveSidebar(
+              roomId: roomId,
+              anchorUid: roomId + 10,
+              anchorName: '主播',
+              liveRoomController: room,
+              chat: const SizedBox.expand(),
+              input: const SizedBox(height: 48),
+              onShowRank: () {},
+            ),
           ),
         ),
       ),
     );
     await tester.pumpWidget(sidebar(1));
     await until(tester, () => requests.length == 2);
-    expect(
-      Get.isRegistered<ContributionRankController?>(tag: 'desktop-live-1'),
-      isFalse,
-    );
-    final oldRank = Get.find<ContributionRankController>(tag: 'desktop-live-1');
     await tester.pumpWidget(sidebar(2));
     await until(tester, () => requests.length == 4);
-    expect(oldRank.isClosed, isTrue);
-    expect(
-      Get.isRegistered<ContributionRankController>(tag: 'desktop-live-1'),
-      isFalse,
-    );
     for (final request in requests) {
       if (request.options.path == Api.liveContributionRank) {
         request.reply.complete(rank('观众'));
@@ -459,10 +303,6 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     Accounts.replaceCredentials(account(1, 'closed'));
     expect(requests, hasLength(6));
-    expect(
-      Get.isRegistered<ContributionRankController>(tag: 'desktop-live-2'),
-      isFalse,
-    );
     expect(tester.takeException(), isNull);
   });
 
@@ -512,16 +352,19 @@ void main() {
   testWidgets('直播屏蔽菜单绑定打开时账号和房间，旧操作不宣告成功', (tester) async {
     final room = _Room();
     addTearDown(room.scrollController.dispose);
-    room.messages.value = [
-      const LiveChatMessage(
-        id: 1,
-        content: DanmakuMsg(
-          name: '发送者',
-          text: '消息',
-          extra: LiveDanmaku(id: '1', mid: 2, dmType: 0, ts: 0, ct: 0),
+    room.chatHistory.value = (
+      messages: const [
+        LiveChatMessage(
+          id: 1,
+          content: DanmakuMsg(
+            name: '发送者',
+            text: '消息',
+            extra: LiveDanmaku(id: '1', mid: 2, dmType: 0, ts: 0, ct: 0),
+          ),
         ),
-      ),
-    ];
+      ],
+      truncated: false,
+    );
     await mount(
       tester,
       LiveRoomChatPanel(liveRoomController: room, isPP: false),

@@ -9,27 +9,27 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_select_field.dart';
-import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
-import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
+import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/super_resolution_policy.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/connectivity_utils.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_dialog.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
+import 'package:pili_aurora_next/platform/network/connectivity.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
 Future<void> showVideoMoreSettings(
   BuildContext context, {
@@ -136,6 +136,7 @@ class VideoMoreSettingsSheet extends StatefulWidget {
 class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
   final _scrollController = ScrollController();
   bool _advanced = false;
+  bool _savingPauseOnMinimize = false;
   VideoDetailController get controller => widget.controller;
 
   @override
@@ -147,6 +148,25 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
   void _run(VoidCallback action) {
     Navigator.of(context).pop();
     if (widget.sourceContext.mounted) action();
+  }
+
+  Future<void> _setPauseOnMinimize(bool value) async {
+    if (_savingPauseOnMinimize) return;
+    final player = controller.plPlayerController;
+    player.pauseOnMinimize.value = value;
+    if (player.tempPlayerConf) return;
+    const preference = WindowPreference.pauseOnMinimize;
+    setState(() => _savingPauseOnMinimize = true);
+    try {
+      await saveSetting(
+        key: preference.key,
+        write: () => preference.save(value),
+        canPresent: () =>
+            mounted && (ModalRoute.of(context)?.isCurrent ?? true),
+      );
+    } finally {
+      if (mounted) setState(() => _savingPauseOnMinimize = false);
+    }
   }
 
   Widget _switch(
@@ -237,10 +257,7 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
         onSelected: (value) {
           if (value == -1) {
             _run(
-              () => service.showScheduleExitDialog(
-                widget.sourceContext,
-                isFullScreen: controller.plPlayerController.isFullScreen.value,
-              ),
+              () => showScheduleExitDialog(widget.sourceContext),
             );
           } else {
             service.startShutdownTimer(value);
@@ -283,13 +300,7 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
         (
           Icons.flag_outlined,
           '举报',
-          () {
-            if (Accounts.main.isLogin) {
-              PageUtils.reportVideo(controller.aid);
-            } else {
-              SmartDialog.showToast('账号未登录');
-            }
-          },
+          controller.reportVideo,
         ),
     ];
     return Column(
@@ -410,11 +421,9 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
                 return;
               }
               try {
-                await GStorage.setting.put(
-                  network.response
-                      ? SettingBoxKey.defaultAudioQa
-                      : SettingBoxKey.defaultAudioQaCellular,
-                  value.code,
+                await AudioPreferences.saveQuality(
+                  value,
+                  wifi: network.response,
                 );
               } catch (error, stackTrace) {
                 logger.w(
@@ -454,16 +463,28 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
         _select<CDNService>(
           Icons.cloud_outlined,
           'CDN',
-          value: VideoUtils.cdnService,
-          selectedLabel: VideoUtils.cdnService.name,
-          hint: VideoUtils.cdnService.desc,
+          value: VideoPreferences.cdn,
+          selectedLabel: VideoPreferences.cdn.name,
+          hint: VideoPreferences.cdn.desc,
           options: [
             for (final service in CDNService.values) (service, service.desc),
           ],
-          onSelected: (value) {
-            if (VideoUtils.cdnService == value) return;
-            VideoUtils.cdnService = value;
-            GStorage.setting.put(SettingBoxKey.CDNService, value.name);
+          onSelected: (value) async {
+            if (VideoPreferences.cdn == value) return;
+            try {
+              await VideoPreferences.saveCdn(value);
+            } catch (error, stack) {
+              logger.w(
+                '保存 CDN 设置失败',
+                error: error.runtimeType,
+                stackTrace: stack,
+              );
+              if (mounted && !controller.isClosed) {
+                SmartDialog.showToast('CDN 设置保存失败，请重试');
+              }
+              return;
+            }
+            if (!mounted || controller.isClosed) return;
             if (controller.videoState.value) {
               controller.queryVideoUrl(fromReset: true);
             }
@@ -593,19 +614,7 @@ class _VideoMoreSettingsSheetState extends State<VideoMoreSettingsSheet> {
                             Icons.pause_circle_outline,
                             '最小化时暂停',
                             player.pauseOnMinimize.value,
-                            (value) {
-                              player.pauseOnMinimize.value = value;
-                              if (!player.tempPlayerConf) {
-                                GStorage.setting.put(
-                                  SettingBoxKey.pauseOnMinimize,
-                                  value,
-                                );
-                                if (Get.isRegistered<MainController>()) {
-                                  Get.find<MainController>().pauseOnMinimize =
-                                      value;
-                                }
-                              }
-                            },
+                            _savingPauseOnMinimize ? null : _setPauseOnMinimize,
                           ),
                         if (PlatformUtils.isMobile)
                           _switch(

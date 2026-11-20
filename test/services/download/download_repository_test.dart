@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_media_file_info.dart';
-import 'package:pili_aurora_next/services/download/download_repository.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/domain/download_media.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 
 import 'download_fixtures.dart';
 
@@ -29,6 +30,28 @@ void main() {
 
   tearDown(() async {
     await directory.delete(recursive: true);
+  });
+
+  test('首次读取和写入都等待下载目录就绪', () async {
+    final root = Completer<String>();
+    var calls = 0;
+    repository = DownloadRepository(
+      rootPath: () {
+        calls++;
+        return root.future;
+      },
+    );
+    expect(calls, 0);
+    final scan = repository.load();
+    final entry = downloadEntry();
+    final create = repository.create(entry);
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 2);
+    expect(Directory(rootPath).existsSync(), isFalse);
+    root.complete(rootPath);
+    await scan;
+    await create;
+    expect((await repository.load()).single.cid, entry.cid);
   });
 
   for (final episode in [false, true]) {
@@ -64,6 +87,42 @@ void main() {
       expect(corruptPaths, [badFile.path]);
     });
   }
+
+  test('读取未记录音频画质的离线条目并保留已下载进度', () async {
+    final entryDirectory = await Directory(path.join(rootPath, '7', 'c_13'))
+        .create(recursive: true);
+    await File(path.join(entryDirectory.path, 'entry.json')).writeAsString('''{
+  "media_type": 2,
+  "has_dash_audio": true,
+  "is_completed": false,
+  "total_bytes": 200,
+  "downloaded_bytes": 45,
+  "title": "离线旧记录",
+  "type_tag": "80",
+  "cover": "",
+  "prefered_video_quality": 80,
+  "quality_pithy_description": "1080P",
+  "guessed_total_bytes": 200,
+  "total_time_milli": 12000,
+  "danmaku_count": 0,
+  "time_update_stamp": 12,
+  "time_create_stamp": 10,
+  "can_play_in_advance": false,
+  "interrupt_transform_temp_file": false,
+  "avid": 7,
+  "bvid": "BV-fixture",
+  "page_data": {"cid": 13, "page": 1, "has_alias": false, "tid": 0,
+                "width": 1920, "height": 1080, "rotate": 0}
+}''');
+
+    final restored = (await repository.load()).single;
+    expect(restored.cid, 13);
+    expect(restored.downloadedBytes, 45);
+    expect(restored.totalBytes, 200);
+    expect(restored.preferredAudioQuality, isNull);
+    expect(restored.status, DownloadStatus.wait);
+    expect(corruptPaths, isEmpty);
+  });
 
   test('serializes saves and restores the final snapshot', () async {
     final entry = downloadEntry();

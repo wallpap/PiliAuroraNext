@@ -63,7 +63,7 @@ void main() {
     }
 
     expect(_read('tool/jnigen.dart'), contains("'$_package.AndroidHelper'"));
-    final bindings = _read('lib/utils/android/bindings.g.dart');
+    final bindings = _read('lib/platform/android/bindings.g.dart');
     for (final name in ['AndroidHelper', 'AndroidHelper\$ToDart']) {
       expect(bindings, contains("r'$_packagePath/$name'"));
       expect(bindings, contains("r'L$_packagePath/$name;'"));

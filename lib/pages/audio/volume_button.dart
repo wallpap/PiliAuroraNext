@@ -1,12 +1,11 @@
 import 'dart:async' show Timer;
 import 'dart:math' as math;
 
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/vertical_slider.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
 import 'package:flutter/rendering.dart' show RenderProxyBox, BoxHitTestResult;
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class VolumeButton extends StatefulWidget {
@@ -69,25 +68,27 @@ class _VolumeButtonState extends State<VolumeButton> {
       child: OverlayPortal.overlayChildLayoutBuilder(
         controller: _controller,
         overlayChildBuilder: _overlayChildBuilder,
-        child: Obx(() {
-          final volume = widget.controller.desktopVolume.value;
-          return InkWell(
-            onTapUp: _onTapUp,
-            customBorder: const CircleBorder(),
-            child: Padding(
-              padding: const .all(10.0),
-              child: Icon(
-                volume == 0.0
-                    ? Icons.volume_off
-                    : volume < 0.5
-                    ? Icons.volume_down
-                    : Icons.volume_up,
-                color: theme.onSurfaceVariant,
-                size: 22.0,
+        child: ValueListenableBuilder(
+          valueListenable: widget.controller.desktopVolume,
+          builder: (context, volume, _) {
+            return InkWell(
+              onTapUp: _onTapUp,
+              customBorder: const CircleBorder(),
+              child: Padding(
+                padding: const .all(10.0),
+                child: Icon(
+                  volume == 0.0
+                      ? Icons.volume_off
+                      : volume < 0.5
+                      ? Icons.volume_down
+                      : Icons.volume_up,
+                  color: theme.onSurfaceVariant,
+                  size: 22.0,
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          },
+        ),
       ),
     );
   }
@@ -127,9 +128,9 @@ class _VolumeButtonState extends State<VolumeButton> {
                 enabledThumbRadius: 6,
               ),
             ),
-            child: Obx(
-              () {
-                final volume = widget.controller.volumeDraft.value;
+            child: ValueListenableBuilder(
+              valueListenable: widget.controller.volumeDraft,
+              builder: (context, volume, _) {
                 return Column(
                   spacing: 2,
                   mainAxisSize: .min,
@@ -142,8 +143,10 @@ class _VolumeButtonState extends State<VolumeButton> {
                       child: VerticalSlider(
                         year2023: true,
                         min: 0.0,
-                        max: Pref.maxVolume,
-                        divisions: volumePercent(Pref.maxVolume).toInt(),
+                        max: AudioPreferences.maxDesktopVolume,
+                        divisions: volumePercent(
+                          AudioPreferences.maxDesktopVolume,
+                        ).toInt(),
                         value: volume,
                         showValueIndicator: .never,
                         onChanged: widget.controller.previewVolume,
@@ -174,7 +177,7 @@ class _VolumeButtonState extends State<VolumeButton> {
     final offset = renderBox.localToGlobal(
       renderBox.size.topCenter(const Offset(0, -6)),
     );
-    Get.key.currentState!.push(
+    Navigator.of(context, rootNavigator: true).push(
       DialogRoute(
         context: context,
         useSafeArea: false,

@@ -4,33 +4,38 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/widgets/item.dart';
-import 'package:pili_aurora_next/pages/dynamics_topic_rcmd/controller.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/features/community/application/topic_queries.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
-class DynTopicRcmdPage extends StatefulWidget {
+class DynTopicRcmdPage extends ConsumerStatefulWidget {
   const DynTopicRcmdPage({super.key});
 
   @override
-  State<DynTopicRcmdPage> createState() => _DynTopicRcmdPageState();
+  ConsumerState<DynTopicRcmdPage> createState() => _DynTopicRcmdPageState();
 }
 
-class _DynTopicRcmdPageState extends State<DynTopicRcmdPage> {
-  final DynTopicRcmdController _controller = Get.put(DynTopicRcmdController());
+class _DynTopicRcmdPageState extends ConsumerState<DynTopicRcmdPage> {
+  final _owner = Object();
+  RecommendedTopics get _actions =>
+      ref.read(recommendedTopicsProvider(_owner).notifier);
 
   @override
   Widget build(BuildContext context) {
     return SimpleScaffold(
       appBar: AppBar(title: const Text('话题')),
       body: refreshIndicator(
-        onRefresh: _controller.onRefresh,
+        onRefresh: _actions.onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             ViewSliverSafeArea(
-              sliver: Obx(() => _buildBody(_controller.loadingState.value)),
+              sliver: _buildBody(
+                ref.watch(recommendedTopicsProvider(_owner)).loading,
+              ),
             ),
           ],
         ),
@@ -58,10 +63,10 @@ class _DynTopicRcmdPageState extends State<DynTopicRcmdPage> {
                   );
                 },
               )
-            : HttpError(onReload: _controller.onReload),
+            : HttpError(onReload: _actions.onReload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: _actions.onReload,
       ),
     };
   }

@@ -18,4 +18,4 @@
 - 依赖：先核对 `pubspec.yaml`、`pubspec.lock`、`dependency_overrides` 和[第三方依赖说明](third_party/README.md)，同步来源及许可证登记。
 - protobuf/JNI：修改源定义或生成脚本，再按[构建与测试](doc/development/build-and-test.md)中的流程生成产物。
 
-- 文档：按[文档维护约定](doc/README.md#维护文档)组织。用户指南以 UX、开发指南以 DX、agent 入口以 AX 为核心，并核对当前源码；更新导航与链接。实验和设备日志放在本地 `doc/dev/`，临时输出放在 `build/`；公开前核对脱敏与适用范围，标明未验证的设备行为。
+- 文档：按[文档维护约定](doc/README.md#维护文档)保留稳定约束、操作方法和源码入口。迁移进度、盘点、设计草稿与验证报告放在忽略的 `doc/dev/`，临时输出放在 `build/`。版本、默认值和测试清单引用配置或脚本；公开导航只链接 Git 跟踪的资料，移动后检查引用与锚点。

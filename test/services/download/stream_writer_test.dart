@@ -5,8 +5,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/services/download/response_adapter.dart';
-import 'package:pili_aurora_next/services/download/stream_writer.dart';
+import 'package:pili_aurora_next/features/download/data/response_adapter.dart';
+import 'package:pili_aurora_next/features/download/data/stream_writer.dart';
 
 class _SlowConsumer implements StreamConsumer<List<int>> {
   final firstWrite = Completer<void>();

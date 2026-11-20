@@ -8,36 +8,37 @@ import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/draggable_sheet/dyn.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/time_picker.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_publishing.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamic_draft.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart' show PicModel;
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve_info/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_option_type.dart';
+import 'package:pili_aurora_next/features/community/presentation/comments/reply_option_icon.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart' show PicModel;
+import 'package:pili_aurora_next/features/community/domain/vote.dart';
+import 'package:pili_aurora_next/features/community/domain/reserve.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_reserve/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
-import 'package:pili_aurora_next/pages/dynamics_select_topic/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_select_topic/view.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide showTimePicker;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
@@ -105,31 +106,38 @@ class CreateDynPanel extends CommonRichTextPubPage {
 
 class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   late final bool _isEdit;
-  late final RxBool _isPrivate;
-  late final Rx<Pair<int, String>?> _topic;
-  late final Rx<ReplyOptionType> _replyOption;
+  late final ValueNotifier<bool> _isPrivate;
+  late final ValueNotifier<Pair<int, String>?> _topic;
+  late final ValueNotifier<ReplyOptionType> _replyOption;
   late final TextEditingController _titleEditCtr;
-  late final _publishTime = Rxn<DateTime>();
-  final _reserveCard = Rxn<ReserveInfoData>();
-  final _publishing = false.obs;
+  final _publishTime = ValueNotifier<DateTime?>(null);
+  final _reserveCard = ValueNotifier<ReserveInfoData?>(null);
+  final _publishing = ValueNotifier(false);
+  late final _publishButton = Listenable.merge([
+    enablePublish,
+    _publishing,
+    _publishTime,
+  ]);
 
   @override
   void initState() {
     super.initState();
     _isEdit = widget.editConfig != null;
-    _isPrivate = widget.isPrivate.obs;
-    _replyOption = widget.replyOption.obs;
-    _topic = Rx<Pair<int, String>?>(widget.topic);
+    _isPrivate = ValueNotifier(widget.isPrivate);
+    _replyOption = ValueNotifier(widget.replyOption);
+    _topic = ValueNotifier(widget.topic);
     _titleEditCtr = TextEditingController(text: widget.title);
   }
 
   @override
   void dispose() {
     _titleEditCtr.dispose();
-    Get
-      ..delete<EmotePanelController>()
-      ..delete<SelectTopicController>()
-      ..delete<DynMentionController>();
+    _isPrivate.dispose();
+    _topic.dispose();
+    _replyOption.dispose();
+    _publishTime.dispose();
+    _reserveCard.dispose();
+    _publishing.dispose();
     super.dispose();
   }
 
@@ -147,8 +155,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Obx(
-                  () {
+                child: ListenableBuilder(
+                  listenable: _topic,
+                  builder: (context, _) {
                     final hasTopic = _topic.value != null;
                     return Row(
                       spacing: 10,
@@ -259,14 +268,23 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Obx(() => _buildPubTimeWidget),
+                    ListenableBuilder(
+                      listenable: _publishTime,
+                      builder: (context, _) => _buildPubTimeWidget,
+                    ),
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Obx(_buildReplyOptionWidget),
+                        ListenableBuilder(
+                          listenable: _replyOption,
+                          builder: (context, _) => _buildReplyOptionWidget(),
+                        ),
                         const SizedBox(height: 5),
-                        Obx(_buildPrivateWidget),
+                        ListenableBuilder(
+                          listenable: _isPrivate,
+                          builder: (context, _) => _buildPrivateWidget(),
+                        ),
                       ],
                     ),
                   ],
@@ -285,8 +303,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
 
   Widget _buildImageList() => SizedBox(
     height: 100,
-    child: Obx(
-      () => CustomScrollView(
+    child: ListenableBuilder(
+      listenable: images,
+      builder: (context, _) => CustomScrollView(
         scrollDirection: Axis.horizontal,
         slivers: [
           const SliverToBoxAdapter(child: SizedBox(width: 16)),
@@ -360,8 +379,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
         ),
         Align(
           alignment: Alignment.centerRight,
-          child: Obx(
-            () => FilledButton.tonal(
+          child: ListenableBuilder(
+            listenable: _publishButton,
+            builder: (context, _) => FilledButton.tonal(
               onPressed: enablePublish.value && !_publishing.value
                   ? onPublishThrottle
                   : null,
@@ -394,7 +414,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     return PopupMenuButton<bool>(
       requestFocus: false,
       initialValue: _isPrivate.value,
-      onSelected: _isPrivate.call,
+      onSelected: (isPrivate) => _isPrivate.value = isPrivate,
       itemBuilder: (context) => List.generate(
         2,
         (index) => AppPopupMenuItem<bool>(
@@ -704,14 +724,15 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     selected: false,
   );
 
-  Widget _buildEditWidget() => Obx(
-    () => RichTextField(
+  Widget _buildEditWidget() => ValueListenableBuilder(
+    valueListenable: readOnly,
+    builder: (context, readOnly, _) => RichTextField(
       key: key,
       controller: editController,
       minLines: 4,
       maxLines: null,
       focusNode: focusNode,
-      readOnly: readOnly.value,
+      readOnly: readOnly,
       onChanged: onChanged,
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
@@ -737,7 +758,8 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (!mounted || _publishing.value) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final route = ModalRoute.of(context);
     final editConfig = widget.editConfig;
     final onSuccess = widget.onSuccess;
@@ -751,57 +773,34 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     final topic = _topic.value;
     final reserveId = _reserveCard.value?.id;
     final images = pictureDraft;
+    final publishing = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(dynamicsPublishingProvider);
     bool isCurrent() =>
-        mounted &&
-        identical(account, Accounts.main) &&
-        editConfig == widget.editConfig;
+        mounted && identity.isCurrent && editConfig == widget.editConfig;
     _publishing.value = true;
     feedBack();
     try {
-      pictures ??= await uploadPictures(account: account);
-      if (!isCurrent()) return;
-      final LoadingState<String?> result;
-      if (editConfig != null) {
-        final edited = await DynamicsHttp.editDyn(
-          account: account,
-          dynId: editConfig.dynId,
-          repostDynId: editConfig.repostDynId,
+      final result = await publishing.submit(
+        account,
+        DynamicDraft(
+          editId: editConfig?.dynId,
+          repostId: editConfig?.repostDynId,
           rawText: extraContent == null ? text : null,
-          pics: pictures,
+          publishTime: publishTime,
           replyOption: replyOption,
-          privatePub: isPrivate ? 1 : null,
+          isPrivate: isPrivate,
           title: title,
-          topic: topic,
-          extraContent: extraContent,
-        );
-        result = edited is Error ? edited : const Success(null);
-      } else {
-        result = await DynamicsHttp.createDynamic(
-          account: account,
-          mid: account.mid,
-          rawText: extraContent == null ? text : null,
-          pics: pictures,
-          publishTime: publishTime == null
-              ? null
-              : publishTime.millisecondsSinceEpoch ~/ 1000,
-          replyOption: replyOption,
-          privatePub: isPrivate ? 1 : null,
-          title: title,
-          topic: topic,
-          extraContent: extraContent,
-          attachCard: reserveId == null
-              ? null
-              : {
-                  'common_card': {
-                    'type': 14,
-                    'biz_id': reserveId,
-                    'reserve_source': 0,
-                    'reserve_lottery': 0,
-                  },
-                },
-        );
-      }
-      if (!isCurrent()) return;
+          topic: topic == null ? null : (topic.first, topic.second),
+          richText: extraContent,
+          reserveId: reserveId,
+        ),
+        preparePictures: () async =>
+            pictures ?? await uploadPictures(account: account),
+        canSubmit: isCurrent,
+      );
+      if (!isCurrent() || result == null) return;
       if (result case Success(:final response)) {
         const equality = DeepCollectionEquality();
         hasPub =
@@ -828,17 +827,14 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
             stackTrace: stackTrace,
           );
         }
-        if (response != null) {
-          unawaited(RequestUtils.insertCreatedDyn(response, account: account));
-          if (!isPrivate && publishTime == null) {
-            unawaited(
-              RequestUtils.checkCreatedDyn(
-                id: response,
-                dynText: rawText,
-                account: account,
-              ),
-            );
-          }
+        if (response != null && !isPrivate && publishTime == null) {
+          unawaited(
+            checkPublishedDynamic(
+              id: response,
+              dynText: rawText,
+              owner: identity,
+            ),
+          );
         }
       } else {
         result.toast();
@@ -856,13 +852,16 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   }
 
   double _topicOffset = 0;
+  final _topicMemory = CommunityPickerMemory<void>();
   Future<void> _onSelectTopic() async {
+    final identity = AccountScope.capture();
     TopicItem? res = await SelectTopicPanel.onSelectTopic(
       context,
+      memory: _topicMemory,
       offset: _topicOffset,
       onCachePos: (offset) => _topicOffset = offset,
     );
-    if (mounted && res != null) {
+    if (mounted && identity.isCurrent && res != null) {
       _topic.value = Pair(first: res.id, second: res.name);
     }
   }
@@ -871,9 +870,9 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   void onSave() {}
 
   Widget _buildReserveItem() {
-    return Obx(
-      () {
-        final reserveCard = _reserveCard.value;
+    return ValueListenableBuilder(
+      valueListenable: _reserveCard,
+      builder: (context, reserveCard, _) {
         if (reserveCard == null) {
           return const SizedBox.shrink();
         }

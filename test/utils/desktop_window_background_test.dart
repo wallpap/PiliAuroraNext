@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/app/desktop_theme.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
-import 'package:pili_aurora_next/utils/desktop_window_background.dart';
+import 'package:pili_aurora_next/platform/desktop/window_background.dart';
 
 void main() {
   testWidgets('浅深色背景、全屏期间换主题及退出恢复保持一致', (tester) async {

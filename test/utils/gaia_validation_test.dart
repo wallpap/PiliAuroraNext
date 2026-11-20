@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/search/presentation/search_verification_dialog.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../support/controlled_interceptor.dart';
 import '../support/memory_box.dart';
@@ -86,7 +86,7 @@ void main() {
     var completed = false;
     var calls = 0;
     final operation =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (_) {
             calls++;
@@ -113,7 +113,7 @@ void main() {
     var completed = false;
     var calls = 0;
     final operation =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (_) {
             calls++;
@@ -146,7 +146,7 @@ void main() {
     var completed = false;
     String? verifiedId;
     final operation =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (id) {
             verifiedId = id;
@@ -183,7 +183,7 @@ void main() {
     var completed = false;
     var calls = 0;
     final operation =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (_) {
             calls++;
@@ -214,7 +214,7 @@ void main() {
     var completed = false;
     var calls = 0;
     final operation =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (_) {
             calls++;
@@ -250,7 +250,7 @@ void main() {
     Object? failure;
     var completed = false;
     final observed =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (_) => Future<void>.error(cause),
           account: account,
@@ -284,7 +284,7 @@ void main() {
     var current = true;
     var completed = false;
     final operation =
-        RequestUtils.validate(
+        showSearchVerification(
           'voucher',
           (_) {
             fail('旧操作不应继续');

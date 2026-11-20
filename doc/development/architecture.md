@@ -15,14 +15,16 @@ flowchart LR
         Root[app/app.dart<br/>根 Widget 与路由]
         Routes[router/app_pages.dart<br/>路由注册]
         Pages[pages/<br/>页面与交互]
-        Http[http/<br/>远端 API]
+        Features[features/<br/>领域状态与数据适配]
+        Http[http/ 与 grpc/<br/>远端 API]
         Services[services/<br/>跨页面与长生命周期能力]
         Player[plugin/pl_player/<br/>播放控制与输出协调]
-        Models[models/ 与 grpc/<br/>共享模型和协议数据]
-        Shared[common/ 与 utils/<br/>通用组件和基础工具]
+        Protocols[generated/<br/>生成协议]
+        Shared[common/<br/>共享 UI]
+        Core[core/<br/>跨领域 Dart 基础能力]
         Local[(本地存储、缓存、下载文件)]
     end
-    Platform[Android / Windows 插件与原生能力]
+    Platform[platform/ 与 Android / Windows 原生能力]
     Media[media_kit / mpv / WebView / 音频库]
     Remote[(Bilibili 与第三方服务)]
 
@@ -30,15 +32,18 @@ flowchart LR
     Bootstrap --> Services
     Bootstrap --> Platform
     Bootstrap --> Local
-    Pages --> Http
+    Pages --> Features
     Pages --> Services
     Pages --> Player
-    Pages --> Models
     Pages --> Shared
+    Features --> Http
+    Features --> Services
+    Features --> Core
+    Shared --> Core
     Services --> Http
-    Services --> Models
+    Services --> Protocols
     Services --> Local
-    Http --> Models
+    Http --> Protocols
     Http --> Remote
     Player --> Media
     Player --> Platform
@@ -51,18 +56,38 @@ flowchart LR
 | 目录 | 主要职责 | 修改时先看 |
 | --- | --- | --- |
 | `lib/app/` | 启动装配、路径准备、平台初始化、根 Widget 与返回导航 | `bootstrap.dart`、`platform_setup.dart`、`app.dart` |
-| `lib/router/` | 集中注册 GetX 路由及页面入口 | `app_pages.dart` 与页面构造参数 |
+| `lib/router/` | 路由注册、深链接解析与页面跳转 | `app_pages.dart`、`app_scheme.dart`、`page_utils.dart` |
+| `lib/features/` | 领域模型、数据适配、应用状态与展示 | [功能地图](features.md)及各领域 README |
 | `lib/pages/` | 按用户功能组织 view、controller 和局部组件 | 路由、controller、对应测试 |
 | `lib/http/` | 业务 API 与请求层横切逻辑 | API 调用方、响应模型、`init.dart` |
-| `lib/services/` | 下载、消息、直播流、账号、诊断等跨页面或长生命周期能力 | 生命周期、资源所有者、对应测试 |
-| `lib/models/`、`lib/grpc/` | API 模型、共享数据、枚举及 gRPC/protobuf 数据 | 上游定义和生成流程 |
+| `lib/services/` | 消息、设置与存储、直播流、缓存和诊断等跨页面能力 | 所属模块的状态与数据接口 |
+| `lib/grpc/` | gRPC 请求与传输适配 | 功能层调用方与协议转换 |
+| `lib/generated/bilibili/` | Bilibili protobuf 生成产物 | [协议定义与生成入口](../../lib/generated/README.md) |
 | `lib/plugin/pl_player/` | 播放状态、媒体源、弹幕、原生输出和全屏控制 | `controller.dart`、对应平台实现和测试 |
-| `lib/common/`、`lib/utils/` | 通用 UI、存储、缓存、平台判断及辅助逻辑 | 全部调用方，避免把页面状态放进通用层 |
+| `lib/common/` | 共享控件、布局、样式与交互反馈 | 控件调用方及其测试 |
+| `lib/core/` | Dart 集合、解析、时间、文件与调度基础能力 | 纯 Dart 接口，禁止依赖应用层和 Flutter |
+| `lib/platform/` | 平台能力、桌面窗口和 Android JNI 桥接 | 对应平台实现与主机测试 |
 | `android/`、`windows/`、`third_party/` | 平台工程、插件和本地维护的依赖实现 | 依赖登记、生成脚本和平台构建配置 |
 
-部分页面 controller 直接调用 `http/`，另一些经由 `services/`。`models/` 同时包含远端响应和页面间共享对象，用途比数据库实体更宽。
+展示层经由功能入口或服务发起请求。业务类型归所属模块，`domain/` 保存页面可消费的领域数据和规则，`data/` 保存传输适配、持久化与协议转换。`features/media_catalog/domain/` 定义跨搜索、发现、空间与播放共享的视频和作者摘要。其余选源、音轨和直播房间模型归播放模块。
 
-消息及已迁移的查询、列表和偏好页面使用 Riverpod。各功能的状态所有者、账号切换和异步失效约定见[状态管理](state-management.md)。
+Riverpod 由根 ProviderScope 装配，页面查询和应用级服务按各自生命周期管理。各功能的状态所有者、账号切换和异步失效约定见[状态管理](state-management.md)。
+
+新增业务状态使用 Riverpod，GetX 保留路由及存量适配。投票选项等组件局部交互由 Flutter 组件持有。页面通过功能的应用层读取业务状态和提交意图。传输、全局存储和跨领域业务工具由数据层或明确的服务所有者访问。
+
+展示层依赖规则覆盖页面、功能展示层、共享组件、共享媒体 UI 及播放器视图和组件。展示层通过所属模块的配置接口读写偏好，设置区可读取类型化设置目录。传输和存储通过应用服务访问，原生实现由相应适配层封装。依赖门禁检查 GetX 业务类型、上述访问边界，以及本地定制包的 `src/`、`ffi/src/` 和 `generated/` 内部导入。`LoadingState` 仍是共享结果类型，生成文件不纳入业务源码检查。见[全库依赖检查](../../test/architecture/legacy_dependencies_test.dart)。
+
+## 应用资源的所有权
+
+启动装配创建每个进程的退出流程，正常退出、定时退出、Windows 更新退出、Flutter 退出请求和启动失败共用释放入口。关闭到托盘继续保留应用资源。启动失败只清理已有资源，主窗口随后显示错误页，播放进程以失败状态退出。
+
+| 所有者 | 释放顺序与入口 |
+| --- | --- |
+| 应用壳与根作用域 | 取消外部链接与托盘回调，解除角标观察，等待下载取消并保存进度。应用级 `AppExit` 与组件卸载共用各自的幂等释放入口。 |
+| 应用进程 | `bootstrap.dart` 回收定时器、消息会话、系统音频、弹幕配额、共享 HTTP 连接池和图片缓存。账号资料、余额监听、历史、收藏和稍后再看的跨入口广播随应用停止，已开始的本地写入与播放进度交付完成后关闭 Hive。诊断停止原生采样并刷新本次日志。 |
+| 独立音频路由 | 路由与应用退出共用播放器关闭操作。应用退出等待创建、打开和原生释放完成，再清理系统音频与共享播放器。超过退出预算时记录失败，音频关闭操作继续排空。 |
+| Windows 主窗口与播放进程 | 主窗口等待播放进程退出后删除其临时缓存目录。播放进程先回传进度与尺寸，等待播放器释放并刷新诊断，最后断开 IPC。主窗口退出前拒绝新的播放进程启动。 |
+| 网页页面与 Cookie 操作 | 页面挂载和 Cookie 操作分别持有 WebView 环境租约。退出先卸载网页内容。Windows 环境还等待嵌入式视图的原生创建和销毁回执。环境释放超出退出预算时记录失败并继续剩余阶段。 |
 
 ## 桌面窗口与标题栏
 
@@ -106,6 +131,8 @@ flowchart LR
 | UI 门面 | `PlPlayerController` | 把快照投影到现有控件状态，转发页面命令，保留播放器外观与业务适配 | 成为播放状态或原生输出的第二所有者 |
 | 平台输出 | `media_kit_video` 及 `third_party/` 适配 | 管理 Surface/纹理、输出代次、尺寸提交、帧交接和释放回执 | 推断视频业务身份 |
 
+`PLVideoPlayer` 按图层装配展示，控制菜单、输入、弹幕操作、输出交接和动态截图分别管理自己的展示资源。输入与输出协调器通过参数接收依赖，子模块各自成库；修改入口、交互语义和释放顺序见[播放器展示模块](../../lib/plugin/pl_player/view/README.md)。
+
 关键约束：
 
 - `PlaybackPlan` 冻结业务内容键、来源候选索引、时间线、位置和已捕获配置。内容键表示视频、分集或直播间，来源地址只表示当前候选。
@@ -115,13 +142,15 @@ flowchart LR
 - 页面关闭先停止接受命令，再排空已接受操作、卸载媒体、释放输出并销毁 Player。跨控制器运行时槽等待 `Player.released` 后才允许下一次初始化。
 - Windows 独立播放窗口拥有自己的 Flutter 进程、Player、输出和缓存；主窗口只负责启动、排列、声音切换、设置快照和离线进度回写。
 
-统一协议的回归入口见 `test/plugin/pl_player/playback/`，其中 `playback_session_test.dart` 覆盖代次、意图、配置和故障切换，`player_architecture_acceptance_test.dart` 覆盖 deadline、owner 与资源释放。设备侧加载、暂停、首帧和释放协议见 [`session_device_acceptance.dart`](../../tool/probes/playback/session_device_acceptance.dart)、[`paused_output_attach.dart`](../../tool/probes/playback/paused_output_attach.dart) 和 [`session_paused_load.dart`](../../tool/probes/playback/session_paused_load.dart)。
+`test/plugin/pl_player/playback/` 下，`playback_session_test.dart` 检查请求代次、播放意图、配置和故障切换。媒体锚点和弹幕交接见 `session_media_clock_test.dart`，命令时限、控制权和资源释放见 `player_architecture_acceptance_test.dart`。
+
+在设备上用 [`session_device_acceptance.dart`](../../tool/probes/playback/session_device_acceptance.dart)、[`paused_output_attach.dart`](../../tool/probes/playback/paused_output_attach.dart) 和 [`session_paused_load.dart`](../../tool/probes/playback/session_paused_load.dart) 验证加载、暂停、首帧和释放。
 
 ## 关键边界与约束
 
 - `main.dart` 只进入 `bootstrapApplication()`。启动依赖顺序和服务装配集中在 `app/bootstrap.dart`；平台初始化在 `app/platform_setup.dart`。
 - `app_pages.dart` 是路由注册表。新增或移动页面时同步检查路由名、构造参数、返回栈和 deep link 调用方。
-- `services/` 负责跨页面共享或需显式管理生命周期的工作。页面状态通常留在对应 controller。
+- `services/` 负责跨页面共享或需显式管理生命周期的工作。页面状态由所属页面或领域模块持有。
 - `services/messaging/` 按主账号的 `MessagingSession` 管理消息业务。GetX 保留路由，Riverpod 订阅业务快照；聊天和分享共用会话缓存及发送锁。分类消息句柄由页面 Notifier 创建和释放，未读概览、会话列表及聊天缓存由 Session 持有。入口和异步约定见[消息模块](../../lib/services/messaging/README.md)。
 - `DownloadRepository` 负责下载目录布局和记录读写；`DownloadService` 负责队列、状态和任务调度；`DownloadManager` 负责单路媒体传输。详情见[下载流程](runtime-flows.md#下载)。
 - `DownloadRepository` 写入前编码快照，同目录临时文件 flush/close 后重命名替换，并保留上次可读 JSON 的 `.bak`。启动按正式文件、备份、临时文件顺序恢复记录与媒体索引，读取或恢复失败通过回调报告；Windows 文件占用时不删除正式文件重试。替换以单文件为单位；断电恢复时核对目录项和媒体文件，进程中断后的续传进度以实际媒体文件长度为准。
@@ -129,10 +158,16 @@ flowchart LR
 - 显式后台媒体租约可让页面 owner 关闭后继续播放；最后一个 owner 和租约释放后才关闭会话。路由、后台与音频焦点分别释放自己的 inhibitor，保留用户暂停意图。
 - 快速切源复用 Player、控制器、订阅和纹理。过期操作在进入原生前跳过，已发出的操作仍沿运行时串行链完成并核对代次。
 - Windows 子窗口通过本地连接接收播放、账号及设置快照，设置仅在内存生效；超分重建先卸载媒体，再重建输出并重载，恢复点播位置与最新意图。资源释放顺序见[Windows 视频输出](../maintenance/windows-video-output.md)。
-- protobuf 与 Android JNI 属于生成产物。修改源定义或生成脚本，再运行项目生成流程；不要直接维护生成文件。
+- protobuf 与 Android JNI 都从项目中的输入和脚本生成。Bilibili protobuf 的输入来源和更新命令见[协议产物](../../lib/generated/README.md)。
 - 定制依赖通过 `dependency_overrides` 指向 `third_party/` 中的本地包。来源、版本和许可证以 `pubspec.yaml`、`pubspec.lock` 与 [`third_party/README.md`](../../third_party/README.md) 为准。
 
 `test/architecture/dependency_rules_test.dart` 断言 `main.dart` 不被导入、`app/` 不被底层模块依赖；也检查下载仓库不依赖 UI、GetX、网络或全局存储，以及下载执行器通过构造参数接收 Dio。
+
+依赖门禁扫描 `lib/` 下的业务 Dart 源码，包括新加入的功能目录。它检查导入、导出与条件分支，禁止 GetX 业务继承和注册。页面、共享组件、功能展示层及播放器控件通过功能入口访问业务能力。领域层不依赖传输和展示实现，应用层与数据层不反向引用功能界面。生成协议只由协议适配层、HTTP/gRPC 传输层和功能数据层消费。既有 Hive 字段注解随持久化模型保留。
+
+CI 统一分析 `lib test tool`，分析配置显式排除生成协议、生成的适配器和定制包。协议产物由 CI 再生成核对，并单独分析。依赖规则见 [`test/architecture/`](../../test/architecture/)。
+
+新增模型和工具放在负责该业务规则的模块。`core/` 只接收不含业务规则的 Dart 基础代码，平台实现进入 `platform/`，展示适配与组件放在功能展示层或 `common/`。依赖测试防止恢复 `lib/utils/`、`lib/models/`，并检查 `core/` 的依赖方向。业务源码、生成协议和定制包的搜索入口见[协议产物](../../lib/generated/README.md)。
 
 ## 状态与本地数据
 
@@ -161,17 +196,15 @@ flowchart LR
 
 点播来源和显示按100ms桶选取候选：自己发送的弹幕优先，其余按相对权重降序，同权重保持来源次序。合并代表项继承组内最高权重；跨worker批次收到权重提升后，此前淘汰的代表项可以重新进入来源缓存，仍按原始次序处理同权重竞争。
 
-默认每桶12条候选，每帧准备8条。高权重候选先分配轨道，保留原始时间戳；有界前瞻项可以先于完整准备前沿编排，前沿仍等待桶内剩余候选。已经建立的轨迹与选中项保持稳定，后到的高权重项不会抢占它们。配置依据见[密度实验](../../tool/experiments/README.md#2026-11-07-配置选择)。
-
-布局通过纵向索引筛选可能碰撞的活动轨迹，容量检查通常无需分配和排序事件；窗口将新增项归并到时间索引。默认窗口3072项/5MiB，满额时回收当前时刻前已经结束的历史结果，保留仍存活的长轨迹。实际倍速调整媒体锚点与前瞻量。
+高权重候选优先分配轨道，已建立的轨迹与选择保持稳定。有界前瞻允许先编排部分候选，完整准备前沿仍等待剩余候选。窗口回收已经结束的历史结果并保留存活轨迹；预算见[默认构建与策略](build-defaults.md)，对照方法见[密度实验](../../tool/experiments/README.md#配置选择)。
 
 直播候选保留传输入口的单调收到时间，运动时间累计显示运行时段；候选年龄与资源期限在暂停期间继续推进。隐藏解除直播显示订阅，聊天和SC由房间继续消费。
 
-页面通过`DanmakuDisplayBinding`和只读交互快照进行选择、列表、清屏和来源回显。轨道、活动项和图片保留在显示实例。来源替换、seek和卸载结束旧选择；局部来源失效按条目原始时间撤回受影响项，保留无关活动轨迹、图片与选择。显示配置按小批次准备，轨迹、资源和命中在同一帧生效。点播范围来源的过滤/合并更新先通知失效，再提交最新规则结果。
+页面通过`DanmakuDisplayBinding`和只读交互快照进行选择、列表、清屏和来源回显。点播缓存只向显示模块交付不可变的 `DanmakuTimelineEntry`，不传递生成协议对象；在线条目在范围读取时转换为微秒，本地发送保留实际投放的微秒位置。轨道、活动项和图片保留在显示实例。来源替换、seek和卸载结束旧选择；局部来源失效按条目原始时间撤回受影响项，保留无关活动轨迹、图片与选择。显示配置按小批次准备，轨迹、资源和命中在同一帧生效。点播范围来源的过滤/合并更新先通知失效，再提交最新规则结果。
 
-来源解码和合并共用进程级`DanmakuWorkQuota`，运行任务实际退出后归还额度。解析前检查单条编码与字段数量，后续处理沿同一预留核对批次、合并上下文、规则和结果占用；原始缓存与处理结果缓存分别限制字节。处理结果默认20MiB/36000条，数量、字节或桶满额时通过有界优先索引替换较低权重项。文件来源每桶最多保留120条供范围读取，显示层再选取12条。范围覆盖区分未加载、加载中、失败、失效及已加载。
+来源解码和合并共用进程级`DanmakuWorkQuota`，运行任务实际退出后归还额度。解析前检查单条编码与字段数量，后续处理沿同一预留核对批次、合并上下文、规则和结果占用；原始缓存与处理结果缓存分别限制字节。数量、字节或桶满额时通过有界优先索引替换较低权重项。文件来源保留有界候选供范围读取，显示层按自身预算再次选择。范围覆盖区分未加载、加载中、失败、失效及已加载。
 
-本地文件通过外部稳定排序和持续合并游标处理，内存缓存保留当前所需分段。排序产物由来源持有，范围与规则变化复用它；原文件路径、长度或文件时间变化时重建，来源释放等待当前读取退出后清理。显示实例持有表情源图引用，源图、栅格、候选及在途图片预留共用实例工作集，图片按共享 backing 计账。
+在线分段和本地文件由 `features/danmaku/data/` 解码，在处理租约内转成 `DanmakuElement` 交给点播来源。下载导出使用原始回复。本地文件通过外部稳定排序和持续合并游标处理，排序保留原始元素字节和未知字段，内存缓存保留当前所需分段。排序产物由来源持有，范围与规则变化复用它。原文件路径、长度或文件时间变化时重建，来源释放等待当前读取退出后清理。显示实例持有表情源图引用，源图、栅格、候选及在途图片预留共用实例工作集，图片按共享 backing 计账。
 
 ## 平台边界
 

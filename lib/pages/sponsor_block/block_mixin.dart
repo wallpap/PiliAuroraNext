@@ -4,42 +4,28 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/sponsor_block.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:pili_aurora_next/features/sponsor_block/application/segment_model.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/action_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, ValueListenable;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' show Get, GetNavigation;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 
-mixin BlockConfigMixin {
-  late final pgcSkipType = Pref.pgcSkipType;
-  late final enablePgcSkip = pgcSkipType != SkipType.disable;
-  late final enableSponsorBlock = Pref.enableSponsorBlock;
-  late final enableBlock = enableSponsorBlock || enablePgcSkip;
-  late final blockColor = Pref.blockColor;
-  late final blockLimit = Pref.blockLimit * 1000;
-  late final blockSettings = Pref.blockSettings;
-  late final enableList = blockSettings
-      .where((item) => item.second != SkipType.disable)
-      .map((item) => item.first.name)
-      .toSet();
-
-  Color _getColor(SegmentType segment) => blockColor[segment.index];
-}
-
-mixin BlockMixin on GetxController {
+mixin BlockMixin {
   int? _lastBlockPos;
   int _blockGeneration = 0;
+  bool _blockClosed = false;
+  bool _blockDisposed = false;
   bool _blockMuted = false;
   final _activeMuteSegments = <SegmentModel>{};
   final _manualVisits = <SegmentModel>{};
@@ -89,13 +75,15 @@ mixin BlockMixin on GetxController {
   StreamSubscription<Duration>? _blockListener;
   StreamSubscription<Duration>? get blockListener => _blockListener;
   late final List<SegmentModel> _segmentList = <SegmentModel>[];
-  late final RxList<Segment> segmentProgressList = <Segment>[].obs;
+  final _segments = ValueNotifier<List<Segment>>(const []);
+  ValueListenable<List<Segment>> get segmentChanges => _segments;
+  List<Segment> get segmentProgressList => _segments.value;
 
   Timer? _skipTimer;
   late final listKey = GlobalKey<AnimatedListState>();
   late final List<Object> listData = [];
 
-  RxString? get videoLabel => null;
+  ValueNotifier<String>? get videoLabel => null;
   Player? get player;
   bool get autoPlay;
   int? get timeLength;
@@ -111,13 +99,19 @@ mixin BlockMixin on GetxController {
     required int cid,
     bool Function()? isCurrent,
   }) async {
-    if (isClosed || !(isCurrent?.call() ?? true)) return;
+    if (_blockClosed || !(isCurrent?.call() ?? true)) return;
     resetBlock();
     final generation = _blockGeneration;
+    final server = SponsorBlock.server;
 
-    final result = await SponsorBlock.getSkipSegments(bvid: bvid, cid: cid);
-    if (isClosed ||
+    final result = await SponsorBlock.getSkipSegments(
+      bvid: bvid,
+      cid: cid,
+      server: server,
+    );
+    if (_blockClosed ||
         generation != _blockGeneration ||
+        server != SponsorBlock.server ||
         !(isCurrent?.call() ?? true)) {
       return;
     }
@@ -133,7 +127,7 @@ mixin BlockMixin on GetxController {
   }
 
   void initSkip() {
-    if (isClosed) return;
+    if (_blockClosed) return;
     if (_segmentList.isNotEmpty) {
       _blockListener?.cancel();
       final currentPlayer = player;
@@ -144,7 +138,7 @@ mixin BlockMixin on GetxController {
             currentPlayer.state.buffering) {
           return;
         }
-        if (isClosed || !identical(player, currentPlayer)) return;
+        if (_blockClosed || !identical(player, currentPlayer)) return;
         final msPos = position.inMilliseconds;
         _updateMute(msPos);
         _manualVisits.removeWhere((item) => !item.segment.contains(msPos));
@@ -187,7 +181,7 @@ mixin BlockMixin on GetxController {
   }
 
   Future<void> handleSBData(List<SegmentItemModel> list) async {
-    if (list.isNotEmpty) {
+    if (!_blockClosed && list.isNotEmpty) {
       try {
         final currentDuration = timeLength;
         final duration = currentDuration != null && currentDuration > 0
@@ -210,30 +204,25 @@ mixin BlockMixin on GetxController {
                     item.segment[1] >= item.segment[0],
               )
               .map(
-                (item) {
-                  final segmentModel = SegmentModel.fromItemModel(
-                    item,
-                    isBlock ? blockConfig : null,
-                  );
-                  if (segmentModel.segment == const (0, 0)) {
-                    videoLabel?.value +=
-                        '${videoLabel!.value.isNotEmpty ? '/' : ''}${segmentModel.segmentType.title}';
-                  }
-
-                  return segmentModel;
-                },
+                (item) => SegmentModel.fromItemModel(
+                  item,
+                  isBlock ? blockConfig : null,
+                ),
               ),
         );
 
-        // _segmentProgressList
-        segmentProgressList.addAll(
+        videoLabel?.value = _segmentList
+            .where((segment) => segment.segment == const (0, 0))
+            .map((segment) => segment.segmentType.title)
+            .join('/');
+        _segments.value = List.unmodifiable(
           _segmentList.map((e) {
             double start = (e.segment.$1 / duration).clamp(0.0, 1.0);
             double end = (e.segment.$2 / duration).clamp(0.0, 1.0);
             return Segment(
               start: start,
               end: end,
-              color: blockConfig._getColor(e.segmentType),
+              color: blockConfig.segmentColor(e.segmentType),
             );
           }),
         );
@@ -294,10 +283,10 @@ mixin BlockMixin on GetxController {
   Future<void>? seekTo(Duration duration, {required bool isSeek});
 
   void _skipToast(SegmentModel item) {
-    if (autoPlay && Pref.blockToast) {
+    if (autoPlay && SponsorBlock.showSkipToast) {
       _showBlockToast('已跳过${item.segmentType.shortTitle}片段');
     }
-    if (isBlock && Pref.blockTrack) {
+    if (isBlock && SponsorBlock.trackSkips) {
       SponsorBlock.viewedVideoSponsorTime(item.uuid);
     }
   }
@@ -307,11 +296,14 @@ mixin BlockMixin on GetxController {
     bool isSkip = true,
     bool isSeek = true,
   }) async {
+    if (_blockClosed) return;
+    final generation = _blockGeneration;
     try {
       await seekTo(
         Duration(milliseconds: isSkip ? item.segment.$2 : item.segment.$1),
         isSeek: isSeek,
       );
+      if (_blockClosed || generation != _blockGeneration) return;
       if (isSkip) {
         _skipToast(item);
       } else {
@@ -319,6 +311,7 @@ mixin BlockMixin on GetxController {
       }
     } catch (e, stackTrace) {
       logger.w('failed to skip: $e', error: e, stackTrace: stackTrace);
+      if (_blockClosed || generation != _blockGeneration) return;
       if (isSkip) {
         _showBlockToast('${item.segmentType.shortTitle}片段跳过失败');
       } else {
@@ -372,20 +365,19 @@ mixin BlockMixin on GetxController {
     int? type,
     SegmentType? category,
   }) async {
-    if (isClosed || !_pendingBlockVotes.add(uuid)) return;
+    if (_blockClosed || !_pendingBlockVotes.add(uuid)) return;
     final generation = _blockGeneration;
-    final server = Pref.blockServer;
-    final userId = Pref.blockUserID;
+    final identity = SponsorBlock.identity;
     try {
       final result = await SponsorBlock.voteOnSponsorTime(
         uuid: uuid,
         type: type,
         category: category,
+        identity: identity,
       );
-      if (isClosed ||
+      if (_blockClosed ||
           generation != _blockGeneration ||
-          server != Pref.blockServer ||
-          userId != Pref.blockUserID) {
+          identity != SponsorBlock.identity) {
         return;
       }
       if (result.isSuccess) {
@@ -425,7 +417,7 @@ mixin BlockMixin on GetxController {
                           width: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: blockConfig._getColor(item),
+                            color: blockConfig.segmentColor(item),
                           ),
                         ),
                         style: const TextStyle(fontSize: 14, height: 1),
@@ -470,7 +462,7 @@ mixin BlockMixin on GetxController {
                           width: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: blockConfig._getColor(item.segmentType),
+                            color: blockConfig.segmentColor(item.segmentType),
                           ),
                         ),
                         style: const TextStyle(fontSize: 14, height: 1),
@@ -552,7 +544,7 @@ mixin BlockMixin on GetxController {
     _manualVisits.clear();
     videoLabel?.value = '';
     _segmentList.clear();
-    segmentProgressList.clear();
+    _segments.value = const [];
     // 切换来源时撤下旧片段操作，保留独立的历史分P提示。
     for (var index = listData.length - 1; index >= 0; index--) {
       if (listData[index] is! SegmentModel) continue;
@@ -591,12 +583,21 @@ mixin BlockMixin on GetxController {
     return null;
   }
 
-  @override
-  void onClose() {
+  void closeBlock() {
+    if (_blockClosed) return;
+    _blockClosed = true;
     _stopSkipTimer();
     if (blockConfig.enableBlock) {
       resetBlock();
+    } else {
+      cancelBlockListener();
     }
-    super.onClose();
+  }
+
+  void disposeBlock() {
+    if (_blockDisposed) return;
+    _blockDisposed = true;
+    closeBlock();
+    _segments.dispose();
   }
 }

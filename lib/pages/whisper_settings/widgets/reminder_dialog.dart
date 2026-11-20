@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart' show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
-import 'package:pili_aurora_next/pages/whisper_settings/controller.dart';
-import 'package:pili_aurora_next/services/messaging/settings.dart';
-import 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
+import 'package:pili_aurora_next/services/messaging/providers.dart';
+import 'package:pili_aurora_next/services/messaging/settings_providers.dart';
 
 class MessageReminderButton extends ConsumerStatefulWidget {
   const MessageReminderButton({
@@ -17,7 +15,7 @@ class MessageReminderButton extends ConsumerStatefulWidget {
     required this.icon,
   });
 
-  final IMSettingType type;
+  final MessageReminderKind type;
   final String title;
   final Widget icon;
 
@@ -28,7 +26,7 @@ class MessageReminderButton extends ConsumerStatefulWidget {
 
 class _MessageReminderButtonState extends ConsumerState<MessageReminderButton> {
   bool _opening = false;
-  Completer<WhisperSettingsSnapshot?>? _pending;
+  Completer<LoadingState<MessageReminderOptions>?>? _pending;
 
   @override
   Widget build(BuildContext context) => IconButton(
@@ -39,51 +37,48 @@ class _MessageReminderButtonState extends ConsumerState<MessageReminderButton> {
 
   Future<void> _open() async {
     setState(() => _opening = true);
-    final provider = whisperSettingsProvider(widget.type);
-    final pending = _pending = Completer<WhisperSettingsSnapshot?>();
+    final session = ref.read(messagingSessionProvider);
+    final provider = messageReminderProvider(widget.type);
+    final pending = _pending =
+        Completer<LoadingState<MessageReminderOptions>?>();
     // 读取、选择和保存期间持有设置句柄，弹窗只接收已完成的结果。
     final subscription = ref.listenManual(provider, (_, snapshot) {
-      if (snapshot.loadingState is! Loading && !pending.isCompleted) {
+      if (snapshot is! Loading && !pending.isCompleted) {
         pending.complete(snapshot);
       }
     }, fireImmediately: true);
     try {
       final snapshot = await pending.future;
-      if (!mounted || snapshot == null) return;
-      final settings = snapshot.loadingState.dataOrNull;
+      if (!mounted ||
+          snapshot == null ||
+          !identical(session, ref.read(messagingSessionProvider))) {
+        return;
+      }
+      final settings = snapshot.dataOrNull;
       if (settings == null) {
-        snapshot.loadingState.toast();
+        snapshot.toast();
         return;
       }
-      final entry = settings.entries
-          .where(
-            (e) => e.value.hasSelect() && e.value.select.item.isNotEmpty,
-          )
-          .firstOrNull;
-      if (entry == null) {
-        const Error('暂无可用的提醒设置').toast();
-        return;
-      }
-      final options = entry.value.select.item;
+      if (!settings.isActive) return;
       final selected = await showDialog<int>(
         context: context,
         builder: (_) => SelectDialog<int>(
-          title: snapshot.title.isEmpty ? widget.title : snapshot.title,
-          value: options.indexWhere((option) => option.selected),
+          title: settings.title.isEmpty ? widget.title : settings.title,
+          value: settings.selectedIndex,
           values: [
-            for (var i = 0; i < options.length; i++) (i, options[i].text),
+            for (final (index, label) in settings.labels.indexed)
+              (index, label),
           ],
         ),
       );
-      if (!mounted || selected == null || options[selected].selected) return;
-      final updated = entry.value.deepCopy();
-      for (var i = 0; i < updated.select.item.length; i++) {
-        updated.select.item[i].selected = i == selected;
+      if (!mounted ||
+          !settings.isActive ||
+          selected == null ||
+          selected == settings.selectedIndex) {
+        return;
       }
-      final result = await ref
-          .read(provider.notifier)
-          .setSetting(entry.key, updated);
-      if (mounted && !result.isSuccess) result.toast();
+      final result = await settings.select(selected);
+      if (mounted && settings.isActive && !result.isSuccess) result.toast();
     } finally {
       subscription.close();
       _pending = null;

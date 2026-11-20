@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/models/common/webview_menu_type.dart';
+import 'package:pili_aurora_next/pages/webview/menu_type.dart';
 import 'package:pili_aurora_next/pages/webview/view.dart';
 
 class _Controller extends PlatformInAppWebViewController {

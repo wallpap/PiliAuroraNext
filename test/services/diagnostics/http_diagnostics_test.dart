@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/http_diagnostics.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/http/request_failure_feedback.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -72,7 +72,7 @@ void main() {
         DiagnosticHttpInterceptor(diagnostics: diagnostics),
         InterceptorsWrapper(
           onError: (error, handler) {
-            AccountManager.toast(error);
+            showRequestFailure(error);
             handler.next(error);
           },
         ),

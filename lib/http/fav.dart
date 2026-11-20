@@ -3,21 +3,21 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/fav_order_type.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_article/data.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_folder/data.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_folder/list.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_note/list.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_pgc/data.dart';
-import 'package:pili_aurora_next/models/remote/fav/fav_topic/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_cheese/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_fav/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub_detail/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_order_type.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_article/data.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_detail/data.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_folder/data.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_folder/list.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_note/list.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_pgc/data.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_topic/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_cheese/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_fav/data.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_detail.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class FavHttp {
@@ -278,20 +278,25 @@ abstract final class FavHttp {
 
   static Future<LoadingState<void>> likeTopic(
     Object topicId,
-    bool isLike,
-  ) async {
+    bool isLike, {
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
     return await Request().requestApi<void>(
       Api.likeTopic,
       kind: ApiCallKind.mutation,
       decode: (_) {},
       data: {
         'action': isLike ? 'cancel_like' : 'like',
-        'up_mid': Accounts.main.mid,
+        'up_mid': account.mid,
         'topic_id': topicId,
-        'csrf': Accounts.main.csrf,
+        'csrf': account.csrf,
         'business': 'topic',
       },
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
     );
   }
 

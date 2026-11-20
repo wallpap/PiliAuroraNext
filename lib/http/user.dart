@@ -2,23 +2,20 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
-import 'package:pili_aurora_next/models/user/stat.dart';
-import 'package:pili_aurora_next/models/remote/coin_log/data.dart';
-import 'package:pili_aurora_next/models/remote/follow/data.dart';
-import 'package:pili_aurora_next/models/remote/history/data.dart';
-import 'package:pili_aurora_next/models/remote/later/data.dart';
-import 'package:pili_aurora_next/models/remote/login_log/data.dart';
-import 'package:pili_aurora_next/models/remote/media_list/data.dart';
-import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/models/remote/space_setting/data.dart';
-import 'package:pili_aurora_next/models/remote/sub/sub/data.dart';
-import 'package:pili_aurora_next/models/remote/user_real_name/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:pili_aurora_next/features/account/domain/stat.dart';
+import 'package:pili_aurora_next/features/following/domain/list/data.dart';
+import 'package:pili_aurora_next/features/history/domain/data.dart';
+import 'package:pili_aurora_next/features/watch_later/domain/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/playlist/data.dart';
+import 'package:pili_aurora_next/features/following/domain/relation/data.dart';
+import 'package:pili_aurora_next/features/subscriptions/domain/subscription_page.dart';
+import 'package:pili_aurora_next/features/account/domain/real_name/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_tag/data.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class UserHttp {
@@ -298,6 +295,7 @@ abstract final class UserHttp {
   static Future<LoadingState<List<VideoTagItem>?>> videoTags({
     required String bvid,
     Object? cid,
+    Account? account,
   }) async {
     return await Request().requestApi(
       Api.videoTags,
@@ -306,11 +304,13 @@ abstract final class UserHttp {
           ?.map((e) => VideoTagItem.fromJson(e))
           .toList(),
       queryParameters: {'bvid': bvid, 'cid': ?cid},
+      options: account == null ? null : Options(extra: {'account': account}),
     );
   }
 
   // 稍后再看列表
   static Future<LoadingState<MediaListData>> getMediaList({
+    required Account account,
     required Object type,
     required Object bizId,
     required int ps,
@@ -325,6 +325,7 @@ abstract final class UserHttp {
       Api.mediaList,
       kind: ApiCallKind.query,
       decode: (body) => MediaListData.fromJson(body['data']),
+      options: Options(extra: {'account': account}),
       queryParameters: {
         'mobi_app': 'web',
         'type': type,
@@ -379,39 +380,6 @@ abstract final class UserHttp {
     );
   }
 
-  static Future<LoadingState<SpaceSettingData>> spaceSetting({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.spaceSetting,
-      kind: ApiCallKind.query,
-      decode: (body) => SpaceSettingData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'mid': account.mid,
-      },
-    );
-  }
-
-  static Future<LoadingState<void>> spaceSettingMod(
-    Map<String, dynamic> data, {
-    required Account account,
-  }) async {
-    return await Request().requestApi<void>(
-      Api.spaceSettingMod,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      queryParameters: {
-        'csrf': account.csrf,
-      },
-      data: data,
-      options: Options(
-        extra: {'account': account, 'noRetry': true},
-        contentType: Headers.formUrlEncodedContentType,
-      ),
-    );
-  }
-
   static Future<LoadingState<void>> vipExpAdd({Account? account}) async {
     account ??= Accounts.main;
     return await Request().requestApi<void>(
@@ -422,51 +390,6 @@ abstract final class UserHttp {
       queryParameters: {
         'mid': account.mid,
         'csrf': account.csrf,
-      },
-    );
-  }
-
-  static Future<LoadingState<CoinLogData>> coinLog({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.coinLog,
-      kind: ApiCallKind.query,
-      decode: (body) => CoinLogData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'jsonp': 'jsonp',
-        'web_location': '333.33',
-      },
-    );
-  }
-
-  static Future<LoadingState<LoginLogData>> loginLog({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.loginLog,
-      kind: ApiCallKind.query,
-      decode: (body) => LoginLogData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'jsonp': 'jsonp',
-        'web_location': '333.33',
-      },
-    );
-  }
-
-  static Future<LoadingState<CoinLogData>> expLog({
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.expLog,
-      kind: ApiCallKind.query,
-      decode: (body) => CoinLogData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'jsonp': 'jsonp',
-        'web_location': '333.33',
       },
     );
   }

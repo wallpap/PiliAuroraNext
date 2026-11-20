@@ -7,25 +7,26 @@ import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/translucent_row.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_selection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_visibility_check.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_action.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -242,13 +243,14 @@ class AuthorPanel extends StatelessWidget {
   }
 
   void morePanel(BuildContext context) {
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final owner = context.widget;
     final dynamicId = item.idStr.toString();
     bool ownsTarget() =>
         context.mounted &&
         identical(context.widget, owner) &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         dynamicId == item.idStr.toString();
     String? bvid;
     try {
@@ -304,7 +306,7 @@ class AuthorPanel extends StatelessWidget {
                 ListTile(
                   onTap: () {
                     Get.back();
-                    RequestUtils.addToWatchLater(bvid: bvid);
+                    addToWatchLater(bvid: bvid);
                   },
                   minLeadingWidth: 0,
                   leading: const Icon(Icons.watch_later_outlined, size: 19),
@@ -386,9 +388,11 @@ class AuthorPanel extends StatelessWidget {
                   Get.back();
                   onBlock?.call();
                   try {
-                    Get.find<DynamicsController>().tempBannedList.add(
-                      moduleAuthor.mid!,
-                    );
+                    ProviderScope.containerOf(context, listen: false)
+                        .read(dynamicsSelectionProvider.notifier)
+                        .block(
+                          moduleAuthor.mid!,
+                        );
                     SmartDialog.showToast(
                       '已临时屏蔽${moduleAuthor.name}(${moduleAuthor.mid!})，重启恢复',
                     );
@@ -396,13 +400,14 @@ class AuthorPanel extends StatelessWidget {
                 },
                 minLeadingWidth: 0,
               ),
-              if (kDebugMode || moduleAuthor.mid == Accounts.main.mid) ...[
+              if (kDebugMode || moduleAuthor.mid == identity.account.mid) ...[
                 ListTile(
                   onTap: () {
                     Get.back();
-                    RequestUtils.checkCreatedDyn(
+                    checkPublishedDynamic(
                       id: item.idStr,
                       isManual: true,
+                      owner: identity,
                     );
                   },
                   minLeadingWidth: 0,
@@ -414,12 +419,12 @@ class AuthorPanel extends StatelessWidget {
                     onTap: () {
                       Get.back();
                       if (!ownsTarget()) return;
-                      onSetTop!(moduleAuthor.isTop ?? false, item.idStr);
+                      onSetTop!(item.isPinned, item.idStr);
                     },
                     minLeadingWidth: 0,
                     leading: const Icon(Icons.vertical_align_top, size: 19),
                     title: Text(
-                      '${moduleAuthor.isTop == true ? '取消' : ''}置顶',
+                      '${item.isPinned ? '取消' : ''}置顶',
                       style: theme.textTheme.titleSmall!,
                     ),
                   ),
@@ -437,10 +442,10 @@ class AuthorPanel extends StatelessWidget {
                         SmartDialog.showToast('动态缺少有效的评论来源，请刷新后重试');
                         return;
                       }
-                      final res = await ReplyHttp.replyInteraction(
-                        account: account,
-                        oid: oid,
-                        type: type,
+                      final res = await CommentActions.interactionSettings(
+                        account,
+                        oid,
+                        type,
                       );
                       if (!context.mounted ||
                           !ownsTarget() ||
@@ -619,7 +624,7 @@ class AuthorPanel extends StatelessWidget {
                     ),
                   ),
               ],
-              if (Accounts.main.isLogin)
+              if (identity.account.isLogin)
                 ListTile(
                   title: Text(
                     '举报',
@@ -639,31 +644,16 @@ class AuthorPanel extends StatelessWidget {
                       context,
                       ReportOptions.dynamicReport,
                       isCurrent: ownsTarget,
-                      (reasonType, reasonDesc, banUid) async {
-                        if (!ownsTarget()) {
-                          return const Error('账号或动态已变更，请重新打开举报页面');
-                        }
-                        final result = await UserHttp.dynamicReport(
-                          account: account,
-                          mid: moduleAuthor.mid!,
-                          dynId: dynamicId,
-                          reasonType: reasonType,
-                          reasonDesc: reasonDesc,
-                        );
-                        if (!result.isSuccess || !banUid || !ownsTarget()) {
-                          return result;
-                        }
-                        final blockResult = await VideoHttp.relationMod(
-                          account: account,
-                          mid: moduleAuthor.mid!,
-                          act: 5,
-                          reSrc: 11,
-                        );
-                        if (blockResult is Error) {
-                          return Success('举报成功；拉黑用户：$blockResult');
-                        }
-                        return result;
-                      },
+                      (reasonType, reasonDesc, banUid) =>
+                          DynamicDetails.legacy.report(
+                            account,
+                            author: moduleAuthor.mid!,
+                            id: dynamicId,
+                            reason: reasonType,
+                            description: reasonDesc,
+                            block: banUid,
+                            isCurrent: ownsTarget,
+                          ),
                     );
                   },
                   minLeadingWidth: 0,

@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/calc_window_position.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/platform/desktop/window_position.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 
@@ -78,7 +78,7 @@ void main() {
   });
   test('尺寸和位置偏好接收有限数值对，损坏值不修改持久记录', () async {
     await GStorage.setting.put(SettingBoxKey.windowSize, [1000, 800]);
-    expect(Pref.windowSize, const Size(1000, 800));
+    expect(WindowPreferences.size, const Size(1000, 800));
     for (final invalid in [
       [],
       [0, 2],
@@ -86,7 +86,7 @@ void main() {
       'invalid',
     ]) {
       await GStorage.setting.put(SettingBoxKey.windowSize, invalid);
-      expect(Pref.windowSize, const Size(1180, 720));
+      expect(WindowPreferences.size, const Size(1180, 720));
       expect(GStorage.setting.get(SettingBoxKey.windowSize), invalid);
     }
   });

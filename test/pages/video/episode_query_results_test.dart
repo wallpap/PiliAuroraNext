@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -35,7 +35,7 @@ class _Video extends GetxController implements VideoDetailController {
   @override
   String bvid = 'BV17x411w7KC';
   @override
-  final cid = 1.obs;
+  final cid = ValueNotifier(1);
   final unexpectedCalls = <Symbol>[];
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -100,7 +100,7 @@ void main() {
       video = _Video();
       controller = (pgc ? _Pgc(video) : _Ugc(video))
         ..bvid = video.bvid
-        ..cid = 1.obs;
+        ..cid.value = 1;
       await tester.pumpWidget(
         GetMaterialApp(
           builder: FlutterSmartDialog.init(),
@@ -117,7 +117,7 @@ void main() {
     }
 
     Future<void> finish(WidgetTester tester) async {
-      controller.onDelete();
+      controller.close();
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
@@ -179,7 +179,7 @@ void main() {
           case '离页返回':
             video.playbackOwner.generation++;
           case '关闭':
-            controller.onDelete();
+            controller.close();
         }
         requests[0].reply.complete(
           mode == '分P' || mode == '离页返回'

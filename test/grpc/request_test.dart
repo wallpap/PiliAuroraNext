@@ -6,20 +6,20 @@ import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/grpc/audio.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart'
     show ThumbUpReq_ThumbType;
-import 'package:pili_aurora_next/grpc/bilibili/im/interfaces/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/rpc.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/im/interfaces/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/rpc.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/services/messaging/conversation.dart';
 import 'package:pili_aurora_next/services/messaging/conversation_adapter.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:protobuf/well_known_types/google/protobuf/any.pb.dart';
 
 import '../services/messaging/messaging_fixtures.dart';

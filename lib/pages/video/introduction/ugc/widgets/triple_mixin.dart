@@ -1,22 +1,22 @@
 import 'dart:async';
 
 import 'package:pili_aurora_next/pages/video/pay_coins/view.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-mixin TripleMixin on GetxController, TickerProvider {
+mixin TripleMixin {
+  TickerProvider get tripleVsync;
   // 是否点赞
-  final RxBool hasLike = false.obs;
+  final hasLike = ValueNotifier(false);
   // 投币数量
-  final RxNum coinNum = RxNum(0);
+  final coinNum = ValueNotifier<num>(0);
   // 是否投币
   bool get hasCoin => coinNum.value != 0;
   // 是否收藏
-  final RxBool hasFav = false.obs;
+  final hasFav = ValueNotifier(false);
 
   bool get hasTriple => hasLike.value && hasCoin && hasFav.value;
 
@@ -50,7 +50,8 @@ mixin TripleMixin on GetxController, TickerProvider {
       return;
     }
 
-    if (GlobalData().coins != null && GlobalData().coins! < 1) {
+    final availableCoins = CoinBalance.instance.amount;
+    if (availableCoins != null && availableCoins < 1) {
       SmartDialog.showToast('硬币不足');
       // return;
     }
@@ -59,6 +60,7 @@ mixin TripleMixin on GetxController, TickerProvider {
       onPayCoin: payCoinCallback,
       hasCoin: coinNum == 1,
       hasCopyright: hasCopyright,
+      availableCoins: availableCoins,
     );
   }
 
@@ -71,7 +73,7 @@ mixin TripleMixin on GetxController, TickerProvider {
 
   AnimationController get tripleAnimCtr =>
       _tripleAnimCtr ??= AnimationController(
-        vsync: this,
+        vsync: tripleVsync,
         duration: const Duration(milliseconds: 1200),
         reverseDuration: const Duration(milliseconds: 400),
       );
@@ -118,10 +120,11 @@ mixin TripleMixin on GetxController, TickerProvider {
     }
   }
 
-  @override
-  void onClose() {
+  void disposeTriple() {
     _cancelTimer();
     _tripleAnimCtr?.dispose();
-    super.onClose();
+    hasLike.dispose();
+    coinNum.dispose();
+    hasFav.dispose();
   }
 }

@@ -1,59 +1,42 @@
 import 'dart:async' show Timer, unawaited;
-import 'dart:convert' show jsonDecode, utf8;
-import 'dart:io' show Platform, File;
-import 'dart:typed_data' show Uint8List;
+import 'dart:io' show Platform;
 
-import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/report.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
-import 'package:pili_aurora_next/http/danmaku.dart';
-import 'package:pili_aurora_next/http/danmaku_block.dart';
-import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/features/playback/application/video_danmaku_interactions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_like_control.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/video/video_play_info/subtitle.dart';
+import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_mixin.dart';
-import 'package:pili_aurora_next/pages/video/widgets/danmaku_like_control.dart';
 import 'package:pili_aurora_next/pages/video/widgets/more_settings_sheet.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/player_info_dialog.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_controls.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/storage_utils.dart';
-import 'package:pili_aurora_next/utils/subtitle_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
+import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:collection/collection.dart';
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show compute, kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
@@ -76,26 +59,28 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   bool get horizontalScreen;
 
   Timer? _clock;
-  RxString now = ''.obs;
+  final _currentTime = ValueNotifier('');
 
   static final _format = DateFormat('HH:mm');
 
   @override
   void dispose() {
     stopClock();
+    _currentTime.dispose();
+    _batteryLevel.dispose();
     super.dispose();
   }
 
   void startClock() {
     if (!_showCurrTime) return;
     if (_clock == null) {
-      now.value = _format.format(DateTime.now());
+      _currentTime.value = _format.format(DateTime.now());
       _clock ??= Timer.periodic(const Duration(seconds: 1), (Timer t) {
         if (!mounted) {
           stopClock();
           return;
         }
-        now.value = _format.format(DateTime.now());
+        _currentTime.value = _format.format(DateTime.now());
       });
     }
   }
@@ -114,8 +99,8 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   }
 
   late final _battery = Battery();
-  late final RxnInt _batteryLevel = RxnInt();
-  late final _showBatteryLevel = Pref.showBatteryLevel;
+  final _batteryLevel = ValueNotifier<int?>(null);
+  late final _showBatteryLevel = DisplayPreferences.showBatteryLevel;
   void getBatteryLevelIfNeeded() {
     if (!_showCurrTime || !_showBatteryLevel) return;
     ActionThrottle.run(
@@ -123,7 +108,8 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
       const Duration(seconds: 30),
       () async {
         try {
-          _batteryLevel.value = await _battery.batteryLevel;
+          final level = await _battery.batteryLevel;
+          if (mounted) _batteryLevel.value = level;
         } catch (_) {}
       },
     );
@@ -133,9 +119,9 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
     if (_showCurrTime) {
       return [
         if (_showBatteryLevel) ...[
-          Obx(
-            () {
-              final batteryLevel = _batteryLevel.value;
+          ValueListenableBuilder(
+            valueListenable: _batteryLevel,
+            builder: (context, batteryLevel, _) {
               if (batteryLevel == null) {
                 return const SizedBox.shrink();
               }
@@ -150,9 +136,10 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
           ),
           const SizedBox(width: 10),
         ],
-        Obx(
-          () => Text(
-            now.value,
+        ValueListenableBuilder(
+          valueListenable: _currentTime,
+          builder: (context, time, _) => Text(
+            time,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -170,167 +157,17 @@ class HeaderControl extends StatefulWidget {
     required this.isPortrait,
     required this.controller,
     required this.videoDetailCtr,
-    required this.heroTag,
+    required this.introController,
     super.key,
   });
 
   final bool isPortrait;
   final PlPlayerController controller;
   final VideoDetailController videoDetailCtr;
-  final String heroTag;
+  final CommonIntroController introController;
 
   @override
   State<HeaderControl> createState() => HeaderControlState();
-
-  static Future<bool> likeDanmaku(VideoDanmaku extra, int cid) async {
-    final account = Accounts.main;
-    if (!account.isLogin) {
-      SmartDialog.showToast('请先登录');
-      return false;
-    }
-    final isLike = !extra.isLike;
-    final res = await DanmakuHttp.danmakuLike(
-      account: account,
-      isLike: isLike,
-      cid: cid,
-      id: extra.id,
-    );
-    if (!identical(account, Accounts.main)) return false;
-    if (res.isSuccess) {
-      extra.isLike = isLike;
-      if (isLike) {
-        extra.like++;
-      } else {
-        extra.like--;
-      }
-      SmartDialog.showToast('${isLike ? '' : '取消'}点赞成功');
-      return true;
-    } else {
-      if (res case Error(:final code)) {
-        if (code == 65006) {
-          extra.isLike = true;
-          return true;
-        }
-        if (code == 65004) {
-          extra.isLike = false;
-          return true;
-        }
-      }
-      res.toast();
-      return false;
-    }
-  }
-
-  static Future<bool> deleteDanmaku(int id, int cid) async {
-    final account = Accounts.main;
-    final res = await DanmakuHttp.danmakuRecall(
-      account: account,
-      cid: cid,
-      id: id,
-    );
-    if (!identical(account, Accounts.main)) return false;
-    if (res.isSuccess) {
-      SmartDialog.showToast('删除成功');
-      return true;
-    } else {
-      res.toast();
-      return false;
-    }
-  }
-
-  static Future<void> reportDanmaku(
-    BuildContext context, {
-    required VideoDanmaku extra,
-    required PlPlayerController ctr,
-  }) {
-    final account = Accounts.main;
-    final cid = ctr.cid;
-    if (cid == null) return SmartDialog.showToast('视频信息缺失，请重试');
-    if (account.isLogin) {
-      return autoWrapReportDialog(
-        context,
-        ReportOptions.danmakuReport,
-        withContent: ReportOptions.danmakuReportCheck,
-        contentRequired: ReportOptions.danmakuReportCheck,
-        (reasonType, reasonDesc, banUid) async {
-          if (!identical(account, Accounts.main) || cid != ctr.cid) {
-            return const Error('账号或视频已切换，请重新打开举报页面');
-          }
-          final result = await DanmakuHttp.danmakuReport(
-            account: account,
-            reason: reasonType,
-            cid: cid,
-            id: extra.id,
-            content: reasonDesc,
-          );
-          if (!result.isSuccess ||
-              !identical(account, Accounts.main) ||
-              cid != ctr.cid) {
-            return result;
-          }
-          if (banUid) {
-            try {
-              final filter = ctr.filters;
-              if (filter.dmUid.add(extra.mid)) {
-                filter.count++;
-                ctr.filters = filter;
-                await GStorage.localCache.put(
-                  LocalCacheKey.danmakuFilterRules,
-                  filter,
-                );
-              }
-              final blockResult = await DanmakuFilterHttp.danmakuFilterAdd(
-                account: account,
-                filter: extra.mid,
-                type: 2,
-              );
-              if (blockResult is Error) {
-                return Success('举报成功；屏蔽规则同步：$blockResult');
-              }
-            } catch (error, stackTrace) {
-              final failure = Error.fromException(error, stackTrace);
-              return Success('举报成功；本地屏蔽保存失败：$failure');
-            }
-          }
-          return result;
-        },
-      );
-    } else {
-      return SmartDialog.showToast('请先登录');
-    }
-  }
-
-  static Future<void> reportLiveDanmaku(
-    BuildContext context, {
-    required int roomId,
-    required String msg,
-    required LiveDanmaku extra,
-  }) {
-    if (Accounts.main.isLogin) {
-      return autoWrapReportDialog(
-        context,
-        ban: false,
-        ReportOptions.liveDanmakuReport,
-        withContent: ReportOptions.liveDanmakuReportCheck,
-        contentRequired: ReportOptions.liveDanmakuReportCheck,
-        (reasonType, reasonDesc, banUid) {
-          return LiveHttp.liveDmReport(
-            roomId: roomId,
-            mid: extra.mid,
-            msg: msg,
-            reason: ReportOptions.liveDanmakuReport['']![reasonType]!,
-            reasonId: reasonType,
-            dmType: extra.dmType,
-            idStr: extra.id,
-            ts: extra.ts,
-            sign: extra.ct,
-          );
-        },
-      );
-    } else {
-      return SmartDialog.showToast('请先登录');
-    }
-  }
 }
 
 class HeaderControlState extends State<HeaderControl>
@@ -341,34 +178,12 @@ class HeaderControlState extends State<HeaderControl>
   late final PlayUrlModel videoInfo = videoDetailCtr.data;
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
-  String get heroTag => widget.heroTag;
-  late final UgcIntroController ugcIntroController;
-  late final PgcIntroController pgcIntroController;
-  late final LocalIntroController localIntroController;
-  late CommonIntroController introController = isFileSource
-      ? localIntroController
-      : videoDetailCtr.isUgc
-      ? ugcIntroController
-      : pgcIntroController;
+  CommonIntroController get introController => widget.introController;
 
   @override
   bool get isPortrait => widget.isPortrait;
   @override
   late final horizontalScreen = videoDetailCtr.horizontalScreen;
-
-  Box setting = GStorage.setting;
-
-  @override
-  void initState() {
-    super.initState();
-    if (isFileSource) {
-      introController = Get.find<LocalIntroController>(tag: heroTag);
-    } else if (videoDetailCtr.isUgc) {
-      introController = Get.find<UgcIntroController>(tag: heroTag);
-    } else {
-      introController = Get.find<PgcIntroController>(tag: heroTag);
-    }
-  }
 
   /// 播放前后共用同一个更多面板。
   void showSettingSheet() {
@@ -386,6 +201,8 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   Future<void> loadLocalSubtitle() async {
+    final currentMedia = videoDetailCtr.captureSubtitleMedia();
+    bool isCurrent() => mounted && currentMedia();
     try {
       final result = await FilePicker.pickFile(
         type: .custom,
@@ -397,48 +214,16 @@ class HeaderControlState extends State<HeaderControl>
           'bcc',
         ],
       );
-      if (result != null) {
+      if (result != null && isCurrent()) {
         final file = result.xFile;
-        final path = file.path;
-        final name = file.name;
-        final length = videoDetailCtr.subtitles.length;
-        if (name.endsWith('.json') || name.endsWith('.bcc')) {
-          final file = File(path);
-          final stream = file.openRead().transform(
-            utf8.decoder,
-          );
-          final buffer = StringBuffer();
-          await for (final chunk in stream) {
-            if (!mounted) return;
-            buffer.write(chunk);
-          }
-          if (!mounted) return;
-          String sub = buffer.toString();
-          sub = await compute<List, String>(
-            SubtitleUtils.json2Vtt,
-            jsonDecode(sub)['body'],
-          );
-          if (!mounted) return;
-          videoDetailCtr.vttSubtitles[length] = (
-            isData: true,
-            id: sub,
-          );
-        } else {
-          videoDetailCtr.vttSubtitles[length] = (
-            isData: false,
-            id: path,
-          );
-        }
-        videoDetailCtr.subtitles.add(
-          Subtitle(
-            lan: '',
-            lanDoc: name.split('.').firstOrNull ?? name,
-          ),
+        await videoDetailCtr.addLocalSubtitle(
+          file.path,
+          file.name,
+          isCurrent: isCurrent,
         );
-        await videoDetailCtr.setSubtitle(length + 1);
       }
     } catch (e) {
-      SmartDialog.showToast('加载失败: $e');
+      if (isCurrent()) SmartDialog.showToast('加载失败: $e');
     }
   }
 
@@ -455,6 +240,7 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   void onExportSubtitle() {
+    final currentMedia = videoDetailCtr.captureSubtitleMedia();
     final video = videoDetailCtr.bvid;
     final part = videoDetailCtr.cid.value;
     final videoDetail = introController.videoDetail.value;
@@ -497,49 +283,17 @@ class HeaderControlState extends State<HeaderControl>
                 final url = item.subtitleUrl;
                 if (url == null || url.isEmpty) return;
                 try {
-                  final Uint8List bytes;
-                  switch (format) {
-                    case .vtt || .srt:
-                      var subtitle = format == .vtt
-                          ? cachedSubtitles[i]?.id
-                          : null;
-                      if (subtitle == null) {
-                        final res = await VideoHttp.getSubtitles(
-                          item.subtitleUrl!,
-                          format: format,
-                        );
-                        if (res is! Success<String>) {
-                          res.toast();
-                          return;
-                        }
-                        subtitle = res.response;
-                        if (format == .vtt &&
-                            !videoDetailCtr.isClosed &&
-                            video == videoDetailCtr.bvid &&
-                            part == videoDetailCtr.cid.value) {
-                          videoDetailCtr.vttSubtitles[i] = (
-                            isData: true,
-                            id: res.response,
-                          );
-                        }
-                      }
-                      bytes = utf8.encode(subtitle);
-                    case .json:
-                      final res = await Request.dio.get<Uint8List>(
-                        url.http2https,
-                        options: Options(
-                          responseType: .bytes,
-                          headers: Constants.baseHeaders,
-                          extra: {'account': const NoAccount()},
-                        ),
-                      );
-                      if (res.statusCode != 200) return;
-                      bytes = Uint8List.fromList(
-                        Request.responseBytesDecoder(
-                          res.data!,
-                          res.headers.map,
-                        ),
-                      );
+                  final result = await videoDetailCtr.subtitleSources.forExport(
+                    url,
+                    format,
+                    index: i,
+                    cached: cachedSubtitles[i],
+                    isCurrent: currentMedia,
+                  );
+                  if (result == null) return;
+                  if (result case Error()) {
+                    unawaited(result.toast());
+                    return;
                   }
                   final name =
                       '${videoDetail.title}-${videoDetail.owner?.name}(${videoDetail.owner?.mid})-$video-$part-${item.lanDoc}.${format.name}'
@@ -548,9 +302,9 @@ class HeaderControlState extends State<HeaderControl>
                             '_',
                           );
                   // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
-                  await StorageUtils.saveBytes2File(
+                  await saveExport(
                     name: name,
-                    bytes: bytes,
+                    bytes: result.data,
                     allowedExtensions: [format.name],
                   );
                 } catch (e, s) {
@@ -819,9 +573,16 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   void showDanmakuPool() {
-    if (plPlayerController.danmakuInteraction == null) return;
+    final player = plPlayerController;
+    final cid = player.cid;
+    final display = player.danmakuDisplay;
+    final mediaIsCurrent = player.captureDanmakuMedia();
+    if (cid == null || display == null || player.danmakuInteraction == null) {
+      return;
+    }
+    bool isCurrent() => mounted && mediaIsCurrent();
     showBottomSheet((context, setState) {
-      final ctr = plPlayerController.danmakuInteraction;
+      final ctr = isCurrent() ? player.danmakuInteraction : null;
       final theme = Theme.of(context);
       final isPortrait =
           MediaQuery.orientationOf(context) == Orientation.portrait;
@@ -867,7 +628,12 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                   child: CustomScrollView(
                     slivers: [
-                      ?_buildDanmakuList(ctr?.snapshot ?? const []),
+                      ?_buildDanmakuList(
+                        ctr?.snapshot ?? const [],
+                        cid: cid,
+                        isCurrent: isCurrent,
+                        remove: (id) => display.remove?.call(id),
+                      ),
                       const SliverToBoxAdapter(child: SizedBox(height: 12)),
                     ],
                   ),
@@ -880,7 +646,12 @@ class HeaderControlState extends State<HeaderControl>
     });
   }
 
-  Widget? _buildDanmakuList(List<DanmakuDisplaySnapshot<DanmakuExtra>> list) {
+  Widget? _buildDanmakuList(
+    List<DanmakuDisplaySnapshot<DanmakuExtra>> list, {
+    required int cid,
+    required bool Function() isCurrent,
+    required void Function(int) remove,
+  }) {
     if (list.isEmpty) return null;
 
     return SliverList.builder(
@@ -891,7 +662,7 @@ class HeaderControlState extends State<HeaderControl>
         return ListTile(
           dense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-          onLongPress: () => Utils.copyText(item.text),
+          onLongPress: () => copyText(item.text),
           title: Text(
             item.text,
             style: const TextStyle(fontSize: 14),
@@ -901,13 +672,8 @@ class HeaderControlState extends State<HeaderControl>
             children: [
               DanmakuLikeControl(
                 extra: extra,
-                cid: plPlayerController.cid!,
-                onLike: () async {
-                  await HeaderControl.likeDanmaku(
-                    extra,
-                    plPlayerController.cid!,
-                  );
-                },
+                cid: cid,
+                isCurrent: isCurrent,
                 builder: (context, onLike) => Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -935,23 +701,23 @@ class HeaderControlState extends State<HeaderControl>
               ),
               if (item.selfSend)
                 iconButton(
-                  onPressed: () =>
-                      HeaderControl.deleteDanmaku(
-                        extra.id,
-                        plPlayerController.cid!,
-                      ).then(
-                        (_) => plPlayerController.danmakuDisplay?.remove?.call(
-                          extra.id,
-                        ),
-                      ),
+                  onPressed: () => recallVideoDanmaku(
+                    VideoDanmakuInteractions(cid, mediaIsCurrent: isCurrent),
+                    extra.id,
+                    onRecalled: () => remove(extra.id),
+                  ),
                   icon: const Icon(CustomIcons.player_dm_tip_recall),
                 )
               else
                 iconButton(
-                  onPressed: () => HeaderControl.reportDanmaku(
+                  onPressed: () => reportVideoDanmaku(
                     context,
-                    extra: extra,
-                    ctr: plPlayerController,
+                    VideoDanmakuInteractions(cid, mediaIsCurrent: isCurrent),
+                    extra,
+                    blockRules: (
+                      read: () => plPlayerController.filters,
+                      publish: (rules) => plPlayerController.filters = rules,
+                    ),
                   ),
                   icon: const Icon(CustomIcons.player_dm_tip_back),
                 ),
@@ -971,64 +737,60 @@ class HeaderControlState extends State<HeaderControl>
     final showFSActionItem =
         !isFileSource && plPlayerController.showFSActionItem && isFSOrPip;
     showCurrTimeIfNeeded(isFullScreen);
-    Widget title;
-    if (introController.videoDetail.value.title != null &&
-        (isFullScreen ||
-            ((!horizontalScreen || plPlayerController.isDesktopPip) &&
-                !isPortrait))) {
-      title = Padding(
-        key: titleKey,
-        padding: isPortrait
-            ? EdgeInsets.zero
-            : const EdgeInsets.only(right: 10),
-        child: Obx(
-          () {
-            final videoDetail = introController.videoDetail.value;
-            final String title;
-            if (isFileSource || videoDetail.videos == 1) {
-              title = videoDetail.title!;
-            } else {
-              title =
-                  videoDetail.pages
-                      ?.firstWhereOrNull(
-                        (e) => e.cid == videoDetailCtr.cid.value,
-                      )
-                      ?.part ??
-                  videoDetail.title!;
-            }
-            return MarqueeText(
-              title,
-              spacing: 30,
-              velocity: 30,
-              strutStyle: const StrutStyle(fontSize: 16, leading: 0),
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              provider: effectiveProvider,
-            );
-          },
-        ),
-      );
-      if (introController.isShowOnlineTotal) {
-        title = Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            title,
-            Obx(
-              () => Text(
-                '${introController.total.value}人正在看',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
+    final showTitle =
+        isFullScreen ||
+        ((!horizontalScreen || plPlayerController.isDesktopPip) && !isPortrait);
+    final title = showTitle
+        ? ValueListenableBuilder(
+            valueListenable: introController.videoDetail,
+            builder: (context, videoDetail, _) {
+              final title = videoDetail.title;
+              if (title == null) return const Spacer();
+              Widget label = Padding(
+                key: titleKey,
+                padding: isPortrait
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.only(right: 10),
+                child: ValueListenableBuilder(
+                  valueListenable: videoDetailCtr.cid,
+                  builder: (context, cid, _) => MarqueeText(
+                    isFileSource || videoDetail.videos == 1
+                        ? title
+                        : videoDetail.pages
+                                  ?.firstWhereOrNull((part) => part.cid == cid)
+                                  ?.part ??
+                              title,
+                    spacing: 30,
+                    velocity: 30,
+                    strutStyle: const StrutStyle(fontSize: 16, leading: 0),
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    provider: effectiveProvider,
+                  ),
                 ),
-              ),
-            ),
-          ],
-        );
-      }
-      title = Expanded(child: title);
-    } else {
-      title = const Spacer();
-    }
+              );
+              if (introController.isShowOnlineTotal) {
+                label = Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    label,
+                    ValueListenableBuilder(
+                      valueListenable: introController.total,
+                      builder: (context, total, _) => Text(
+                        '$total人正在看',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Expanded(child: label);
+            },
+          )
+        : const Spacer();
 
     final compactWindow =
         plPlayerController.isDesktopPip &&
@@ -1161,8 +923,9 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                   ),
-                Obx(
-                  () => videoDetailCtr.segmentProgressList.isNotEmpty
+                ValueListenableBuilder(
+                  valueListenable: videoDetailCtr.segmentChanges,
+                  builder: (context, segments, child) => segments.isNotEmpty
                       ? SizedBox(
                           width: btnWidth,
                           height: btnHeight,
@@ -1205,16 +968,8 @@ class HeaderControlState extends State<HeaderControl>
                       return IconButton(
                         tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
                         style: btnStyle,
-                        onPressed: () {
-                          final newVal = !enableShowDanmaku;
-                          plPlayerController.enableShowDanmaku.value = newVal;
-                          if (!plPlayerController.tempPlayerConf) {
-                            setting.put(
-                              SettingBoxKey.enableShowDanmaku,
-                              newVal,
-                            );
-                          }
-                        },
+                        onPressed: () => plPlayerController
+                            .toggleDanmakuVisibility(live: false),
                         icon: enableShowDanmaku
                             ? const Icon(
                                 size: 20,
@@ -1296,15 +1051,16 @@ class HeaderControlState extends State<HeaderControl>
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
-                  child: Obx(
-                    () => ActionItem(
+                  child: ValueListenableBuilder(
+                    valueListenable: introController.hasLike,
+                    builder: (context, liked, _) => ActionItem(
                       expand: false,
                       icon: Icon(
                         FontAwesomeIcons.thumbsUp.data,
                         color: Colors.white,
                       ),
                       selectIcon: Icon(FontAwesomeIcons.solidThumbsUp.data),
-                      selectStatus: introController.hasLike.value,
+                      selectStatus: liked,
                       semanticsLabel: '点赞',
                       animation: introController.tripleAnimation,
                       onStartTriple: () {
@@ -1324,8 +1080,9 @@ class HeaderControlState extends State<HeaderControl>
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
-                    child: Obx(
-                      () => ActionItem(
+                    child: ValueListenableBuilder(
+                      valueListenable: ugc.hasDislike,
+                      builder: (context, disliked, _) => ActionItem(
                         expand: false,
                         icon: Icon(
                           FontAwesomeIcons.thumbsDown.data,
@@ -1335,7 +1092,7 @@ class HeaderControlState extends State<HeaderControl>
                           FontAwesomeIcons.solidThumbsDown.data,
                         ),
                         onTap: () => ugc.handleAction(ugc.actionDislikeVideo),
-                        selectStatus: ugc.hasDislike.value,
+                        selectStatus: disliked,
                         semanticsLabel: '点踩',
                       ),
                     ),
@@ -1343,8 +1100,9 @@ class HeaderControlState extends State<HeaderControl>
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
-                  child: Obx(
-                    () => ActionItem(
+                  child: ValueListenableBuilder(
+                    valueListenable: introController.coinNum,
+                    builder: (context, coins, _) => ActionItem(
                       expand: false,
                       animation: introController.tripleAnimation,
                       icon: Icon(
@@ -1353,7 +1111,7 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                       selectIcon: Icon(FontAwesomeIcons.b.data),
                       onTap: introController.actionCoinVideo,
-                      selectStatus: introController.hasCoin,
+                      selectStatus: coins != 0,
                       semanticsLabel: '投币',
                     ),
                   ),
@@ -1361,8 +1119,9 @@ class HeaderControlState extends State<HeaderControl>
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
-                  child: Obx(
-                    () => ActionItem(
+                  child: ValueListenableBuilder(
+                    valueListenable: introController.hasFav,
+                    builder: (context, favored, _) => ActionItem(
                       expand: false,
                       animation: introController.tripleAnimation,
                       icon: Icon(
@@ -1375,7 +1134,7 @@ class HeaderControlState extends State<HeaderControl>
                         context,
                         isLongPress: true,
                       ),
-                      selectStatus: introController.hasFav.value,
+                      selectStatus: favored,
                       semanticsLabel: '收藏',
                     ),
                   ),

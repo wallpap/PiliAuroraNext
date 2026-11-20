@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/painting.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/echo_source.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
@@ -125,13 +123,19 @@ void main() {
         extra: VideoDanmaku(id: 7, mid: 'self'),
       );
       source
-        ..add(content, 1000000)
-        ..add(content, 1000000);
-      final before = source.readRange(0, 2000000).entries.single.element;
+        ..add(content, 1000001)
+        ..add(content, 1000001);
+      final before = source.readRange(0, 2000000).entries.single;
+      expect(before.positionUs, 1000001);
       origin.elements.add(
-        DanmakuElem(id: Int64(7), idStr: '7', progress: 1100, content: 'sent'),
+        const DanmakuTimelineEntry(
+          id: 7,
+          idStr: '7',
+          positionUs: 1100000,
+          content: 'sent',
+        ),
       );
-      final after = source.readRange(0, 2000000).entries.single.element;
+      final after = source.readRange(0, 2000000).entries.single;
       expect(identical(before, after), isTrue);
       expect(source.contentFor(after), same(content));
       source.remove(7);
@@ -146,7 +150,7 @@ void main() {
 }
 
 class _Source implements DanmakuTimelineSource {
-  final elements = <DanmakuElem>[];
+  final elements = <DanmakuTimelineEntry>[];
   final events = StreamController<DanmakuSourceChange>.broadcast(sync: true);
   DanmakuCoverageState state = DanmakuCoverageState.loaded;
   @override
@@ -162,13 +166,9 @@ class _Source implements DanmakuTimelineSource {
     startUs: startUs,
     endUs: endUs,
     revision: 0,
-    entries: elements
-        .where(
-          (element) =>
-              element.progress * 1000 >= startUs &&
-              element.progress * 1000 < endUs,
-        )
-        .map(DanmakuTimelineEntry.new),
+    entries: elements.where(
+      (entry) => entry.positionUs >= startUs && entry.positionUs < endUs,
+    ),
     coverage: [
       DanmakuRangeCoverage(startUs, endUs, state),
     ],

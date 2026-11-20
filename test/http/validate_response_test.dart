@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/validate.dart';
-import 'package:pili_aurora_next/models/login/gaia_result.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/domain/login/gaia_result.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../support/memory_box.dart';
 

@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/episode_panel/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/models/common/episode_panel_type.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/section.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/playback/domain/episode_panel_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/section.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -55,7 +55,6 @@ void main() {
         home: Scaffold(
           body: EpisodePanel(
             ugcIntroController: UgcIntroController(),
-            heroTag: 'test',
             type: EpisodeType.season,
             aid: 1,
             bvid: 'BV1xx411c7mD',

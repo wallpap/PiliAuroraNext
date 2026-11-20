@@ -1,16 +1,9 @@
-import 'dart:async';
-
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/features/playback/application/cdn_speed_probe.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
-import 'package:dio/dio.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SelectDialog<T> extends StatelessWidget {
@@ -73,13 +66,12 @@ class SelectDialog<T> extends StatelessWidget {
 
 class CdnSelectDialog extends StatefulWidget {
   final BaseItem? sample;
-  // 与默认客户端一样由弹窗拥有并释放，便于离线验证测速结果。
-  final Dio? client;
+  final CdnSpeedProbe Function()? createProbe;
 
   const CdnSelectDialog({
     super.key,
     this.sample,
-    this.client,
+    this.createProbe,
   });
 
   @override
@@ -88,7 +80,7 @@ class CdnSelectDialog extends StatefulWidget {
 
 class _CdnSelectDialogState extends State<CdnSelectDialog> {
   late final List<ValueNotifier<String?>> _cdnResList;
-  late final List<CancelToken?> _tokens;
+  late final CdnSpeedProbe _probe;
   late final bool _cdnSpeedTest;
 
   @override
@@ -96,20 +88,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     super.initState();
     _cdnSpeedTest = Pref.cdnSpeedTest;
     if (_cdnSpeedTest) {
-      _dio = widget.client ?? Dio();
-      _dio.options
-        ..connectTimeout = const Duration(seconds: 15)
-        ..receiveTimeout = const Duration(seconds: 15)
-        ..headers.addAll({
-          'user-agent': BrowserUa.pc,
-          'referer': HttpString.baseUrl,
-        });
+      _probe = widget.createProbe?.call() ?? CdnSpeedProbe();
       final length = CDNService.values.length;
       _cdnResList = List.generate(
         length,
         (_) => ValueNotifier<String?>(null),
       );
-      _tokens = List.generate(length, (_) => CancelToken());
       _startSpeedTest();
     }
   }
@@ -117,35 +101,22 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   @override
   void dispose() {
     if (_cdnSpeedTest) {
-      for (final e in _tokens) {
-        e?.cancel();
-      }
+      _probe.close();
       for (final notifier in _cdnResList) {
         notifier.dispose();
       }
-      _dio.close(force: true);
     }
     super.dispose();
   }
 
-  Future<BaseItem> _getSampleUrl() async {
-    final result = await VideoHttp.videoUrl(
-      cid: 196018899,
-      bvid: 'BV1fK4y1t7hj',
-      qn: VideoQuality.high1080.code,
-      tryLook: false,
-      videoType: VideoType.ugc,
-    );
-    if (!result.isSuccess) throw result;
-    final item = result.dataOrNull?.dash?.video?.firstOrNull;
-    if (item == null) throw const FormatException('响应缺少测速视频流');
-    return item;
-  }
-
   Future<void> _startSpeedTest() async {
     try {
-      final videoItem = widget.sample ?? await _getSampleUrl();
-      await _testAllCdnServices(videoItem);
+      final videoItem = widget.sample ?? await CdnSpeedProbe.sample();
+      for (final service in CDNService.values) {
+        if (!mounted) break;
+        final result = await _probe.measure(service, videoItem);
+        if (mounted) _cdnResList[service.index].value = result;
+      }
     } catch (e, stackTrace) {
       if (!mounted) return;
       logger
@@ -161,102 +132,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     }
   }
 
-  Future<void> _testAllCdnServices(BaseItem videoItem) async {
-    for (final item in CDNService.values) {
-      if (!mounted) break;
-      await _testSingleCdn(item, videoItem);
-    }
-  }
-
-  Future<void> _testSingleCdn(CDNService item, BaseItem videoItem) async {
-    try {
-      final cdnUrl = VideoUtils.getCdnUrl(
-        videoItem.playUrls,
-        defaultCDNService: item,
-      );
-      await _measureDownloadSpeed(cdnUrl, item.index);
-    } catch (e, stack) {
-      _handleSpeedTestError(e, stack, item.index);
-    }
-  }
-
-  late final Dio _dio;
-
-  Future<void> _measureDownloadSpeed(String url, int index) async {
-    const maxSize = 8 * 1024 * 1024;
-    int downloaded = 0;
-    final cancelToken = _tokens[index];
-    final watch = Stopwatch()..start();
-    try {
-      final response = await _dio.get<List<int>>(
-        url,
-        options: Options(responseType: ResponseType.bytes),
-        cancelToken: cancelToken,
-        onReceiveProgress: (count, total) {
-          if (!mounted) return;
-          downloaded = count;
-          if (watch.elapsedMicroseconds >= 15000000 || downloaded >= maxSize) {
-            if (downloaded > 0) {
-              _updateSpeedResult(index, downloaded, watch.elapsedMicroseconds);
-            }
-            cancelToken?.cancel();
-          }
-        },
-      );
-      if (!mounted || _cdnResList[index].value != null) return;
-      downloaded = response.data?.length ?? downloaded;
-      if (downloaded <= 0) throw const FormatException('测速响应为空');
-      // 小于采样上限的完整响应也是有效样本，不能一直停留在等待状态。
-      _updateSpeedResult(index, downloaded, watch.elapsedMicroseconds);
-    } finally {
-      watch.stop();
-      cancelToken?.cancel();
-      _tokens[index] = null;
-    }
-  }
-
-  void _updateSpeedResult(int index, int downloaded, int duration) {
-    if (!mounted) return;
-    final speed = (downloaded / (duration > 0 ? duration : 1))
-        .toStringAsPrecision(3);
-    _cdnResList[index].value = '${speed}MB/s';
-  }
-
-  void _handleSpeedTestError(Object error, StackTrace stack, int index) {
-    if (!mounted) return;
-    _tokens
-      ..[index]?.cancel()
-      ..[index] = null;
-    final item = _cdnResList[index];
-    if (item.value != null) return;
-    logger
-        .scoped('cdnProbe')
-        .w(
-          'CDN 测速失败',
-          error: error.runtimeType,
-          stackTrace: stack,
-        );
-    // Dio 异常正文包含请求地址，签名参数不能进入设置页或日志。
-    item.value = switch (error) {
-      DioException(response: Response(statusCode: final int code))
-          when code >= 400 && code < 500 =>
-        '此视频可能无法替换为该CDN',
-      DioException(
-        type: DioExceptionType.connectionTimeout ||
-            DioExceptionType.receiveTimeout ||
-            DioExceptionType.sendTimeout,
-      ) ||
-      TimeoutException() => '测速超时，请重试',
-      _ => '测速失败，请重试',
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     return SelectDialog<CDNService>(
       title: 'CDN 设置',
       values: CDNService.values.map((i) => (i, i.desc)).toList(),
-      value: VideoUtils.cdnService,
+      value: VideoPreferences.cdn,
       subtitleBuilder: _cdnSpeedTest
           ? (context, index) {
               final item = _cdnResList[index];

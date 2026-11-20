@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // 在 widget binding 核对计时器之前，先清理本用例注册的全局标签。

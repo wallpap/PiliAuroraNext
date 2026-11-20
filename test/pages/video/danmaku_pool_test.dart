@@ -1,16 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:pili_aurora_next/pages/video/widgets/danmaku_like_control.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_like_control.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
@@ -18,7 +18,7 @@ import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 
@@ -30,7 +30,6 @@ void main() {
   testWidgets(
     'pool refresh obtains the current handle after seek and media replacement',
     (tester) async {
-      Get.put<UgcIntroController>(_Intro(), tag: 'pool-test');
       final renderer = DanmakuWindowRenderer<DanmakuExtra>(
         option: const DanmakuOption(),
         size: const Size(640, 360),
@@ -112,7 +111,6 @@ void main() {
         },
       ),
     );
-    Get.put<UgcIntroController>(_Intro(), tag: 'pool-test');
     final renderer = DanmakuWindowRenderer<DanmakuExtra>(
       option: const DanmakuOption(),
       size: const Size(640, 360),
@@ -210,14 +208,11 @@ void main() {
     });
     final first = VideoDanmaku(id: 7, mid: 'self');
     final second = VideoDanmaku(id: 8, mid: 'self');
-    var toggles = 0;
     Widget control(VideoDanmaku extra) => MaterialApp(
+      builder: FlutterSmartDialog.init(),
       home: DanmakuLikeControl(
         extra: extra,
         cid: 99,
-        onLike: () async {
-          toggles++;
-        },
         builder: (context, onLike) =>
             TextButton(onPressed: onLike, child: Text('${extra.like}')),
       ),
@@ -226,7 +221,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     expect(find.byType(TextButton), findsNothing);
     await tester.tap(find.byType(DanmakuLikeControl));
-    expect(toggles, 0);
+    expect(pending, hasLength(1));
     await tester.pumpWidget(control(second));
     await tester.pump(const Duration(milliseconds: 20));
     void reply(int index, int id, int likes, int userLike) {
@@ -256,8 +251,14 @@ void main() {
     expect(find.text('2'), findsOneWidget);
     await tester.tap(find.byType(TextButton));
     await tester.pump(const Duration(milliseconds: 20));
-    expect(toggles, 1);
-    expect(pending, hasLength(2));
+    expect(pending, hasLength(3));
+    expect(pending.last.$1.method, 'POST');
+    expect(pending.last.$1.data['dmid'], 8);
+    pending.last.$2.resolve(
+      Response(requestOptions: pending.last.$1, data: {'code': 0}),
+    );
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pump(const Duration(seconds: 4));
   });
 
   for (final networkError in [false, true]) {
@@ -282,14 +283,13 @@ void main() {
         Request.dio.interceptors.clear();
       });
       final extra = VideoDanmaku(id: 7, mid: 'self');
-      var toggles = 0;
       await tester.pumpWidget(
         MaterialApp(
+          builder: FlutterSmartDialog.init(),
           home: Scaffold(
             body: DanmakuLikeControl(
               extra: extra,
               cid: 99,
-              onLike: () async => toggles++,
               builder: (context, onLike) => TextButton(
                 onPressed: onLike,
                 child: Text(extra.isLike ? '已点赞' : '未点赞'),
@@ -318,7 +318,6 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('重新获取弹幕点赞状态'));
       await tester.pump(const Duration(milliseconds: 20));
-      expect(toggles, 0);
       expect(pending, hasLength(2));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       pending.last.$2.resolve(
@@ -335,10 +334,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
       await tester.pump(const Duration(milliseconds: 20));
       expect(find.text('已点赞'), findsOneWidget);
-      expect(toggles, 0);
+      expect(pending, hasLength(2));
       await tester.tap(find.text('已点赞'));
-      await tester.pump();
-      expect(toggles, 1);
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(pending, hasLength(3));
+      expect(pending.last.$1.method, 'POST');
+      expect(pending.last.$1.data['op'], 2);
+      pending.last.$2.resolve(
+        Response(requestOptions: pending.last.$1, data: {'code': 0}),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(seconds: 4));
       // 损坏响应会记录诊断，在框架检查剩余 Timer 前排空延迟通知。
       await tester.pump(const Duration(milliseconds: 300));
     });
@@ -350,7 +356,7 @@ class _Header extends HeaderControl {
     : super(
         controller: player,
         videoDetailCtr: _Detail(),
-        heroTag: 'pool-test',
+        introController: _Intro(),
         isPortrait: true,
       );
   @override
@@ -385,6 +391,13 @@ class _Intro extends GetxController implements UgcIntroController {
 }
 
 class _Player implements PlPlayerController {
+  @override
+  bool Function() captureDanmakuMedia() {
+    final part = cid;
+    final display = danmakuDisplay;
+    return () => cid == part && identical(danmakuDisplay, display);
+  }
+
   @override
   int get cid => 99;
   @override

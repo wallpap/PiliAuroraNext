@@ -5,12 +5,13 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/window_coordinator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_layout.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/windows_update_exit.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -77,17 +78,21 @@ class DesktopPlaybackWindows with WindowListener {
 
   final _windows = <int, _PlaybackWindow>{};
   final _openingIds = <int>{};
+  final _opening = <Future<void>>{};
   final _processCleanups = <Future<void>>{};
   Future<HttpServer>? _server;
   WebSocket? _childSocket;
   StreamSubscription? _childSubscription;
+  Future<void>? _disconnecting;
   Timer? _boundsTimer;
   Future<void> Function(bool)? setLocalMuted;
   Future<void> Function()? onPlayerClose;
   Rect? initialBounds;
   double? initialVolume;
   Directory? cacheDirectory;
-  bool _closing = false;
+  bool _watchingPlayer = false;
+  bool _playerStartupFailed = false;
+  Future<void>? _windowClose;
   Future<void>? _shutdown;
   Future<void>? _showPlayerWindow;
   Future<void> _soundChange = Future<void>.value();
@@ -164,6 +169,11 @@ class DesktopPlaybackWindows with WindowListener {
     _PlaybackWindow? window;
     try {
       await _diagnosticsResumed?.future;
+      if (_shutdown != null) {
+        request.response.statusCode = HttpStatus.serviceUnavailable;
+        await request.response.close();
+        return;
+      }
       final token = request.headers.value(HttpHeaders.authorizationHeader);
       final matches = _windows.values.where(
         (window) => window.token == token && !window.connectionClaimed,
@@ -178,6 +188,10 @@ class DesktopPlaybackWindows with WindowListener {
       final socket = window.socket = await WebSocketTransformer.upgrade(
         request,
       );
+      if (_shutdown != null || !identical(_windows[window.id], window)) {
+        await socket.close().timeout(const Duration(seconds: 3));
+        return;
+      }
       final payload = jsonEncode(window.initialization);
       window.initialization.clear();
       socket
@@ -256,11 +270,10 @@ class DesktopPlaybackWindows with WindowListener {
       case 'solo':
         await _solo(window);
       case 'progress':
-        final cid = message['cid'] as int;
-        final position = message['position'] as int;
-        if (cid > 0 && position >= 0) {
-          await GStorage.watchProgress.put(cid.toString(), position);
-        }
+        await OfflineProgress.record(
+          message['cid'] as int,
+          message['position'] as int,
+        );
       case 'failed':
         if (!window.ready.isCompleted) {
           window.ready.completeError(StateError('播放窗口初始化失败'));
@@ -272,12 +285,25 @@ class DesktopPlaybackWindows with WindowListener {
     }
   }
 
-  Future<void> open(DesktopPlaybackRequest request, {double? volume}) async {
+  Future<void> open(DesktopPlaybackRequest request, {double? volume}) {
+    final pending = _open(request, volume);
+    late final Future<void> settled;
+    settled = pending
+        .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+        .whenComplete(() => _opening.remove(settled));
+    _opening.add(settled);
+    return pending;
+  }
+
+  Future<void> _open(DesktopPlaybackRequest request, double? volume) async {
     if (_childSocket != null) throw StateError('请从主窗口打开新的播放窗口');
     if (_shutdown != null) throw StateError('应用正在退出');
     await _diagnosticsResumed?.future;
+    if (_shutdown != null) throw StateError('应用正在退出');
     final server = await _ensureServer();
+    if (_shutdown != null) throw StateError('应用正在退出');
     final snapshot = await GStorage.playbackSnapshot();
+    if (_shutdown != null) throw StateError('应用正在退出');
     var id = 0;
     while (_windows.containsKey(id) || _openingIds.contains(id)) {
       id++;
@@ -305,6 +331,7 @@ class DesktopPlaybackWindows with WindowListener {
       saved is Map ? saved[id.toString()] : null,
     );
     final workArea = await _workArea(restoreBounds: previousBounds);
+    if (_shutdown != null) throw StateError('应用正在退出');
     final bounds = DesktopPlaybackGeometry.fit(
       previousBounds ??
           Rect.fromLTWH(
@@ -382,7 +409,12 @@ class DesktopPlaybackWindows with WindowListener {
       exited = true;
       if (!window.ready.isCompleted) {
         window.ready.completeError(
-          ProcessException('PiliAuroraNext Player', const [], '播放窗口就绪前退出', code),
+          ProcessException(
+            'PiliAuroraNext Player',
+            const [],
+            '播放窗口就绪前退出',
+            code,
+          ),
           StackTrace.current,
         );
       }
@@ -407,9 +439,10 @@ class DesktopPlaybackWindows with WindowListener {
     }
   }
 
-  Future<void> closeAll() => _shutdown ??= _closeAll();
+  Future<void> closeAll() => _shutdown ??= Future<void>.microtask(_closeAll);
 
   Future<void> _closeAll() async {
+    _resumeOpening();
     try {
       // 并行关闭，让多个小窗共用同一段退出等待时间。
       await Future.wait(
@@ -446,6 +479,10 @@ class DesktopPlaybackWindows with WindowListener {
       await _release('server', () async {
         await (await _server)?.close(force: true);
       });
+      await _release('opening', () async {
+        await Future.wait(_opening.toList())
+            .timeout(const Duration(seconds: 3));
+      });
     }
   }
 
@@ -456,6 +493,7 @@ class DesktopPlaybackWindows with WindowListener {
 
   Future<DesktopPlaybackInitialization> _connectPlayer() async {
     if (_childSocket != null) throw StateError('播放窗口已完成连接');
+    _disconnecting = null;
     final port = int.tryParse(_environment['PILIAURORANEXT_WINDOW_PORT'] ?? '');
     final token = _environment['PILIAURORANEXT_WINDOW_TOKEN'];
     if (port == null ||
@@ -589,7 +627,9 @@ class DesktopPlaybackWindows with WindowListener {
   }
 
   /// 仅释放 IPC；正常窗口关闭还需等待播放器与缓存释放。
-  Future<void> disconnectPlayer() async {
+  Future<void> disconnectPlayer() => _disconnecting ??= _disconnectPlayer();
+
+  Future<void> _disconnectPlayer() async {
     _failFlushRequests(StateError('播放窗口连接已关闭'), StackTrace.current);
     await _release('subscription', () async {
       try {
@@ -606,7 +646,18 @@ class DesktopPlaybackWindows with WindowListener {
   Future<void> watchPlayerWindow() async {
     WindowsUpdateExit.setHandler(onWindowClose);
     windowManager.addListener(this);
+    _watchingPlayer = true;
     await windowManager.setPreventClose(true);
+  }
+
+  Future<void> failPlayerWindow() {
+    _playerStartupFailed = true;
+    return onWindowClose();
+  }
+
+  Future<void> finishPlayerConnection({required bool startupFailed}) async {
+    if (startupFailed || _playerStartupFailed) playerFailed();
+    await disconnectPlayer();
   }
 
   bool _sendChild(Map<String, dynamic> message) {
@@ -646,7 +697,8 @@ class DesktopPlaybackWindows with WindowListener {
   }
 
   Future<void> pauseWindowDiagnostics() async {
-    _diagnosticsResumed = Completer<void>();
+    if (_shutdown != null) return;
+    _diagnosticsResumed ??= Completer<void>();
     await _diagnosticCoordinator.pause();
   }
 
@@ -656,9 +708,13 @@ class DesktopPlaybackWindows with WindowListener {
     try {
       await _diagnosticCoordinator.resume();
     } finally {
-      _diagnosticsResumed?.complete();
-      _diagnosticsResumed = null;
+      _resumeOpening();
     }
+  }
+
+  void _resumeOpening() {
+    _diagnosticsResumed?.complete();
+    _diagnosticsResumed = null;
   }
 
   void syncDiagnosticSettings() {
@@ -827,7 +883,7 @@ class DesktopPlaybackWindows with WindowListener {
   }
 
   void _saveBounds() {
-    if (_closing) return;
+    if (!_watchingPlayer || _windowClose != null) return;
     _boundsTimer?.cancel();
     _boundsTimer = Timer(const Duration(milliseconds: 250), () {
       unawaited(_release('bounds', _saveCurrentBounds));
@@ -840,7 +896,7 @@ class DesktopPlaybackWindows with WindowListener {
       return;
     }
     final bounds = await windowManager.getBounds();
-    if (_closing) return;
+    if (!_watchingPlayer || _windowClose != null) return;
     if (_childSocket?.readyState == WebSocket.open) {
       _childSocket!.add(
         jsonEncode({'type': 'bounds', 'bounds': _rectValues(bounds)}),
@@ -853,26 +909,15 @@ class DesktopPlaybackWindows with WindowListener {
   @override
   void onWindowResized() => _saveBounds();
   @override
-  Future<void> onWindowClose() async {
-    if (_closing) return;
-    _closing = true;
-    _boundsTimer?.cancel();
-    // 每个释放阶段独立报告失败，窗口查询或日志失败不能跳过播放器销毁。
-    Future<void> release(String phase, Future<void> Function() action) async {
-      try {
-        await action();
-      } catch (error, stackTrace) {
-        Diagnostics.instance.log(
-          DiagnosticLogLevel.error,
-          'window',
-          '关闭播放窗口时清理失败: $phase',
-          details: error.runtimeType.toString(),
-          stack: stackTrace,
-        );
-      }
-    }
+  Future<void> onWindowClose() =>
+      _windowClose ??= Future<void>.microtask(_closePlayerWindow);
 
-    await release('bounds', () async {
+  Future<void> preparePlayerClose() async {
+    _boundsTimer?.cancel();
+    if (!_watchingPlayer) return;
+    _watchingPlayer = false;
+    windowManager.removeListener(this);
+    try {
       if (!await windowManager.isMinimized() &&
           !await windowManager.isFullScreen()) {
         final bounds = await windowManager.getBounds();
@@ -881,16 +926,16 @@ class DesktopPlaybackWindows with WindowListener {
           jsonEncode({'type': 'bounds', 'bounds': _rectValues(bounds)}),
         );
       }
-    });
-    await release('player', () async {
+    } finally {
+      WindowsUpdateExit.setHandler(null);
+    }
+  }
+
+  Future<void> _closePlayerWindow() async {
+    await _release('player', () async {
       await onPlayerClose?.call();
     });
-    await release('diagnostics', () async {
-      await Diagnostics.instance.flush().timeout(const Duration(seconds: 3));
-    });
     await disconnectPlayer();
-    windowManager.removeListener(this);
-    WindowsUpdateExit.setHandler(null);
     await windowManager.destroy();
   }
 }

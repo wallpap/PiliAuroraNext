@@ -2,9 +2,9 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/match/match_info/contest.dart';
-import 'package:pili_aurora_next/models/remote/match/match_info/data.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/match/match_info/contest.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/match/match_info/data.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:dio/dio.dart';
 
 abstract final class MatchHttp {

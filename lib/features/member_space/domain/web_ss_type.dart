@@ -1,0 +1,7 @@
+
+enum WebSsType {
+  season,
+  series,
+  ;
+
+}

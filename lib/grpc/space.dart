@@ -1,8 +1,8 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/interfaces/v1.pb.dart'
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/interfaces/v1.pb.dart'
     show SearchArchiveReply, SearchArchiveReq;
-import 'package:pili_aurora_next/grpc/bilibili/pagination.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/pagination.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

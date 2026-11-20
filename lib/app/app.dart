@@ -1,3 +1,14 @@
+import 'dart:async';
+import 'dart:ui' show AppExitResponse;
+
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:pili_aurora_next/features/download/application/download_progress.dart';
+import 'package:pili_aurora_next/features/download/application/download_service.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/features/download/data/download_repository.dart';
+import 'package:pili_aurora_next/services/logger.dart';
+import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/features/download/application/download_path.dart';
 import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/app/desktop_playback_launch.dart';
 import 'package:pili_aurora_next/app/desktop_theme.dart';
@@ -11,23 +22,84 @@ import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart';
 import 'package:pili_aurora_next/router/app_pages.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/services/app_exit.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 提供应用主题、本地化、路由、全局对话框和导航观察器。
-class PiliAuroraNextApp extends StatelessWidget {
-  const PiliAuroraNextApp({super.key, this.playbackRequest});
+class PiliAuroraNextApp extends StatefulWidget {
+  const PiliAuroraNextApp({
+    super.key,
+    required this.exit,
+    this.playbackRequest,
+  });
+  final AppExit exit;
   final DesktopPlaybackRequest? playbackRequest;
 
   @override
+  State<PiliAuroraNextApp> createState() => _PiliAuroraNextAppState();
+}
+
+class _PiliAuroraNextAppState extends State<PiliAuroraNextApp>
+    with WidgetsBindingObserver {
+  late final _showTitleBar = WindowPreference.showTitleBar.read();
+  DownloadService? _downloads;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    widget.exit.beforeCleanup('downloads', () async {
+      await _downloads?.close();
+    });
+  }
+
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    await widget.exit.release();
+    return AppExitResponse.exit;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(widget.exit.release());
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final playbackRequest = widget.playbackRequest;
     final (light, dark) = ThemeUtils.getAllTheme();
     return ProviderScope(
+      overrides: [
+        downloadServiceProvider.overrideWith(
+          (ref) => _downloads = createDownloadService(ref),
+        ),
+        downloadProgressStoreProvider.overrideWithValue(
+          _DownloadProgressStore(),
+        ),
+        downloadRepositoryProvider.overrideWith(
+          (ref) => DownloadRepository(
+            rootPath: resolveDownloadPath,
+            onReadError: (path, error, stack) => logger.w(
+              '下载元数据读取或恢复异常: $path',
+              error: error.runtimeType,
+              stackTrace: stack,
+            ),
+          ),
+        ),
+        downloadClientProvider.overrideWithValue(Request.http11Dio),
+        downloadBackgroundErrorProvider.overrideWithValue(
+          SmartDialog.showToast,
+        ),
+      ],
       child: GetMaterialApp(
         title: Constants.appName,
         theme: light,
@@ -68,6 +140,7 @@ class PiliAuroraNextApp extends StatelessWidget {
   }
 
   Widget _builder(BuildContext context, Widget? child) {
+    final playbackRequest = widget.playbackRequest;
     final viewport = AppViewport(
       uiScale: Pref.uiScale,
       textScale: Pref.defaultTextScale,
@@ -80,7 +153,7 @@ class PiliAuroraNextApp extends StatelessWidget {
               onBack: handleAppBack,
               child: playbackRequest == null
                   ? DesktopWindowFrame(
-                      showTitleBar: Pref.showWindowTitleBar,
+                      showTitleBar: _showTitleBar,
                       child: viewport,
                     )
                   : viewport,
@@ -88,4 +161,13 @@ class PiliAuroraNextApp extends StatelessWidget {
           )
         : viewport;
   }
+}
+
+class _DownloadProgressStore implements DownloadProgressStore {
+  @override
+  int? read(int cid) => GStorage.watchProgress.get(cid.toString());
+
+  @override
+  Future<void> remove(Iterable<int> cids) =>
+      GStorage.watchProgress.deleteAll(cids.map((cid) => cid.toString()));
 }

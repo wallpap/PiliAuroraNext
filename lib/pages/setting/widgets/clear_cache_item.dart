@@ -7,7 +7,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/normal_item.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
 
 class ClearCacheItem extends StatefulWidget {
   const ClearCacheItem({super.key});

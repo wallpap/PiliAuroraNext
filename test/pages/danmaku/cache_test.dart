@@ -1,9 +1,9 @@
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-DanmakuElem _element(int progress, int id) => DanmakuElem(
+DanmakuElement _element(int progress, int id) => DanmakuElement(
   progress: progress,
   content: '弹幕$id',
 );
@@ -17,13 +17,13 @@ void main() {
           0: [_element(0, 0)],
         })
         ..addSegmentBuckets(1, {
-          3600: [DanmakuElem(progress: 360000, content: 'a' * 600)],
+          3600: [DanmakuElement(progress: 360000, content: 'a' * 600)],
         });
       expect(cache.containsSegment(0), isFalse);
       expect(cache.containsSegment(1), isTrue);
       expect(cache.estimatedBytes, lessThanOrEqualTo(cache.maxBytes));
       cache.addSegmentBuckets(2, {
-        7200: [DanmakuElem(progress: 720000, content: 'b' * 2000)],
+        7200: [DanmakuElement(progress: 720000, content: 'b' * 2000)],
       });
       expect(cache.containsSegment(2), isFalse);
       expect(
@@ -50,15 +50,15 @@ void main() {
       final first = cache.readRange(50000, 51000, maxEntriesPerBucket: 120);
       expect(first.entries.length, 120);
       expect(first.isLoaded, isTrue);
-      expect(first.entries.map((e) => e.element), [
-        ...items.take(120),
+      expect(first.entries.map((entry) => entry.content), [
+        for (final item in items.take(120)) item.content,
       ]);
       expect(
         cache
             .readRange(50000, 51000, maxEntriesPerBucket: 120)
             .entries
-            .map((e) => e.element),
-        first.entries.map((e) => e.element),
+            .map((entry) => entry.content),
+        first.entries.map((entry) => entry.content),
       );
       expect(
         cache.readRange(50001, 99000, maxEntriesPerBucket: 120).entries,
@@ -67,8 +67,8 @@ void main() {
       final appended = _element(50, 10003);
       cache.addFileElements([appended]);
       expect(
-        cache.readRange(50000, 51000).entries.last.element,
-        same(appended),
+        cache.readRange(50000, 51000).entries.last.content,
+        appended.content,
       );
       expect(first.entries.length, 120);
       expect(
@@ -92,14 +92,51 @@ void main() {
       101000,
       199000,
     ]);
-    expect(range.entries.take(2).map((entry) => entry.element), [
-      first,
-      second,
+    expect(range.entries.take(2).map((entry) => entry.content), [
+      first.content,
+      second.content,
     ]);
     expect(range.isLoaded, isTrue);
     expect(range.entries.clear, throwsUnsupportedError);
     expect(cache.readRange(200000, 200000).entries, isEmpty);
   });
+
+  test(
+    'timeline snapshots retain display fields without sharing mutable input',
+    () {
+      final cache = DanmakuCache();
+      final element = DanmakuElement(
+        progress: 123,
+        content: '特殊弹幕',
+        idStr: '1234',
+        mode: 7,
+        fontSize: 25,
+        color: 0xff00ff,
+        midHash: 'sender',
+        weight: 9,
+        count: 3,
+        isSelf: true,
+        vipGradient: true,
+      );
+      cache.addFileElements([element]);
+
+      final entry = cache.readRange(123000, 123001).entries.single;
+      element
+        ..weight = 10
+        ..count = 10;
+      expect(entry.positionUs, 123000);
+      expect(entry.content, '特殊弹幕');
+      expect(entry.idStr, '1234');
+      expect(entry.mode, 7);
+      expect(entry.fontSize, 25);
+      expect(entry.color, 0xff00ff);
+      expect(entry.midHash, 'sender');
+      expect(entry.weight, 9);
+      expect(entry.count, 3);
+      expect(entry.isSelf, isTrue);
+      expect(entry.vipGradient, isTrue);
+    },
+  );
 
   test('覆盖区分已加载空段与缺失段，修订随写入和淘汰变化', () {
     final cache = DanmakuCache(maxSegments: 1);

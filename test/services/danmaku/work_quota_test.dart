@@ -1,10 +1,43 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
 void main() {
+  test(
+    'quota disposal cancels waiting work and lets active work finish',
+    () async {
+      final quota = DanmakuWorkQuota();
+      final entered = Completer<void>();
+      final finish = Completer<int>();
+      final active = quota.run(42, () {
+        entered.complete();
+        return finish.future;
+      });
+      await entered.future;
+
+      final waiting = quota.run(10, () => fail('waiting work must not start'));
+      final cancelled = expectLater(
+        waiting,
+        throwsA(isA<DanmakuWorkCancelled>()),
+      );
+      final closed = quota.available.drain<void>();
+      quota.dispose();
+
+      await cancelled;
+      await closed;
+      expect(quota.snapshot['reservedBytes'], 42);
+      await expectLater(
+        quota.run(10, () => fail('disposed quota must not accept work')),
+        throwsA(isA<DanmakuWorkCancelled>()),
+      );
+      finish.complete(7);
+      expect(await active, 7);
+      expect(quota.snapshot['reservedBytes'], 0);
+    },
+  );
+
   test(
     'global quota diagnostics remain readable through cancelled work',
     () async {

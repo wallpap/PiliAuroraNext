@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/common/member_feed.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
 
 mixin MemberFeedView<W extends ConsumerStatefulWidget, T> on ConsumerState<W> {
   MemberFeedKind get feedKind;

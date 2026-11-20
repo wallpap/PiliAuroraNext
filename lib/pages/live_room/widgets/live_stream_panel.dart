@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/models/common/video/live_quality.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/stream.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/live_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/stream.dart';
 
 typedef LiveStreamSelection = ({int stream, int format, int codec, int url});
 

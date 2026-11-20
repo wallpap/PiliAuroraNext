@@ -1,0 +1,810 @@
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+
+import 'dart:async';
+
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/common/skeleton/video_card_v.dart';
+import 'package:pili_aurora_next/common/widgets/video_card/video_card_v.dart';
+import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/recommendation_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+
+import '../../support/memory_box.dart';
+
+class _Video extends BaseRcmdVideoItemModel {
+  _Video(int id, {bool cooperation = false, int mid = 8}) {
+    aid = id;
+    bvid = IdUtils.av2bv(id);
+    title = '视频 $id';
+    owner = Owner(mid: mid, name: '作者');
+    stat = Stat.fromJson({});
+    authors = VideoAuthors(isCooperation: cooperation);
+  }
+}
+
+class _Preferences extends RecommendationPreferencesNotifier {
+  @override
+  RecommendationPreferences build() =>
+      (app: Pref.appRcmd, keepPrevious: false, showHistory: true);
+}
+
+ProviderContainer _mount(_Feed feed) {
+  final container = ProviderContainer(
+    overrides: [
+      recommendationFeedProvider.overrideWith(() => feed),
+      recommendationPreferencesProvider.overrideWith(_Preferences.new),
+    ],
+  )..listen(recommendationFeedProvider, (_, _) {});
+  var closed = false;
+  feed.close = () {
+    if (!closed) {
+      closed = true;
+      container.dispose();
+    }
+  };
+  return container;
+}
+
+class _Feed extends RecommendationFeed {
+  late void Function() close;
+  @override
+  bool enableSaveLastData = false;
+  @override
+  bool savedRcmdTip = true;
+  @override
+  bool get appRcmd => Pref.appRcmd;
+  Object account = Object();
+  Completer<void>? preparation;
+  CooperativeAuthors? lookup;
+  final requests = <Completer<LoadingState<List<BaseRcmdVideoItemModel>>>>[];
+  final indices = <int>[];
+  final sizes = <int>[];
+  final tokens = <CancelToken>[];
+  @override
+  Object get queryContext => account;
+  @override
+  Future<void>? prepareQuery() => preparation?.future;
+  @override
+  CooperativeAuthors get cooperativeAuthors =>
+      lookup ?? super.cooperativeAuthors;
+  @override
+  Future<LoadingState<List<BaseRcmdVideoItemModel>>> fetchRecommendations({
+    required int index,
+    required int pageSize,
+    required CancelToken cancelToken,
+    required Account account,
+    required bool app,
+  }) {
+    final result = Completer<LoadingState<List<BaseRcmdVideoItemModel>>>();
+    indices.add(index);
+    sizes.add(pageSize);
+    tokens.add(cancelToken);
+    requests.add(result);
+    return result.future;
+  }
+}
+
+class _TimedFeed extends _Feed {
+  _TimedFeed(this.now);
+  final Duration Function() now;
+  final starts = <({int index, int milliseconds})>[];
+  @override
+  Future<void> prepareQuery() =>
+      Future<void>.delayed(const Duration(seconds: 2));
+  @override
+  Future<LoadingState<List<BaseRcmdVideoItemModel>>> fetchRecommendations({
+    required int index,
+    required int pageSize,
+    required CancelToken cancelToken,
+    required Account account,
+    required bool app,
+  }) async {
+    starts.add((index: index, milliseconds: now().inMilliseconds));
+    await Future<void>.delayed(const Duration(seconds: 1));
+    return Success(
+      List.generate(10, (i) => _Video(index * 10 + i + 1, cooperation: i == 0)),
+    );
+  }
+}
+
+Future<void> _seed(
+  _Feed feed,
+  WidgetTester tester,
+  List<BaseRcmdVideoItemModel> items,
+) async {
+  final query = feed.onRefresh();
+  feed.requests.last.complete(Success(items));
+  await tester.idle();
+  await query;
+  feed.requests.clear();
+  feed.indices.clear();
+  feed.tokens.clear();
+  feed.sizes.clear();
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  final settings = MemoryBox();
+  late _Feed feed;
+  late ProviderContainer container;
+  setUpAll(() {
+    GStorage.setting = settings;
+    GStorage.localCache = MemoryBox();
+    GStorage.userInfo = MemoryBox<UserInfoData>();
+  });
+  setUp(() {
+    settings.data
+      ..clear()
+      ..[SettingBoxKey.enableSaveLastData] = false;
+    BlockedAuthors.setBlocked(7, true);
+    feed = _Feed();
+    container = _mount(feed);
+  });
+  tearDown(() {
+    feed.close();
+    if (feed.preparation case final preparation?
+        when !preparation.isCompleted) {
+      preparation.complete();
+    }
+    for (final request in feed.requests) {
+      if (!request.isCompleted) request.complete(const Success([]));
+    }
+  });
+
+  testWidgets('推荐下载与黑名单同步重叠，完成屏蔽准备前不发布', (tester) async {
+    feed.preparation = Completer<void>();
+    final query = feed.onRefresh();
+    await tester.pump();
+    expect(feed.requests, hasLength(1));
+    feed.requests.single.complete(Success([_Video(1)]));
+    await tester.pump();
+    expect(feed.loadingState, isA<Loading>());
+    feed.preparation!.complete();
+    await tester.pump();
+    await query;
+    expect(feed.loadingState.data, hasLength(1));
+  });
+
+  testWidgets('普通卡片先发布，合作卡片检查后再显示', (tester) async {
+    final authors = Completer<Set<int>?>();
+    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+    addTearDown(() {
+      if (!authors.isCompleted) authors.complete({8});
+    });
+    final query = feed.onRefresh();
+    final ordinary = _Video(1);
+    final cooperation = _Video(2, cooperation: true);
+    feed.requests.single.complete(Success([cooperation, ordinary]));
+    await tester.pump();
+    expect(feed.loadingState, isA<Success>());
+    expect(feed.loadingState.data, [cooperation, ordinary]);
+    expect(feed.isPending(cooperation), isTrue);
+    expect(feed.isPending(ordinary), isFalse);
+    authors.complete({7, 8});
+    await tester.pump();
+    await query;
+    expect(feed.loadingState.data, [ordinary]);
+  });
+
+  testWidgets('App 连续补足视口，无需逐页等待新一帧布局', (tester) async {
+    feed.updateViewport(itemCount: 48, columns: 8, active: true);
+    for (var index = 0; index < 5; index++) {
+      expect(feed.requests, hasLength(index + 1));
+      expect(feed.isLoading, isTrue);
+      feed.requests[index].complete(
+        Success(
+          List.generate(
+            10,
+            (i) => _Video(index * 10 + i + 1),
+          ),
+        ),
+      );
+      await tester.idle();
+    }
+    expect(feed.indices, [0, 1, 2, 3, 4]);
+    expect(feed.loadingState.data, hasLength(50));
+    expect(feed.isLoading, isFalse);
+    // 同尺寸重建不增加请求；扩大视口后继续读取未读页。
+    feed.updateViewport(itemCount: 48, columns: 8, active: true);
+    await tester.idle();
+    expect(feed.requests, hasLength(5));
+    feed.updateViewport(itemCount: 64, columns: 8, active: true);
+    expect(feed.indices.last, 5);
+  });
+
+  testWidgets('Web 视口首包与两页下载并发，乱序返回仍按页合并并去重', (tester) async {
+    settings.data[SettingBoxKey.appRcmd] = false;
+    settings.data[SettingBoxKey.filterBlockedAuthors] = false;
+    feed.updateViewport(itemCount: 40, columns: 8, active: true);
+    expect(feed.sizes.single, 40);
+    feed.requests[0].complete(Success(List.generate(10, (i) => _Video(i + 1))));
+    await tester.idle();
+    expect(feed.indices, [0, 1, 2]);
+    feed.requests[2].complete(Success([_Video(11), _Video(13)]));
+    await tester.idle();
+    expect(feed.loadingState.data, hasLength(10));
+    feed.requests[1].complete(Success([_Video(11), _Video(12)]));
+    await tester.idle();
+    expect(feed.loadingState.data.map((item) => (item as _Video).aid), [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+    ]);
+    // 第 1、2 页合并后才推进窗口，始终最多两个在途请求。
+    expect(feed.indices, [0, 1, 2, 3, 4]);
+  });
+
+  testWidgets('下一页下载与合作作者检查重叠，拦截后继续补位', (tester) async {
+    final authors = Completer<Set<int>?>();
+    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+    addTearDown(() {
+      if (!authors.isCompleted) authors.complete({8});
+    });
+    feed.updateViewport(itemCount: 3, columns: 1, active: true);
+    final cooperation = _Video(1, cooperation: true);
+    feed.requests[0].complete(Success([cooperation, _Video(2)]));
+    await tester.idle();
+    expect(feed.indices, [0, 1]);
+    expect(feed.isPending(cooperation), isTrue);
+    feed.requests[1].complete(Success([_Video(3)]));
+    await tester.idle();
+    expect(feed.requests, hasLength(2));
+    authors.complete({7, 8});
+    await tester.idle();
+    expect(feed.indices, [0, 1, 2]);
+    expect(feed.loadingState.data, hasLength(2));
+    feed.requests[2].complete(Success([_Video(4)]));
+    await tester.idle();
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
+      2,
+      3,
+      4,
+    ]);
+  });
+
+  testWidgets('合作卡片逐条揭示，保留原位置且不等待其他卡片', (tester) async {
+    final checks = <String, Completer<Set<int>?>>{};
+    feed.lookup = CooperativeAuthors(
+      load: (bvid) => (checks[bvid] = Completer<Set<int>?>()).future,
+    );
+    addTearDown(() {
+      for (final check in checks.values) {
+        if (!check.isCompleted) check.complete(null);
+      }
+    });
+    final query = feed.onRefresh();
+    final first = _Video(1, cooperation: true);
+    final second = _Video(2, cooperation: true);
+    feed.requests.single.complete(Success([first, second, _Video(3)]));
+    await tester.idle();
+    checks[second.bvid]!.complete({8});
+    await tester.idle();
+    expect(feed.isPending(first), isTrue);
+    expect(feed.isPending(second), isFalse);
+    expect(feed.loadingState.data.take(2), [first, second]);
+    checks[first.bvid]!.complete(null);
+    await tester.idle();
+    await query;
+    expect(feed.isPending(first), isFalse);
+    expect(feed.loadingState.data, hasLength(3));
+  });
+
+  testWidgets('刷新取消旧下载，晚到结果不修改数据或释放新请求状态', (tester) async {
+    final old = feed.onRefresh();
+    final refresh = feed.onRefresh();
+    expect(feed.tokens[0].isCancelled, isTrue);
+    feed.requests[0].complete(Success([_Video(1)]));
+    await tester.idle();
+    await old;
+    expect(feed.isLoading, isTrue);
+    expect(feed.loadingState, isA<Loading>());
+    feed.requests[1].complete(Success([_Video(2)]));
+    await tester.idle();
+    await refresh;
+    expect((feed.loadingState.data.single as _Video).aid, 2);
+  });
+
+  for (final changeSource in [false, true]) {
+    testWidgets('${changeSource ? '推荐来源' : '主账号'}切换重新初始化，不保留旧内容', (
+      tester,
+    ) async {
+      feed.enableSaveLastData = true;
+      var query = feed.onRefresh();
+      feed.requests.single.complete(Success([_Video(1)]));
+      await tester.idle();
+      await query;
+      query = feed.onLoadMore();
+      if (changeSource) {
+        settings.data[SettingBoxKey.appRcmd] = false;
+      } else {
+        feed.account = Object();
+      }
+      feed.updateViewport(itemCount: 1, columns: 1, active: true);
+      expect(feed.tokens[1].isCancelled, isTrue);
+      expect(feed.indices.last, 0);
+      expect(feed.loadingState, isA<Loading>());
+      feed.requests[1].complete(Success([_Video(2)]));
+      feed.requests[2].complete(Success([_Video(3)]));
+      await tester.idle();
+      await query;
+      expect((feed.loadingState.data.single as _Video).aid, 3);
+      expect(feed.lastRefreshAt, isNull);
+    });
+  }
+
+  testWidgets('退出取消下载和旧合作检查的写回', (tester) async {
+    final authors = Completer<Set<int>?>();
+    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+    addTearDown(() {
+      if (!authors.isCompleted) authors.complete(null);
+    });
+    feed.updateViewport(itemCount: 3, columns: 1, active: true);
+    final video = _Video(1, cooperation: true);
+    feed.requests.single.complete(Success([video]));
+    await tester.idle();
+    feed.close();
+    expect(feed.tokens.last.isCancelled, isTrue);
+    feed.requests.last.complete(Success([_Video(2)]));
+    authors.complete({7, 8});
+    await tester.idle();
+    expect(() => container.read(recommendationFeedProvider), throwsStateError);
+    expect(video.authors.mids, isNull);
+  });
+
+  testWidgets('后台标签不发新请求，返回后继续补足', (tester) async {
+    feed.updateViewport(itemCount: 3, columns: 1, active: false);
+    expect(feed.requests, isEmpty);
+    feed
+      ..updateViewport(itemCount: 3, columns: 1, active: true)
+      ..updateViewport(itemCount: 3, columns: 1, active: false);
+    feed.requests.single.complete(Success([_Video(1)]));
+    await tester.idle();
+    expect(feed.requests, hasLength(1));
+    feed.updateViewport(itemCount: 3, columns: 1, active: true);
+    expect(feed.indices, [0, 1]);
+  });
+
+  testWidgets('连续五页无增长后停止，空页同样受限', (tester) async {
+    feed.updateViewport(itemCount: 3, columns: 1, active: true);
+    for (var i = 0; i < 5; i++) {
+      feed.requests[i].complete(
+        Success(i.isEven ? [_Video(i + 1, mid: 7)] : []),
+      );
+      await tester.idle();
+    }
+    expect(feed.requests, hasLength(5));
+    expect(feed.canLoadMore, isFalse);
+    expect(feed.isLoading, isFalse);
+    feed.updateViewport(itemCount: 8, columns: 2, active: true);
+    await feed.onLoadMore();
+    expect(feed.requests, hasLength(5));
+  });
+
+  testWidgets('保留上次推荐时同样屏蔽历史推荐中的拉黑作者', (tester) async {
+    final kept = _Video(1);
+    feed.enableSaveLastData = true;
+    settings.data[SettingBoxKey.filterBlockedAuthors] = false;
+    await _seed(feed, tester, [kept, _Video(2, mid: 7)]);
+    settings.data[SettingBoxKey.filterBlockedAuthors] = true;
+    final query = feed.onRefresh();
+    feed.requests.single.complete(Success([_Video(3, mid: 7)]));
+    await tester.idle();
+    await query;
+    expect(feed.loadingState.data, [kept]);
+  });
+
+  testWidgets('保留历史位置与顺序，后续页追加在历史之后', (tester) async {
+    feed.enableSaveLastData = true;
+    await _seed(feed, tester, [_Video(1), _Video(2)]);
+    var query = feed.onRefresh();
+    feed.requests.single.complete(Success([_Video(3), _Video(1)]));
+    await tester.idle();
+    await query;
+    expect(feed.lastRefreshAt, 2);
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
+      3,
+      1,
+      2,
+    ]);
+    query = feed.onLoadMore();
+    feed.requests.last.complete(Success([_Video(4), _Video(2)]));
+    await tester.idle();
+    // 两条原始内容仅一条有效，继续补到本次两条增量需求。
+    feed.requests.last.complete(Success([_Video(5)]));
+    await tester.idle();
+    await query;
+    expect(feed.lastRefreshAt, 2);
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
+      3,
+      1,
+      2,
+      4,
+      5,
+    ]);
+    feed.removeRecommendation(feed.loadingState.data.first);
+    expect(feed.lastRefreshAt, 1);
+  });
+
+  testWidgets('刷新提示卡保留到新卡片就绪，后续卡片不会提前前移', (tester) async {
+    feed
+      ..enableSaveLastData = true
+      ..savedRcmdTip = true;
+    await _seed(feed, tester, List.generate(30, (i) => _Video(i + 1)));
+    var query = feed.onRefresh();
+    feed.requests.single.complete(Success([_Video(100)]));
+    await tester.idle();
+    await query;
+    Get.testMode = true;
+    addTearDown(Get.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
+    );
+    await tester.pump();
+    final tip = find.text('上次看到这里\n点击刷新');
+    final following = find.widgetWithText(VideoCardV, '视频 1');
+    expect(tip, findsOneWidget);
+    final originalPosition = tester.getTopLeft(following);
+    final oldItems = List.of(feed.loadingState.data);
+    feed.preparation = Completer<void>();
+    query = feed.onRefresh();
+    await tester.pump();
+    expect(tip, findsOneWidget);
+    expect(feed.lastRefreshAt, 1);
+    expect(tester.getTopLeft(following), originalPosition);
+    expect(feed.loadingState.data, oldItems);
+    feed.requests.last.complete(Success([_Video(101), _Video(102)]));
+    await tester.pump();
+    expect(tip, findsOneWidget);
+    expect(tester.getTopLeft(following), originalPosition);
+    feed.preparation!.complete();
+    await tester.pump();
+    await query;
+    await tester.pump();
+    expect(feed.lastRefreshAt, 2);
+    expect(find.text('视频 101'), findsOneWidget);
+    expect(find.text('视频 102'), findsOneWidget);
+    expect(tip, findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('刷新失败保留提示卡和内容，重试成功后一起更新', (tester) async {
+    final saved = [_Video(1), _Video(2)];
+    feed
+      ..enableSaveLastData = true
+      ..savedRcmdTip = true;
+    await _seed(feed, tester, [saved[1]]);
+    await _seed(feed, tester, [saved[0]]);
+    var query = feed.onRefresh();
+    feed.requests.single.complete(const Error('网络断开'));
+    await tester.idle();
+    await query;
+    expect(feed.loadingState.data, saved);
+    expect(feed.lastRefreshAt, 1);
+    query = feed.retryLoadMore();
+    expect(feed.lastRefreshAt, 1);
+    feed.requests.last.complete(Success([_Video(3), _Video(4)]));
+    await tester.idle();
+    await query;
+    expect(feed.lastRefreshAt, 2);
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [
+      3,
+      4,
+      1,
+      2,
+    ]);
+  });
+
+  testWidgets('分页失败保留内容并停止自动重试，用户可重试原页', (tester) async {
+    var query = feed.onRefresh();
+    feed.requests.single.complete(Success([_Video(1)]));
+    await tester.idle();
+    await query;
+    query = feed.onLoadMore();
+    feed.requests.last.complete(const Error('网络断开'));
+    await tester.idle();
+    await query;
+    expect(feed.loadingState.data, hasLength(1));
+    expect(feed.loadMoreError, '网络断开');
+    expect(feed.canLoadMore, isFalse);
+    await feed.onLoadMore();
+    expect(feed.requests, hasLength(2));
+    query = feed.retryLoadMore();
+    expect(feed.indices, [0, 1, 1]);
+    expect(feed.tokens.last.isCancelled, isFalse);
+    feed.requests.last.complete(Success([_Video(2), _Video(3)]));
+    await tester.idle();
+    await query;
+    expect(feed.loadingState.data, hasLength(3));
+    expect(feed.loadMoreError, isNull);
+  });
+
+  testWidgets('刷新等待首包期间移除旧卡片，不会清空其他内容或被响应重新插入', (tester) async {
+    final removed = _Video(1);
+    final kept = _Video(2);
+    feed.enableSaveLastData = true;
+    await _seed(feed, tester, [kept]);
+    await _seed(feed, tester, [removed]);
+    final query = feed.onRefresh();
+    feed.removeRecommendation(removed);
+    expect(feed.loadingState.data, [kept]);
+    expect(feed.lastRefreshAt, 0);
+    feed.requests.single.complete(Success([_Video(1), _Video(3)]));
+    await tester.idle();
+    await query;
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [3, 2]);
+  });
+
+  testWidgets('合作作者全部命中黑名单时同样在五页后停止', (tester) async {
+    feed
+      ..lookup = CooperativeAuthors(load: (_) async => {7, 8})
+      ..updateViewport(itemCount: 1, columns: 1, active: true);
+    for (var index = 0; index < 5; index++) {
+      feed.requests[index].complete(
+        Success([_Video(index + 1, cooperation: true)]),
+      );
+      await tester.idle();
+    }
+    expect(feed.requests, hasLength(5));
+    expect(feed.loadingState.data, isEmpty);
+    expect(feed.isEnd, isTrue);
+  });
+
+  testWidgets('刷新期间旧合作作者结果不回写，新请求不保留未检查的历史卡片', (tester) async {
+    final authors = Completer<Set<int>?>();
+    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+    addTearDown(() {
+      if (!authors.isCompleted) authors.complete(null);
+    });
+    feed.enableSaveLastData = true;
+    final video = _Video(1, cooperation: true);
+    var query = feed.onRefresh();
+    feed.requests.single.complete(Success([video, _Video(2)]));
+    await tester.idle();
+    await query;
+    query = feed.onRefresh();
+    expect(feed.loadingState.data.contains(video), isFalse);
+    feed.requests.last.complete(Success([_Video(3)]));
+    await tester.idle();
+    await query;
+    authors.complete({8});
+    await tester.idle();
+    expect(video.authors.mids, isNull);
+    expect(feed.loadingState.data.map((v) => (v as _Video).aid), [3, 2]);
+  });
+
+  testWidgets('合成时序：同步2秒、下载1秒、合作检查2秒，普通卡片2秒可见', (tester) async {
+    final origin = tester.binding.clock.now();
+    Duration now() => tester.binding.clock.now().difference(origin);
+    final timed = _TimedFeed(now)
+      ..lookup = CooperativeAuthors(
+        load: (_) async {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          return {8};
+        },
+      );
+    final timedContainer = _mount(timed);
+    addTearDown(timed.close);
+    final deliveries = <({int milliseconds, int slots, int ready})>[];
+    final subscription = timedContainer.listen(
+      recommendationFeedProvider.select((s) => s.loading),
+      (_, state) {
+        final items = state.dataOrNull ?? [];
+        deliveries.add((
+          milliseconds: now().inMilliseconds,
+          slots: items.length,
+          ready: items.where((item) => !timed.isPending(item)).length,
+        ));
+      },
+    );
+    addTearDown(subscription.close);
+    timed.updateViewport(itemCount: 48, columns: 8, active: true);
+    expect(timed.starts.single.milliseconds, 0);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(
+      deliveries.firstWhere((event) => event.ready > 0).milliseconds,
+      2000,
+    );
+    expect(
+      deliveries.firstWhere((event) => event.slots >= 48).milliseconds,
+      6000,
+    );
+    expect(
+      deliveries.firstWhere((event) => event.ready >= 40).milliseconds,
+      lessThanOrEqualTo(6000),
+    );
+    expect(timed.starts.map((request) => request.milliseconds), [
+      0,
+      2000,
+      3000,
+      4000,
+      5000,
+    ]);
+    expect(timed.loadingState.data, hasLength(50));
+  });
+
+  testWidgets('账号事件主动取消旧请求并重载，无需等待滚动或窗口布局', (tester) async {
+    Get.testMode = true;
+    addTearDown(Get.reset);
+    final previous = Accounts.accountMode[AccountType.main.index];
+    Accounts.accountMode[AccountType.main.index] = LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'fixture'}),
+      null,
+      null,
+    );
+    addTearDown(() => Accounts.accountMode[AccountType.main.index] = previous);
+    feed
+      ..updateViewport(itemCount: 1, columns: 1, active: true)
+      ..account = Object();
+    Accounts.replaceCredentials(
+      LoginAccount(
+        BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'renewed'}),
+        null,
+        null,
+      ),
+    );
+    await tester.idle();
+    expect(feed.tokens.first.isCancelled, isTrue);
+    expect(feed.indices, [0, 0]);
+    feed.requests[0].complete(Success([_Video(1)]));
+    feed.requests[1].complete(Success([_Video(2)]));
+    await tester.idle();
+    expect((feed.loadingState.data.single as _Video).aid, 2);
+  });
+
+  for (final blocked in [false, true]) {
+    final action = blocked ? '移除被屏蔽卡片' : '显示通过核验的卡片';
+    testWidgets('合作作者核验后$action，普通卡片仍可见且阅读位置不重置', (tester) async {
+      Get.testMode = true;
+      addTearDown(Get.reset);
+      final authors = Completer<Set<int>?>();
+      feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+      addTearDown(() {
+        if (!authors.isCompleted) authors.complete(null);
+      });
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+        ),
+      );
+      feed.requests.single.complete(
+        Success([
+          _Video(1, cooperation: true),
+          ...List.generate(39, (index) => _Video(index + 2)),
+        ]),
+      );
+      await tester.pump();
+      final scroll =
+          tester
+                .widget<CustomScrollView>(find.byType(CustomScrollView))
+                .controller!
+            ..jumpTo(24);
+      await tester.pump();
+      final ordinary = find.text('视频 2');
+      final cooperation = find.text('视频 1');
+      expect(ordinary, findsOneWidget);
+      expect(cooperation, findsNothing);
+      expect(find.byType(VideoCardVSkeleton), findsOneWidget);
+      final position = tester.getTopLeft(ordinary);
+      var publications = 0;
+      final subscription = container.listen(
+        recommendationFeedProvider.select((state) => state.loading),
+        (_, _) => publications++,
+      );
+      addTearDown(subscription.close);
+
+      authors.complete({blocked ? 7 : 8});
+      await tester.pump();
+
+      expect(ordinary, findsOneWidget);
+      expect(cooperation, blocked ? findsNothing : findsOneWidget);
+      expect(find.byType(VideoCardVSkeleton), findsNothing);
+      expect(scroll.offset, 24);
+      if (blocked) {
+        expect(feed.loadingState.data.any((item) => item.aid == 1), isFalse);
+      } else {
+        expect(tester.getTopLeft(ordinary), position);
+        expect(publications, 0);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets('卸载卡片取消局部揭示订阅', (tester) async {
+    final authors = Completer<Set<int>?>();
+    feed.lookup = CooperativeAuthors(load: (_) => authors.future);
+    addTearDown(() {
+      if (!authors.isCompleted) authors.complete(null);
+    });
+    final item = _Video(1, cooperation: true);
+    var cancelled = 0, active = 0;
+    final unsubscribe = feed.listenToCard(item, () => cancelled++);
+    final unsubscribeActive = feed.listenToCard(item, () => active++);
+    addTearDown(unsubscribeActive);
+    final query = feed.onRefresh();
+    feed.requests.single.complete(Success([item]));
+    await tester.idle();
+    unsubscribe();
+    authors.complete({8});
+    await tester.idle();
+    await query;
+    expect(cancelled, 0);
+    expect(active, 1);
+  });
+
+  testWidgets('首页补位期间保留骨架，分页失败在页尾提供原页重试', (tester) async {
+    Get.testMode = true;
+    addTearDown(Get.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
+    );
+    final target = feed.viewportItems;
+    feed.requests.single.complete(Success([_Video(1, mid: 7)]));
+    await tester.pump();
+    expect(find.byType(HttpError), findsNothing);
+    expect(find.byType(VideoCardVSkeleton), findsWidgets);
+    feed.requests.last.complete(
+      Success(List.generate(target, (i) => _Video(i + 2))),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(feed.indices, [0, 1]);
+    final scroll = tester
+        .widget<CustomScrollView>(find.byType(CustomScrollView))
+        .controller!;
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pump();
+    expect(feed.indices, [0, 1, 2]);
+    feed.requests.last.complete(const Error('网络断开'));
+    await tester.pump();
+    await tester.pump();
+    expect(feed.loadingState.data, hasLength(target));
+    expect(find.text('加载失败，点击重试'), findsOneWidget);
+    await tester.tap(find.text('加载失败，点击重试'));
+    await tester.pump();
+    expect(feed.indices, [0, 1, 2, 2]);
+    feed.requests.last.complete(
+      Success(List.generate(target, (i) => _Video(i + target + 2))),
+    );
+    await tester.pump();
+    expect(feed.loadingState.data, hasLength(target * 2));
+    expect(find.text('加载失败，点击重试'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}

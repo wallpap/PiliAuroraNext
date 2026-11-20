@@ -1,14 +1,16 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
+import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_search_type.dart';
+import 'package:pili_aurora_next/features/community/application/comments/reply_search.dart';
+import 'package:pili_aurora_next/features/community/domain/reply_search.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/child/view.dart';
-import 'package:pili_aurora_next/pages/video/reply_search_item/controller.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
 import 'package:material_ui/material_ui.dart';
 
-class ReplySearchPage extends StatefulWidget {
+class ReplySearchPage extends ConsumerStatefulWidget {
   const ReplySearchPage({
     super.key,
     required this.type,
@@ -19,44 +21,77 @@ class ReplySearchPage extends StatefulWidget {
   final int oid;
 
   @override
-  State<ReplySearchPage> createState() => _ReplySearchPageState();
+  ConsumerState<ReplySearchPage> createState() => _ReplySearchPageState();
 }
 
-class _ReplySearchPageState extends State<ReplySearchPage> {
-  late final ReplySearchController _controller;
-  late final _tag = Utils.generateRandomString(8);
+class _ReplySearchPageState extends ConsumerState<ReplySearchPage>
+    with SingleTickerProviderStateMixin {
+  final _focus = FocusNode();
+  final _input = TextEditingController();
+  final _scrolls = [ScrollController(), ScrollController()];
+  Object _submission = Object();
+  String _keyword = '';
+  late final _tabs = TabController(length: _scrolls.length, vsync: this);
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      ReplySearchController(widget.type, widget.oid),
-      tag: _tag,
-    );
+  void _submit() {
+    for (final scroll in _scrolls) {
+      scroll.jumpToTop();
+    }
+    setState(() {
+      _keyword = _input.text;
+      _submission = Object();
+    });
+  }
+
+  void _clear() {
+    if (_input.text.isEmpty) {
+      Navigator.of(context).pop();
+    } else {
+      _input.clear();
+      _focus.requestFocus();
+    }
   }
 
   @override
   void dispose() {
-    Get.delete<ReplySearchController>(tag: _tag);
+    _tabs.dispose();
+    _focus.dispose();
+    _input.dispose();
+    for (final scroll in _scrolls) {
+      scroll.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final queries = [
+      for (final kind in ReplySearchType.values)
+        (
+          submission: _submission,
+          type: widget.type,
+          oid: widget.oid,
+          kind: kind,
+          keyword: _keyword,
+        ),
+    ];
+    for (final query in queries) {
+      ref.watch(replySearchProvider(query).notifier);
+    }
     return SimpleScaffold(
       appBar: AppBar(
         actions: [
           IconButton(
             tooltip: '搜索',
-            onPressed: _controller.submit,
+            onPressed: _submit,
             icon: const Icon(Icons.search, size: 22),
           ),
           const SizedBox(width: 10),
         ],
         title: TextField(
           autofocus: true,
-          focusNode: _controller.focusNode,
-          controller: _controller.editingController,
+          focusNode: _focus,
+          controller: _input,
           textInputAction: TextInputAction.search,
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
@@ -66,43 +101,40 @@ class _ReplySearchPageState extends State<ReplySearchPage> {
             suffixIcon: IconButton(
               tooltip: '清空',
               icon: const Icon(Icons.clear, size: 22),
-              onPressed: _controller.onClear,
+              onPressed: _clear,
             ),
           ),
-          onSubmitted: (value) => _controller.submit(),
+          onSubmitted: (_) => _submit(),
         ),
       ),
       body: ViewSafeArea(
         child: Column(
           children: [
             TabBar(
-              controller: _controller.tabController,
+              controller: _tabs,
               tabs: const [
                 Tab(text: '视频'),
                 Tab(text: '专栏'),
               ],
               onTap: (index) {
-                if (!_controller.tabController.indexIsChanging) {
-                  if (index == 0) {
-                    _controller.videoCtr.animateToTop();
-                  } else {
-                    _controller.articleCtr.animateToTop();
-                  }
+                if (!_tabs.indexIsChanging) {
+                  _scrolls[index].animToTop();
                 }
               },
             ),
             Expanded(
               child: tabBarView(
-                controller: _controller.tabController,
+                controller: _tabs,
                 children: [
-                  ReplySearchChildPage(
-                    controller: _controller.videoCtr,
-                    searchType: ReplySearchType.video,
-                  ),
-                  ReplySearchChildPage(
-                    controller: _controller.articleCtr,
-                    searchType: ReplySearchType.article,
-                  ),
+                  for (final (index, query) in queries.indexed)
+                    TabActivity(
+                      controller: _tabs,
+                      index: index,
+                      child: ReplySearchChildPage(
+                        query: query,
+                        scroll: _scrolls[index],
+                      ),
+                    ),
                 ],
               ),
             ),

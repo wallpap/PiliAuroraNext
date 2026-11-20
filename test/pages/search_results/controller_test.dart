@@ -1,23 +1,25 @@
+import 'dart:async';
+
 import 'package:pili_aurora_next/http/validate.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/search/presentation/search_verification_dialog.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/search_panel/controller.dart';
+import 'package:pili_aurora_next/http/loading_state.dart' show Error;
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/search/application/search_results.dart';
 import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
 import 'package:pili_aurora_next/pages/search_result/view.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -105,6 +107,9 @@ void main() {
   });
   setUp(() {
     requests.clear();
+    for (final mid in [200, 500]) {
+      BlockedAuthors.setBlocked(mid, false);
+    }
     GStorage.localCache.put(
       LocalCacheKey.mixinKey,
       '01234567890123456789012345678901',
@@ -133,6 +138,67 @@ void main() {
   tearDownAll(() async {
     Request.dio.close(force: true);
     await interceptor.close();
+  });
+
+  test('搜索和黑名单并行，黑名单未完成时不发布结果', () async {
+    GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
+    final provider = searchResultsProvider(query());
+    container.listen(provider, (_, _) {});
+    await dispatched(2);
+    final blacklist = requests.singleWhere(
+      (r) => r.options.path == Api.blackLst,
+    );
+    final search = requests.singleWhere((r) => r.options.path != Api.blackLst);
+    search.reply.complete(page([1], total: 1));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(provider).isLoading, isTrue);
+    blacklist.reply.complete({
+      'code': 0,
+      'data': {'total': 0, 'list': []},
+    });
+    expect((await container.read(provider.future)).items.single.aid, 1);
+  });
+
+  test('普通结果先发布，合作卡片保持原位并在核验后移除', () async {
+    Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
+    GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
+    GStorage.setting.put(SettingBoxKey.checkCooperativeAuthors, true);
+    BlockedAuthors.setBlocked(500, true);
+    final provider = searchResultsProvider(query());
+    final settled = Completer<SearchResultsState>();
+    container.listen(provider, (_, next) {
+      if (next.value case final data? when !data.loadingMore) {
+        settled.complete(data);
+      }
+    });
+    await dispatched(1);
+    requests.single.reply.complete({
+      'code': 0,
+      'data': {
+        'numResults': 3,
+        'result': [
+          video(40),
+          {...video(41), 'is_union_video': 1},
+          video(42),
+        ],
+      },
+    });
+    await dispatched(2);
+    final first = await container.read(provider.future);
+    expect(first.items.map((item) => item.aid), [40, 41, 42]);
+    expect(first.pendingItems.single, same(first.items[1]));
+    expect(requests.last.options.path, Api.videoIntro);
+    requests.last.reply.complete({
+      'code': 0,
+      'data': {
+        'staff': [
+          {'mid': 500},
+        ],
+      },
+    });
+    final finalPage = await settled.future;
+    expect(finalPage.items, [first.items.first, first.items.last]);
+    expect(finalPage.pendingItems, isEmpty);
   });
 
   test('分类、关键词、页面与筛选快照隔离，请求固定推荐账号', () async {
@@ -312,7 +378,10 @@ void main() {
     await container.pump();
     await dispatched(4);
     requests.last.reply.complete({'code': -1, 'message': 'failed'});
-    await expectLater(container.read(provider.future), throwsA(anything));
+    await expectLater(
+      container.read(provider.future),
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
+    );
     await notifier.loadMore();
     expect(requests, hasLength(4));
   });
@@ -355,7 +424,7 @@ void main() {
   test('验证注册绑定发起账号，页面失效后不再打开验证或回调', () async {
     var current = true;
     var callbacks = 0;
-    final registration = RequestUtils.validate(
+    final registration = showSearchVerification(
       'voucher',
       (_) => callbacks++,
       account: account,
@@ -403,15 +472,20 @@ void main() {
   test('屏蔽过滤沿原始页补足，连续五页无增长停止', () async {
     Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
     GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
-    GlobalData().blackMids = {200};
+    BlockedAuthors.setBlocked(200, true);
     final q = query();
     final provider = searchResultsProvider(q);
-    container.listen(provider, (_, _) {});
+    final settled = Completer<SearchResultsState>();
+    container.listen(provider, (_, next) {
+      if (next.value case final data? when !data.loadingMore) {
+        settled.complete(data);
+      }
+    });
     for (var i = 0; i < 5; i++) {
       await dispatched(i + 1);
       requests[i].reply.complete(page(range(i * 20 + 1, 20), total: 500));
     }
-    final data = await container.read(provider.future);
+    final data = await settled.future;
     expect(data.items, isEmpty);
     expect(data.nextPage, 6);
     expect(data.hasMore, isFalse);
@@ -437,13 +511,21 @@ void main() {
   test('过滤空页沿新页码补足，综合卡片保留首屏快照', () async {
     Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
     GStorage.setting.put(SettingBoxKey.filterBlockedAuthors, true);
-    GlobalData().blackMids = {200};
+    BlockedAuthors.setBlocked(200, true);
     final q = query(type: SearchType.all);
     final provider = searchResultsProvider(q);
-    container.listen(provider, (_, _) {});
+    final settled = Completer<SearchResultsState>();
+    container.listen(provider, (_, next) {
+      if (next.value case final data? when !data.loadingMore) {
+        settled.complete(data);
+      }
+    });
     await dispatched(1);
     requests.single.reply.complete(page(range(1, 20), all: true));
     await dispatched(2);
+    final first = await container.read(provider.future);
+    expect(first.users.single.mid, 2);
+    expect(first.loadingMore, isTrue);
     expect(requests.last.options.queryParameters['page'], 2);
     expect(requests.last.options.queryParameters['search_type'], 'video');
     requests.last.reply.complete({
@@ -453,7 +535,7 @@ void main() {
         'result': [for (final id in range(21, 20)) video(id, mid: 300)],
       },
     });
-    final data = await container.read(provider.future);
+    final data = await settled.future;
     expect(data.items, hasLength(20));
     expect(data.items.first.aid, 21);
     expect(data.users.single.mid, 2);

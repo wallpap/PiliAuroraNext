@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
@@ -7,12 +7,12 @@ import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/upower_rank/rank_info.dart';
-import 'package:pili_aurora_next/pages/member_upower_rank/controller.dart';
-import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
+import 'package:pili_aurora_next/features/member_space/application/upower_ranking.dart';
+import 'package:pili_aurora_next/features/member_space/domain/upower_ranking.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/widget_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
@@ -109,7 +109,7 @@ class _UpowerRankPageState extends ConsumerState<UpowerRankPage>
               loading: () => const SliverFillRemaining(child: m3eLoading),
               error: (error, _) =>
                   HttpError(errMsg: error.toString(), onReload: _reload),
-              data: (data) => _buildBody(theme, Success(data.ranks)),
+              data: (data) => _buildBody(theme, data.ranks),
             ),
           ),
         ],
@@ -156,7 +156,7 @@ class _UpowerRankPageState extends ConsumerState<UpowerRankPage>
                                     .map(
                                       (e) => Tab(
                                         text:
-                                            '${e.name!}(${e.memberTotal ?? 0})',
+                                            '${e.name ?? ''}(${e.memberTotal ?? 0})',
                                       ),
                                     )
                                     .toList(),
@@ -211,82 +211,76 @@ class _UpowerRankPageState extends ConsumerState<UpowerRankPage>
 
   Widget _buildBody(
     ThemeData theme,
-    LoadingState<List<UpowerRankInfo>?> loadingState,
+    List<UpowerRankEntry> response,
   ) {
     late final width = MediaQuery.textScalerOf(context).scale(32);
-    return switch (loadingState) {
-      Loading() => const SliverFillRemaining(child: m3eLoading),
-      Success<List<UpowerRankInfo>?>(:final response) =>
-        response != null && response.isNotEmpty
-            ? SliverList.builder(
-                itemCount: response.length,
-                itemBuilder: (context, index) {
-                  final item = response[index];
-                  return Material(
-                    type: MaterialType.transparency,
-                    child: ListTile(
-                      onTap: () => Get.toNamed('/member?mid=${item.mid}'),
-                      leading: SizedBox(
-                        width: width,
-                        child: Center(
-                          child: Text(
-                            (index + 1).toString(),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.bold,
-                              color: switch (index) {
-                                0 => const Color(0xFFfdad13),
-                                1 => const Color(0xFF8aace1),
-                                2 => const Color(0xFFdfa777),
-                                _ => theme.colorScheme.outline,
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                      title: Row(
-                        spacing: 12,
-                        children: [
-                          NetworkImgLayer(
-                            width: 38,
-                            height: 38,
-                            src: item.avatar,
-                            type: ImageType.avatar,
-                          ),
-                          Text(
-                            item.nickname!,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ],
-                      ),
-                      trailing: Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: item.day!.toString(),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const TextSpan(
-                              text: ' 天',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                          ],
+    return response.isNotEmpty
+        ? SliverList.builder(
+            itemCount: response.length,
+            itemBuilder: (context, index) {
+              final item = response[index];
+              return Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  onTap: item.mid == null
+                      ? null
+                      : () => Get.toNamed('/member?mid=${item.mid}'),
+                  leading: SizedBox(
+                    width: width,
+                    child: Center(
+                      child: Text(
+                        (index + 1).toString(),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.bold,
+                          color: switch (index) {
+                            0 => const Color(0xFFfdad13),
+                            1 => const Color(0xFF8aace1),
+                            2 => const Color(0xFFdfa777),
+                            _ => theme.colorScheme.outline,
+                          },
                         ),
                       ),
                     ),
-                  );
-                },
-              )
-            : HttpError(onReload: _reload),
-      Error(:final errMsg) => HttpError(
-        errMsg: errMsg,
-        onReload: _reload,
-      ),
-    };
+                  ),
+                  title: Row(
+                    spacing: 12,
+                    children: [
+                      NetworkImgLayer(
+                        width: 38,
+                        height: 38,
+                        src: item.avatar,
+                        type: ImageType.avatar,
+                      ),
+                      Text(
+                        item.nickname ?? '',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  trailing: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: item.day?.toString() ?? '—',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: ' 天',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          )
+        : HttpError(onReload: _reload);
   }
 
   @override

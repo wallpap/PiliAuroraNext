@@ -6,22 +6,24 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/clear_cache_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/doc_provider_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/slider_dialog.dart';
-import 'package:pili_aurora_next/services/download/download_service.dart';
+import 'package:pili_aurora_next/features/download/application/download_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/filtering_text.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/features/download/application/download_path.dart';
+import 'package:pili_aurora_next/common/input/filtering_text.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 
 List<SettingsModel> get systemSettings => [
   const SettingsGroup(
@@ -75,16 +77,10 @@ List<SettingsModel> get systemSettings => [
     leading: const Icon(Icons.storage_outlined),
     children: [
       if (PlatformUtils.isDesktop) ...[
-        SwitchModel(
+        SwitchModel.window(
           title: '退出时最小化',
           leading: const Icon(Icons.exit_to_app),
-          setKey: SettingBoxKey.minimizeOnExit,
-          defaultVal: true,
-          onChanged: (value) {
-            try {
-              Get.find<MainController>().minimizeOnExit = value;
-            } catch (_) {}
-          },
+          preference: WindowPreference.minimizeOnExit,
         ),
         NormalModel(
           title: '缓存路径',
@@ -145,7 +141,10 @@ Future<void> _setDownloadPath(
   if (_changingDownloadPath || nextPath == downloadPath) return;
   _changingDownloadPath = true;
   try {
-    final service = Get.find<DownloadService>();
+    final service = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(downloadServiceProvider);
     final pause = await service.cancelDownload(
       isDelete: false,
       downloadNext: false,
@@ -156,9 +155,9 @@ Future<void> _setDownloadPath(
     }
     if (!context.mounted) return;
     if (nextPath == defDownloadPath) {
-      await GStorage.setting.delete(SettingBoxKey.downloadPath);
+      await SettingsValues.general.reset(SettingBoxKey.downloadPath);
     } else {
-      await GStorage.setting.put(SettingBoxKey.downloadPath, nextPath);
+      await SettingsValues.general.save(SettingBoxKey.downloadPath, nextPath);
     }
     downloadPath = nextPath;
     if (context.mounted) setState();
@@ -172,7 +171,20 @@ Future<void> _setDownloadPath(
   }
 }
 
-void _showDownPathDialog(BuildContext context, VoidCallback setState) {
+Future<void> _showDownPathDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final previous = downloadPath;
+  try {
+    await resolveDownloadPath();
+  } catch (error, stack) {
+    logger.w('下载目录初始化失败', error: error.runtimeType, stackTrace: stack);
+    if (context.mounted) SmartDialog.showToast('下载目录初始化失败，请重试');
+    return;
+  }
+  if (!context.mounted) return;
+  if (downloadPath != previous) setState();
   showDialog(
     context: context,
     builder: (_) => SimpleDialog(
@@ -189,7 +201,7 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
         DialogOption(
           onPressed: () {
             Get.back();
-            Utils.copyText(downloadPath);
+            copyText(downloadPath);
           },
           child: const Text('复制', style: TextStyle(fontSize: 14)),
         ),
@@ -243,7 +255,8 @@ Future<void> _showReplyCountDialog(
     if (!context.mounted) return;
     await saveSetting(
       key: SettingBoxKey.retryCount,
-      write: () => GStorage.setting.put(SettingBoxKey.retryCount, res.toInt()),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.retryCount, res.toInt()),
       apply: setState,
       canPresent: () => context.mounted,
       successMessage: '重启生效',
@@ -271,7 +284,8 @@ Future<void> _showReplyDelayDialog(
     if (!context.mounted) return;
     await saveSetting(
       key: SettingBoxKey.retryDelay,
-      write: () => GStorage.setting.put(SettingBoxKey.retryDelay, res.toInt()),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.retryDelay, res.toInt()),
       apply: setState,
       canPresent: () => context.mounted,
       successMessage: '重启生效',
@@ -336,7 +350,7 @@ void _showProxyDialog(BuildContext context) {
             }
             final saved = await saveSetting(
               key: SettingBoxKey.systemProxyHost,
-              write: () => GStorage.setting.putAll({
+              write: () => SettingsValues.general.saveAll({
                 SettingBoxKey.systemProxyHost: systemProxyHost.trim(),
                 SettingBoxKey.systemProxyPort: systemProxyPort,
               }),
@@ -384,7 +398,7 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
               if (!val.isFinite || val < 0) throw const FormatException();
               final saved = await saveSetting(
                 key: SettingBoxKey.maxCacheSize,
-                write: () => GStorage.setting.put(
+                write: () => SettingsValues.general.save(
                   SettingBoxKey.maxCacheSize,
                   val * 1024 * 1024,
                 ),

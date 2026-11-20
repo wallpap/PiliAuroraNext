@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/messaging/conversation_adapter.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 MessagingSession sessionFixture() => MessagingSession(
   account: LoginAccount(

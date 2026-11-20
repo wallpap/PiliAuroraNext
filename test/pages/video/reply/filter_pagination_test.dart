@@ -4,41 +4,44 @@ import 'dart:collection';
 import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/grpc/reply.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/common/reply_controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../support/comment_fixture.dart';
+
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../../support/memory_box.dart';
-
-class _Replies extends ReplyController<MainListReply> {
-  _Replies() {
-    mode = Mode.MAIN_LIST_HOT;
-  }
-  @override
-  Object get sourceId => 1;
-  @override
-  List<ReplyInfo> getDataList(MainListReply response) => response.replies;
-  @override
-  Future<LoadingState<MainListReply>> customGetData() => ReplyGrpc.mainList(
-    oid: 1,
-    mode: mode,
-    offset: paginationReply?.nextOffset,
-    cursorNext: cursorNext,
-  );
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final responses = Queue<Object>();
   final requests = <MainListReq>[];
-  late _Replies controller;
+  late ProviderContainer container;
+  late Comments controller;
+  late CommentsQuery query;
+  CommentsState snapshot() => container.read(commentsProvider(query));
+  Future<void> until(bool Function() condition) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 2));
+    while (!condition() && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+    expect(condition(), isTrue);
+  }
+
+  Future<void> loaded() async {
+    await until(() => requests.isNotEmpty);
+    await until(() => !snapshot().busy);
+  }
+
   MainListReply page(
     int id, {
     bool blocked = true,
@@ -83,26 +86,32 @@ void main() {
         ),
       );
   });
-  setUp(() {
+  LoginAccount account(String token) => LoginAccount(
+    BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': token}),
+    null,
+    null,
+  );
+  setUp(() async {
     responses.clear();
     requests.clear();
-    Accounts.accountMode[AccountType.main.index] = const NoAccount();
-    ReplyGrpc.replyRegExp = RegExp('blocked');
-    ReplyGrpc.enableFilter = true;
-    ReplyGrpc.antiGoodsReply = false;
-    controller = _Replies();
+    Accounts.accountMode[AccountType.main.index] = account('old');
+    await GStorage.setting.put(SettingBoxKey.banWordForReply, 'blocked');
+    query = commentQuery();
+    container = ProviderContainer.test();
+    final provider = commentsProvider(query);
+    container.listen(provider, (_, _) {});
+    controller = container.read(provider.notifier);
   });
-  tearDown(() => controller.onClose());
   tearDownAll(() => Request.dio.close(force: true));
 
   test(
     'keyword filtered first page continues with the server cursor',
     () async {
       responses.addAll([page(1), page(2, blocked: false, end: true)]);
-      await controller.queryData();
+      await loaded();
       expect(requests.map((r) => r.cursor.next.toInt()), [0, 1]);
-      expect(controller.loadingState.value.dataOrNull!.single.id.toInt(), 2);
-      expect(controller.isEnd, isTrue);
+      expect(snapshot().loading.dataOrNull!.single.id.toInt(), 2);
+      expect(!snapshot().hasMore, isTrue);
     },
   );
 
@@ -111,21 +120,21 @@ void main() {
       for (var i = 1; i <= 5; i++) page(i),
       page(6, blocked: false, end: true),
     ]);
-    await controller.queryData();
+    await loaded();
     expect(requests, hasLength(5));
-    expect(controller.loadingState.value.dataOrNull, isEmpty);
-    expect(controller.canLoadMore, isTrue);
-    await controller.onLoadMore();
+    expect(snapshot().loading.dataOrNull, isEmpty);
+    expect(snapshot().hasMore, isTrue);
+    await controller.loadMore(retry: true);
     expect(requests, hasLength(6));
-    expect(controller.loadingState.value.dataOrNull!.single.id.toInt(), 6);
+    expect(snapshot().loading.dataOrNull!.single.id.toInt(), 6);
   });
 
   test('repeated cursor stops automatic and manual pagination', () async {
     responses.addAll([page(1, next: 7), page(2, next: 7)]);
-    await controller.queryData();
+    await loaded();
     expect(requests, hasLength(2));
-    expect(controller.isEnd, isTrue);
-    await controller.onLoadMore();
+    expect(!snapshot().hasMore, isTrue);
+    await controller.loadMore(retry: true);
     expect(requests, hasLength(2));
   });
 
@@ -137,12 +146,12 @@ void main() {
         page(2),
         page(3, blocked: false, end: true),
       ]);
-      await controller.queryData();
+      await loaded();
       expect(requests, hasLength(1));
-      await controller.onLoadMore();
+      await controller.loadMore(retry: true);
       expect(requests, hasLength(3));
       expect(
-        controller.loadingState.value.dataOrNull!.map((r) => r.id.toInt()),
+        snapshot().loading.dataOrNull!.map((r) => r.id.toInt()),
         [1, 3],
       );
     },
@@ -150,12 +159,12 @@ void main() {
 
   test('failed refill preserves the last cursor for retry', () async {
     responses.addAll([page(1), 'failure', page(2, blocked: false, end: true)]);
-    await controller.queryData();
-    expect(controller.loadingState.value.dataOrNull, isEmpty);
-    expect(controller.canLoadMore, isTrue);
-    await controller.onLoadMore();
+    await loaded();
+    expect(snapshot().loading.dataOrNull, isEmpty);
+    expect(snapshot().hasMore, isTrue);
+    await controller.loadMore(retry: true);
     expect(requests.map((r) => r.cursor.next.toInt()), [0, 1, 1]);
-    expect(controller.loadingState.value.dataOrNull!.single.id.toInt(), 2);
+    expect(snapshot().loading.dataOrNull!.single.id.toInt(), 2);
   });
 
   test(
@@ -163,12 +172,14 @@ void main() {
     () async {
       final reply = Completer<MainListReply>();
       responses.add(reply.future);
-      final query = controller.queryData();
-      Accounts.accountMode[AccountType.main.index] = AnonymousAccount();
+      await until(() => requests.length == 1);
+      responses.add(Completer<MainListReply>().future);
+      Accounts.replaceCredentials(account('new'));
+      await container.pump();
       reply.complete(page(1));
-      await query;
-      expect(requests, hasLength(1));
-      expect(controller.loadingState.value, isA<Loading>());
+      await until(() => requests.length == 2);
+      expect(requests.map((r) => r.cursor.next.toInt()), [0, 0]);
+      expect(snapshot().loading, isA<Loading>());
     },
   );
 }

@@ -1,79 +1,44 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/community/application/emote_management.dart';
+import 'package:pili_aurora_next/http/loading_state.dart' show Error;
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
 
-class EmotePackagePreviewPage extends StatefulWidget {
+class EmotePackagePreviewPage extends ConsumerWidget {
   const EmotePackagePreviewPage({super.key, required this.package});
 
   final Package package;
 
   @override
-  State<EmotePackagePreviewPage> createState() =>
-      _EmotePackagePreviewPageState();
-}
-
-class _EmotePackagePreviewPageState extends State<EmotePackagePreviewPage> {
-  LoadingState<Package> _state = LoadingState.loading();
-  int _generation = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(EmotePackagePreviewPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.package.id != widget.package.id) _load();
-  }
-
-  Future<void> _load() async {
-    final generation = ++_generation;
-    final account = Accounts.main;
-    final id = widget.package.id;
-    if (id == null) {
-      setState(() => _state = const Error('表情包信息缺失'));
-      return;
-    }
-    setState(() => _state = LoadingState.loading());
-    final result = await ReplyHttp.getEmotePackageDetail(
-      packageId: id,
-      account: account,
-    );
-    if (!mounted || generation != _generation) return;
-    setState(
-      () => _state = identical(account, Accounts.main)
-          ? result
-          : const Error('账号已切换，请刷新重试'),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) => SimpleScaffold(
-    appBar: AppBar(title: Text(widget.package.text ?? '表情包预览')),
-    body: SafeArea(
-      top: false,
-      child: switch (_state) {
-        Loading() => m3eLoading,
-        Error(:final errMsg) => Center(
-          child: TextButton.icon(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh),
-            label: Text('${errMsg ?? '加载失败'}，点击重试'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = emotePackagePreviewProvider(package.id);
+    final snapshot = ref.watch(provider);
+    return SimpleScaffold(
+      appBar: AppBar(title: Text(package.text ?? '表情包预览')),
+      body: SafeArea(
+        top: false,
+        child: snapshot.when(
+          skipLoadingOnRefresh: false,
+          loading: () => m3eLoading,
+          error: (error, _) => Center(
+            child: TextButton.icon(
+              onPressed: () => ref.invalidate(provider),
+              icon: const Icon(Icons.refresh),
+              label: Text(
+                '${error is Error ? error.errMsg ?? '加载失败' : '加载失败'}，点击重试',
+              ),
+            ),
           ),
+          data: _buildEmotes,
         ),
-        Success(:final response) => _buildEmotes(response),
-      },
-    ),
-  );
+      ),
+    );
+  }
 
   Widget _buildEmotes(Package package) {
     final emotes = package.emote ?? const <Emote>[];

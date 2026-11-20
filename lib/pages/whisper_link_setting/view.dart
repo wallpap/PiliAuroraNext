@@ -1,14 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/report_member.dart';
+import 'package:pili_aurora_next/features/member_space/presentation/member_report_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/msg/im_user_infos/datum.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_dnd/uid_setting.dart';
+import 'package:pili_aurora_next/services/messaging/models/im_user_infos/datum.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_dnd/uid_setting.dart';
 import 'package:pili_aurora_next/pages/whisper_link_setting/controller.dart';
 import 'package:pili_aurora_next/services/messaging/settings.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -275,14 +275,15 @@ class _WhisperLinkSettingPageState
     }
 
     if (receivesPush) {
-      showConfirmDialog(
+      final confirmed = await showConfirmDialog(
         context: context,
         title: const Text('确认关闭内容推送吗？'),
         content: const Text(
           '若关闭此开关，你将不再收到该账号的图文消息与稿件推送，但通知类消息不受影响',
         ),
-        onConfirm: update,
       );
+      if (!confirmed || !context.mounted) return;
+      await update();
     } else {
       await update();
     }
@@ -313,14 +314,15 @@ class _WhisperLinkSettingPageState
     if (isBlocked) {
       await update();
     } else {
-      showConfirmDialog(
+      final confirmed = await showConfirmDialog(
         context: context,
         title: const Text('确认拉黑该用户'),
         content: const Text(
           '加入黑名单后，将自动解除关注关系和对该用户的合集订阅关系，禁止该用户与我互动或查看我的空间',
         ),
-        onConfirm: update,
       );
+      if (!confirmed || !context.mounted) return;
+      await update();
     }
   }
 

@@ -1,11 +1,11 @@
-import 'package:pili_aurora_next/grpc/bilibili/app/archive/middleware/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/pagination.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/archive/middleware/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/pagination.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class AudioGrpc {
   static Future<LoadingState<PlayURLResp>> audioPlayUrl({
@@ -36,6 +36,7 @@ abstract final class AudioGrpc {
   }
 
   static Future<LoadingState<PlaylistResp>> audioPlayList({
+    Account? account,
     PlaylistSource? from,
     required Int64 id,
     Int64? oid,
@@ -71,6 +72,7 @@ abstract final class AudioGrpc {
       ),
       PlaylistResp.fromBuffer,
       kind: .query,
+      account: account,
     );
   }
 

@@ -5,13 +5,14 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/native_worker_backend.dart';
 
-final nativeWorker =
-    Platform.environment['REGION_TEST_WORKER'] ??
-    'build/probes/image-region/native/Release/piliauroranext_image_worker.exe';
+final nativeWorker = File(
+  Platform.environment['REGION_TEST_WORKER'] ??
+      'build/probes/image-region/native/Release/piliauroranext_image_worker.exe',
+).absolute.path;
 final nativeFixtureFile = File(
   Platform.environment['REGION_FIXTURES'] ??
       'build/probes/image-region/fixtures.json',
-);
+).absolute;
 final nativeFixtureAvailable =
     Platform.isWindows &&
     File(nativeWorker).existsSync() &&
@@ -31,18 +32,30 @@ void observeNativeWorkers() {
   tearDown(() => NativeWorkerDecoder.onEvent = null);
 }
 
-const _skipReason =
-    'Windows worker fixtures required: python tool/probes/windows/image_region_probe.py';
+final _skipReason = _checkNativeFixtures();
+
+String? _checkNativeFixtures() {
+  if (nativeFixtureAvailable) return null;
+  const prepare = 'python tool/probes/windows/image_region_probe.py';
+  final message = Platform.isWindows
+      ? 'Windows worker fixtures missing. Run $prepare. '
+            'Worker: $nativeWorker; manifest: ${nativeFixtureFile.path}'
+      : 'Region worker tests require Windows.';
+  if (Platform.environment['REGION_TEST_REQUIRED'] == '1') {
+    throw StateError(message);
+  }
+  return message;
+}
 
 void nativeTest(String description, FutureOr<void> Function() body) => test(
   description,
   () => NativeWorkerDecoder.runWith(nativeWorker, body),
-  skip: nativeFixtureAvailable ? false : _skipReason,
+  skip: _skipReason,
 );
 
 void nativeTestWidgets(String description, WidgetTesterCallback body) =>
     testWidgets(
       description,
       (tester) => NativeWorkerDecoder.runWith(nativeWorker, () => body(tester)),
-      skip: !nativeFixtureAvailable,
+      skip: _skipReason != null,
     );

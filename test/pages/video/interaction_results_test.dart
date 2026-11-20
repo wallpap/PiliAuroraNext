@@ -3,18 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/stat.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/stat.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/stat_detail.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/staff.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -37,14 +38,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
-  final controllers = <GetxController>[];
+  final controllers = <CommonIntroController>[];
   LoginAccount account(int id) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$id', 'bili_jct': 'fixture-$id'}),
     'fixture-access-$id',
     null,
   );
   late Account original;
-  T own<T extends GetxController>(T controller) {
+  T own<T extends CommonIntroController>(T controller) {
     controllers.add(controller);
     return controller;
   }
@@ -67,15 +68,15 @@ void main() {
   setUp(() {
     original = account(1);
     Accounts.accountMode[AccountType.main.index] = original;
-    GlobalData().coins = 10;
+    CoinBalance.instance.confirm(Accounts.main, 10);
     requests.clear();
   });
   tearDown(() {
     for (final controller in controllers) {
-      controller.onDelete();
+      controller.close();
     }
     controllers.clear();
-    GlobalData().coins = null;
+    CoinBalance.instance.confirm(Accounts.main, null);
     Get.reset();
   });
   tearDownAll(() async {
@@ -145,7 +146,7 @@ void main() {
     await tester.pump();
     expect(controller.coinNum.value, 2);
     expect(controller.stat.coin, 1);
-    expect(GlobalData().coins, 9);
+    expect(CoinBalance.instance.amount, 9);
     expect(controller.hasLike.value, isTrue);
     expect(controller.hasFav.value, isFalse);
     expect(find.text('三连未全部完成，请核对点赞、投币和收藏状态'), findsOneWidget);
@@ -165,7 +166,7 @@ void main() {
     });
     expect(controller.coinNum.value, 2);
     expect(controller.stat.coin, 1);
-    expect(GlobalData().coins, 9);
+    expect(CoinBalance.instance.amount, 9);
     expect(controller.hasTriple, isTrue);
     await finish(tester);
   });
@@ -207,19 +208,19 @@ void main() {
       controller.bvid = IdUtils.av2bv(2);
       requests[0].reply.complete({'code': 0});
       await writing;
-      expect(GlobalData().coins, 9);
+      expect(CoinBalance.instance.amount, 9);
       expect(controller.coinNum.value, 0);
       expect(controller.hasLike.value, isFalse);
       writing = controller.actionTriple();
       await interceptor.waitForRequests(2);
       Accounts.accountMode[AccountType.main.index] = account(2);
-      GlobalData().coins = 20;
+      CoinBalance.instance.confirm(Accounts.main, 20);
       requests[1].reply.complete({
         'code': 0,
         'data': {'like': true, 'coin': true, 'fav': true, 'multiply': 2},
       });
       await writing;
-      expect(GlobalData().coins, 20);
+      expect(CoinBalance.instance.amount, 20);
       expect(controller.hasTriple, isFalse);
       expect(requests[1].options.extra['account'], same(original));
     });
@@ -240,7 +241,7 @@ void main() {
       expect(requests, hasLength(1));
       final reading = controller.queryPgcLikeCoinFav();
       await interceptor.waitForRequests(2);
-      controller.onDelete();
+      controller.close();
       requests[1].reply.complete({
         'code': 0,
         'data': {'like': 1, 'favorite': 1, 'coin_number': 2},
@@ -251,7 +252,7 @@ void main() {
     await finish(tester);
   });
   test('视频与分P变更后忽略迟到标签、在线人数和合作关系查询', () async {
-    final controller = ugc()..cid = 1.obs;
+    final controller = ugc()..cid.value = 1;
     final tags = controller.queryVideoTags();
     await interceptor.waitForRequests(1);
     final online = controller.queryOnlineTotal();
@@ -279,10 +280,10 @@ void main() {
     await Future.wait([tags, online, relations]);
     expect(controller.videoTags.value, isNull);
     expect(controller.total.value, '1');
-    expect(controller.staffRelations, isEmpty);
+    expect(controller.staffRelations.value, isNull);
   });
   test('标签读取失败保留已有快照，关闭后简介结果不继续派生查询', () async {
-    final controller = ugc()..cid = 1.obs;
+    final controller = ugc()..cid.value = 1;
     var reading = controller.queryVideoTags();
     await interceptor.waitForRequests(1);
     requests[0].reply.complete({
@@ -305,7 +306,7 @@ void main() {
     });
     final introduction = controller.queryVideoIntro();
     await interceptor.waitForRequests(4);
-    controller.onDelete();
+    controller.close();
     requests[2].reply.complete({'code': 0, 'data': []});
     requests[3].reply.complete({'code': -403, 'message': '拒绝简介'});
     await introduction;

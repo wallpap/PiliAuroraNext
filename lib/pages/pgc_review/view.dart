@@ -1,15 +1,16 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/models/common/pgc_review_type.dart';
-import 'package:pili_aurora_next/pages/pgc_review/child/controller.dart';
+import 'package:pili_aurora_next/features/community/application/pgc_reviews.dart';
+import 'package:pili_aurora_next/features/community/domain/pgc_review.dart';
 import 'package:pili_aurora_next/pages/pgc_review/child/view.dart';
 import 'package:pili_aurora_next/pages/pgc_review/post/view.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class PgcReviewPage extends StatefulWidget {
+class PgcReviewPage extends ConsumerStatefulWidget {
   const PgcReviewPage({
     super.key,
     required this.name,
@@ -20,14 +21,16 @@ class PgcReviewPage extends StatefulWidget {
   final Object? mediaId;
 
   @override
-  State<PgcReviewPage> createState() => _PgcReviewPageState();
+  ConsumerState<PgcReviewPage> createState() => _PgcReviewPageState();
 }
 
-class _PgcReviewPageState extends State<PgcReviewPage>
+class _PgcReviewPageState extends ConsumerState<PgcReviewPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final TabController _tabController;
-  String _tag(PgcReviewType type) =>
-      '${widget.mediaId}${type.name}#${identityHashCode(this)}';
+  final _owner = Object();
+  final _scrollControllers = [
+    for (final _ in PgcReviewType.values) ScrollController(),
+  ];
 
   @override
   void initState() {
@@ -41,6 +44,9 @@ class _PgcReviewPageState extends State<PgcReviewPage>
   @override
   void dispose() {
     _tabController.dispose();
+    for (final scroll in _scrollControllers) {
+      scroll.dispose();
+    }
     super.dispose();
   }
 
@@ -80,11 +86,8 @@ class _PgcReviewPageState extends State<PgcReviewPage>
             dividerColor: Colors.transparent,
             tabs: PgcReviewType.values.map((e) => Tab(text: e.label)).toList(),
             onTap: (index) {
-              final tag = _tag(PgcReviewType.values[index]);
-              if (!_tabController.indexIsChanging &&
-                  Get.isRegistered<PgcReviewController>(tag: tag)) {
-                Get.find<PgcReviewController>(tag: tag).scrollController
-                    .animToTop();
+              if (!_tabController.indexIsChanging) {
+                _scrollControllers[index].animToTop();
               }
             },
           ),
@@ -96,7 +99,9 @@ class _PgcReviewPageState extends State<PgcReviewPage>
                   .map(
                     (e) => PgcReviewChildPage(
                       type: e,
-                      controllerTag: _tag(e),
+                      key: ValueKey((widget.mediaId, e)),
+                      owner: _owner,
+                      scrollController: _scrollControllers[e.index],
                       name: widget.name,
                       mediaId: widget.mediaId,
                     ),
@@ -123,6 +128,7 @@ class _PgcReviewPageState extends State<PgcReviewPage>
                 DialogOption(
                   child: const Text('写短评', style: TextStyle(fontSize: 14)),
                   onPressed: () {
+                    final mediaId = widget.mediaId;
                     Get.back();
                     showModalBottomSheet(
                       context: context,
@@ -131,7 +137,17 @@ class _PgcReviewPageState extends State<PgcReviewPage>
                       builder: (context) {
                         return PgcReviewPostPanel(
                           name: widget.name,
-                          mediaId: widget.mediaId,
+                          mediaId: mediaId,
+                          onSubmitted: () {
+                            if (!mounted || widget.mediaId != mediaId) return;
+                            ref.invalidate(
+                              pgcReviewsProvider((
+                                owner: _owner,
+                                mediaId: mediaId,
+                                type: .short,
+                              )),
+                            );
+                          },
                         );
                       },
                     );

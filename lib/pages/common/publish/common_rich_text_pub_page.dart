@@ -6,33 +6,33 @@ import 'package:pili_aurora_next/common/widgets/button/toolbar_icon_button.dart'
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/text_field.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
-import 'package:pili_aurora_next/http/msg.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart'
+import 'package:pili_aurora_next/features/community/application/dynamic_picture_upload.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
+import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart'
     show PicModel, FilePicModel, OpusPicModel;
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
-import 'package:pili_aurora_next/models/remote/emote/emote.dart' as e;
-import 'package:pili_aurora_next/models/remote/live/live_emote/emoticon.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
+import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/emote.dart'
+    as e;
+import 'package:pili_aurora_next/features/community/domain/live_emote/emoticon.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_publish_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
-import 'package:pili_aurora_next/utils/extension/file_ext.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:dio/dio.dart' show CancelToken;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
+import 'package:pili_aurora_next/core/io/file_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -54,11 +54,30 @@ abstract class CommonRichTextPubPage
 
 abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     extends CommonPublishPageState<T> {
-  CancelToken? _uploadToken;
+  DynamicPictureUpload? _uploadToken;
   bool _showingUploadProgress = false;
   final key = GlobalKey<RichTextFieldState>();
   late final imagePicker = ImagePicker();
-  late final RxList<PicModel> imageList;
+  late final ValueNotifier<List<PicModel>> _images;
+  ValueListenable<List<PicModel>> get images => _images;
+  List<PicModel> get imageList => _images.value;
+
+  void addDraftImage(PicModel image) {
+    _images.value = List.unmodifiable([...imageList, image]);
+  }
+
+  void removeDraftImage(int index) {
+    final updated = imageList.toList();
+    final image = updated.removeAt(index);
+    _images.value = List.unmodifiable(updated);
+    if (PlatformUtils.isMobile && image is FilePicModel) {
+      File(image.path).tryDel();
+    }
+    if (updated.isEmpty && editController.rawText.trim().isEmpty) {
+      enablePublish.value = false;
+    }
+  }
+
   int get limit => widget.imageLengthLimit ?? 9;
   List<Object> get pictureDraft => [
     for (final image in imageList)
@@ -80,7 +99,9 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     if (editController.rawText.trim().isNotEmpty) {
       enablePublish.value = true;
     }
-    imageList = RxList<PicModel>(widget.pics ?? <PicModel>[]);
+    _images = ValueNotifier(
+      List.unmodifiable(widget.pics ?? const <PicModel>[]),
+    );
   }
 
   @override
@@ -97,6 +118,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         }
       }
     }
+    _images.dispose();
     super.dispose();
   }
 
@@ -111,17 +133,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       context,
     ).colorScheme.secondaryContainer.withValues(alpha: 0.5);
 
-    void onClear() {
-      final image = imageList.removeAt(index);
-      if (PlatformUtils.isMobile) {
-        if (image is FilePicModel) {
-          File(image.path).tryDel();
-        }
-      }
-      if (imageList.isEmpty && editController.rawText.trim().isEmpty) {
-        enablePublish.value = false;
-      }
-    }
+    void onClear() => removeDraftImage(index);
 
     final image = imageList[index];
     return Stack(
@@ -232,9 +244,9 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       if (image is FilePicModel) {
         File(image.path).tryDel();
       }
-      imageList[imageList.indexOf(image)] = FilePicModel(
-        path: croppedFile.path,
-      );
+      final updated = imageList.toList();
+      updated[updated.indexOf(image)] = FilePicModel(path: croppedFile.path);
+      _images.value = List.unmodifiable(updated);
     }
   }
 
@@ -256,7 +268,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
                 SmartDialog.showToast('最多选择$limit张图片');
                 break;
               } else {
-                imageList.add(FilePicModel(path: pickedFiles[i].path));
+                addDraftImage(FilePicModel(path: pickedFiles[i].path));
               }
             }
             callback?.call();
@@ -344,18 +356,21 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   }
 
   late double _mentionOffset = 0;
+  final _mentionMemory = CommunityPickerMemory<MentionItem>();
   Future<void>? onMention([bool fromClick = false]) async {
+    final identity = AccountScope.capture();
     final res = await DynMentionPanel.onDynMention(
       context,
+      memory: _mentionMemory,
       offset: _mentionOffset,
       onCachePos: (offset) => _mentionOffset = offset,
     );
-    if (mounted && res != null) {
+    if (mounted && identity.isCurrent && res != null) {
       if (res is MentionItem) {
         _onInsertUser(res, fromClick);
       } else if (res is Set<MentionItem>) {
         for (final e in res) {
-          _onInsertUser(e..checked = false, fromClick);
+          _onInsertUser(e, fromClick);
           fromClick = true;
         }
         res.clear();
@@ -479,9 +494,10 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   @override
   void onSave() => widget.onSave?.call(editController.items);
 
-  Widget get emojiBtn => Obx(
-    () {
-      final isEmoji = panelType.value == PanelType.emoji;
+  Widget get emojiBtn => ValueListenableBuilder(
+    valueListenable: panelType,
+    builder: (context, panel, _) {
+      final isEmoji = panel == PanelType.emoji;
       return ToolbarIconButton(
         tooltip: isEmoji ? '输入' : '表情',
         onPressed: () => updatePanelType(isEmoji ? .keyboard : .emoji),
@@ -500,9 +516,10 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     selected: false,
   );
 
-  Widget get moreBtn => Obx(
-    () {
-      final isMore = panelType.value == PanelType.more;
+  Widget get moreBtn => ValueListenableBuilder(
+    valueListenable: panelType,
+    builder: (context, panel, _) {
+      final isMore = panel == PanelType.more;
       return ToolbarIconButton(
         tooltip: isMore ? '输入' : '更多',
         onPressed: () => updatePanelType(isMore ? .keyboard : .more),
@@ -516,24 +533,9 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
 
   Future<Map<String, dynamic>> uploadPicture(
     FilePicModel image,
-    CancelToken cancelToken, {
-    Account? account,
-  }) async {
-    final result = await MsgHttp.uploadBfs(
-      account: account,
-      path: image.path,
-      category: 'daily',
-      biz: 'new_dyn',
-      cancelToken: cancelToken,
-    );
-    final data = result.data;
-    return {
-      'img_width': data.imageWidth,
-      'img_height': data.imageHeight,
-      'img_size': data.imgSize,
-      'img_src': data.imageUrl,
-    };
-  }
+    DynamicPictureUpload upload, {
+    required Account account,
+  }) => upload.upload(image.path, account);
 
   /// 上传使用提交时的图片与账号，表单可以继续编辑。
   Future<List<Map<String, dynamic>>?> uploadPictures({
@@ -541,7 +543,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   }) async {
     final images = imageList.toList();
     if (images.isEmpty) return null;
-    final cancelToken = _uploadToken = CancelToken();
+    final cancelToken = _uploadToken = DynamicPictureUpload();
     try {
       return await Future.wait<Map<String, dynamic>>(
         images.map(
@@ -568,7 +570,8 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   Future<void> onPublish() async {
     if (!mounted) return;
     feedBack();
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     List<Map<String, dynamic>>? pictures;
     if (imageList.isNotEmpty) {
       _showingUploadProgress = true;
@@ -586,7 +589,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         _showingUploadProgress = false;
       }
     }
-    if (!mounted || !identical(account, Accounts.main)) return;
+    if (!mounted || !identity.isCurrent) return;
     return onCustomPublish(pictures: pictures);
   }
 }

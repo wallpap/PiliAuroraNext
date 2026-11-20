@@ -1,21 +1,23 @@
 import 'dart:math' as math;
 
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/popup_menu.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/http/live.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/live_emote.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/application/live_room_interactions.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/danmaku_msg.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/live_emote.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_list.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
-import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/playback/presentation/danmaku_actions.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/serialization/pretty_json.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -53,6 +55,7 @@ class LiveRoomChatPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final panelContext = context;
     late final bg = isPP
         ? Colors.black.withValues(alpha: 0.4)
         : const Color(0x15FFFFFF);
@@ -65,10 +68,11 @@ class LiveRoomChatPanel extends StatelessWidget {
         : colorScheme.inversePrimary;
     return Stack(
       children: [
-        Obx(
-          () => LiveChatList<dynamic>(
-            messages: liveRoomController.messages.value,
-            historyTruncated: liveRoomController.historyTruncated.value,
+        ValueListenableBuilder(
+          valueListenable: liveRoomController.chatHistory,
+          builder: (context, history, child) => LiveChatList<dynamic>(
+            messages: history.messages,
+            historyTruncated: history.truncated,
             maxHistory: liveRoomController.chatBuffer.maxHistory,
             controller: liveRoomController.scrollController,
             itemBuilder: (_, item) {
@@ -87,7 +91,7 @@ class LiveRoomChatPanel extends StatelessWidget {
                     );
                   } catch (e, s) {
                     if (kDebugMode) {
-                      Utils.reportError(e, s);
+                      reportError(e, s);
                     }
                   }
                 }
@@ -115,7 +119,7 @@ class LiveRoomChatPanel extends StatelessWidget {
                                     ? null
                                     : (NoDeadlineTapGestureRecognizer()
                                         ..onTapUp = (e) => _showMsgMenu(
-                                          context,
+                                          panelContext,
                                           itemContext,
                                           e,
                                           item,
@@ -158,9 +162,9 @@ class LiveRoomChatPanel extends StatelessWidget {
             right: 0,
             child: TextButton(
               onPressed: () {
-                final item = SuperChatItem.random;
+                final item = SuperChatItem.random(showFanMedals: DisplayPreferences.showFanMedals);
                 liveRoomController
-                  ..superChatMsg.insert(0, item)
+                  ..addSuperChat(item)
                   ..addDm(item);
               },
               child: const Text('add superchat'),
@@ -170,11 +174,7 @@ class LiveRoomChatPanel extends StatelessWidget {
             right: 0,
             top: 90,
             child: TextButton(
-              onPressed: () {
-                if (liveRoomController.superChatMsg.isNotEmpty) {
-                  liveRoomController.superChatMsg.removeLast();
-                }
-              },
+              onPressed: liveRoomController.removeOldestSuperChat,
               child: const Text('remove superchat'),
             ),
           ),
@@ -183,53 +183,63 @@ class LiveRoomChatPanel extends StatelessWidget {
           Positioned(
             top: 12,
             right: 12,
-            child: Obx(() {
-              final isEmpty = liveRoomController.superChatMsg.isEmpty;
-              return AnimatedOpacity(
-                opacity: isEmpty ? 0 : 1,
-                duration: const Duration(milliseconds: 120),
-                child: GestureDetector(
-                  onTap: isEmpty
-                      ? null
-                      : () => liveRoomController.pageController?.animateToPage(
-                          1,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeInOut,
+            child: ValueListenableBuilder(
+              valueListenable: liveRoomController.superChat,
+              builder: (context, items, child) {
+                final isEmpty = items.isEmpty;
+                return AnimatedOpacity(
+                  opacity: isEmpty ? 0 : 1,
+                  duration: const Duration(milliseconds: 120),
+                  child: GestureDetector(
+                    onTap: isEmpty
+                        ? null
+                        : () =>
+                              liveRoomController.pageController?.animateToPage(
+                                1,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeInOut,
+                              ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(8),
                         ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.all(Radius.circular(8)),
-                      color: const Color(0x2FFFFFFF),
-                      border: Border.all(color: Colors.white24, width: 0.7),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
-                    child: Text.rich(
-                      style: const TextStyle(color: Colors.white, height: 1),
-                      strutStyle: const StrutStyle(height: 1, leading: 0),
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text:
-                                'SC(${liveRoomController.superChatMsg.length})',
-                          ),
-                          const WidgetSpan(
-                            alignment: PlaceholderAlignment.middle,
-                            child: Icon(
-                              size: 18,
-                              Icons.keyboard_arrow_right,
-                              color: Colors.white,
+                        color: const Color(0x2FFFFFFF),
+                        border: Border.all(color: Colors.white24, width: 0.7),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+                      child: Text.rich(
+                        style: const TextStyle(color: Colors.white, height: 1),
+                        strutStyle: const StrutStyle(height: 1, leading: 0),
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'SC(${items.length})',
                             ),
-                          ),
-                        ],
+                            const WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(
+                                size: 18,
+                                Icons.keyboard_arrow_right,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              },
+            ),
           ),
-        Obx(
-          () => liveRoomController.disableAutoScroll.value
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            liveRoomController.disableAutoScroll,
+            liveRoomController.unreadMessages,
+          ]),
+          builder: (context, child) =>
+              liveRoomController.disableAutoScroll.value
               ? Positioned(
                   left: 12,
                   right: 12,
@@ -322,18 +332,20 @@ class LiveRoomChatPanel extends StatelessWidget {
     TapUpDetails details,
     DanmakuMsg item,
   ) {
-    final account = Accounts.main;
     final roomId = liveRoomController.roomId;
     var shielding = false;
-    bool current() =>
+    bool roomIsCurrent() =>
         context.mounted &&
         !liveRoomController.isClosed &&
-        identical(account, Accounts.main) &&
         identical(
           (context.widget as LiveRoomChatPanel).liveRoomController,
           liveRoomController,
         ) &&
         roomId == liveRoomController.roomId;
+    final interaction = LiveRoomInteractions(
+      roomId,
+      roomIsCurrent: roomIsCurrent,
+    );
     final dx = details.globalPosition.dx;
     final renderBox = itemContext.findRenderObject() as RenderBox;
     final dy =
@@ -358,7 +370,7 @@ class LiveRoomChatPanel extends StatelessWidget {
         const CustomPopupMenuDivider(height: 1),
         AppPopupMenuItem(
           height: 38,
-          onTap: () => Utils.copyText(Utils.jsonEncoder.convert(item.toJson())),
+          onTap: () => copyText(prettyJsonEncoder.convert(item.toJson())),
           child: const Text('复制弹幕信息', style: TextStyle(fontSize: 13)),
         ),
         AppPopupMenuItem(
@@ -366,25 +378,22 @@ class LiveRoomChatPanel extends StatelessWidget {
           onTap: () => Get.toNamed('/member?mid=${item.extra.mid}'),
           child: const Text('去TA的个人空间', style: TextStyle(fontSize: 13)),
         ),
-        if (account.isLogin) ...[
+        if (interaction.isLogin) ...[
           AppPopupMenuItem(
             height: 38,
-            onTap: () => liveRoomController.onAtUser(item),
+            onTap: () {
+              if (interaction.isCurrent) liveRoomController.onAtUser(item);
+            },
             child: const Text('@TA', style: TextStyle(fontSize: 13)),
           ),
           AppPopupMenuItem(
             height: 38,
             onTap: () async {
-              if (shielding || !current()) return;
+              if (shielding || !interaction.isCurrent) return;
               shielding = true;
               try {
-                final res = await LiveHttp.liveShieldUser(
-                  account: account,
-                  uid: item.extra.mid,
-                  roomid: roomId,
-                  type: 1,
-                );
-                if (!current()) return;
+                final res = await interaction.shield(item.extra.mid);
+                if (res == null || !interaction.isCurrent) return;
                 if (res.isSuccess) {
                   SmartDialog.showToast('屏蔽成功');
                 } else {
@@ -399,12 +408,13 @@ class LiveRoomChatPanel extends StatelessWidget {
           AppPopupMenuItem(
             height: 38,
             onTap: () {
-              if (!current()) return;
-              HeaderControl.reportLiveDanmaku(
+              if (!interaction.isCurrent) return;
+              reportLiveDanmaku(
                 context,
                 roomId: roomId,
                 msg: item.text,
                 extra: item.extra,
+                roomIsCurrent: roomIsCurrent,
               );
             },
             child: const Text('举报选中弹幕', style: TextStyle(fontSize: 13)),

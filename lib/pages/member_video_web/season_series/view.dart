@@ -1,17 +1,14 @@
-import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
-import 'package:pili_aurora_next/models/remote/member/season_web/archive.dart';
-import 'package:pili_aurora_next/models/remote/member/season_web/data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_sort_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
 import 'package:pili_aurora_next/pages/member_video_web/base/view.dart';
-import 'package:pili_aurora_next/pages/member_video_web/season_series/controller.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
 
-class MemberSSWeb extends StatefulWidget {
+class MemberSSWeb extends ConsumerStatefulWidget {
   const MemberSSWeb({super.key});
 
   @override
-  State<MemberSSWeb> createState() => _MemberSSWebState();
+  ConsumerState<MemberSSWeb> createState() => _MemberSSWebState();
 
   static Future<void>? toMemberSSWeb({
     required WebSsType type,
@@ -32,21 +29,9 @@ class MemberSSWeb extends StatefulWidget {
 }
 
 class _MemberSSWebState
-    extends
-        BaseVideoWebState<
-          MemberSSWeb,
-          SeasonWebData,
-          SeasonArchive,
-          ArchiveSortTypeApp
-        > {
+    extends BaseVideoWebState<MemberSSWeb, ArchiveSortTypeApp> {
   @override
-  late final MemberSSWebCtr controller;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = Get.put(MemberSSWebCtr(), tag: name);
-  }
+  ArchiveSortTypeApp get selectedOrder => controller.sort;
 
   @override
   List<ArchiveSortTypeApp> get values => ArchiveSortTypeApp.values;

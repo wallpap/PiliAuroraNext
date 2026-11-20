@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/services/app_exit.dart';
+import 'package:pili_aurora_next/services/windows_update_exit.dart';
 
 void main() {
   test('退出合并并发请求，等待清理与结束操作，失败不跳过独立步骤', () async {
@@ -71,6 +73,22 @@ void main() {
     expect(attempts, 2);
   });
 
+  test('启动失败可只释放资源，随后退出沿用同一次清理', () async {
+    final calls = <String>[];
+    final exit = AppExit(
+      cleanup: [('storage', () => calls.add('storage'))],
+      terminate: () => calls.add('terminate'),
+    );
+    final unregister = exit.beforeCleanup('stale route', () => fail('已卸载'));
+    unregister();
+    exit.beforeCleanup('download', () => calls.add('download'));
+
+    await exit.release();
+    expect(calls, ['download', 'storage']);
+    await exit.close();
+    expect(calls, ['download', 'storage', 'terminate']);
+  });
+
   testWidgets('诊断刷新超时后继续退出，迟到失败不会成为未处理异常', (tester) async {
     final flushing = Completer<void>();
     final failures = <(String, Object)>[];
@@ -107,5 +125,47 @@ void main() {
     );
     await exit.close();
     expect(calls, ['storage', 'terminate']);
+  });
+
+  testWidgets('Windows 更新消息直接等待退出，重复通知共享清理', (tester) async {
+    const channel = MethodChannel('piliauroranext/update_exit');
+    final cleaning = Completer<void>();
+    final calls = <String>[];
+    final exit = AppExit(
+      cleanup: [
+        (
+          'window',
+          () {
+            calls.add('window');
+            return cleaning.future;
+          },
+        ),
+      ],
+      terminate: () => calls.add('terminate'),
+    );
+    WindowsUpdateExit.setHandler(exit.close);
+    addTearDown(() => WindowsUpdateExit.setHandler(null));
+
+    Future<void> sendUpdateExit() async {
+      final response = Completer<ByteData?>();
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        channel.name,
+        channel.codec.encodeMethodCall(const MethodCall('closeForUpdate')),
+        response.complete,
+      );
+      expect(channel.codec.decodeEnvelope((await response.future)!), isNull);
+    }
+
+    var completed = false;
+    final first = sendUpdateExit().then((_) => completed = true);
+    final second = sendUpdateExit();
+    await tester.pump();
+    expect(calls, ['window']);
+    expect(completed, isFalse);
+
+    cleaning.complete();
+    await first;
+    await second;
+    expect(calls, ['window', 'terminate']);
   });
 }

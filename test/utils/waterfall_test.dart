@@ -1,6 +1,6 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/waterfall.dart';
+import 'package:pili_aurora_next/common/layout/waterfall.dart';
 import 'package:waterfall_flow/waterfall_flow.dart' as waterfall;
 
 SliverConstraints _constraints(double width) => SliverConstraints(

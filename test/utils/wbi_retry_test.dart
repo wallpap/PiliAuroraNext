@@ -4,12 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 
 import '../support/controlled_http_adapter.dart';
 
@@ -42,7 +41,6 @@ void main() {
   setUp(() {
     adapter = ControlledHttpAdapter();
     Request.dio.httpClientAdapter = adapter;
-    Get.put(AccountService()).isLogin.value = true;
   });
   tearDown(() {
     adapter.close();

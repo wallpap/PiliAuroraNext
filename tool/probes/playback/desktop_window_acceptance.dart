@@ -13,9 +13,9 @@ import 'package:pili_aurora_next/app/bootstrap.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart';
@@ -24,9 +24,9 @@ import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.
 import 'package:pili_aurora_next/plugin/pl_player/widgets/video_output_handoff.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 使用独立空账号存储、本地样片和生产 IPC/路由验收视频小窗。

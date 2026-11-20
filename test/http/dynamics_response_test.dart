@@ -1,15 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/community/data/article_repository.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/dynamics.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/community/domain/vote.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 
@@ -42,7 +43,7 @@ void main() {
     () => DynamicsHttp.topicTop(topicId: 1),
     () => DynamicsHttp.topicFeed(topicId: 1, sortBy: 0),
     () => DynamicsHttp.topicFold(topicId: 1, sortBy: 0),
-    () => DynamicsHttp.articleList(id: 1, account: main),
+    () => ArticleRepository.collection(main, '1'),
     DynamicsHttp.dynTopicRcmd,
     () => DynamicsHttp.dynPic('1'),
     DynamicsHttp.dynMention,

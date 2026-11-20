@@ -1,121 +1,166 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, ValueNotifier, listEquals;
 
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:pili_aurora_next/grpc/audio.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart'
-    show
-        DetailItem,
-        PlayURLResp,
-        PlaylistSource,
-        PlayInfo,
-        ThumbUpReq_ThumbType,
-        ListOrder,
-        DashItem,
-        ResponseUrl;
-import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart'
+    show Segment;
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_interactions.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_media.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_playlist.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_preferences.dart';
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/audio_normalization.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart'
+import 'package:pili_aurora_next/features/playback/application/audio_normalization.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart'
     as http_model
     show Volume;
-import 'package:pili_aurora_next/pages/common/common_intro_controller.dart'
-    show FavMixin;
+import 'package:pili_aurora_next/pages/audio/segment_adapter.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/pages/main_reply/view.dart';
-import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/triple_mixin.dart';
+import 'package:pili_aurora_next/pages/video/pay_coins/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart'
     show CommandOutcome;
+import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/services/audio_handler.dart' show MediaNavigation;
+import 'package:pili_aurora_next/services/audio_handler.dart'
+    show MediaNavigation;
 import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/connectivity_utils.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/platform/network/connectivity.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
-import 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:media_kit/media_kit.dart' hide AudioTrack;
 
-class AudioController extends GetxController
-    with
-        GetTickerProviderStateMixin,
-        TripleMixin,
-        FavMixin,
-        BlockConfigMixin,
-        BlockMixin,
-        AudioNormalizationMixin {
-  AudioController({Future<Player> Function(PlayerConfiguration)? createPlayer})
-    : _createPlayer =
-          createPlayer ??
-          ((configuration) => Player.create(configuration: configuration));
+class AudioPageArguments {
+  const AudioPageArguments({
+    this.id,
+    required this.oid,
+    this.subIds,
+    required this.itemType,
+    required this.from,
+    this.start,
+    this.audioUrl,
+    this.extraId,
+    this.initialVolume,
+    this.onPosition,
+  });
+
+  final int? id;
+  final int oid;
+  final List<int>? subIds;
+  final int itemType;
+  final AudioPlaylistSource from;
+  final Duration? start;
+  final String? audioUrl;
+  final int? extraId;
+  final http_model.Volume? initialVolume;
+  final void Function(Duration)? onPosition;
+}
+
+class AudioController with AudioNormalizationMixin {
+  AudioController({
+    Future<Player> Function(PlayerConfiguration)? createPlayer,
+    this._initialPlaylist,
+    FavoriteLibrary? favorites,
+  }) : _createPlayer =
+           createPlayer ??
+           ((configuration) => Player.create(configuration: configuration)),
+       _favorites = favorites ?? FavoriteLibrary.legacy {
+    _unregisterExit = AppExit.application?.beforeCleanup(
+      'independent audio',
+      () => close().timeout(const Duration(seconds: 3)),
+    );
+  }
 
   final Future<Player> Function(PlayerConfiguration) _createPlayer;
+  final List<AudioTrack>? _initialPlaylist;
+  final FavoriteLibrary _favorites;
+  late final _segments = AudioSegmentAdapter(
+    isUgc: () => isUgc,
+    player: () => player,
+    seek: onSeek,
+  );
+
+  bool get enableSponsorBlock => _segments.enableSponsorBlock;
+  ValueListenable<List<Segment>> get segmentChanges => _segments.segmentChanges;
+  void showSBDetail() => _segments.showSBDetail();
 
   late Int64 id;
   late Int64 oid;
   late List<Int64> subId;
   late int itemType;
   Int64? extraId;
-  late final PlaylistSource from;
-  @override
+  late final AudioPlaylistSource from;
   bool get isUgc => itemType == 1;
 
-  final audioItem = Rxn<DetailItem>();
+  final audioItem = ValueNotifier<AudioTrack?>(null);
 
-  int _playlistGeneration = 0;
-  Account? _playlistAccount;
-  bool _listeningToPlaylistAccount = false;
-  Object? _pageOperation;
-  bool _failedPageIsPrev = false;
-  int _prevEmptyPages = 0;
-  int _nextEmptyPages = 0;
-  final playlistState = Rx<LoadingState<void>>(LoadingState.loading());
-  final playlistPageState = Rx<LoadingState<void>>(const Success(null));
-  final playlistRevision = RxInt(0);
-  final _removedPlaylistItems = <(int, Int64)>{};
+  late final _interactions = AudioInteractions(
+    favorites: _favorites,
+    target: () =>
+        _audioClosed ? null : (oid: oid, type: itemType, parts: subId),
+    selectionRevision: () => _playGeneration,
+    read: () => audioItem.value,
+    publish: _publishTrack,
+  );
+
+  late final _playlist = AudioPlaylist(
+    anchor: () => (
+      id: id,
+      oid: oid,
+      subIds: List.of(subId),
+      itemType: itemType,
+      source: from,
+      extraId: extraId,
+    ),
+    prepareAnchor: () {
+      final revision = _interactions.statsRevision;
+      return (item) => _updateCurrItem(item, requestedAt: revision);
+    },
+    initialItems: _initialPlaylist,
+  );
+  ValueListenable<AudioPlaylistSnapshot> get playlistState => _playlist.state;
   int _playGeneration = 0;
-  Account? _playAccount;
+  AccountScope? _playOwner;
   bool _playbackReady = false;
   int? _pendingPlayGeneration;
   Future<void>? _playerInitialization;
   NativePlayerCreationFailure? _unreleasedCreation;
   Future<bool>? _mediaOpening;
   bool _audioClosed = false;
+  bool _disposed = false;
+  Future<void>? _closing;
+  void Function()? _unregisterExit;
   int _speedRevision = 0;
   int _volumeRevision = 0;
   int _seekRevision = 0;
-  @override
   Player? player;
+  final _hasPlayer = ValueNotifier(false);
+  ValueListenable<bool> get hasPlayer => _hasPlayer;
   Player? _closingPlayer;
   IndependentAudioLease? _audioLease;
+  ShutdownPlaybackBinding? _shutdownBinding;
 
   void _audioEvent(
     String action, {
@@ -166,24 +211,24 @@ class AudioController extends GetxController
   late int cacheAudioQa;
 
   late bool isDragging = false;
-  final RxInt position = RxInt(0);
-  final RxInt duration = RxInt(0);
-
-  late final AnimationController animController;
+  final position = ValueNotifier(0);
+  final _duration = ValueNotifier(0);
+  ValueListenable<int> get duration => _duration;
+  final _playing = ValueNotifier(false);
+  ValueListenable<bool> get playing => _playing;
 
   List<StreamSubscription>? _subscriptions;
 
-  int? index;
-  List<DetailItem>? playlist;
+  int? get index => playlistState.value.index;
+  List<AudioTrack>? get playlist => playlistState.value.items;
 
   late double speed = 1.0;
 
-  bool _ownsControl(Player? target, int generation, Account account) =>
+  bool _ownsControl(Player? target, int generation, AccountScope owner) =>
       !_audioClosed &&
-      !isClosed &&
       identical(player, target) &&
       generation == _playGeneration &&
-      identical(account, Accounts.main);
+      owner.isCurrent;
 
   Player get _readyPlayer => player ?? (throw StateError('音频播放器尚未就绪'));
 
@@ -197,11 +242,11 @@ class AudioController extends GetxController
   Future<bool> setSpeed(double value) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = ++_speedRevision;
     try {
       await _readyPlayer.setRate(value);
-      if (!_ownsControl(target, generation, account) ||
+      if (!_ownsControl(target, generation, accountOwner) ||
           revision != _speedRevision) {
         return false;
       }
@@ -209,7 +254,7 @@ class AudioController extends GetxController
       _updatePlaybackState();
       return true;
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _speedRevision) {
         _reportControlFailure('播放速度调整失败，请重试', error, stack);
       }
@@ -217,23 +262,27 @@ class AudioController extends GetxController
     }
   }
 
-  late final Rx<PlayRepeat> playMode = Pref.audioPlayMode.obs;
+  late final _playMode = ValueNotifier(AudioPreferences.playMode);
+  ValueListenable<PlayRepeat> get playMode => _playMode;
 
-  @override
-  bool get isLogin => Accounts.main.isLogin;
+  Future<void> changePlayMode(PlayRepeat mode) async {
+    if (_audioClosed || playMode.value == mode) return;
+    _playMode.value = mode;
+    try {
+      await AudioPreferences.savePlayMode(mode);
+    } catch (error, stack) {
+      if (!_audioClosed && playMode.value == mode) {
+        _reportControlFailure('播放模式设置保存失败，请重试', error, stack);
+      }
+    }
+  }
 
   Duration? _start;
-  VideoDetailController? _videoDetailController;
-
-  String? _prev;
-  String? _next;
-  bool get reachStart => _prev == null;
-  bool get hasNextPage => _next != null;
-
-  ListOrder order = ListOrder.ORDER_NORMAL;
+  void Function(Duration)? _updateVideoPosition;
 
   double? _lastVolume;
-  late final RxDouble desktopVolume = RxDouble(Pref.desktopVolume);
+  late final _desktopVolume = ValueNotifier(AudioPreferences.desktopVolume);
+  ValueListenable<double> get desktopVolume => _desktopVolume;
 
   Timer? _statusTimer;
 
@@ -250,7 +299,8 @@ class AudioController extends GetxController
     _statusTimer = null;
   }
 
-  late final volumeDraft = RxDouble(desktopVolume.value);
+  late final _volumeDraft = ValueNotifier(desktopVolume.value);
+  ValueListenable<double> get volumeDraft => _volumeDraft;
 
   Future<void> toggleVolume() async {
     final before = desktopVolume.value;
@@ -261,30 +311,34 @@ class AudioController extends GetxController
   }
 
   void previewVolume(double value) {
-    volumeDraft.value = roundVolumeRatio(value.clamp(0.0, Pref.maxVolume));
+    _volumeDraft.value = roundVolumeRatio(
+      value.clamp(0.0, AudioPreferences.maxDesktopVolume),
+    );
     setVolume(volumeDraft.value);
   }
 
   Future<bool> setVolume(double volume, {bool clearLastVolme = true}) async {
-    volume = roundVolumeRatio(volume.clamp(0.0, Pref.maxVolume));
+    volume = roundVolumeRatio(
+      volume.clamp(0.0, AudioPreferences.maxDesktopVolume),
+    );
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = ++_volumeRevision;
     try {
       await _readyPlayer.setVolume(volumePercent(volume));
-      if (!_ownsControl(target, generation, account) ||
+      if (!_ownsControl(target, generation, accountOwner) ||
           revision != _volumeRevision) {
         return false;
       }
-      desktopVolume.value = volume;
-      volumeDraft.value = volume;
+      _desktopVolume.value = volume;
+      _volumeDraft.value = volume;
       if (clearLastVolme) _lastVolume = null;
       return true;
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _volumeRevision) {
-        volumeDraft.value = desktopVolume.value;
+        _volumeDraft.value = desktopVolume.value;
         _reportControlFailure('音量调整失败，请重试', error, stack);
       }
       return false;
@@ -298,20 +352,21 @@ class AudioController extends GetxController
   Future<void> setPlayerVolumePercent(double value) async {
     if (!await setVolume(value / 100)) return;
     await _saveVolume(
-      SettingBoxKey.playerVolume,
-      volumePercent(desktopVolume.value),
+      () => AudioPreferences.saveMobileVolumePercent(
+        volumePercent(desktopVolume.value),
+      ),
     );
   }
 
-  Future<void> _saveVolume(String key, double value) async {
+  Future<void> _saveVolume(Future<void> Function() save) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = _volumeRevision;
     try {
-      await GStorage.setting.put(key, value);
+      await save();
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _volumeRevision) {
         _reportControlFailure('音量已调整，设置保存失败，请重试', error, stack);
       }
@@ -322,10 +377,12 @@ class AudioController extends GetxController
     final volume = desktopVolume.value;
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = _volumeRevision;
-    await _saveVolume(SettingBoxKey.desktopVolume, roundVolumeRatio(volume));
-    if (!_ownsControl(target, generation, account) ||
+    await _saveVolume(
+      () => AudioPreferences.saveDesktopVolumeRatio(roundVolumeRatio(volume)),
+    );
+    if (!_ownsControl(target, generation, accountOwner) ||
         revision != _volumeRevision) {
       return;
     }
@@ -333,7 +390,7 @@ class AudioController extends GetxController
       final result = await PlPlayerController.instance?.setPlayerVolumePercent(
         volumePercent(volume),
       );
-      if (!_ownsControl(target, generation, account) ||
+      if (!_ownsControl(target, generation, accountOwner) ||
           revision != _volumeRevision) {
         return;
       }
@@ -341,57 +398,54 @@ class AudioController extends GetxController
         throw result!.failure ?? StateError('视频音量同步失败');
       }
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _volumeRevision) {
         _reportControlFailure('音频音量已调整，视频音量同步失败', error, stack);
       }
     }
   }
 
-  @override
-  void onInit() {
-    super.onInit();
-    _ensureAudioLease();
-    final args = Get.arguments;
-    oid = Int64(args['oid']);
-    final id = args['id'];
+  void start(AudioPageArguments args) {
+    oid = Int64(args.oid);
+    final id = args.id;
     this.id = id != null ? Int64(id) : oid;
-    subId = (args['subId'] as List<int>?)?.map(Int64.new).toList() ?? [oid];
-    itemType = args['itemType'];
-    from = args['from'];
-    _start = args['start'];
-    final int? extraId = args['extraId'];
+    subId = args.subIds?.map(Int64.new).toList() ?? [oid];
+    itemType = args.itemType;
+    from = args.from;
+    _start = args.start;
+    final extraId = args.extraId;
     if (extraId != null) {
       this.extraId = Int64(extraId);
     }
-    if (args['heroTag'] case String heroTag) {
-      try {
-        _videoDetailController = Get.find<VideoDetailController>(tag: heroTag);
-      } catch (_) {}
-    }
+    _updateVideoPosition = args.onPosition;
+    if (AppExit.application?.isClosing == true) return;
 
-    animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
+    _ensureAudioLease();
+    _shutdownBinding ??= shutdownTimerService.bindPlayer(
+      pause: onPause,
+      isPlaying: () => player?.state.playing ?? false,
+      independentAudio: true,
     );
+
     reloadPlaylist();
 
-    final String? audioUrl = args['audioUrl'];
+    final audioUrl = args.audioUrl;
     final hasAudioUrl = audioUrl != null;
     if (hasAudioUrl) {
-      _querySponsorBlock();
-      _playAccount = Accounts.main;
+      _playOwner = AccountScope.capture();
+      final generation = ++_playGeneration;
+      _querySponsorBlock(generation);
       _onOpenMedia(
         audioUrl,
-        generation: ++_playGeneration,
+        generation: generation,
         ua: BrowserUa.pc,
         referer: HttpString.baseUrl,
-        volume: _videoDetailController?.volume,
+        volume: args.initialVolume,
       );
     }
     ConnectivityUtils.isWiFi.then((isWiFi) {
-      if (isClosed) return;
-      cacheAudioQa = isWiFi ? Pref.defaultAudioQa : Pref.defaultAudioQaCellular;
+      if (_audioClosed) return;
+      cacheAudioQa = AudioPreferences.qualityCode(wifi: isWiFi);
       if (!hasAudioUrl) {
         _queryPlayUrl();
       }
@@ -400,16 +454,6 @@ class AudioController extends GetxController
       ?..onPlay = onPlay
       ..onPause = onPause
       ..onSeek = onSeek;
-
-    if (shutdownTimerService.isActive) {
-      shutdownTimerService
-        ..onPause = onPause
-        ..isPlaying = isPlaying;
-    }
-  }
-
-  bool isPlaying() {
-    return player?.state.playing ?? false;
   }
 
   Future<void> onPlay() => Future<void>.sync(() {
@@ -425,10 +469,10 @@ class AudioController extends GetxController
   Future<void> onSeek(Duration duration) async {
     final target = _readyPlayer;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final revision = ++_seekRevision;
     await target.seek(duration);
-    if (!_ownsControl(target, generation, account) ||
+    if (!_ownsControl(target, generation, accountOwner) ||
         revision != _seekRevision) {
       return;
     }
@@ -441,11 +485,11 @@ class AudioController extends GetxController
   ) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     try {
       await operation();
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account)) {
+      if (_ownsControl(target, generation, accountOwner)) {
         _reportControlFailure('播放操作失败，请重试', error, stack);
       }
     }
@@ -457,13 +501,13 @@ class AudioController extends GetxController
   Future<void> seekFromUi(Duration duration) async {
     final target = player;
     final generation = _playGeneration;
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final operation = onSeek(duration);
     final revision = _seekRevision;
     try {
       await operation;
     } catch (error, stack) {
-      if (_ownsControl(target, generation, account) &&
+      if (_ownsControl(target, generation, accountOwner) &&
           revision == _seekRevision) {
         position.value = target?.state.position.inSeconds ?? 0;
         _reportControlFailure('进度调整失败，请重试', error, stack);
@@ -471,12 +515,13 @@ class AudioController extends GetxController
     }
   }
 
-  void _updateCurrItem(DetailItem item) {
-    _interactionAccount = Accounts.main;
+  void _publishTrack(AudioTrack item) {
     audioItem.value = item;
-    hasLike.value = item.stat.hasLike_7;
-    coinNum.value = item.stat.hasCoin_8 ? 2 : 0;
-    hasFav.value = item.stat.hasFav;
+    _playlist.confirmStats(item);
+  }
+
+  void _updateCurrItem(AudioTrack item, {required int requestedAt}) {
+    _interactions.accept(item, requestedAt: requestedAt);
     final handler = videoPlayerServiceHandler;
     if (handler == null || handler.onPlay != onPlay) return;
     try {
@@ -493,200 +538,31 @@ class AudioController extends GetxController
     }
   }
 
-  bool _ownsPlaylist(int generation, Account account) =>
-      !_audioClosed &&
-      !isClosed &&
-      generation == _playlistGeneration &&
-      identical(account, Accounts.main);
+  Future<bool> reloadPlaylist() => _playlist.reload();
 
-  void _onPlaylistAccountChanged() {
-    if (!identical(_playlistAccount, Accounts.main)) reloadPlaylist();
-  }
-
-  Future<bool> reloadPlaylist() async {
-    if (_audioClosed || isClosed) return false;
-    if (!_listeningToPlaylistAccount) {
-      Accounts.mainChanges.addListener(_onPlaylistAccountChanged);
-      _listeningToPlaylistAccount = true;
-    }
-    final account = Accounts.main;
-    if (!identical(account, _playlistAccount)) {
-      playlist = null;
-      index = null;
-      _prev = _next = null;
-    }
-    _playlistAccount = account;
-    final generation = ++_playlistGeneration;
-    _pageOperation = null;
-    _prevEmptyPages = _nextEmptyPages = 0;
-    _removedPlaylistItems.clear();
-    playlistState.value = LoadingState.loading();
-    playlistPageState.value = const Success(null);
-    playlistRevision.value++;
-    final anchorOid = oid;
-    final anchorSubIds = List<Int64>.of(subId);
-    try {
-      final res = await AudioGrpc.audioPlayList(
-        id: id,
-        oid: anchorOid,
-        subId: anchorSubIds,
-        itemType: itemType,
-        from: from,
-        extraId: extraId,
-        order: order,
-      );
-      if (!_ownsPlaylist(generation, account)) return false;
-      if (res case Success(:final response)) {
-        final keys = <(int, Int64)>{..._removedPlaylistItems};
-        final items = response.list
-            .where((entry) => keys.add((entry.item.itemType, entry.item.oid)))
-            .toList();
-        final selected = items.indexWhere(
-          (entry) => entry.item.oid == oid && entry.item.itemType == itemType,
-        );
-        playlist = items;
-        index = selected >= 0 ? selected : null;
-        _prev = _playlistCursor(
-          response.reachStart,
-          response.paginationReply.prev,
-        );
-        _next = _playlistCursor(
-          response.reachEnd,
-          response.paginationReply.next,
-        );
-        // 列表可以不含正在播放的资源，不擅自把首项当作当前音频。
-        if (selected >= 0 &&
-            oid == anchorOid &&
-            listEquals(subId, anchorSubIds)) {
-          _updateCurrItem(items[selected]);
-        }
-        playlistState.value = const Success(null);
-        playlistRevision.value++;
-        return true;
-      }
-      playlistState.value = res is Error ? res : const Error('播放列表尚未加载完成，请重试');
-    } catch (error, stack) {
-      if (!_ownsPlaylist(generation, account)) return false;
-      logger
-          .scoped('audio')
-          .w('音频列表加载失败', error: error.runtimeType, stackTrace: stack);
-      playlistState.value = Error(
-        '播放列表加载失败，请重试',
-        cause: error,
-        stackTrace: stack,
-      );
-    }
-    return false;
-  }
-
-  static String? _playlistCursor(bool reachedEnd, String cursor) =>
-      reachedEnd || cursor.isEmpty ? null : cursor;
-
-  Future<bool> _loadPlaylistPage({
-    required bool previous,
-    bool retry = false,
-  }) async {
-    if (isClosed ||
-        _pageOperation != null ||
-        !playlistState.value.isSuccess ||
-        !identical(_playlistAccount, Accounts.main) ||
-        playlist == null ||
-        (!retry && playlistPageState.value is Error)) {
-      return false;
-    }
-    final cursor = previous ? _prev : _next;
-    if (cursor == null) return false;
-    final generation = _playlistGeneration;
-    final account = _playlistAccount!;
-    final operation = Object();
-    _pageOperation = operation;
-    _failedPageIsPrev = previous;
-    playlistPageState.value = LoadingState.loading();
-    try {
-      final res = await AudioGrpc.audioPlayList(
-        id: id,
-        next: cursor,
-        extraId: extraId,
-        order: order,
-      );
-      if (!_ownsPlaylist(generation, account)) return false;
-      if (res case Success(:final response)) {
-        final keys = <(int, Int64)>{
-          ..._removedPlaylistItems,
-          for (final entry in playlist!) (entry.item.itemType, entry.item.oid),
-        };
-        final added = response.list
-            .where((entry) => keys.add((entry.item.itemType, entry.item.oid)))
-            .toList();
-        var nextCursor = _playlistCursor(
-          previous ? response.reachStart : response.reachEnd,
-          previous
-              ? response.paginationReply.prev
-              : response.paginationReply.next,
-        );
-        if (nextCursor == cursor) nextCursor = null;
-        if (previous) {
-          _prevEmptyPages = added.isEmpty ? _prevEmptyPages + 1 : 0;
-          _prev = _prevEmptyPages >= 5 ? null : nextCursor;
-          playlist!.insertAll(0, added);
-          if (index case final selected?) index = selected + added.length;
-        } else {
-          _nextEmptyPages = added.isEmpty ? _nextEmptyPages + 1 : 0;
-          _next = _nextEmptyPages >= 5 ? null : nextCursor;
-          playlist!.addAll(added);
-        }
-        playlistPageState.value = const Success(null);
-        playlistRevision.value++;
-        return true;
-      }
-      playlistPageState.value = res is Error
-          ? res
-          : const Error('播放列表尚未加载完成，请重试');
-    } catch (error, stack) {
-      if (!_ownsPlaylist(generation, account)) return false;
-      logger
-          .scoped('audio')
-          .w('音频列表分页失败', error: error.runtimeType, stackTrace: stack);
-      playlistPageState.value = Error(
-        '播放列表加载失败，请重试',
-        cause: error,
-        stackTrace: stack,
-      );
-    } finally {
-      if (identical(_pageOperation, operation)) _pageOperation = null;
-    }
-    return false;
-  }
-
-  void removePlaylistItem(DetailItem item) {
-    final items = playlist;
-    final removedIndex =
-        items?.indexWhere((entry) => identical(entry, item)) ?? -1;
-    if (removedIndex < 0 || removedIndex == index) return;
-    _removedPlaylistItems.add((item.item.itemType, item.item.oid));
-    items!.removeAt(removedIndex);
-    if (index case final selected? when removedIndex < selected) {
-      index = selected - 1;
-    }
-    playlistRevision.value++;
-  }
+  void removePlaylistItem(AudioTrack item) => _playlist.remove(item);
 
   @pragma('vm:notify-debugger-on-exception')
-  void _querySponsorBlock() {
+  void _querySponsorBlock(int generation) {
     if (isUgc && enableSponsorBlock) {
       try {
         final bvid = IdUtils.av2bv(oid.toInt());
         final cid = subId.first.toInt();
-        querySponsorBlock(bvid: bvid, cid: cid);
+        _segments.querySponsorBlock(
+          bvid: bvid,
+          cid: cid,
+          isCurrent: () => _ownsPlayback(generation),
+        );
       } catch (_) {}
+    } else if (enableSponsorBlock) {
+      _segments.resetBlock();
     }
   }
 
   bool _ownsPlayback(int generation) =>
       !_audioClosed &&
-      !isClosed &&
       generation == _playGeneration &&
-      identical(_playAccount, Accounts.main);
+      _playOwner?.isCurrent == true;
 
   bool _playbackFailed(Object error, StackTrace stack, int generation) {
     if (_ownsPlayback(generation)) {
@@ -705,18 +581,23 @@ class AudioController extends GetxController
   Future<bool> _queryPlayUrl() async {
     final generation = ++_playGeneration;
     _pendingPlayGeneration = generation;
-    _playAccount = Accounts.main;
+    _playOwner = AccountScope.capture();
     _playbackReady = false;
-    _querySponsorBlock();
+    _querySponsorBlock(generation);
     try {
-      final res = await AudioGrpc.audioPlayUrl(
+      final res = await AudioMedia.resolve(
         itemType: itemType,
         oid: oid,
-        subId: List.of(subId),
+        subIds: List.of(subId),
+        preferredQuality: () => cacheAudioQa,
       );
       if (!_ownsPlayback(generation)) return false;
       if (res case Success(:final response)) {
-        final opened = await _onPlay(response, generation);
+        final opened = await _onOpenMedia(
+          response.url,
+          generation: generation,
+          volume: response.volume,
+        );
         return opened && _ownsPlayback(generation);
       }
       res.toast();
@@ -728,44 +609,6 @@ class AudioController extends GetxController
         _pendingPlayGeneration = null;
       }
     }
-  }
-
-  Future<bool> _onPlay(PlayURLResp data, int generation) {
-    final PlayInfo? playInfo = data.playerInfo.values.firstOrNull;
-    if (playInfo == null) throw const FormatException('响应缺少音频信息');
-    http_model.Volume? volume;
-    if (playInfo.hasVolume()) {
-      final volumeInfo = playInfo.volume;
-      volume = http_model.Volume(
-        measuredI: volumeInfo.measuredI,
-        measuredLra: volumeInfo.measuredLra,
-        measuredTp: volumeInfo.measuredTp,
-        measuredThreshold: volumeInfo.measuredThreshold,
-        targetOffset: volumeInfo.targetOffset,
-        targetI: volumeInfo.targetI,
-        targetTp: volumeInfo.targetTp,
-      );
-    }
-    final Iterable<String> urls;
-    if (playInfo.hasPlayDash()) {
-      if (playInfo.playDash.audio.isEmpty) {
-        throw const FormatException('响应缺少音频来源');
-      }
-      final audio = playInfo.playDash.audio.findClosestTarget(
-        (e) => e.id <= cacheAudioQa,
-        (a, b) => a.id > b.id ? a : b,
-      );
-      urls = audio.playUrls;
-    } else if (playInfo.hasPlayUrl() && playInfo.playUrl.durl.isNotEmpty) {
-      urls = playInfo.playUrl.durl.first.playUrls;
-    } else {
-      throw const FormatException('响应缺少音频来源');
-    }
-    return _onOpenMedia(
-      VideoUtils.getCdnUrl(urls),
-      generation: generation,
-      volume: volume,
-    );
   }
 
   Future<bool> _onOpenMedia(
@@ -849,7 +692,6 @@ class AudioController extends GetxController
     final target = player;
     final handler = videoPlayerServiceHandler;
     if (_audioClosed ||
-        isClosed ||
         target == null ||
         handler == null ||
         handler.onPlay != onPlay) {
@@ -893,13 +735,12 @@ class AudioController extends GetxController
     try {
       initializedPlayer = await _createPlayer(
         PlayerConfiguration(
-          options: {
-            if (Platform.isAndroid) 'ao': Pref.audioOutput,
-            'volume': PlatformUtils.isDesktop
-                ? volumePercent(desktopVolume.value).toStringAsFixed(0)
-                : Pref.playerVolume.toString(),
-            ...Pref.initBuffer(),
-          },
+          options: AudioPreferences.playerOptions(
+            android: Platform.isAndroid,
+            desktopVolumePercent: PlatformUtils.isDesktop
+                ? volumePercent(desktopVolume.value)
+                : null,
+          ),
         ),
       );
     } catch (error) {
@@ -938,16 +779,17 @@ class AudioController extends GetxController
       target: initializedPlayer,
       generation: generation,
     );
-    if (_audioClosed || isClosed) {
+    if (_audioClosed) {
       // 交由关闭流程统一销毁，失败必须继续持有音频租约和视频抑制。
       _closingPlayer = initializedPlayer;
       return;
     }
     player = initializedPlayer;
+    _hasPlayer.value = true;
     final stream = initializedPlayer.stream;
     _subscriptions = [
       stream.position.listen((position) {
-        if (_audioClosed || isClosed || !identical(player, initializedPlayer)) {
+        if (_audioClosed || !identical(player, initializedPlayer)) {
           return;
         }
         if (isDragging) return;
@@ -957,32 +799,31 @@ class AudioController extends GetxController
             _updatePlaybackState(position: position);
           }
           this.position.value = seconds;
-          _videoDetailController?.playedTime = position;
+          _updateVideoPosition?.call(position);
         }
       }),
       stream.duration.listen((duration) {
-        if (_audioClosed || isClosed || !identical(player, initializedPlayer)) {
+        if (_audioClosed || !identical(player, initializedPlayer)) {
           return;
         }
-        this.duration.value = duration.inSeconds;
+        _duration.value = duration.inSeconds;
       }),
       stream.playing.listen((playing) {
-        if (_audioClosed || isClosed || !identical(player, initializedPlayer)) {
+        if (_audioClosed || !identical(player, initializedPlayer)) {
           return;
         }
+        _playing.value = playing;
         if (playing) {
-          animController.forward();
           _playerStatus = .playing;
           _stopStatusTimer();
           _updatePlaybackState();
         } else {
-          animController.reverse();
           _playerStatus = .paused;
           _startStatusTimer();
         }
       }),
       stream.buffering.listen((bool buffering) {
-        if (_audioClosed || isClosed || !identical(player, initializedPlayer)) {
+        if (_audioClosed || !identical(player, initializedPlayer)) {
           return;
         }
         if (!_playerStatus.isCompleted) {
@@ -991,16 +832,14 @@ class AudioController extends GetxController
         }
       }),
       stream.completed.listen((completed) {
-        if (_audioClosed || isClosed || !identical(player, initializedPlayer)) {
+        if (_audioClosed || !identical(player, initializedPlayer)) {
           return;
         }
-        _videoDetailController?.playedTime = player!.state.duration;
+        _updateVideoPosition?.call(initializedPlayer.state.duration);
         if (completed) {
           _playerStatus = .completed;
           _startStatusTimer();
-          if (shutdownTimerService.isWaiting) {
-            shutdownTimerService.handleWaiting();
-          } else {
+          if (_shutdownBinding?.complete() != true) {
             switch (playMode.value) {
               case PlayRepeat.pause:
                 break;
@@ -1028,229 +867,88 @@ class AudioController extends GetxController
     ];
   }
 
-  bool _interactionBusy = false;
-  Account? _interactionAccount;
-
-  bool _canInteract() {
-    final item = audioItem.value;
-    if (item == null ||
-        item.item.oid != oid ||
-        item.item.itemType != itemType ||
-        (_interactionAccount != null &&
-            !identical(_interactionAccount, Accounts.main))) {
-      SmartDialog.showToast('曲目信息待更新，请刷新播放列表后重试');
-      return false;
-    }
-    return true;
-  }
-
-  bool _ownsInteraction(
-    Account account,
-    DetailItem? item,
-    Int64 target,
-    int type,
-    List<Int64> parts,
-  ) =>
-      !_audioClosed &&
-      !isClosed &&
-      identical(account, Accounts.main) &&
-      identical(item, audioItem.value) &&
-      oid == target &&
-      itemType == type &&
-      listEquals(subId, parts);
-
-  Future<void> _runInteraction(
-    Future<void> Function(Account account, bool Function() current) action,
+  Future<void> _showInteractionResult(
+    Future<LoadingState<String>?> operation,
   ) async {
-    if (_interactionBusy || _audioClosed || isClosed) return;
-    final account = Accounts.main;
-    if (!account.isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-    if (!_canInteract()) return;
-    final item = audioItem.value;
-    final target = oid;
-    final type = itemType;
-    final parts = List<Int64>.of(subId);
-    bool current() => _ownsInteraction(account, item, target, type, parts);
-    _interactionBusy = true;
-    try {
-      await action(account, current);
-    } catch (error, stack) {
-      logger
-          .scoped('audio')
-          .w('音频互动未完成', error: error.runtimeType, stackTrace: stack);
-      if (current()) const UnknownResult().toast();
-    } finally {
-      _interactionBusy = false;
+    final result = await operation;
+    switch (result) {
+      case Success(:final response):
+        SmartDialog.showToast(response);
+      case Error():
+        result.toast();
+      default:
+        break;
     }
   }
 
-  @override
   Future<void> Function(int, bool) get payCoinCallback {
-    final account = Accounts.main;
-    final item = audioItem.value;
-    final target = oid;
-    final type = itemType;
-    final parts = List<Int64>.of(subId);
+    final isCurrent = _interactions.captureSelection();
     return (coin, withLike) async {
-      if (!_ownsInteraction(account, item, target, type, parts)) {
-        if (!isClosed) SmartDialog.showToast('曲目或账号已更新，请重新打开投币面板');
+      if (!isCurrent()) {
+        if (!_audioClosed) {
+          SmartDialog.showToast('曲目或账号已更新，请重新打开投币面板');
+        }
         return;
       }
       await onPayCoin(coin, withLike);
     };
   }
 
-  @override
-  Future<void> actionLikeVideo() => _runInteraction((account, current) async {
-    final newVal = !hasLike.value;
-    final res = await AudioGrpc.audioThumbUp(
-      account: account,
-      oid: oid,
-      subId: List.of(subId),
-      itemType: itemType,
-      type: newVal
-          ? ThumbUpReq_ThumbType.LIKE
-          : ThumbUpReq_ThumbType.CANCEL_LIKE,
-    );
-    if (!current()) return;
-    if (res case Success(:final response)) {
-      hasLike.value = newVal;
-      final stat = audioItem.value?.stat;
-      if (stat != null) {
-        stat
-          ..hasLike_7 = newVal
-          ..like += newVal ? 1 : -1;
-        audioItem.refresh();
-      }
-      SmartDialog.showToast(response.message);
-    } else {
-      res.toast();
-    }
-  });
+  Future<void> actionLikeVideo() =>
+      _showInteractionResult(_interactions.toggleLike());
 
-  @override
-  Future<void> actionTriple() => _runInteraction((account, current) async {
-    final previousCoins = coinNum.value;
-    final res = await AudioGrpc.audioTripleLike(
-      account: account,
-      oid: oid,
-      subId: List.of(subId),
-      itemType: itemType,
-    );
-    if (res case Success(:final response)) {
-      final addedCoins = response.coinOk && previousCoins == 0 ? 2 : 0;
-      if (addedCoins > 0 && identical(account, Accounts.main)) {
-        GlobalData().afterCoin(addedCoins.toInt());
-      }
-      if (!current()) return;
-      // 三连允许部分成功，只应用各步骤已确认的状态。
-      final stat = audioItem.value?.stat;
-      if (response.thumbOk && !hasLike.value) {
-        hasLike.value = true;
-        stat
-          ?..hasLike_7 = true
-          ..like += 1;
-      }
-      if (addedCoins > 0) {
-        coinNum.value += addedCoins;
-        stat
-          ?..hasCoin_8 = true
-          ..coin += addedCoins.toInt();
-      }
-      if (response.favOk && !hasFav.value) {
-        hasFav.value = true;
-        stat
-          ?..hasFav = true
-          ..favourite += 1;
-      }
-      audioItem.refresh();
-      SmartDialog.showToast(
-        response.thumbOk && response.coinOk && response.favOk
-            ? '三连成功'
-            : '部分操作未完成，请核对点赞、投币和收藏状态',
-      );
-    } else if (current()) {
-      res.toast();
-    }
-  });
+  Future<void> actionTriple() => _showInteractionResult(_interactions.triple());
 
-  @override
-  int get copyright => audioItem.value?.arc.copyright ?? 1;
+  bool Function() captureSelection() => _interactions.captureSelection();
 
-  @override
   Future<void> onPayCoin(int coin, bool coinWithLike) =>
-      _runInteraction((account, current) async {
-        if (coin <= 0 || coinNum.value + coin > (copyright == 2 ? 1 : 2)) {
-          SmartDialog.showToast('达到投币上限啦~');
-          return;
-        }
-        final res = await AudioGrpc.audioCoinAdd(
-          account: account,
-          oid: oid,
-          subId: List.of(subId),
-          itemType: itemType,
-          num: coin,
-          thumbUp: coinWithLike,
-        );
-        if (res.isSuccess && identical(account, Accounts.main)) {
-          GlobalData().afterCoin(coin);
-        }
-        if (!current()) return;
-        if (res.isSuccess) {
-          final updateLike = !hasLike.value && coinWithLike;
-          if (updateLike) hasLike.value = true;
-          coinNum.value += coin;
-          final stat = audioItem.value?.stat;
-          if (stat != null) {
-            stat
-              ..hasCoin_8 = true
-              ..coin += coin;
-            if (updateLike) {
-              stat
-                ..hasLike_7 = true
-                ..like += 1;
-            }
-            audioItem.refresh();
-          }
-          SmartDialog.showToast('投币成功');
-        } else {
-          res.toast();
-        }
-      });
+      _showInteractionResult(_interactions.coin(coin, coinWithLike));
 
-  (Account, (Object, int))? _favPanelTarget;
+  Future<void> quickFavorite() =>
+      _showInteractionResult(_interactions.quickFavorite());
 
-  @override
-  Future<void> actionFavVideo({bool isQuick = false}) async {
-    if (!isQuick && _favPanelTarget != (Accounts.main, getFavRidType)) {
-      SmartDialog.showToast('曲目或账号已更新，请重新打开收藏面板');
-      return;
+  void actionCoinVideo() {
+    final choice = _interactions.coinPanel();
+    if (choice case Success(:final response)) {
+      if ((response.availableCoins ?? 1) < 1) {
+        SmartDialog.showToast('硬币不足');
+      }
+      PayCoinsPage.toPayCoinsPage(
+        onPayCoin: payCoinCallback,
+        hasCoin: response.hasCoin,
+        hasCopyright: response.hasCopyright,
+        availableCoins: response.availableCoins,
+      );
+    } else {
+      choice.toast();
     }
-    await _runInteraction(
-      (account, current) => super.actionFavVideo(isQuick: isQuick),
-    );
   }
 
-  @override
+  late final _enableQuickFav = FavoriteLibrary.legacy.quickEnabled;
+
   void showFavBottomSheet(BuildContext context, {bool isLongPress = false}) {
-    if (!_canInteract()) return;
-    _favPanelTarget = (Accounts.main, getFavRidType);
-    if (!isLogin) {
+    if (_interactions.unavailable() case final error?) {
+      error.toast();
+      return;
+    }
+    if (!AccountScope.signedIn) {
       SmartDialog.showToast('账号未登录');
       return;
     }
-    if (enableQuickFav) {
-      if (!isLongPress) {
-        actionFavVideo(isQuick: true);
-      } else {
-        PageUtils.showFavBottomSheet(context: context, ctr: this);
-      }
-    } else if (!isLongPress) {
-      PageUtils.showFavBottomSheet(context: context, ctr: this);
+    if (_enableQuickFav && !isLongPress) {
+      quickFavorite();
+      return;
     }
+    if (!_enableQuickFav && isLongPress) return;
+    final current = captureSelection();
+    PageUtils.showFavBottomSheet(
+      context: context,
+      target: (oid, isUgc ? 2 : 12),
+      isCurrent: current,
+      onSaved: (favored) {
+        if (current()) _interactions.confirmFavorite(favored);
+      },
+    );
   }
 
   void showReply() {
@@ -1261,12 +959,12 @@ class AudioController extends GetxController
   }
 
   void actionShareVideo(BuildContext context) {
-    final item = audioItem.value?.deepCopy();
-    final target = item?.item.oid ?? oid;
-    final ugc = (item?.item.itemType ?? itemType) == 1;
-    final account = Accounts.main;
+    final item = audioItem.value?.info;
+    final target = item?.target.oid ?? oid;
+    final ugc = (item?.target.type ?? itemType) == 1;
+    final accountOwner = AccountScope.capture();
     bool current() =>
-        context.mounted && !isClosed && identical(account, Accounts.main);
+        context.mounted && !_audioClosed && accountOwner.isCurrent;
     final audioUrl = ugc
         ? '${HttpString.baseUrl}/video/${IdUtils.av2bv(target.toInt())}'
         : '${HttpString.baseUrl}/audio/au$target';
@@ -1281,7 +979,7 @@ class AudioController extends GetxController
             onPressed: () {
               if (!current()) return;
               Navigator.of(dialogContext).pop();
-              Utils.copyText(audioUrl);
+              copyText(audioUrl);
             },
           ),
           DialogOption(
@@ -1298,28 +996,22 @@ class AudioController extends GetxController
               onPressed: () {
                 if (!current()) return;
                 Navigator.of(dialogContext).pop();
-                if (item case DetailItem(
-                  :final arc,
-                  :final owner,
-                )) {
+                if (item != null) {
                   ShareUtils.shareText(
-                    '${arc.title} '
-                    'UP主: ${owner.name}'
+                    '${item.title} '
+                    'UP主: ${item.artistName ?? ''}'
                     ' - $audioUrl',
                   );
                 }
               },
             ),
-          if (account.isLogin)
+          if (accountOwner.account.isLogin)
             DialogOption(
               child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
               onPressed: () {
                 if (!current()) return;
                 Navigator.of(dialogContext).pop();
-                if (item case DetailItem(
-                  :final arc,
-                  :final owner,
-                )) {
+                if (item != null) {
                   showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
@@ -1327,35 +1019,32 @@ class AudioController extends GetxController
                     builder: (context) => RepostPanel(
                       rid: target.toInt(),
                       dynType: ugc ? 8 : 256,
-                      pic: arc.cover,
-                      title: arc.title,
-                      uname: owner.name,
+                      pic: item.cover,
+                      title: item.title,
+                      uname: item.artistName ?? '',
                     ),
                   );
                 }
               },
             ),
-          if (ugc && account.isLogin)
+          if (ugc && accountOwner.account.isLogin)
             DialogOption(
               child: const Text('分享至消息', style: TextStyle(fontSize: 14)),
               onPressed: () async {
                 if (!current()) return;
                 Navigator.of(dialogContext).pop();
-                if (item case DetailItem(
-                  :final arc,
-                  :final owner,
-                )) {
+                if (item != null) {
                   try {
                     await PageUtils.pmShare(
                       context,
                       content: {
                         "id": target.toString(),
-                        "title": arc.title,
-                        "headline": arc.title,
+                        "title": item.title,
+                        "headline": item.title,
                         "source": 5,
-                        "thumb": arc.cover,
-                        "author": owner.name,
-                        "author_id": owner.mid.toString(),
+                        "thumb": item.cover,
+                        "author": item.artistName ?? '',
+                        "author_id": item.artistId.toString(),
                       },
                     );
                   } catch (error, stack) {
@@ -1384,13 +1073,12 @@ class AudioController extends GetxController
   });
 
   MediaNavigation get _mediaNavigation {
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     return MediaNavigation(
       isCurrent: () =>
           !_audioClosed &&
-          !isClosed &&
           player != null &&
-          identical(account, Accounts.main) &&
+          accountOwner.isCurrent &&
           videoPlayerServiceHandler?.onPlay == onPlay,
       next: () => _skipPlaylist(1),
       previous: () => _skipPlaylist(-1),
@@ -1398,16 +1086,16 @@ class AudioController extends GetxController
   }
 
   Future<void>? _playAdjacent(int offset) {
-    if (_audioClosed ||
-        isClosed ||
-        index == null ||
-        playlist == null ||
-        player == null) {
+    if (_audioClosed || index == null || playlist == null || player == null) {
       return null;
     }
     final next = index! + offset;
     if (next < 0 || next >= playlist!.length) return null;
-    if (offset > 0 && next == playlist!.length - 1 && _next != null) loadNext();
+    if (offset > 0 &&
+        next == playlist!.length - 1 &&
+        playlistState.value.hasNext) {
+      loadNext();
+    }
     return playIndex(next);
   }
 
@@ -1422,7 +1110,7 @@ class AudioController extends GetxController
 
   bool playNext({bool nextPart = false}) {
     if (nextPart) {
-      if (audioItem.value case DetailItem(:final parts)) {
+      if (audioItem.value?.info case AudioTrackInfo(:final parts)) {
         if (parts.length > 1) {
           final subId = this.subId.firstOrNull;
           final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
@@ -1435,7 +1123,7 @@ class AudioController extends GetxController
             final generation = _playGeneration;
             operation.then((res) {
               if (res && _ownsPlayback(generation)) {
-                _videoDetailController = null;
+                _updateVideoPosition = null;
               }
             });
             return true;
@@ -1446,96 +1134,61 @@ class AudioController extends GetxController
     return _playAdjacent(1) != null;
   }
 
-  Future<void> selectPlaylistItem(DetailItem item, {List<Int64>? subId}) {
-    // 行点击归属实际快照，前插分页和重排后不能沿用旧位置。
-    final selected =
-        playlist?.indexWhere((entry) => identical(entry, item)) ?? -1;
-    if (selected < 0) return Future.value();
+  Future<void> selectPlaylistItem(AudioTrack item, {List<Int64>? subId}) {
+    final selected = _playlist.indexOf(item);
+    if (selected == null) return Future.value();
     return playIndex(selected, subId: subId);
   }
 
   Future<void> playIndex(int index, {List<Int64>? subId}) async {
-    final audioItem = playlist![index];
-    final item = audioItem.item;
+    final items = playlist;
+    if (_audioClosed ||
+        AppExit.application?.isClosing == true ||
+        items == null ||
+        index < 0 ||
+        index >= items.length) {
+      return;
+    }
+    final audioItem = items[index];
+    final item = audioItem.info.target;
     final targetSubIds =
         subId ??
-        (item.subId.isNotEmpty
-            ? item.subId
-            : [if (audioItem.parts.firstOrNull case final part?) part.subId]);
+        (item.parts.isNotEmpty
+            ? item.parts
+            : [
+                if (audioItem.info.parts.firstOrNull case final part?)
+                  part.subId,
+              ]);
     if (index == this.index &&
         item.oid == oid &&
-        item.itemType == itemType &&
+        item.type == itemType &&
         listEquals(targetSubIds, this.subId) &&
         _ownsPlayback(_playGeneration) &&
         (_playbackReady || _pendingPlayGeneration == _playGeneration)) {
       return;
     }
     _start = null;
-    this.index = index;
+    _playlist.select(index);
     oid = item.oid;
     this.subId = List.of(targetSubIds);
-    itemType = item.itemType;
+    itemType = item.type;
+    final statsRevision = _interactions.statsRevision;
     final operation = _queryPlayUrl();
     final generation = _playGeneration;
     if (await operation && _ownsPlayback(generation)) {
-      _videoDetailController = null;
-      _updateCurrItem(audioItem);
+      _updateVideoPosition = null;
+      _updateCurrItem(audioItem, requestedAt: statsRevision);
     }
   }
 
-  @override
-  (Object, int) get getFavRidType => (oid, isUgc ? 2 : 12);
+  Future<bool> loadPrev() => _playlist.loadPrevious();
 
-  @override
-  void updateFavCount(int count) {
-    try {
-      audioItem.value!.stat
-        ..hasFav = count > 0
-        ..favourite += count;
-      audioItem.refresh();
-    } catch (_) {}
-  }
+  Future<bool> loadNext() => _playlist.loadNext();
 
-  Future<bool> loadPrev() => _loadPlaylistPage(previous: true, retry: true);
+  Future<bool> retryPlaylistPage() => _playlist.retryPage();
 
-  Future<bool> loadNext() => _loadPlaylistPage(previous: false);
-
-  Future<bool> retryPlaylistPage() =>
-      _loadPlaylistPage(previous: _failedPageIsPrev, retry: true);
-
-  Future<bool> onChangeOrder(ListOrder value) {
-    if (order == value &&
-        playlistState.value is! Error &&
-        identical(_playlistAccount, Accounts.main)) {
-      return Future.value(false);
-    }
-    order = value;
-    return reloadPlaylist();
-  }
-
-  @override
-  BlockConfigMixin get blockConfig => this;
-
-  @override
-  Future<void> applyBlockMute(bool muted) async {
-    player?.setProperty('mute', muted ? 'yes' : 'no');
-  }
-
-  @override
-  int get currPosInMilliseconds => player?.state.position.inMilliseconds ?? 0;
-
-  @override
-  int? get timeLength => player?.state.duration.inMilliseconds ?? 0;
-
-  @override
-  Future<void>? seekTo(Duration duration, {required bool isSeek}) =>
-      onSeek(duration);
-
-  @override
-  bool get autoPlay => true;
-
-  @override
-  bool get preInitPlayer => true;
+  Future<bool> onChangeOrder(AudioPlaylistOrder value) =>
+      _playlist.changeOrder(value);
 
   void _releaseAudioResource(FutureOr<void> Function() release) {
     unawaited(
@@ -1547,26 +1200,17 @@ class AudioController extends GetxController
     );
   }
 
-  @override
-  void onClose() {
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
     _audioClosed = true;
+    _segments.closeBlock();
     _audioEvent('audio.shutdown.requested', target: player ?? _closingPlayer);
-    _playlistGeneration++;
-    if (_listeningToPlaylistAccount) {
-      Accounts.mainChanges.removeListener(_onPlaylistAccountChanged);
-      _listeningToPlaylistAccount = false;
-    }
+    _playlist.close();
     _playGeneration++;
     _stopStatusTimer();
-    final ownsTimerPause = shutdownTimerService.onPause == onPause;
-    final ownsTimerPlaying = shutdownTimerService.isPlaying == isPlaying;
-    if (ownsTimerPause) shutdownTimerService.onPause = null;
-    if (ownsTimerPlaying) shutdownTimerService.isPlaying = null;
-    if ((ownsTimerPause || ownsTimerPlaying) &&
-        shutdownTimerService.onPause == null &&
-        shutdownTimerService.isPlaying == null) {
-      shutdownTimerService.reset();
-    }
+    _shutdownBinding?.dispose();
+    _shutdownBinding = null;
     final handler = videoPlayerServiceHandler;
     if (handler != null) {
       final ownsPlay = handler.onPlay == onPlay;
@@ -1588,60 +1232,60 @@ class AudioController extends GetxController
     player = null;
     final lease = _audioLease;
     _audioLease = null;
-    _releaseAudioResource(() {
-      Future<void> release() async {
-        // 等初始化和不可撤销的 open 真正退出后再销毁，最后交还视频抑制。
-        try {
-          await _playerInitialization;
-        } catch (_) {
-          // 创建失败已交付；可能已分配的原生句柄仍须单独等待清理。
-        }
-        await _mediaOpening;
-        if (_unreleasedCreation case final failure?) {
-          _audioEvent('audio.shutdown.waitingForCreation');
-          try {
-            await failure.released;
-          } catch (error) {
-            _audioEvent('audio.shutdown.failed', error: error);
-            rethrow;
-          }
-        }
-        final releasing = target ?? _closingPlayer;
-        if (releasing != null) {
-          _audioEvent('audio.shutdown.disposing', target: releasing);
-          try {
-            await releasing.dispose();
-          } catch (error) {
-            _audioEvent(
-              'audio.shutdown.failed',
-              target: releasing,
-              error: error,
-            );
-            rethrow;
-          }
-        }
-        _audioEvent('audio.shutdown.released', target: releasing);
-        _closingPlayer = null;
+    Future<void> release() async {
+      // 等初始化和不可撤销的 open 真正退出后再销毁，最后交还视频抑制。
+      try {
+        await _playerInitialization;
+      } catch (_) {
+        // 创建失败已交付；可能已分配的原生句柄仍须单独等待清理。
       }
+      await _mediaOpening;
+      if (_unreleasedCreation case final failure?) {
+        _audioEvent('audio.shutdown.waitingForCreation');
+        try {
+          await failure.released;
+        } catch (error) {
+          _audioEvent('audio.shutdown.failed', error: error);
+          rethrow;
+        }
+      }
+      final releasing = target ?? _closingPlayer;
+      if (releasing != null) {
+        _audioEvent('audio.shutdown.disposing', target: releasing);
+        try {
+          await releasing.dispose();
+        } catch (error) {
+          _audioEvent(
+            'audio.shutdown.failed',
+            target: releasing,
+            error: error,
+          );
+          rethrow;
+        }
+      }
+      _audioEvent('audio.shutdown.released', target: releasing);
+      _closingPlayer = null;
+    }
 
-      // 立即登记关闭，后续音频接管必须等待上述真实释放屏障。
-      return lease?.close(release) ?? release();
-    });
-    animController.dispose();
-    super.onClose();
+    // 立即登记关闭，后续音频接管必须等待上述真实释放屏障。
+    await (lease?.close(release) ?? release());
+    _unregisterExit?.call();
+    _unregisterExit = null;
   }
-}
 
-extension on DashItem {
-  Iterable<String> get playUrls sync* {
-    yield baseUrl;
-    yield* backupUrl;
-  }
-}
-
-extension on ResponseUrl {
-  Iterable<String> get playUrls sync* {
-    yield url;
-    yield* backupUrl;
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _releaseAudioResource(close);
+    _segments.disposeBlock();
+    _playlist.dispose();
+    audioItem.dispose();
+    _hasPlayer.dispose();
+    _playing.dispose();
+    position.dispose();
+    _duration.dispose();
+    _playMode.dispose();
+    _volumeDraft.dispose();
+    _desktopVolume.dispose();
   }
 }

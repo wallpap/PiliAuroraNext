@@ -1,8 +1,8 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/search/search_esports.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/features/search/domain/search_esports.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:material_ui/material_ui.dart';

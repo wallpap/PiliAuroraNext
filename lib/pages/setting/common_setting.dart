@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/models/common/setting_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
+import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';
 import 'package:material_ui/material_ui.dart';
 
 class CommonSetting extends StatefulWidget {
@@ -22,13 +22,7 @@ class _CommonSettingState extends State<CommonSetting> {
   late List<SettingsModel> settings;
 
   void _initSetting() {
-    settings = widget.settingType.settings;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _initSetting();
+    settings = widget.settingType.settings(context);
   }
 
   @override
@@ -42,6 +36,7 @@ class _CommonSettingState extends State<CommonSetting> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _initSetting();
     padding = MediaQuery.viewPaddingOf(context);
   }
 

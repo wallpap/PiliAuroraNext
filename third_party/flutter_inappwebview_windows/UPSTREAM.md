@@ -1,7 +1,7 @@
 # 本地 Windows WebView 补丁
 
 - 来源包：flutter_inappwebview_windows 0.6.0。
-- 本地版本：`0.6.0+piliauroranext.1`，登记见 `../dependencies.json`。
+- 本地版本为 `0.6.0+piliauroranext.2`，登记见 `../dependencies.json`。
 - 来源：bggRGjQaUbCoE/flutter_inappwebview。
 - 固定提交：0bfa46dfff87f0d9e9d5e13cbd5c4a7c7310f8c9。
 - 仅复制该包的 lib、windows、pubspec、analysis_options 与许可/版本说明；不复制 example、开发缓存或 Git 仓库。
@@ -11,6 +11,8 @@
 - 本机顺序重建、DOM/容器清理与短播放退出的验证记录对应 2026-10-03；多 engine 和异步队列关闭的边界见下文。
 
 ## 补丁范围与边界
+
+- `0.6.0+piliauroranext.2` 让嵌入式视图在发起原生创建前登记释放屏障。组件卸载后丢弃迟到的创建和布局回调，等待原生销毁回执后才允许销毁共享环境。
 
 - `0.6.0（迁移前修订 4）`：插件注册只注册窗口类；首次创建嵌入式 WebView 时才初始化
   RoHelper、DispatcherQueue、D3D 设备及 compositor，Cookie、Environment、headless 和

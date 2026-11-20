@@ -1,10 +1,10 @@
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_segments.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 abstract final class DmGrpc {
   static Future<LoadingState<DmSegMobileReply>> dmSegMobile({
@@ -14,18 +14,10 @@ abstract final class DmGrpc {
     DanmakuWorkToken? workToken,
     Future<void> Function(DmSegMobileReply, DanmakuWorkLease)? consume,
   }) {
-    return GrpcReq.request(
-      GrpcUrl.dmSegMobile,
-      DmSegMobileReq(
-        oid: Int64(cid),
-        segmentIndex: Int64(segmentIndex),
-        type: type,
-      ),
-      DmSegMobileReply.fromBuffer,
-      kind: .query,
-      isolate: true,
-      danmakuWork: true,
-      inspectDecoded: inspectDanmakuProtobuf,
+    return requestRawDanmakuSegment(
+      cid: cid,
+      segmentIndex: segmentIndex,
+      type: type,
       workToken: workToken,
       consume: consume,
     );

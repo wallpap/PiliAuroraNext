@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
+import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 
 /// 直播与空间搜索共用滚动、刷新和分页状态，子页只提供查询与内容布局。
 abstract class ScopedSearchPageState<W extends ConsumerStatefulWidget>

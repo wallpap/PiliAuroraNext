@@ -6,26 +6,28 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
-import 'package:pili_aurora_next/pages/main_reply/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
-import 'package:pili_aurora_next/utils/extension/widget_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/widget_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MainReplyPage extends StatefulWidget {
+class MainReplyPage extends ConsumerStatefulWidget {
   const MainReplyPage({super.key});
 
   @override
-  State<MainReplyPage> createState() => _MainReplyPageState();
+  ConsumerState<MainReplyPage> createState() => _MainReplyPageState();
 
   static void toMainReplyPage({
     required int oid,
@@ -41,12 +43,34 @@ class MainReplyPage extends StatefulWidget {
   }
 }
 
-class _MainReplyPageState extends State<MainReplyPage>
+class _MainReplyPageState extends ConsumerState<MainReplyPage>
     with SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
-  final _controller = Get.put(
-    MainReplyController(),
-    tag: Utils.generateRandomString(8),
-  );
+  final _interactions = CommentInteractions();
+  late final CommentsQuery _query;
+  Comments get _comments => ref.read(commentsProvider(_query).notifier);
+  CommentsState get _snapshot => ref.read(commentsProvider(_query));
+
+  @override
+  void initState() {
+    super.initState();
+    final args = Get.arguments as Map;
+    _query = (
+      owner: Object(),
+      thread: null,
+      target: (oid: args['oid'] as int, type: args['replyType'] as int),
+    );
+  }
+
+  void _compose(CommentReply? item, {int? oid, int? replyType, int? index}) =>
+      _interactions.compose(
+        context,
+        _comments,
+        _snapshot,
+        _query.target.oid,
+        item,
+        oid: oid,
+        replyType: replyType,
+      );
 
   late EdgeInsets padding;
 
@@ -59,24 +83,29 @@ class _MainReplyPageState extends State<MainReplyPage>
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
+    final state = ref.watch(commentsProvider(_query));
     return SimpleScaffold(
       appBar: AppBar(title: const Text('查看评论')),
       body: fabAnimWrapper(
         child: refreshIndicator(
-          onRefresh: _controller.onRefresh,
+          onRefresh: _comments.refresh,
           child: Padding(
             padding: EdgeInsets.only(
               left: padding.left,
               right: padding.right,
             ),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                buildReplyHeader(colorScheme),
-                Obx(
-                  () => _buildBody(colorScheme, _controller.loadingState.value),
-                ),
-              ],
+            child: FeedPagination.notifications(
+              dataSource: state.source,
+              dataRevision: state,
+              canLoadMore: () => state.canLoadMore,
+              onLoadMore: _comments.loadMore,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  buildReplyHeader(colorScheme, state),
+                  _buildBody(colorScheme, state),
+                ],
+              ),
             ),
           ),
         ).constraintWidth(),
@@ -93,10 +122,10 @@ class _MainReplyPageState extends State<MainReplyPage>
             onPressed: () {
               try {
                 feedBack();
-                _controller.onReply(
+                _compose(
                   null,
-                  oid: _controller.oid,
-                  replyType: _controller.replyType,
+                  oid: _query.target.oid,
+                  replyType: _query.target.type,
                 );
               } catch (_) {}
             },
@@ -110,9 +139,9 @@ class _MainReplyPageState extends State<MainReplyPage>
 
   Widget _buildBody(
     ColorScheme colorScheme,
-    LoadingState<List<ReplyInfo>?> loadingState,
+    CommentsState state,
   ) {
-    return switch (loadingState) {
+    return switch (state.loading) {
       Loading() => const SliverPrototypeExtentList(
         prototypeItem: VideoReplySkeleton(),
         delegate: SliverSingleChildDelegate(
@@ -121,18 +150,23 @@ class _MainReplyPageState extends State<MainReplyPage>
         ),
       ),
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? SliverList.builder(
                 itemCount: response.length + 1,
                 itemBuilder: (context, index) {
                   if (index == response.length) {
-                    _controller.onLoadMore();
+                    if (state.pageError case final error?) {
+                      return TextButton(
+                        onPressed: () => _comments.loadMore(retry: true),
+                        child: Text('$error'),
+                      );
+                    }
                     return Container(
                       alignment: Alignment.center,
                       margin: EdgeInsets.only(bottom: padding.bottom),
                       height: 125,
                       child: Text(
-                        _controller.isEnd ? '没有更多了' : '加载中...',
+                        !state.hasMore ? '没有更多了' : '加载中...',
                         style: TextStyle(
                           fontSize: 12,
                           color: colorScheme.outline,
@@ -145,36 +179,38 @@ class _MainReplyPageState extends State<MainReplyPage>
                       replyLevel: 1,
                       replyReply: (replyItem, id) =>
                           replyReply(context, replyItem, id, colorScheme),
-                      onReply: _controller.onReply,
+                      onReply: _compose,
                       onDelete: (item, subIndex) =>
-                          _controller.onRemove(index, item, subIndex),
-                      upMid: _controller.upMid,
-                      onCheckReply: _controller.onCheckReply,
-                      onToggleTop: (item) => _controller.onToggleTop(
+                          _comments.remove(item, subIndex),
+                      upMid: state.upMid,
+                      onCheckReply: (item) => _interactions.check(
+                        _comments,
+                        _query.target.oid,
                         item,
-                        index,
-                        _controller.oid,
-                        _controller.replyType,
                       ),
+                      onToggleTop: (item) =>
+                          _interactions.togglePinned(context, _comments, item),
                     );
                   }
                 },
               )
             : HttpError(
-                errMsg: _controller.emptyReplyMessage,
-                btnText: _controller.canLoadMore ? '继续加载' : null,
-                onReload: _controller.canLoadMore
-                    ? _controller.onLoadMore
-                    : _controller.onReload,
+                errMsg: CommentPreferences.minimumUserLevel > 0
+                    ? '暂无符合等级条件的评论'
+                    : '还没有评论',
+                btnText: state.hasMore ? '继续加载' : null,
+                onReload: state.hasMore
+                    ? () => _comments.loadMore(retry: true)
+                    : () => _comments.refresh(clear: true),
               ),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: () => _comments.refresh(clear: true),
       ),
     };
   }
 
-  Widget buildReplyHeader(ColorScheme colorScheme) {
+  Widget buildReplyHeader(ColorScheme colorScheme, CommentsState state) {
     final secondary = colorScheme.secondary;
     return SliverFloatingHeaderWidget(
       backgroundColor: colorScheme.surface,
@@ -183,23 +219,16 @@ class _MainReplyPageState extends State<MainReplyPage>
         child: Row(
           mainAxisAlignment: .spaceBetween,
           children: [
-            Obx(
-              () {
-                final count = _controller.count.value;
-                return Text(
-                  '${count == -1 ? 0 : NumUtils.numFormat(count)}条回复',
-                );
-              },
+            Text(
+              '${state.count == -1 ? 0 : NumUtils.numFormat(state.count)}条回复',
             ),
             TextButton.icon(
               style: Style.buttonStyle,
-              onPressed: _controller.queryBySort,
+              onPressed: () => _interactions.toggleSort(_comments, state),
               icon: Icon(Icons.sort, size: 16, color: secondary),
-              label: Obx(
-                () => Text(
-                  _controller.sortType.value.descShort,
-                  style: TextStyle(fontSize: 13, color: secondary),
-                ),
+              label: Text(
+                state.sort.descShort,
+                style: TextStyle(fontSize: 13, color: secondary),
               ),
             ),
           ],
@@ -210,11 +239,14 @@ class _MainReplyPageState extends State<MainReplyPage>
 
   void replyReply(
     BuildContext context,
-    ReplyInfo replyItem,
+    CommentReply replyItem,
     int? id,
     ColorScheme colorScheme,
   ) {
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
+      final comments = _comments;
+      final current = comments.capture();
+      final state = _snapshot;
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
       Get.to(
@@ -234,10 +266,12 @@ class _MainReplyPageState extends State<MainReplyPage>
               oid: oid,
               rpid: rpid,
               isVideoDetail: false,
-              replyType: _controller.replyType,
+              replyType: _query.target.type,
               firstFloor: replyItem,
-              upMid: _controller.upMid,
-              onUpdate: _controller.loadingState.refresh,
+              upMid: state.upMid,
+              onUpdate: () {
+                if (current()) comments.touch();
+              },
             ),
           ).constraintWidth(),
         ),

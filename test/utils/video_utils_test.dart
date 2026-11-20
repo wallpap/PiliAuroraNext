@@ -1,35 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/url_info.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/video_utils.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/codec.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/url_info.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 
 import '../support/memory_box.dart';
 
 void main() {
-  late bool previousDisableAudioCdn;
-  late String? previousLiveCdnUrl;
-
   setUpAll(() {
     GStorage.setting = MemoryBox<dynamic>();
   });
 
-  setUp(() async {
-    await GStorage.setting.clear();
-    previousDisableAudioCdn = VideoUtils.disableAudioCDN;
-    previousLiveCdnUrl = VideoUtils.liveCdnUrl;
-    VideoUtils.disableAudioCDN = false;
-  });
-
-  tearDown(() {
-    VideoUtils.disableAudioCDN = previousDisableAudioCdn;
-    VideoUtils.liveCdnUrl = previousLiveCdnUrl;
-  });
+  setUp(() => GStorage.setting.clear());
 
   test('单来源空输入始终明确失败，多来源仍交付空候选', () {
     for (final service in CDNService.values) {
@@ -38,7 +25,8 @@ void main() {
         ['', '  '],
       ]) {
         expect(
-          () => VideoUtils.getCdnUrl(empty, defaultCDNService: service),
+          () =>
+              MediaSourceSelection.getCdnUrl(empty, defaultCDNService: service),
           throwsA(
             isA<FormatException>().having(
               (error) => error.source,
@@ -48,7 +36,7 @@ void main() {
           ),
         );
         expect(
-          VideoUtils.getCdnUrls(empty, defaultCDNService: service),
+          MediaSourceSelection.getCdnUrls(empty, defaultCDNService: service),
           isEmpty,
         );
       }
@@ -58,7 +46,10 @@ void main() {
   test('未知和相对来源保持原文，日志不包含地址或签名', () {
     const url =
         'https://unknown.example.test/private-path?private-signature=secret';
-    expect(VideoUtils.getCdnUrl([url], defaultCDNService: CDNService.hw), url);
+    expect(
+      MediaSourceSelection.getCdnUrl([url], defaultCDNService: CDNService.hw),
+      url,
+    );
     final record = Diagnostics.instance.recentLogs.lastWhere(
       (record) => record['message'].toString().contains('未识别的 CDN'),
     );
@@ -67,7 +58,7 @@ void main() {
     expect(record.toString(), isNot(contains('private-signature')));
     expect(record.toString(), isNot(contains('secret')));
     expect(
-      VideoUtils.getCdnUrl([
+      MediaSourceSelection.getCdnUrl([
         '/relative-video?signature=x',
       ], defaultCDNService: CDNService.hw),
       '/relative-video?signature=x',
@@ -81,8 +72,12 @@ void main() {
       'https://foo.szbdyd.com/video?xy_usource=%5Bprivate-signature',
     ]) {
       for (final select in <Object Function()>[
-        () => VideoUtils.getCdnUrl([url], defaultCDNService: CDNService.hw),
-        () => VideoUtils.getCdnUrls([url], defaultCDNService: CDNService.hw),
+        () => MediaSourceSelection.getCdnUrl([
+          url,
+        ], defaultCDNService: CDNService.hw),
+        () => MediaSourceSelection.getCdnUrls([
+          url,
+        ], defaultCDNService: CDNService.hw),
       ]) {
         expect(
           select,
@@ -108,26 +103,29 @@ void main() {
 
   test('编码保持偏好排序，无匹配时沿用首项，空或未知编码明确失败', () {
     expect(
-      VideoUtils.selectCodec(
+      MediaSourceSelection.selectCodec(
         ['avc1.640028', 'hvc1.1'],
         [VideoDecodeFormatType.HEVC, VideoDecodeFormatType.AVC],
       ),
       VideoDecodeFormatType.HEVC,
     );
     expect(
-      VideoUtils.selectCodec(['avc1.640028', 'hvc1.1'], []),
+      MediaSourceSelection.selectCodec(['avc1.640028', 'hvc1.1'], []),
       VideoDecodeFormatType.AVC,
     );
     expect(
-      VideoUtils.selectCodec(['avc1.640028'], [VideoDecodeFormatType.AV1]),
+      MediaSourceSelection.selectCodec(
+        ['avc1.640028'],
+        [VideoDecodeFormatType.AV1],
+      ),
       VideoDecodeFormatType.AVC,
     );
     expect(
-      () => VideoUtils.selectCodec([], []),
+      () => MediaSourceSelection.selectCodec([], []),
       throwsA(isA<FormatException>()),
     );
     expect(
-      () => VideoUtils.selectCodec(['private-codec'], []),
+      () => MediaSourceSelection.selectCodec(['private-codec'], []),
       throwsA(
         isA<VideoSelectionException>().having(
           (error) => error.toString(),
@@ -137,7 +135,7 @@ void main() {
       ),
     );
     expect(
-      VideoUtils.selectCodec(
+      MediaSourceSelection.selectCodec(
         ['private-codec', 'avc1.640028'],
         [VideoDecodeFormatType.AVC],
       ),
@@ -153,20 +151,19 @@ void main() {
       urlInfo: [],
     );
     expect(
-      () => VideoUtils.getLiveCdnUrl(item),
+      () => MediaSourceSelection.getLiveCdnUrl(item),
       throwsA(isA<FormatException>()),
     );
     expect(
-      () => VideoUtils.getLiveCdnUrls(item),
+      () => MediaSourceSelection.getLiveCdnUrls(item),
       throwsA(isA<FormatException>()),
     );
-    VideoUtils.liveCdnUrl = null;
     item.urlInfo.add(
       UrlInfo(host: 'https://a.example.test', extra: '?signature=x'),
     );
     for (final index in [-1, 1]) {
       expect(
-        VideoUtils.getLiveCdnUrl(item, index: index),
+        MediaSourceSelection.getLiveCdnUrl(item, index: index),
         'https://a.example.test/stream.flv?signature=x',
       );
     }
@@ -178,7 +175,7 @@ void main() {
     const backup =
         'https://upos-sz-mirrorali.bilivideo.com/upgcxcode/video?sign=ali';
     expect(
-      VideoUtils.getCdnUrl(
+      MediaSourceSelection.getCdnUrl(
         [original, backup],
         defaultCDNService: CDNService.akamai,
       ),
@@ -186,7 +183,7 @@ void main() {
     );
 
     await GStorage.setting.put(SettingBoxKey.enableMultiCdn, true);
-    final urls = VideoUtils.getCdnUrls(
+    final urls = MediaSourceSelection.getCdnUrls(
       [original, backup],
       defaultCDNService: CDNService.cos,
     );
@@ -211,25 +208,39 @@ void main() {
     final hw = cos.replaceFirst('mirrorcos', 'mirrorhw');
     for (final service in CDNService.values) {
       expect(
-        VideoUtils.getCdnUrl([akamai], defaultCDNService: service),
+        MediaSourceSelection.getCdnUrl([akamai], defaultCDNService: service),
         akamai,
       );
     }
     expect(
-      VideoUtils.getCdnUrl([akamai, cos], defaultCDNService: CDNService.hw),
+      MediaSourceSelection.getCdnUrl([
+        akamai,
+        cos,
+      ], defaultCDNService: CDNService.hw),
       hw,
     );
     expect(
-      VideoUtils.getCdnUrl([akamai, cos], defaultCDNService: CDNService.akamai),
+      MediaSourceSelection.getCdnUrl([
+        akamai,
+        cos,
+      ], defaultCDNService: CDNService.akamai),
       akamai,
     );
     await GStorage.setting.put(SettingBoxKey.enableMultiCdn, true);
     await GStorage.setting.put(SettingBoxKey.cdnFallbackOrder, ['hw']);
-    expect(VideoUtils.getCdnUrls([akamai], defaultCDNService: CDNService.hw), [
-      akamai,
-    ]);
     expect(
-      VideoUtils.getCdnUrls([akamai, cos], defaultCDNService: CDNService.hw),
+      MediaSourceSelection.getCdnUrls([
+        akamai,
+      ], defaultCDNService: CDNService.hw),
+      [
+        akamai,
+      ],
+    );
+    expect(
+      MediaSourceSelection.getCdnUrls([
+        akamai,
+        cos,
+      ], defaultCDNService: CDNService.hw),
       [hw, akamai, cos],
     );
   });
@@ -240,7 +251,7 @@ void main() {
     const other =
         'https://foo.szbdyd.com/video?xy_usource=upos-sz-mirrorali.bilivideo.com';
     expect(
-      VideoUtils.getCdnUrl(
+      MediaSourceSelection.getCdnUrl(
         [original, other],
         defaultCDNService: CDNService.hw,
       ),
@@ -256,7 +267,7 @@ void main() {
       final signed =
           'https://${service.host}/upgcxcode/video?sign=A%2bb%2F&key=1&key=2';
       expect(
-        VideoUtils.getCdnUrl([
+        MediaSourceSelection.getCdnUrl([
           legacy,
           signed,
           signed.replaceFirst('sign=A', 'sign=other'),
@@ -266,7 +277,7 @@ void main() {
       );
     }
     expect(
-      VideoUtils.getCdnUrl([
+      MediaSourceSelection.getCdnUrl([
         legacy,
         'https://upos-sz-mirrorcos.bilivideo.com/upgcxcode/video?sign=cos',
       ], defaultCDNService: CDNService.hw),
@@ -279,7 +290,7 @@ void main() {
     const upgcxcode =
         'https://cn-bcache.bilivideo.com/upgcxcode/video?sign=original';
     expect(
-      VideoUtils.getCdnUrl([
+      MediaSourceSelection.getCdnUrl([
         resource,
         '$upgcxcode&old=1',
         upgcxcode,
@@ -287,7 +298,10 @@ void main() {
       'https://upos-sz-mirrorhw.bilivideo.com/upgcxcode/video?sign=original',
     );
     final proxy = Uri.parse(
-      VideoUtils.getCdnUrl([resource], defaultCDNService: CDNService.backupUrl),
+      MediaSourceSelection.getCdnUrl(
+        [resource],
+        defaultCDNService: CDNService.backupUrl,
+      ),
     );
     expect(proxy.host, 'proxy-tf-all-ws.bilivideo.com');
     expect(proxy.queryParameters['url'], resource);
@@ -312,12 +326,12 @@ void main() {
     ]) {
       const sources = [cos, akamai, ali, cos];
       expect(
-        VideoUtils.getCdnUrl(sources, defaultCDNService: service),
+        MediaSourceSelection.getCdnUrl(sources, defaultCDNService: service),
         expected.first,
         reason: service.name,
       );
       expect(
-        VideoUtils.getCdnUrls(sources, defaultCDNService: service),
+        MediaSourceSelection.getCdnUrls(sources, defaultCDNService: service),
         expected,
         reason: service.name,
       );
@@ -334,12 +348,15 @@ void main() {
         UrlInfo(host: 'https://b.example.com', extra: '?b=2'),
       ],
     );
-    expect(VideoUtils.getLiveCdnUrls(codec, index: 1), [
+    expect(MediaSourceSelection.getLiveCdnUrls(codec, index: 1), [
       'https://b.example.com/stream.flv?b=2',
     ]);
     await GStorage.setting.put(SettingBoxKey.enableMultiCdn, true);
-    VideoUtils.liveCdnUrl = 'https://custom.example.com';
-    expect(VideoUtils.getLiveCdnUrls(codec, index: 1), [
+    GStorage.setting.put(
+      SettingBoxKey.liveCdnUrl,
+      'https://custom.example.com',
+    );
+    expect(MediaSourceSelection.getLiveCdnUrls(codec, index: 1), [
       'https://custom.example.com/stream.flv?b=2',
       'https://a.example.com/stream.flv?a=1',
       'https://b.example.com/stream.flv?b=2',
@@ -355,7 +372,7 @@ void main() {
       const backup =
           'https://upos-sz-mirrorali.bilivideo.com/upgcxcode/video?deadline=1';
 
-      final urls = VideoUtils.getCdnUrls(
+      final urls = MediaSourceSelection.getCdnUrls(
         [primary, backup, primary],
         defaultCDNService: CDNService.hw,
       );
@@ -388,7 +405,7 @@ void main() {
           'https://upos-sz-mirrorcos.bilivideo.com/upgcxcode/video?deadline=1';
       const backup = 'https://backup.example.com/video?deadline=1';
       expect(
-        VideoUtils.getCdnUrls([
+        MediaSourceSelection.getCdnUrls([
           primary,
           backup,
         ], defaultCDNService: CDNService.ali),
@@ -402,7 +419,7 @@ void main() {
 
       await GStorage.setting.put(SettingBoxKey.enableMultiCdn, false);
       expect(
-        VideoUtils.getCdnUrls([
+        MediaSourceSelection.getCdnUrls([
           primary,
           backup,
         ], defaultCDNService: CDNService.ali),
@@ -424,7 +441,9 @@ void main() {
         await GStorage.setting.put(SettingBoxKey.enableMultiCdn, enabled);
       }
       expect(
-        VideoUtils.getCdnUrls([cos], defaultCDNService: CDNService.cos),
+        MediaSourceSelection.getCdnUrls([
+          cos,
+        ], defaultCDNService: CDNService.cos),
         enabled == true ? [cos, hw] : [cos],
         reason: 'enableMultiCdn=$enabled',
       );
@@ -432,7 +451,7 @@ void main() {
         <String>[],
         ['', ''],
       ]) {
-        expect(VideoUtils.getCdnUrls(empty), isEmpty);
+        expect(MediaSourceSelection.getCdnUrls(empty), isEmpty);
       }
     }
   });
@@ -448,9 +467,9 @@ void main() {
       const hw =
           'https://upos-sz-mirrorhw.bilivideo.com/upgcxcode/audio?deadline=1';
       for (final disabled in [false, true]) {
-        VideoUtils.disableAudioCDN = disabled;
+        GStorage.setting.put(SettingBoxKey.disableAudioCDN, disabled);
         expect(
-          VideoUtils.getCdnUrls(
+          MediaSourceSelection.getCdnUrls(
             [cos, ali],
             defaultCDNService: CDNService.ali,
             isAudio: true,

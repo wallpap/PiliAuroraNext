@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -16,7 +17,8 @@ import 'package:pili_aurora_next/common/widgets/emote_tooltip.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
     show RefreshIndicator, displacement, refreshDragExtent;
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
-    show deviceTouchSlop, touchSlopH;
+    show touchSlopH;
+import 'package:pili_aurora_next/services/settings/gesture_defaults.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_grid/image_grid_view.dart'
     show ImageGridView, ImageModel;
@@ -25,18 +27,19 @@ import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show kSpringDescription;
 import 'package:pili_aurora_next/common/widgets/stateful_builder.dart';
-import 'package:pili_aurora_next/models/common/bar_hide_type.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamic_badge_mode.dart';
-import 'package:pili_aurora_next/models/common/dynamic/up_panel_position.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_color_type.dart';
-import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
-import 'package:pili_aurora_next/models/common/theme/theme_type.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/bar_hide_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamic_badge_mode.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up_panel_position.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
+import 'package:pili_aurora_next/services/settings/badge_preferences.dart';
+import 'package:pili_aurora_next/services/settings/navigation_preferences.dart';
+import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/services/settings/theme/app_icon_style.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
@@ -46,20 +49,24 @@ import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/slider_dialog.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/services/app_icon.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/filtering_text.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/router/get_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/common/input/filtering_text.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
-List<SettingsModel> get styleSettings => [
+List<SettingsModel> styleSettings(BuildContext context) => _styleSettings(
+  ProviderScope.containerOf(context).read(badgePreferencesProvider),
+  MediaQuery.widthOf(context).toPrecision(2),
+);
+
+List<SettingsModel> _styleSettings(BadgePreferences badges, double width) => [
   SettingsGroup(
     title: '主题与文字',
     subtitle: '主题颜色、字体与界面缩放',
@@ -129,10 +136,7 @@ List<SettingsModel> get styleSettings => [
               color: theme.colorScheme.primary,
             );
           }
-          final customColor = Pref.customColor;
-          final color =
-              colorThemeTypes.elementAtOrNull(customColor)?.color ??
-              Color(customColor);
+          final color = ThemePreferences.seedColor(ThemePreferences.color);
           return SizedBox.square(
             dimension: 20,
             child: ColorPalette(
@@ -154,18 +158,16 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.dashboard_outlined),
     children: [
       if (PlatformUtils.isDesktop) ...[
-        const SwitchModel(
+        SwitchModel.window(
           title: '显示窗口标题栏',
-          leading: Icon(Icons.window),
-          setKey: SettingBoxKey.showWindowTitleBar,
-          defaultVal: true,
+          leading: const Icon(Icons.window),
+          preference: WindowPreference.showTitleBar,
           needReboot: true,
         ),
-        const SwitchModel(
+        SwitchModel.window(
           title: '显示托盘图标',
-          leading: Icon(Icons.donut_large_rounded),
-          setKey: SettingBoxKey.showTrayIcon,
-          defaultVal: true,
+          leading: const Icon(Icons.donut_large_rounded),
+          preference: WindowPreference.showTrayIcon,
           needReboot: true,
         ),
       ],
@@ -217,7 +219,7 @@ List<SettingsModel> get styleSettings => [
         leading: const Icon(Icons.calendar_view_week_outlined),
         title: '列表宽度（dp）限制',
         getSubtitle: () =>
-            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
+            '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${width}dp。宽度越小列数越多。',
         onTap: _showCardWidthDialog,
       ),
       const SwitchModel(
@@ -232,7 +234,10 @@ List<SettingsModel> get styleSettings => [
         value: () => Pref.barHideType,
         items: BarHideType.values,
         onSelected: (value, setState) async {
-          await GStorage.setting.put(SettingBoxKey.barHideType, value.index);
+          await SettingsValues.general.save(
+            SettingBoxKey.barHideType,
+            value.index,
+          );
           setState();
           SmartDialog.showToast('重启生效');
         },
@@ -256,13 +261,10 @@ List<SettingsModel> get styleSettings => [
       PopupModel(
         leading: const Icon(Icons.home_outlined),
         title: '默认启动页',
-        value: () => Pref.defaultHomePage,
+        value: () => NavigationPreferences.defaultTab,
         items: NavigationBarType.values,
         onSelected: (value, setState) async {
-          await GStorage.setting.put(
-            SettingBoxKey.defaultHomePage,
-            value.index,
-          );
+          await NavigationPreferences.saveDefaultTab(value);
           setState();
           SmartDialog.showToast('重启生效');
         },
@@ -293,14 +295,11 @@ List<SettingsModel> get styleSettings => [
         subtitle: '删除或调换Navbar',
         leading: const Icon(Icons.toc_outlined),
       ),
-      SwitchModel(
+      SwitchModel.window(
         title: '返回时直接退出',
         subtitle: '开启后在主页任意tab按返回键都直接退出，关闭则先回到Navbar的第一个tab',
         leading: const Icon(Icons.exit_to_app_outlined),
-        setKey: SettingBoxKey.directExitOnBack,
-        defaultVal: false,
-        onChanged: (value) =>
-            Get.find<MainController>().directExitOnBack = value,
+        preference: WindowPreference.directExitOnBack,
       ),
     ],
   ),
@@ -323,7 +322,7 @@ List<SettingsModel> get styleSettings => [
         value: () => Pref.upPanelPosition,
         items: UpPanelPosition.values,
         onSelected: (value, setState) async {
-          await GStorage.setting.put(
+          await SettingsValues.general.save(
             SettingBoxKey.upPanelPosition,
             value.index,
           );
@@ -348,23 +347,24 @@ List<SettingsModel> get styleSettings => [
       PopupModel(
         title: '动态未读标记',
         leading: const Icon(Icons.motion_photos_on_outlined),
-        value: () => Pref.dynamicBadgeType,
+        value: () => badges.dynamicMode,
         items: DynamicBadgeMode.values,
-        onSelected: _setDynBadge,
+        onSelected: (value, refresh) => _setDynBadge(badges, value, refresh),
       ),
       PopupModel(
         title: '消息未读标记',
         leading: const Icon(MdiIcons.bellBadgeOutline),
-        value: () => Pref.msgBadgeMode,
+        value: () => badges.messageMode,
         items: DynamicBadgeMode.values,
-        onSelected: _setMsgBadge,
+        onSelected: (value, refresh) => _setMsgBadge(badges, value, refresh),
       ),
       NormalModel(
-        onTap: _showMsgUnReadDialog,
+        onTap: (context, refresh) =>
+            _showMsgUnReadDialog(context, badges, refresh),
         title: '消息未读类型',
         leading: const Icon(MdiIcons.bellCogOutline),
         getSubtitle: () =>
-            '当前消息类型：${Pref.msgUnReadTypeV2.map((item) => item.title).join('、')}',
+            '当前消息类型：${badges.messageTypes.map((item) => item.title).join('、')}',
       ),
     ],
   ),
@@ -385,12 +385,8 @@ List<SettingsModel> get styleSettings => [
           context: context,
           title: const Text('图片质量'),
           initValue: Pref.picQuality,
-          write: (picQuality) =>
-              GStorage.setting.put(SettingBoxKey.defaultPicQa, picQuality),
-          apply: (picQuality) {
-            GlobalData().imgQuality = picQuality;
-            setState();
-          },
+          write: DisplayPreferences.saveImageQuality,
+          apply: (_) => setState(),
         ),
         title: '图片质量',
         subtitle: '选择合适的图片清晰度，上限100%',
@@ -405,8 +401,10 @@ List<SettingsModel> get styleSettings => [
           context: context,
           title: const Text('查看大图质量'),
           initValue: Pref.previewQ,
-          write: (picQuality) =>
-              GStorage.setting.put(SettingBoxKey.previewQuality, picQuality),
+          write: (picQuality) => SettingsValues.general.save(
+            SettingBoxKey.previewQuality,
+            picQuality,
+          ),
           apply: (_) => setState(),
         ),
         title: '查看大图质量',
@@ -588,7 +586,7 @@ void _showUiScaleDialog(
           onPressed: () async {
             final saved = await saveSetting(
               key: SettingBoxKey.uiScale,
-              write: () => GStorage.setting.delete(SettingBoxKey.uiScale),
+              write: () => SettingsValues.general.reset(SettingBoxKey.uiScale),
               apply: () {
                 ScaledWidgetsFlutterBinding.instance.scaleFactor = 1.0;
                 setState();
@@ -623,7 +621,8 @@ void _showUiScaleDialog(
             }
             final saved = await saveSetting(
               key: SettingBoxKey.uiScale,
-              write: () => GStorage.setting.put(SettingBoxKey.uiScale, parsed),
+              write: () =>
+                  SettingsValues.general.save(SettingBoxKey.uiScale, parsed),
               apply: () {
                 ScaledWidgetsFlutterBinding.instance.scaleFactor = parsed;
                 setState();
@@ -741,7 +740,7 @@ void _showSpringDialog(BuildContext context, _) {
             final saved = await saveSetting(
               key: SettingBoxKey.springDescription,
               write: () =>
-                  GStorage.setting.delete(SettingBoxKey.springDescription),
+                  SettingsValues.general.reset(SettingBoxKey.springDescription),
               canPresent: () => context.mounted,
               successMessage: '重置成功，重启生效',
             );
@@ -787,8 +786,10 @@ void _showSpringDialog(BuildContext context, _) {
             }
             final saved = await saveSetting(
               key: SettingBoxKey.springDescription,
-              write: () =>
-                  GStorage.setting.put(SettingBoxKey.springDescription, res),
+              write: () => SettingsValues.general.save(
+                SettingBoxKey.springDescription,
+                res,
+              ),
               apply: () => kSpringDescription = SpringDescription(
                 mass: res[0],
                 stiffness: res[1],
@@ -826,7 +827,7 @@ Future<void> _showTransitionDialog(
     await saveSetting(
       key: SettingBoxKey.pageTransition,
       write: () =>
-          GStorage.setting.put(SettingBoxKey.pageTransition, res.index),
+          SettingsValues.general.save(SettingBoxKey.pageTransition, res.index),
       apply: () {
         Get.rootController.defaultTransition = res;
         setState();
@@ -857,7 +858,7 @@ Future<void> _showCardWidthDialog(
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.recommendCardWidth,
-      write: () => GStorage.setting.putAll({
+      write: () => SettingsValues.general.saveAll({
         SettingBoxKey.recommendCardWidth: res.$1,
         SettingBoxKey.smallCardWidth: res.$2,
       }),
@@ -868,64 +869,50 @@ Future<void> _showCardWidthDialog(
   }
 }
 
-Future<void> _setDynBadge(DynamicBadgeMode value, VoidCallback setState) async {
+Future<void> _setDynBadge(
+  BadgePreferences badges,
+  DynamicBadgeMode value,
+  VoidCallback setState,
+) async {
   await saveSetting(
     key: SettingBoxKey.dynamicBadgeMode,
-    write: () =>
-        GStorage.setting.put(SettingBoxKey.dynamicBadgeMode, value.index),
-    apply: () {
-      final mainController = Get.find<MainController>()
-        ..dynamicBadgeMode = value;
-      if (value != DynamicBadgeMode.hidden) mainController.getUnreadDynamic();
-      setState();
-    },
+    write: () => badges.saveDynamicMode(value),
+    apply: setState,
     canPresent: () => true,
   );
 }
 
-Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {
+Future<void> _setMsgBadge(
+  BadgePreferences badges,
+  DynamicBadgeMode value,
+  VoidCallback setState,
+) async {
   await saveSetting(
     key: SettingBoxKey.msgBadgeMode,
-    write: () => GStorage.setting.put(SettingBoxKey.msgBadgeMode, value.index),
-    apply: () {
-      final mainController = Get.find<MainController>()..msgBadgeMode = value;
-      if (value != DynamicBadgeMode.hidden) {
-        mainController.queryUnreadMsg(true);
-      } else {
-        mainController.updateMessageBadge();
-      }
-      setState();
-    },
+    write: () => badges.saveMessageMode(value),
+    apply: setState,
     canPresent: () => true,
   );
 }
 
 Future<void> _showMsgUnReadDialog(
   BuildContext context,
+  BadgePreferences badges,
   VoidCallback setState,
 ) async {
   final res = await showDialog<Set<MsgUnReadType>>(
     context: context,
     builder: (context) => MultiSelectDialog<MsgUnReadType>(
       title: '消息未读类型',
-      initValues: Pref.msgUnReadTypeV2,
+      initValues: badges.messageTypes,
       values: {for (final i in MsgUnReadType.values) i: i.title},
     ),
   );
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.msgUnReadTypeV2,
-      write: () => GStorage.setting.put(
-        SettingBoxKey.msgUnReadTypeV2,
-        res.map((item) => item.index).toList()..sort(),
-      ),
-      apply: () {
-        final mainController = Get.find<MainController>()..msgUnReadTypes = res;
-        if (mainController.msgBadgeMode != DynamicBadgeMode.hidden) {
-          mainController.queryUnreadMsg();
-        }
-        setState();
-      },
+      write: () => badges.saveMessageTypes(res),
+      apply: setState,
       canPresent: () => context.mounted,
       successMessage: '设置成功',
     );
@@ -960,8 +947,8 @@ void _showReduceColorDialog(
           await saveSetting(
             key: SettingBoxKey.reduceLuxColor,
             write: () => color == Colors.white
-                ? GStorage.setting.delete(SettingBoxKey.reduceLuxColor)
-                : GStorage.setting.put(
+                ? SettingsValues.general.reset(SettingBoxKey.reduceLuxColor)
+                : SettingsValues.general.save(
                     SettingBoxKey.reduceLuxColor,
                     color.toARGB32(),
                   ),
@@ -997,7 +984,8 @@ Future<void> _showToastDialog(
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.defaultToastOp,
-      write: () => GStorage.setting.put(SettingBoxKey.defaultToastOp, res),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.defaultToastOp, res),
       apply: () {
         CustomToast.toastOpacity = res;
         setState();
@@ -1011,11 +999,8 @@ Future<void> _showToastDialog(
 Future<void> _setThemeType(ThemeType value, VoidCallback setState) async {
   await saveSetting(
     key: SettingBoxKey.themeMode,
-    write: () => GStorage.setting.put(SettingBoxKey.themeMode, value.index),
+    write: () => ThemePreferences.saveType(value),
     apply: () {
-      try {
-        Get.find<MineController>().themeType.value = value;
-      } catch (_) {}
       Get.changeThemeMode(ThemeUtils.themeMode = value.toThemeMode);
       setState();
     },
@@ -1071,12 +1056,11 @@ List<SettingsModel> get appearanceExtraSettings => [
     defaultVal: false,
     onChanged: (value) => enableEmoteTooltip = value,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '显示粉丝勋章',
-    leading: const Icon(MdiIcons.medalOutline),
+    leading: Icon(MdiIcons.medalOutline),
     setKey: SettingBoxKey.showMedal,
     defaultVal: true,
-    onChanged: (value) => GlobalData().showMedal = value,
   ),
   SwitchModel(
     title: '预览 Live Photo',
@@ -1093,13 +1077,12 @@ List<SettingsModel> get appearanceExtraSettings => [
     defaultVal: false,
     onChanged: (value) => CommonSlideMixin.slideDismissReplyPage = value,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '静默下载图片',
     subtitle: '不显示下载 Loading 弹窗',
-    leading: const Icon(Icons.download_for_offline_outlined),
+    leading: Icon(Icons.download_for_offline_outlined),
     setKey: SettingBoxKey.silentDownImg,
     defaultVal: false,
-    onChanged: (value) => ImageUtils.silentDownImg = value,
   ),
   SwitchModel(
     title: '长按/右键显示图片菜单',
@@ -1149,7 +1132,7 @@ void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
               final saved = await saveSetting(
                 key: SettingBoxKey.touchSlopH,
                 write: () =>
-                    GStorage.setting.put(SettingBoxKey.touchSlopH, val),
+                    SettingsValues.general.save(SettingBoxKey.touchSlopH, val),
                 apply: () {
                   touchSlopH = val;
                   setState();
@@ -1189,7 +1172,8 @@ Future<void> _showRefreshDialog(
   if (res != null && context.mounted) {
     await saveSetting(
       key: SettingBoxKey.refreshDisplacement,
-      write: () => GStorage.setting.put(SettingBoxKey.refreshDisplacement, res),
+      write: () =>
+          SettingsValues.general.save(SettingBoxKey.refreshDisplacement, res),
       apply: () {
         displacement = res;
         if (WidgetsBinding.instance.rootElement case final root?) {

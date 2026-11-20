@@ -4,20 +4,23 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
-    show ReloadScrollPhysics;
+    show ReloadMixin, ReloadScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
-import 'package:pili_aurora_next/pages/member_video/controller.dart';
+import 'package:pili_aurora_next/pages/member_contribute/navigation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:pili_aurora_next/pages/member_video/widgets/video_card_h_member_video.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:material_ui/material_ui.dart' hide RefreshIndicatorState;
 
-class MemberVideo extends StatefulWidget {
+class MemberVideo extends ConsumerStatefulWidget {
   const MemberVideo({
     super.key,
     required this.type,
@@ -26,9 +29,11 @@ class MemberVideo extends StatefulWidget {
     this.seasonId,
     this.seriesId,
     this.title,
+    this.navigation,
     this.isSingle = false,
   });
 
+  final SpaceArchiveNavigation? navigation;
   final ContributeType type;
   final String? heroTag;
   final int mid;
@@ -38,29 +43,78 @@ class MemberVideo extends StatefulWidget {
   final bool isSingle;
 
   @override
-  State<MemberVideo> createState() => _MemberVideoState();
+  ConsumerState<MemberVideo> createState() => _MemberVideoState();
 }
 
-class _MemberVideoState extends State<MemberVideo>
+class _MemberVideoState extends ConsumerState<MemberVideo>
     with
         AutomaticKeepAliveClientMixin,
         GridMixin,
         SingleTickerProviderStateMixin,
         BaseFabMixin,
-        LazyFabMixin {
+        LazyFabMixin,
+        ReloadMixin {
   @override
   bool get wantKeepAlive => true;
 
-  late final MemberVideoCtr _controller;
+  final _owner = Object();
+  final _refreshKey = GlobalKey<RefreshIndicatorState>();
+  bool _locating = false;
+  bool _loadPrevious = false;
+  SpaceArchiveQuery get _query => (
+    owner: _owner,
+    mid: widget.mid,
+    type: widget.type,
+    season: widget.seasonId,
+    series: widget.seriesId,
+  );
+  SpaceArchive get _archive => ref.read(spaceArchiveProvider(_query).notifier);
+  SpaceArchiveState get _snapshot => ref.read(spaceArchiveProvider(_query));
+  bool get _isVideo => widget.type == .video;
+  String? get _anchor => _isVideo ? widget.navigation?.fromViewAid : null;
+
+  void _onlyInnerScroll(bool value) {
+    final state = widget.navigation?.scrollState();
+    if (state != null && state.mounted) state.onlyInnerScroll = value;
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _locating = _loadPrevious = false;
+      reload = true;
+    });
+    _onlyInnerScroll(false);
+    await _archive.refresh(clear: true);
+  }
+
+  Future<void> _openPlayback() async {
+    final result = await _archive.playback(
+      username: widget.navigation?.username,
+      title: widget.title,
+    );
+    if (!mounted || result == null) return;
+    if (result case Error error) {
+      error.toast();
+    } else if (result.dataOrNull case final video?) {
+      PageUtils.toVideoPage(
+        aid: video.aid,
+        bvid: video.bvid,
+        cid: video.cid,
+        dimension: video.dimension,
+        cover: video.cover,
+        title: video.title,
+        isVertical: video.isVertical,
+        extraArguments: video.arguments,
+      );
+    }
+  }
 
   void _jumpToIndex(int index) {
-    final scrollOffset = gridDelegate.layoutCache!
-        .getGeometryForChildIndex(index)
-        .scrollOffset;
+    final layout = gridDelegate.layoutCache;
+    if (layout == null) return;
+    final scrollOffset = layout.getGeometryForChildIndex(index).scrollOffset;
     try {
-      final state = Get.find<MemberController>(
-        tag: widget.heroTag,
-      ).scrollKey.currentState;
+      final state = widget.navigation?.scrollState();
       if (state != null && state.mounted) {
         state.innerNestedPositions.first.localJumpTo(scrollOffset);
       }
@@ -69,41 +123,50 @@ class _MemberVideoState extends State<MemberVideo>
     }
   }
 
+  Future<void> _onRefresh() async {
+    if (!_loadPrevious) {
+      await _archive.refresh();
+      return;
+    }
+    _loadPrevious = false;
+    final source = _snapshot.source;
+    final result = await _archive.previous();
+    if (!mounted || !identical(source, _snapshot.source)) return;
+    if (!_snapshot.hasPrevious) _onlyInnerScroll(false);
+    if (result case Error error) {
+      error.toast();
+      return;
+    }
+    final added = result.data;
+    if (added > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(source, _snapshot.source)) _jumpToIndex(added);
+      });
+    }
+  }
+
+  Future<void> _locate() async {
+    final anchor = _anchor;
+    if (anchor == null) return;
+    final index =
+        _snapshot.loading.dataOrNull?.indexWhere(
+          (item) => item.param == anchor,
+        ) ??
+        -1;
+    setState(() => _locating = true);
+    if (index >= 0) {
+      _jumpToIndex(index);
+    } else {
+      _onlyInnerScroll(true);
+      reload = true;
+      await _archive.refresh(clear: true, anchor: anchor);
+    }
+  }
+
   @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      MemberVideoCtr(
-        heroTag: widget.heroTag,
-        type: widget.type,
-        mid: widget.mid,
-        seasonId: widget.seasonId,
-        seriesId: widget.seriesId,
-        username: Get.find<MemberController>(tag: widget.heroTag).username,
-        title: widget.title,
-      ),
-      tag:
-          '${widget.heroTag}${widget.type.name}${widget.seasonId}${widget.seriesId}',
-    );
-  }
-
-  Future<void> _loadPrevAndKeepPos() async {
-    assert(_controller.hasPrev! && _controller.isLoadPrevious);
-    final lastCount = _controller.loadingState.value.dataOrNull?.length;
-    await _controller.queryData();
-    if (mounted) {
-      final newCount = _controller.loadingState.value.dataOrNull?.length;
-      if (lastCount != null && newCount != null && newCount > lastCount) {
-        _jumpToIndex(newCount - lastCount);
-      }
-    }
-  }
-
-  Future<void> _onRefresh() {
-    if (_controller.isLoadPrevious) {
-      return _loadPrevAndKeepPos();
-    }
-    return _controller.onRefresh();
+  void dispose() {
+    if (_locating) _onlyInnerScroll(false);
+    super.dispose();
   }
 
   @override
@@ -119,13 +182,14 @@ class _MemberVideoState extends State<MemberVideo>
     if (notification is UserScrollNotification) {
       return super.onNotification(notification);
     }
-    if (_controller.isLocating) {
+    if (_locating) {
       if (notification is ScrollEndNotification &&
           notification.metrics.pixels == 0) {
-        if (_controller.hasPrev == true && !_controller.isLoading) {
-          _controller
-            ..isLoadPrevious = true
-            ..refreshKey!.currentState?.show();
+        if (_snapshot.hasPrevious && !_snapshot.busy && !_loadPrevious) {
+          if (_refreshKey.currentState case final refresh?) {
+            _loadPrevious = true;
+            refresh.show();
+          }
         }
       }
       return true;
@@ -136,66 +200,51 @@ class _MemberVideoState extends State<MemberVideo>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final state = ref.watch(spaceArchiveProvider(_query));
+    ref.listen(mainAccountProvider, (_, _) {
+      if (_locating) _onlyInnerScroll(false);
+      _locating = _loadPrevious = false;
+      reload = true;
+    });
     final theme = Theme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
-    Widget child = CustomScrollView(
-      physics: ReloadScrollPhysics(controller: _controller),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.only(bottom: padding.bottom + 100),
-          sliver: Obx(
-            () => _buildBody(theme, _controller.loadingState.value),
+    Widget child = FeedPagination.notifications(
+      dataSource: state.source,
+      dataRevision: state,
+      canLoadMore: () => state.canLoadMore,
+      onLoadMore: _archive.more,
+      child: CustomScrollView(
+        physics: ReloadScrollPhysics(controller: this),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: padding.bottom + 100),
+            sliver: _buildBody(theme, state.loading),
           ),
-        ),
-      ],
+        ],
+      ),
     );
-    if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
+    if (_anchor?.isNotEmpty == true) {
       child = ScaffoldLayout(
         body: fabAnimWrapper(child: child),
-        fab: Obx(
-          () => !_controller.isLocating
-              ? SlideTransition(
-                  position: fabAnimation,
-                  child: Padding(
-                    padding: .only(
-                      right: kFloatingActionButtonMargin,
-                      bottom: kFloatingActionButtonMargin + padding.bottom,
-                    ),
-                    child: FloatingActionButton.extended(
-                      onPressed: () {
-                        final fromViewAid = _controller.fromViewAid;
-                        final locatedIndex =
-                            _controller.loadingState.value.dataOrNull
-                                ?.indexWhere(
-                                  (i) => i.param == fromViewAid,
-                                ) ??
-                            -1;
-                        if (locatedIndex == -1) {
-                          _controller
-                            ..setIsLocating(true)
-                            ..lastAid = fromViewAid
-                            ..reload = true
-                            ..page = 0
-                            ..loadingState.value = LoadingState.loading()
-                            ..queryData();
-                        } else {
-                          _controller.setIsLocating(
-                            true,
-                            isOnlyInnerScroll: false,
-                          );
-                          _jumpToIndex(locatedIndex);
-                        }
-                      },
-                      label: const Text('定位至上次观看'),
-                    ),
+        fab: !_locating
+            ? SlideTransition(
+                position: fabAnimation,
+                child: Padding(
+                  padding: .only(
+                    right: kFloatingActionButtonMargin,
+                    bottom: kFloatingActionButtonMargin + padding.bottom,
                   ),
-                )
-              : const SizedBox.shrink(),
-        ),
+                  child: FloatingActionButton.extended(
+                    onPressed: _locate,
+                    label: const Text('定位至上次观看'),
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(),
       );
     }
     return refreshIndicator(
-      key: _controller.refreshKey,
+      key: _refreshKey,
       isClampingScrollPhysics: true,
       onRefresh: _onRefresh,
       child: child,
@@ -210,35 +259,36 @@ class _MemberVideoState extends State<MemberVideo>
 
   Widget _buildBody(
     ThemeData theme,
-    LoadingState<List<SpaceArchiveItem>?> loadingState,
+    LoadingState<List<SpaceArchiveItem>> loadingState,
   ) {
     return switch (loadingState) {
       Loading() => gridSkeleton,
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? SliverMainAxisGroup(
                 slivers: [
                   _buildHeader(theme),
                   SliverGrid.builder(
                     gridDelegate: gridDelegate,
                     itemBuilder: (context, index) {
-                      if (widget.type != .season &&
-                          index == response.length - 1) {
-                        _controller.onLoadMore();
-                      }
                       return VideoCardHMemberVideo(
                         videoItem: response[index],
-                        fromViewAid: _controller.fromViewAid,
+                        fromViewAid: _anchor,
                       );
                     },
                     itemCount: response.length,
                   ),
+                  if (_snapshot.pageError case final error?)
+                    HttpError(
+                      errMsg: error.errMsg,
+                      onReload: () => _archive.more(retry: true),
+                    ),
                 ],
               )
-            : HttpError(onReload: _controller.onReload),
+            : HttpError(onReload: _reload),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: _reload,
       ),
     };
   }
@@ -261,7 +311,7 @@ class _MemberVideoState extends State<MemberVideo>
   }
 
   Widget? _buildCount() {
-    final count = _controller.count;
+    final count = _snapshot.count;
     if (count != null) {
       return Text(
         '共$count视频',
@@ -272,15 +322,15 @@ class _MemberVideoState extends State<MemberVideo>
   }
 
   Widget? _buildEpisodeBtn(ThemeData theme) {
-    final episodicButton = _controller.episodicButton;
+    final episodicButton = _snapshot.button;
     if (episodicButton?.uri?.isNotEmpty ?? false) {
       return Padding(
         padding: EdgeInsets.only(
-          left: _controller.count != null ? 6 : 0,
+          left: _snapshot.count != null ? 6 : 0,
         ),
         child: TextButton.icon(
           style: Style.buttonStyle,
-          onPressed: _controller.toViewPlayAll,
+          onPressed: _openPlayback,
           icon: Icon(
             Icons.play_circle_outline_rounded,
             size: 16,
@@ -302,14 +352,22 @@ class _MemberVideoState extends State<MemberVideo>
   Widget _buildSortBtn(ThemeData theme) {
     return TextButton.icon(
       style: Style.buttonStyle,
-      onPressed: _controller.queryBySort,
+      onPressed: () {
+        if (_snapshot.busy) return;
+        setState(() {
+          _locating = _loadPrevious = false;
+          reload = true;
+        });
+        _onlyInnerScroll(false);
+        _archive.toggleSort();
+      },
       icon: Icon(
         Icons.sort,
         size: 16,
         color: theme.colorScheme.secondary,
       ),
       label: Text(
-        _controller.isVideo ? _controller.order.label : _controller.sort.label,
+        _isVideo ? _snapshot.order.label : _snapshot.sort.label,
         style: TextStyle(
           fontSize: 13,
           color: theme.colorScheme.secondary,

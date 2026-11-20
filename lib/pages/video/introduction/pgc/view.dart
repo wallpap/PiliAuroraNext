@@ -1,5 +1,4 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
 
 import 'dart:math';
 
@@ -10,26 +9,25 @@ import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image_viewer/hero.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/season.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/stat.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/season.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/stat.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/widgets/pgc_panel.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PgcIntroPage extends StatefulWidget {
   final int? cid;
-  final String heroTag;
+  final PgcIntroController controller;
   final Function showEpisodes;
   final Function showIntroDetail;
   final double maxWidth;
@@ -40,7 +38,7 @@ class PgcIntroPage extends StatefulWidget {
   const PgcIntroPage({
     super.key,
     this.cid,
-    required this.heroTag,
+    required this.controller,
     required this.showEpisodes,
     required this.showIntroDetail,
     required this.maxWidth,
@@ -54,18 +52,8 @@ class PgcIntroPage extends StatefulWidget {
 }
 
 class _PgcIntroPageState extends State<PgcIntroPage> {
-  late final PgcIntroController introController;
-  late final VideoDetailController videoDetailCtr;
-
-  @override
-  void initState() {
-    super.initState();
-    introController = Get.putOrFind(
-      PgcIntroController.new,
-      tag: widget.heroTag,
-    );
-    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
-  }
+  PgcIntroController get introController => widget.controller;
+  VideoDetailController get videoDetailCtr => introController.videoDetailCtr;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +87,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                     ) ==
                     true)
               PgcPanel(
-                heroTag: widget.heroTag,
+                videoDetail: videoDetailCtr,
                 pages: item.episodes ?? const [],
                 sections: item.section,
                 seasonTitle: item.seasonTitle,
@@ -491,27 +479,29 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
           Positioned(
             right: 6,
             bottom: 6,
-            child: Obx(() {
-              final state = introController.pugvFavState.value;
-              final isFav = state.dataOrNull == true;
-              final busy =
-                  introController.pugvFavBusy.value || state is Loading;
-              return iconButton(
-                size: 28,
-                iconSize: 26,
-                tooltip: state is Error ? '重试收藏状态' : '${isFav ? '取消' : ''}收藏',
-                onPressed: busy ? null : introController.onFavPugv,
-                icon: isFav
-                    ? const Icon(Icons.star_rounded)
-                    : const Icon(Icons.star_border_rounded),
-                bgColor: isFav
-                    ? colorScheme.secondaryContainer
-                    : colorScheme.onInverseSurface,
-                iconColor: isFav
-                    ? colorScheme.onSecondaryContainer
-                    : colorScheme.onSurfaceVariant,
-              );
-            }),
+            child: ValueListenableBuilder(
+              valueListenable: introController.collection.bookmark,
+              builder: (context, snapshot, _) {
+                final state = snapshot.result;
+                final isFav = state.dataOrNull == true;
+                final busy = snapshot.busy || state is Loading;
+                return iconButton(
+                  size: 28,
+                  iconSize: 26,
+                  tooltip: state is Error ? '重试收藏状态' : '${isFav ? '取消' : ''}收藏',
+                  onPressed: busy ? null : introController.onFavPugv,
+                  icon: isFav
+                      ? const Icon(Icons.star_rounded)
+                      : const Icon(Icons.star_border_rounded),
+                  bgColor: isFav
+                      ? colorScheme.secondaryContainer
+                      : colorScheme.onInverseSurface,
+                  iconColor: isFav
+                      ? colorScheme.onSecondaryContainer
+                      : colorScheme.onSurfaceVariant,
+                );
+              },
+            ),
           ),
       ],
     );
@@ -523,12 +513,13 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
     PgcInfoModel item,
   ) {
     if (introController.isPgc) {
-      Widget subBtn() => Obx(
-        () {
-          final state = introController.followState.value;
+      Widget subBtn() => ValueListenableBuilder(
+        valueListenable: introController.collection.tracking,
+        builder: (context, snapshot, _) {
+          final state = snapshot.result;
           final isFollowed = state.dataOrNull?.followed == true;
           final followStatus = state.dataOrNull?.status ?? 0;
-          final busy = introController.followBusy.value;
+          final busy = snapshot.busy;
           return FilledButton.tonal(
             style: FilledButton.styleFrom(
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -547,18 +538,15 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                       introController.queryIsFollowed();
                       return;
                     }
-                    final account = Accounts.main;
-                    final target = introController.followSeasonId;
+                    final isCurrent = introController.collection
+                        .captureTracking();
                     if (isFollowed) {
                       showPgcFollowDialog(
                         context: context,
                         type: introController.pgcType,
                         followStatus: followStatus,
                         onUpdateStatus: (followStatus) {
-                          if (!identical(account, Accounts.main) ||
-                              target != introController.followSeasonId) {
-                            return;
-                          }
+                          if (!isCurrent()) return;
                           if (followStatus == -1) {
                             introController.pgcDel();
                           } else {
@@ -746,31 +734,34 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.hasLike,
+              builder: (context, liked, child) => ActionItem(
                 animation: introController.tripleAnimation,
                 icon: Icon(FontAwesomeIcons.thumbsUp.data),
                 selectIcon: Icon(FontAwesomeIcons.solidThumbsUp.data),
-                selectStatus: introController.hasLike.value,
+                selectStatus: liked,
                 semanticsLabel: '点赞',
                 text: NumUtils.numFormat(stat.like),
                 onStartTriple: introController.onStartTriple,
                 onCancelTriple: introController.onCancelTriple,
               ),
             ),
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.coinNum,
+              builder: (context, coins, child) => ActionItem(
                 animation: introController.tripleAnimation,
                 icon: Icon(FontAwesomeIcons.b.data),
                 selectIcon: Icon(FontAwesomeIcons.b.data),
                 onTap: introController.actionCoinVideo,
-                selectStatus: introController.hasCoin,
+                selectStatus: coins != 0,
                 semanticsLabel: '投币',
                 text: NumUtils.numFormat(stat.coin),
               ),
             ),
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.hasFav,
+              builder: (context, favored, child) => ActionItem(
                 animation: introController.tripleAnimation,
                 icon: Icon(FontAwesomeIcons.star.data),
                 selectIcon: Icon(FontAwesomeIcons.solidStar.data),
@@ -779,18 +770,19 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                   context,
                   isLongPress: true,
                 ),
-                selectStatus: introController.hasFav.value,
+                selectStatus: favored,
                 semanticsLabel: '收藏',
                 text: NumUtils.numFormat(stat.favorite),
               ),
             ),
-            Obx(
-              () => ActionItem(
+            ValueListenableBuilder(
+              valueListenable: introController.hasLater,
+              builder: (context, saved, child) => ActionItem(
                 icon: Icon(FontAwesomeIcons.clock.data),
                 selectIcon: Icon(FontAwesomeIcons.solidClock.data),
                 onTap: () =>
                     introController.handleAction(introController.viewLater),
-                selectStatus: introController.hasLater.value,
+                selectStatus: saved,
                 semanticsLabel: '再看',
                 text: '再看',
               ),

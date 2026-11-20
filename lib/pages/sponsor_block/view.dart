@@ -1,111 +1,54 @@
-import 'package:pili_aurora_next/common/widgets/pair.dart';
-import 'package:pili_aurora_next/services/logger.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block_settings.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/sponsor_block.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/user_info.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/user_info.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
-import 'package:pili_aurora_next/utils/filtering_text.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:crypto/crypto.dart';
+import 'package:pili_aurora_next/common/input/filtering_text.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 
-class SponsorBlockPage extends StatefulWidget {
+class SponsorBlockPage extends ConsumerStatefulWidget {
   const SponsorBlockPage({super.key});
 
   @override
-  State<SponsorBlockPage> createState() => _SponsorBlockPageState();
+  ConsumerState<SponsorBlockPage> createState() => _SponsorBlockPageState();
 }
 
-class _SponsorBlockPageState extends State<SponsorBlockPage> {
+class _SponsorBlockPageState extends ConsumerState<SponsorBlockPage> {
   final _url = 'https://github.com/hanydd/BilibiliSponsorBlock';
   final _textController = TextEditingController();
-  double _blockLimit = Pref.blockLimit;
-  final _blockSettings = Pref.blockSettings;
-  final List<Color> _blockColor = Pref.blockColor;
-  String _userId = Pref.blockUserID;
-  bool _blockToast = Pref.blockToast;
-  String _blockServer = Pref.blockServer;
-  bool _blockTrack = Pref.blockTrack;
-  final _serverStatus = LoadingState<void>.loading().obs;
-  final _userInfo = LoadingState<UserInfo>.loading().obs;
-  int _statusVersion = 0;
-  int _userVersion = 0;
+  SponsorBlockSettings get _settings => ref.read(sponsorBlockSettingsProvider);
+  SponsorBlockSettingsNotifier get _actions =>
+      ref.read(sponsorBlockSettingsProvider.notifier);
 
-  Box setting = GStorage.setting;
-  final _saving = <String>{};
-
-  Future<bool> _save(String key, Object value, VoidCallback apply) async {
-    if (!_saving.add(key)) return false;
-    try {
-      await setting.put(key, value);
-      if (key == SettingBoxKey.blockServer) {
-        AccountManager.blockServer = value as String;
-      }
-      if (mounted) setState(apply);
-      return true;
-    } catch (error, stackTrace) {
-      logger.w('空降助手设置保存失败', error: error.runtimeType, stackTrace: stackTrace);
-      if (mounted) SmartDialog.showToast('设置保存失败，请重试');
-      return false;
-    } finally {
-      _saving.remove(key);
+  Future<void> _save(
+    Future<LoadingState<void>?> pending, {
+    BuildContext? dialogContext,
+  }) async {
+    final result = await pending;
+    if (!mounted) return;
+    if (result is Error) {
+      result.toast();
+      return;
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _checkServerStatus();
-    _getUserInfo();
+    if (result?.isSuccess == true &&
+        dialogContext != null &&
+        dialogContext.mounted &&
+        ModalRoute.of(dialogContext)?.isCurrent == true) {
+      Navigator.of(dialogContext).pop();
+    }
   }
 
   @override
   void dispose() {
     _textController.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkServerStatus() async {
-    final version = ++_statusVersion;
-    final server = _blockServer;
-    _serverStatus.value = LoadingState.loading();
-    final result = await SponsorBlock.uptimeStatus();
-    if (mounted && version == _statusVersion && server == _blockServer) {
-      _serverStatus.value = result;
-    }
-  }
-
-  Future<void> _getUserInfo() async {
-    final version = ++_userVersion;
-    final server = _blockServer;
-    final userId = _userId;
-    _userInfo.value = LoadingState.loading();
-    final result = await SponsorBlock.userInfo(const [
-      'viewCount',
-      'minutesSaved',
-      'segmentCount',
-    ], userId: userId);
-    if (mounted &&
-        version == _userVersion &&
-        server == _blockServer &&
-        userId == _userId) {
-      _userInfo.value = result;
-    }
   }
 
   Widget _blockLimitItem(
@@ -117,7 +60,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
       return ListTile(
         dense: true,
         onTap: () {
-          _textController.text = _blockLimit.toString();
+          _textController.text = _settings.limit.toString();
           showDialog(
             context: context,
             builder: (dialogContext) => AlertDialog(
@@ -131,31 +74,17 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: Get.back,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   child: Text(
                     '取消',
                     style: TextStyle(color: theme.colorScheme.outline),
                   ),
                 ),
                 TextButton(
-                  onPressed: () async {
-                    final value = double.tryParse(_textController.text);
-                    if (value == null || !value.isFinite || value < 0) {
-                      SmartDialog.showToast('请输入大于或等于 0 的有效秒数');
-                      return;
-                    }
-                    final saved = await _save(
-                      SettingBoxKey.blockLimit,
-                      value,
-                      () => _blockLimit = value,
-                    );
-                    if (saved &&
-                        mounted &&
-                        dialogContext.mounted &&
-                        ModalRoute.of(dialogContext)?.isCurrent == true) {
-                      Navigator.of(dialogContext).pop();
-                    }
-                  },
+                  onPressed: () => _save(
+                    _actions.saveLimit(double.tryParse(_textController.text)),
+                    dialogContext: dialogContext,
+                  ),
                   child: const Text('确定'),
                 ),
               ],
@@ -168,7 +97,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           style: subTitleStyle,
         ),
         trailing: Text(
-          '${_blockLimit}s',
+          '${_settings.limit}s',
           style: const TextStyle(fontSize: 13),
         ),
       );
@@ -191,10 +120,10 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
       return ListTile(
         dense: true,
         title: Text('用户ID', style: titleStyle),
-        subtitle: Text(_userId, style: subTitleStyle),
+        subtitle: Text(_settings.identity.userId, style: subTitleStyle),
         onTap: () {
           final key = GlobalKey<FormFieldState<String>>();
-          _textController.text = _userId;
+          _textController.text = _settings.identity.userId;
           showDialog(
             context: context,
             builder: (dialogContext) {
@@ -219,28 +148,14 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () async {
-                      final value = Digest(
-                        List.generate(16, (_) => Utils.random.nextInt(256)),
-                      ).toString();
-
-                      final saved = await _save(
-                        SettingBoxKey.blockUserID,
-                        value,
-                        () => _userId = value,
-                      );
-                      if (saved && mounted) {
-                        if (dialogContext.mounted &&
-                            ModalRoute.of(dialogContext)?.isCurrent == true) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                        _getUserInfo();
-                      }
-                    },
+                    onPressed: () => _save(
+                      _actions.randomizeUserId(),
+                      dialogContext: dialogContext,
+                    ),
                     child: const Text('随机'),
                   ),
                   TextButton(
-                    onPressed: Get.back,
+                    onPressed: () => Navigator.of(dialogContext).pop(),
                     child: Text(
                       '取消',
                       style: TextStyle(
@@ -249,22 +164,12 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () async {
+                    onPressed: () {
                       if (key.currentState?.validate() != true) return;
-                      final value = _textController.text;
-
-                      final saved = await _save(
-                        SettingBoxKey.blockUserID,
-                        value,
-                        () => _userId = value,
+                      _save(
+                        _actions.saveUserId(_textController.text),
+                        dialogContext: dialogContext,
                       );
-                      if (saved && mounted) {
-                        if (dialogContext.mounted &&
-                            ModalRoute.of(dialogContext)?.isCurrent == true) {
-                          Navigator.of(dialogContext).pop();
-                        }
-                        _getUserInfo();
-                      }
                     },
                     child: const Text('确定'),
                   ),
@@ -279,10 +184,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
 
   Widget _blockToastItem(TextStyle titleStyle) => Builder(
     builder: (context) {
-      Future<void> update() async {
-        final value = !_blockToast;
-        await _save(SettingBoxKey.blockToast, value, () => _blockToast = value);
-      }
+      Future<void> update() => _save(_actions.saveToast(!_settings.toast));
 
       return ListTile(
         dense: true,
@@ -295,7 +197,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           alignment: Alignment.centerRight,
           scale: 0.8,
           child: Switch(
-            value: _blockToast,
+            value: _settings.toast,
             onChanged: (val) => update(),
           ),
         ),
@@ -308,10 +210,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
     TextStyle subTitleStyle,
   ) => Builder(
     builder: (context) {
-      Future<void> update() async {
-        final value = !_blockTrack;
-        await _save(SettingBoxKey.blockTrack, value, () => _blockTrack = value);
-      }
+      Future<void> update() => _save(_actions.saveTracking(!_settings.track));
 
       return ListTile(
         dense: true,
@@ -329,7 +228,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           alignment: Alignment.centerRight,
           scale: 0.8,
           child: Switch(
-            value: _blockTrack,
+            value: _settings.track,
             onChanged: (val) => update(),
           ),
         ),
@@ -341,27 +240,23 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
     ThemeData theme,
     TextStyle titleStyle,
     TextStyle subTitleStyle,
-  ) => Obx(
-    () {
-      return ListTile(
-        dense: true,
-        onTap: _getUserInfo,
-        title: Text(
-          '您的信息',
-          style: titleStyle,
-        ),
-        subtitle: switch (_userInfo.value) {
-          Loading() => const SizedBox.shrink(),
-          Success<UserInfo>(:final response) => Text(
-            response.toString(),
-            style: subTitleStyle,
-          ),
-          Error error => Text(
-            error.toString(),
-            style: subTitleStyle.copyWith(color: theme.colorScheme.error),
-          ),
-        },
-      );
+  ) => ListTile(
+    dense: true,
+    onTap: () => _actions.refreshUserInfo(),
+    title: Text(
+      '您的信息',
+      style: titleStyle,
+    ),
+    subtitle: switch (_settings.userInfo) {
+      Loading() => const SizedBox.shrink(),
+      Success<UserInfo>(:final response) => Text(
+        response.toString(),
+        style: subTitleStyle,
+      ),
+      Error error => Text(
+        error.toString(),
+        style: subTitleStyle.copyWith(color: theme.colorScheme.error),
+      ),
     },
   );
 
@@ -374,7 +269,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
       return ListTile(
         dense: true,
         onTap: () {
-          _textController.text = _blockServer;
+          _textController.text = _settings.identity.server;
           showDialog(
             context: context,
             builder: (dialogContext) => AlertDialog(
@@ -386,36 +281,14 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () async {
-                    const value = HttpString.sponsorBlockBaseUrl;
-                    final uri = Uri.tryParse(value);
-                    if (uri == null ||
-                        !const ['http', 'https'].contains(uri.scheme) ||
-                        uri.host.isEmpty ||
-                        uri.userInfo.isNotEmpty ||
-                        uri.hasQuery ||
-                        uri.hasFragment) {
-                      SmartDialog.showToast('请输入有效的 HTTP 或 HTTPS 服务器地址');
-                      return;
-                    }
-                    final saved = await _save(
-                      SettingBoxKey.blockServer,
-                      value,
-                      () => _blockServer = value,
-                    );
-                    if (saved && mounted) {
-                      if (dialogContext.mounted &&
-                          ModalRoute.of(dialogContext)?.isCurrent == true) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                      _checkServerStatus();
-                      _getUserInfo();
-                    }
-                  },
+                  onPressed: () => _save(
+                    _actions.resetServer(),
+                    dialogContext: dialogContext,
+                  ),
                   child: const Text('重置'),
                 ),
                 TextButton(
-                  onPressed: Get.back,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   child: Text(
                     '取消',
                     style: TextStyle(
@@ -424,32 +297,10 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () async {
-                    final value = _textController.text.trim();
-                    final uri = Uri.tryParse(value);
-                    if (uri == null ||
-                        !const ['http', 'https'].contains(uri.scheme) ||
-                        uri.host.isEmpty ||
-                        uri.userInfo.isNotEmpty ||
-                        uri.hasQuery ||
-                        uri.hasFragment) {
-                      SmartDialog.showToast('请输入有效的 HTTP 或 HTTPS 服务器地址');
-                      return;
-                    }
-                    final saved = await _save(
-                      SettingBoxKey.blockServer,
-                      value,
-                      () => _blockServer = value,
-                    );
-                    if (saved && mounted) {
-                      if (dialogContext.mounted &&
-                          ModalRoute.of(dialogContext)?.isCurrent == true) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                      _checkServerStatus();
-                      _getUserInfo();
-                    }
-                  },
+                  onPressed: () => _save(
+                    _actions.saveServer(_textController.text),
+                    dialogContext: dialogContext,
+                  ),
                   child: const Text('确定'),
                 ),
               ],
@@ -461,48 +312,45 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           style: titleStyle,
         ),
         subtitle: Text(
-          _blockServer,
+          _settings.identity.server,
           style: subTitleStyle,
         ),
       );
     },
   );
 
-  Widget _serverStatusItem(ThemeData theme, TextStyle titleStyle) => Obx(
-    () {
-      String status;
-      Color? color;
-      switch (_serverStatus.value) {
-        case Loading():
-          status = '检查中';
-        case Success():
-          status = '正常';
-          color = theme.colorScheme.primary;
-        case Error error:
-          status = error.toString();
-          color = theme.colorScheme.error;
-      }
-      return ListTile(
-        dense: true,
-        onTap: _checkServerStatus,
-        title: Text('服务器状态', style: titleStyle),
-        trailing: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 250),
-          child: Text(
-            status,
-            textAlign: TextAlign.end,
-            style: TextStyle(fontSize: 13, color: color),
-          ),
+  Widget _serverStatusItem(ThemeData theme, TextStyle titleStyle) {
+    String status;
+    Color? color;
+    switch (_settings.uptime) {
+      case Loading():
+        status = '检查中';
+      case Success():
+        status = '正常';
+        color = theme.colorScheme.primary;
+      case Error error:
+        status = error.toString();
+        color = theme.colorScheme.error;
+    }
+    return ListTile(
+      dense: true,
+      onTap: () => _actions.refreshUptime(),
+      title: Text('服务器状态', style: titleStyle),
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 250),
+        child: Text(
+          status,
+          textAlign: TextAlign.end,
+          style: TextStyle(fontSize: 13, color: color),
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
 
   void onSelectColor(
     BuildContext context,
-    int index,
+    SegmentType category,
     Color color,
-    Pair<SegmentType, SkipType> item,
   ) {
     showDialog(
       context: context,
@@ -529,7 +377,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                 style: const TextStyle(fontSize: 13, height: 1),
               ),
               TextSpan(
-                text: ' ${item.first.title}',
+                text: ' ${category.title}',
                 style: const TextStyle(fontSize: 13, height: 1),
               ),
             ],
@@ -538,18 +386,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
         content: SlideColorPicker(
           color: color,
           showResetBtn: true,
-          onChanged: (Color? color) async {
-            final colors = List<Color>.of(_blockColor);
-            colors[index] = color ?? item.first.color;
-            await _save(SettingBoxKey.blockColor, {
-              for (final category in SegmentType.values)
-                category.name: colors[category.index]
-                    .toARGB32()
-                    .toRadixString(16)
-                    .padLeft(8, '0')
-                    .substring(2),
-            }, () => _blockColor[index] = colors[index]);
-          },
+          onChanged: (color) => _save(_actions.saveColor(category, color)),
         ),
       ),
     );
@@ -557,6 +394,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(sponsorBlockSettingsProvider);
     final theme = Theme.of(context);
 
     const titleStyle = TextStyle(fontSize: 15);
@@ -600,9 +438,9 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           ),
           dividerL,
           SliverList.separated(
-            itemCount: _blockSettings.length,
+            itemCount: SegmentType.values.length,
             itemBuilder: (context, index) =>
-                _buildItem(theme, index, _blockSettings[index]),
+                _buildItem(theme, SegmentType.values[index]),
             separatorBuilder: (context, index) => divider,
           ),
           dividerL,
@@ -628,8 +466,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
 
   Widget _buildItem(
     ThemeData theme,
-    int index,
-    Pair<SegmentType, SkipType> item,
+    SegmentType category,
   ) {
     String behaviorLabel(SkipType type) => switch (type) {
       SkipType.alwaysSkip => '自动处理',
@@ -638,12 +475,13 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
     };
     return Builder(
       builder: (context) {
-        Color color = _blockColor[index];
-        final isDisable = item.second == SkipType.disable;
+        final color = _settings.colors[category.index];
+        final behavior = _settings.behaviors[category]!;
+        final isDisable = behavior == SkipType.disable;
         return ListTile(
           dense: true,
-          enabled: item.second != SkipType.disable,
-          onTap: () => onSelectColor(context, index, color, item),
+          enabled: !isDisable,
+          onTap: () => onSelectColor(context, category, color),
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -663,7 +501,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                       style: const TextStyle(fontSize: 14, height: 1),
                     ),
                     TextSpan(
-                      text: ' ${item.first.title}',
+                      text: ' ${category.title}',
                       style: const TextStyle(fontSize: 14, height: 1),
                     ),
                   ],
@@ -672,15 +510,9 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
               Builder(
                 builder: (btnContext) {
                   return PopupMenuButton<SkipType>(
-                    initialValue: item.second,
-                    onSelected: (e) async {
-                      await _save(SettingBoxKey.blockSettings, {
-                        for (final entry in _blockSettings)
-                          entry.first.name: identical(entry, item)
-                              ? e.index
-                              : entry.second.index,
-                      }, () => item.second = e);
-                    },
+                    initialValue: behavior,
+                    onSelected: (value) =>
+                        _save(_actions.saveBehavior(category, value)),
                     itemBuilder: (context) => SkipType.values
                         .map(
                           (type) => AppPopupMenuItem<SkipType>(
@@ -708,7 +540,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                         ),
                         TextSpan(
                           children: [
-                            TextSpan(text: behaviorLabel(item.second)),
+                            TextSpan(text: behaviorLabel(behavior)),
                             WidgetSpan(
                               alignment: .middle,
                               child: Icon(
@@ -731,7 +563,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
             ],
           ),
           subtitle: Text(
-            item.first.description,
+            category.description,
             style: TextStyle(
               fontSize: 12,
               color: isDisable ? null : theme.colorScheme.outline,

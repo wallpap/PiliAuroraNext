@@ -142,7 +142,7 @@ class LiveDanmakuQueue<T> {
 
   void add(LiveDanmakuMessage<T> message) {
     if (_disposed) return;
-    _expire();
+    _expire(_queue.toList());
     if (nowUs() >= message.receivedAtUs + maxAgeUs ||
         message.text.length > 1000 ||
         message.emotes.length > 16 ||
@@ -176,9 +176,9 @@ class LiveDanmakuQueue<T> {
     c.release();
   }
 
-  void _expire() {
+  void _expire(List<_Candidate<T>> candidates) {
     final now = nowUs();
-    for (final c in _queue.toList()) {
+    for (final c in candidates) {
       if (now >= c.message.receivedAtUs + maxAgeUs) {
         _remove(c);
       } else if (c.started && !c.ready && now >= c.resourceDeadline) {
@@ -189,11 +189,13 @@ class LiveDanmakuQueue<T> {
 
   void process({required bool running, required double fontSize}) {
     if (_disposed) return;
-    _expire();
+    final candidates = _queue.toList();
+    _expire(candidates);
     if (!running) return;
     final started = nowUs();
     var count = 0;
-    for (final c in _queue.toList()) {
+    for (final c in candidates) {
+      if (c.done) continue;
       if (nowUs() - started >= maxWorkUs) break;
       if (c.started && !c.ready) continue;
       if (!c.started &&

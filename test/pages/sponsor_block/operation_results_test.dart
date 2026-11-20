@@ -1,24 +1,26 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart' show Player;
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/action_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/action_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/post_segment_model.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/post_panel/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_http_adapter.dart';
 import '../../support/memory_box.dart';
@@ -27,7 +29,7 @@ class _Video extends GetxController implements VideoDetailController {
   @override
   String bvid = 'video';
   @override
-  final cid = 1.obs;
+  final cid = ValueNotifier(1);
   @override
   final postList = <PostSegmentModel>[];
   int handled = 0;
@@ -60,7 +62,7 @@ class _Player extends GetxController implements PlPlayerController {
 
 class _Config with BlockConfigMixin {}
 
-class _Block extends GetxController with BlockMixin {
+class _Block with BlockMixin {
   @override
   final blockConfig = _Config();
   @override
@@ -129,7 +131,7 @@ void main() {
   });
   tearDown(() {
     video.onDelete();
-    block.onDelete();
+    block.disposeBlock();
     Get.reset();
   });
   tearDownAll(() => Request.dio.close(force: true));
@@ -147,23 +149,25 @@ void main() {
     final scroll = ScrollController();
     addTearDown(scroll.dispose);
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: Scaffold(
-          body: TextButton(
-            onPressed: () => Get.to(
-              () => settings
-                  ? const SponsorBlockPage()
-                  : PrimaryScrollController(
-                      controller: scroll,
-                      child: PostPanel(
-                        enableSlide: false,
-                        videoDetailController: video,
-                        plPlayerController: _Player(),
+      ProviderScope(
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: Scaffold(
+            body: TextButton(
+              onPressed: () => Get.to(
+                () => settings
+                    ? const SponsorBlockPage()
+                    : PrimaryScrollController(
+                        controller: scroll,
+                        child: PostPanel(
+                          enableSlide: false,
+                          videoDetailController: video,
+                          plPlayerController: _Player(),
+                        ),
                       ),
-                    ),
+              ),
+              child: const Text('打开'),
             ),
-            child: const Text('打开'),
           ),
         ),
       ),

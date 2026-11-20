@@ -7,17 +7,15 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pbenum.dart'
-    show IMSettingType;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like/item.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like/item.dart';
 import 'package:pili_aurora_next/pages/msg_feed_top/like_me/controller.dart';
 import 'package:pili_aurora_next/pages/whisper_settings/widgets/reminder_dialog.dart';
 import 'package:pili_aurora_next/services/messaging/feed.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get/get.dart';
@@ -41,7 +39,7 @@ class _LikeMePageState extends ConsumerState<LikeMePage> {
         title: const Text('收到的赞'),
         actions: [
           MessageReminderButton(
-            type: IMSettingType.SETTING_TYPE_OLD_RECEIVE_LIKE,
+            type: .likes,
             title: '收到的赞提醒',
             icon: Icon(
               size: 20,
@@ -229,27 +227,29 @@ class _LikeMePageState extends ConsumerState<LikeMePage> {
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           children: [
             DialogOption(
-              onPressed: () {
+              onPressed: () async {
                 Get.back();
-                showConfirmDialog(
+                final confirmed = await showConfirmDialog(
                   context: context,
                   title: const Text('删除'),
                   content: const Text('该条通知删除后，当有新点赞时会重新出现在列表，是否继续？'),
-                  onConfirm: () => onRemove(item.id),
                 );
+                if (!confirmed || !context.mounted) return;
+                onRemove(item.id);
               },
               child: const Text('删除', style: TextStyle(fontSize: 14)),
             ),
             DialogOption(
-              onPressed: () {
+              onPressed: () async {
                 Get.back();
                 if (isNotice) {
-                  showConfirmDialog(
+                  final confirmed = await showConfirmDialog(
                     context: context,
                     title: const Text('不再通知'),
                     content: const Text('这条内容的点赞将不再通知，但仍可在列表内查看，是否继续？'),
-                    onConfirm: () => _setNotice(controller, item, isNotice),
                   );
+                  if (!confirmed || !context.mounted) return;
+                  _setNotice(controller, item, isNotice);
                 } else {
                   _setNotice(controller, item, isNotice);
                 }

@@ -1,13 +1,16 @@
 import 'dart:convert';
+
+import 'package:pili_aurora_next/services/settings/application_settings.dart';
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 void main() {
   test(
@@ -33,7 +36,7 @@ void main() {
           isNot(contains('fixture-webdav-secret')),
         );
         expect(
-          GStorage.settingsBackup.exportJson(),
+          ApplicationSettings.backup.exportJson(),
           isNot(contains('fixture-webdav-secret')),
         );
       } finally {

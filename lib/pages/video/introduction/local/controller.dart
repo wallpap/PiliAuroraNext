@@ -1,15 +1,15 @@
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
-import 'package:pili_aurora_next/pages/download/controller.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/scheduler.dart' show SchedulerBinding;
-import 'package:get/get.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, ValueNotifier;
+import 'package:flutter/scheduler.dart' show SchedulerBinding, TickerProvider;
 
 class LocalIntroController extends CommonIntroController {
   @override
@@ -19,7 +19,7 @@ class LocalIntroController extends CommonIntroController {
   int get copyright => throw UnimplementedError();
 
   @override
-  void actionLikeVideo() {}
+  Future<void> actionLikeVideo() async {}
 
   @override
   void actionShareVideo(context) {}
@@ -28,7 +28,7 @@ class LocalIntroController extends CommonIntroController {
   void actionTriple() {}
 
   @override
-  Future<void> actionFavVideo({bool isQuick = false}) async {}
+  Future<void> quickFavorite() async {}
 
   @override
   (Object, int) get getFavRidType => throw UnimplementedError();
@@ -42,33 +42,41 @@ class LocalIntroController extends CommonIntroController {
   late final Set<String> aidSet = {};
 
   @override
-  void onClose() {
+  void close() {
+    if (isClosed) return;
     aidSet.clear();
-    super.onClose();
+    super.close();
+    index.dispose();
+    list.dispose();
   }
 
   @override
-  void onInit() {
-    super.onInit();
-    videoDetail.value.title = videoDetailCtr.args['title'];
+  void open(VideoDetailController video, TickerProvider vsync) {
+    super.open(video, vsync);
+    videoDetail.value = VideoDetailData(title: videoDetailCtr.args['title']);
     if (DesktopPlaybackWindows.isPlayerWindow) {
       this.list.value = [videoDetailCtr.entry];
       this.index.value = 0;
       return;
     }
-    final controller = Get.find<DownloadPageController>();
-    final list = <BiliDownloadEntryInfo>[];
-    for (final e in controller.pages) {
-      final items = e.entries..sort((a, b) => a.sortKey.compareTo(b.sortKey));
-      final completed = items.where((e) => e.isCompleted);
-      list.addAllIf(completed.isNotEmpty, completed);
-      if (completed.length == 1) {
-        aidSet.add(e.pageId);
-      }
+    // 离线入口固定播放列表，播放页不再依赖下载首页的存活与注册。
+    final supplied = videoDetailCtr.args['offlineEntries'];
+    final list = supplied is List<BiliDownloadEntryInfo> && supplied.isNotEmpty
+        ? supplied.toList()
+        : <BiliDownloadEntryInfo>[videoDetailCtr.entry];
+    final counts = <String, int>{};
+    for (final entry in list) {
+      counts.update(entry.pageId, (count) => count + 1, ifAbsent: () => 1);
     }
+    aidSet.addAll(
+      counts.entries
+          .where((entry) => entry.value == 1)
+          .map((entry) => entry.key),
+    );
     this.list.value = list;
     final currCid = videoDetailCtr.cid.value;
-    final index = list.indexWhere((e) => e.cid == currCid);
+    final found = list.indexWhere((e) => e.cid == currCid);
+    final index = found < 0 ? 0 : found;
     this.index.value = index;
     if (PlatformUtils.isMobile) {
       onVideoDetailChange(list[index]);
@@ -92,20 +100,20 @@ class LocalIntroController extends CommonIntroController {
     }
   }
 
-  final index = (-1).obs;
-  double get _offset => index * 112 + 7 - 35;
-  final list = RxList<BiliDownloadEntryInfo>();
+  final index = ValueNotifier(-1);
+  double get _offset => index.value * 112.0 + 7 - 35;
+  final list = ValueNotifier<List<BiliDownloadEntryInfo>>(const []);
 
   @override
   bool nextPlay() {
     final next = index.value + 1;
-    if (next < list.length) {
+    if (next < list.value.length) {
       playIndex(next);
       return true;
     } else {
       final playCtr = videoDetailCtr.plPlayerController;
       if (playCtr.playRepeat == PlayRepeat.listCycle) {
-        if (list.length == 1) {
+        if (list.value.length == 1) {
           playCtr.seek(Duration.zero).whenComplete(playCtr.play);
         } else {
           playIndex(0);
@@ -130,7 +138,7 @@ class LocalIntroController extends CommonIntroController {
     int index, {
     BiliDownloadEntryInfo? entry,
   }) {
-    entry ??= list[index];
+    entry ??= list.value[index];
     videoDetailCtr
       ..onReset()
       ..cover.value = entry.cover
@@ -140,9 +148,7 @@ class LocalIntroController extends CommonIntroController {
       ..args['dirPath'] = entry.entryDirPath
       ..initFileSource(entry, isInit: false)
       ..playerInit();
-    videoDetail
-      ..value.title = entry.showTitle
-      ..refresh();
+    videoDetail.value = VideoDetailData(title: entry.showTitle);
     this.index.value = index;
     if (PlatformUtils.isMobile) {
       onVideoDetailChange(entry);

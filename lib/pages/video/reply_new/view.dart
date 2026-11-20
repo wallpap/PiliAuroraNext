@@ -13,28 +13,25 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart' show FilePicModel;
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart' show FilePicModel;
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
-import 'package:pili_aurora_next/pages/emote/controller.dart';
 import 'package:pili_aurora_next/pages/emote/view.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/reply_search_item/view.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/latex_to_unicode.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/core/text/latex_to_unicode.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart' hide TextField;
 
 class ReplyPage extends CommonRichTextPubPage {
@@ -42,10 +39,11 @@ class ReplyPage extends CommonRichTextPubPage {
   final int root;
   final int parent;
   final int replyType;
-  final ReplyInfo? replyItem;
+  final CommentReply? replyItem;
   final String? hint;
   final bool canUploadPic;
-  final ValueChanged<ReplyInfo?>? onSuccess;
+  final ValueChanged<CommentReply?>? onSuccess;
+  final CommentVideoTools? videoTools;
 
   const ReplyPage({
     super.key,
@@ -60,6 +58,7 @@ class ReplyPage extends CommonRichTextPubPage {
     this.hint,
     this.canUploadPic = true,
     this.onSuccess,
+    this.videoTools,
   });
 
   @override
@@ -68,17 +67,16 @@ class ReplyPage extends CommonRichTextPubPage {
 
 class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   bool _capturingScreenshot = false;
-  final _publishing = false.obs;
-  final RxBool _syncToDynamic = false.obs;
-  final heroTag = Get.arguments?['heroTag'];
-
-  final RxBool _latexOn = false.obs;
+  final _publishing = ValueNotifier(false);
+  final _syncToDynamic = ValueNotifier(false);
+  final _latexOn = ValueNotifier(false);
+  late final _publishButton = Listenable.merge([enablePublish, _publishing]);
 
   @override
   void dispose() {
-    Get
-      ..delete<EmotePanelController>()
-      ..delete<DynMentionController>();
+    _publishing.dispose();
+    _syncToDynamic.dispose();
+    _latexOn.dispose();
     super.dispose();
   }
 
@@ -88,7 +86,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   }
 
   late final darkVideoPage =
-      Get.currentRoute == '/videoV' && Pref.darkVideoPage;
+      Get.currentRoute == '/videoV' && DisplayPreferences.darkVideoPage;
 
   @override
   Widget build(BuildContext context) {
@@ -120,15 +118,16 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   Widget? get customPanel => EmotePanel(onChoose: onChooseEmote);
 
   Widget buildImagePreview() {
-    return Obx(
-      () {
-        if (imageList.isNotEmpty) {
+    return ValueListenableBuilder(
+      valueListenable: images,
+      builder: (context, images, _) {
+        if (images.isNotEmpty) {
           return SizedBox(
             height: 85,
             child: ListView.separated(
               scrollDirection: .horizontal,
               padding: const .fromLTRB(15, 0, 15, 10),
-              itemCount: imageList.length,
+              itemCount: images.length,
               itemBuilder: (_, index) => buildImage(index, 75),
               separatorBuilder: (_, _) => const SizedBox(width: 10),
             ),
@@ -149,14 +148,15 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
           left: 15,
           bottom: 10,
         ),
-        child: Obx(
-          () => RichTextField(
+        child: ValueListenableBuilder(
+          valueListenable: readOnly,
+          builder: (context, readOnly, _) => RichTextField(
             key: key,
             controller: editController,
             minLines: 4,
             maxLines: 8,
             autofocus: false,
-            readOnly: readOnly.value,
+            readOnly: readOnly,
             onChanged: onChanged,
             onSubmitted: onSubmitted,
             focusNode: focusNode,
@@ -199,20 +199,22 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             const SizedBox(width: 8),
             moreBtn,
             const SizedBox(width: 8),
-            Obx(
-              () => ToolbarIconButton(
+            ValueListenableBuilder(
+              valueListenable: _syncToDynamic,
+              builder: (context, sync, _) => ToolbarIconButton(
                 tooltip: '转到动态',
-                onPressed: _syncToDynamic.toggle,
+                onPressed: () => _syncToDynamic.value = !_syncToDynamic.value,
                 icon: const Icon(
                   CustomIcons.repeat_rounded_rotate_90,
                   size: 22,
                 ),
-                selected: _syncToDynamic.value,
+                selected: sync,
               ),
             ),
             const Spacer(),
-            Obx(
-              () => FilledButton.tonal(
+            ListenableBuilder(
+              listenable: _publishButton,
+              builder: (context, _) => FilledButton.tonal(
                 onPressed: enablePublish.value && !_publishing.value
                     ? onPublishThrottle
                     : null,
@@ -309,19 +311,14 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             icon: Icon(Icons.post_add, size: 28, color: color),
             title: '插入内容',
           ),
-          if (heroTag != null) ...[
+          if (widget.videoTools case final video?) ...[
             item(
               onTap: () {
-                try {
-                  final plPlayerController = Get.find<VideoDetailController>(
-                    tag: heroTag,
-                  );
+                if (video.position() case final position?) {
                   onInsertText(
-                    ' ${DurationUtils.formatDuration((plPlayerController.playedTime ?? Duration.zero).inSeconds)} ',
+                    ' ${DurationUtils.formatDuration(position.inSeconds)} ',
                     RichTextType.common,
                   );
-                } catch (e, stackTrace) {
-                  logger.w(e.toString(), error: e, stackTrace: stackTrace);
                 }
               },
               icon: Icon(Icons.my_location, size: 28, color: color),
@@ -337,7 +334,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                   if (_capturingScreenshot || _publishing.value) return;
                   _capturingScreenshot = true;
                   String? temporaryPath;
-                  final account = Accounts.main;
+                  final identity = AccountScope.capture();
                   final route = ModalRoute.of(context);
                   var invalidated = false;
                   void onNavigation() {
@@ -350,25 +347,16 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                       mounted &&
                       !invalidated &&
                       (route?.isCurrent ?? true) &&
-                      identical(account, Accounts.main) &&
+                      identity.isCurrent &&
                       !_publishing.value;
                   bool Function() current = pageCurrent;
                   routeObserver.addNavigationListener(onNavigation);
                   try {
-                    final video = Get.find<VideoDetailController>(tag: heroTag);
-                    final bvid = video.bvid;
-                    final cid = video.cid.value;
-                    final controller = video.plPlayerController;
-                    final player = controller.videoPlayerController;
-                    final owner = controller.activePlaybackOwner;
-                    current = () =>
-                        pageCurrent() &&
-                        !video.isClosed &&
-                        video.bvid == bvid &&
-                        video.cid.value == cid &&
-                        identical(player, controller.videoPlayerController) &&
-                        identical(owner, controller.activePlaybackOwner);
-                    final image = await player?.screenshot();
+                    final capture = video.capture();
+                    if (capture != null) {
+                      current = () => pageCurrent() && capture.isCurrent();
+                    }
+                    final image = await capture?.read();
                     if (image == null) {
                       if (current()) SmartDialog.showToast('截图失败，请重试');
                       return;
@@ -378,11 +366,11 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                       if (!current()) return;
                       if (png == null) throw StateError('截图编码未返回数据');
                       temporaryPath =
-                          '$tmpDirPath/${Utils.generateRandomString(8)}.png';
+                          '$tmpDirPath/${generateRandomString(8)}.png';
                       await File(temporaryPath)
                           .writeAsBytes(png.buffer.asUint8List());
                       if (current() && imageList.length < limit) {
-                        imageList.add(FilePicModel(path: temporaryPath));
+                        addDraftImage(FilePicModel(path: temporaryPath));
                         temporaryPath = null; // 图片草稿取得临时文件所有权。
                       }
                     } finally {
@@ -431,7 +419,8 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   @override
   Future<void> onCustomPublish({List? pictures}) async {
     if (!mounted || _publishing.value) return;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     if (!account.isLogin) {
       SmartDialog.showToast('账号未登录');
       return;
@@ -449,7 +438,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
     final atNameToMid = <String, int>{};
     bool isCurrent() =>
         mounted &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         target.oid == widget.oid &&
         target.replyType == widget.replyType &&
         target.root == widget.root &&
@@ -467,7 +456,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
       }
       pictures ??= await uploadPictures(account: account);
       if (!isCurrent()) return;
-      final result = await VideoHttp.replyAdd(
+      final result = await commentActions.publish(
         account: account,
         type: target.replyType,
         oid: target.oid,
@@ -521,15 +510,15 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
     }
   }
 
-  Widget get latexBtn => Obx(() {
-    final latexOn = _latexOn.value;
-    return ToolbarIconButton(
+  Widget get latexBtn => ValueListenableBuilder(
+    valueListenable: _latexOn,
+    builder: (context, latexOn, _) => ToolbarIconButton(
       onPressed: latexOn ? _unlatexify : _latexify,
       icon: const Icon(Icons.functions, size: 22),
       tooltip: '公式',
       selected: latexOn,
-    );
-  });
+    ),
+  );
 
   Future<void> _latexify() async {
     // value.text is the display space (\uFFFC per emote), the same space

@@ -10,7 +10,7 @@ packages:
     source: hosted
     version: "108.0.0"
   analyzer:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: analyzer
       sha256: a51c769bff3b6dfbe9d60199b8606d808290702a296bef0c26a4ca391d414e46
@@ -670,12 +670,12 @@ packages:
     source: hosted
     version: "1.1.2"
   flutter_inappwebview_windows:
-    dependency: "direct overridden"
+    dependency: "direct dev"
     description:
       path: "third_party/flutter_inappwebview_windows"
       relative: true
     source: path
-    version: "0.6.0+piliauroranext.1"
+    version: "0.6.0+piliauroranext.2"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:

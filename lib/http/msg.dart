@@ -1,24 +1,24 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 import 'dart:convert';
 
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/msg/im_user_infos/datum.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_at/data.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_dnd/uid_setting.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like/data.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_like_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_reply/data.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_sys/data.dart';
-import 'package:pili_aurora_next/models/remote/msg/session_ss/data.dart';
-import 'package:pili_aurora_next/models/remote/single_unread/data.dart';
-import 'package:pili_aurora_next/models/remote/upload_bfs/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/services/messaging/models/im_user_infos/datum.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_at/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_dnd/uid_setting.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_like_detail/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_reply/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_sys/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/session_ss/data.dart';
+import 'package:pili_aurora_next/services/messaging/models/single_unread/data.dart';
+import 'package:pili_aurora_next/features/community/domain/upload/data.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class MsgHttp {

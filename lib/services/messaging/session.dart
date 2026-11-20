@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/msg/msg_unread_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_unread_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef AccountSessionKey = ({int mid, int generation});
 
@@ -52,6 +52,7 @@ class MessagingSession {
     T Function() create,
     void Function(T) dispose,
   ) {
+    if (_disposed) throw StateError('消息会话已释放');
     return _resources.putIfAbsent(key, () {
       final value = create();
       _disposers.add(() => dispose(value));
@@ -115,8 +116,21 @@ class Messaging {
   static Messaging get instance => _instance ??= Messaging._();
   static void onAccountChanged() => _instance?._replace(Accounts.main);
 
+  static void closeApplicationSession() {
+    final owner = _instance;
+    if (owner == null) return;
+    _instance = null;
+    owner._closed = true;
+    try {
+      owner.current.value.dispose();
+    } finally {
+      owner.current.dispose();
+    }
+  }
+
   late Account _account;
-  int _generation = 0;
+  static int _generation = 0;
+  bool _closed = false;
   late final ValueNotifier<MessagingSession> current;
 
   MessagingSession _create(Account account) => MessagingSession(
@@ -126,7 +140,9 @@ class Messaging {
   );
 
   MessagingSession get session {
-    if (!identical(_account, Accounts.main)) _replace(Accounts.main);
+    if (!_closed && !identical(_account, Accounts.main)) {
+      _replace(Accounts.main);
+    }
     return current.value;
   }
 

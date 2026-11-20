@@ -2,14 +2,15 @@ import 'dart:async' show FutureOr;
 
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/normal_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/popup_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/switch_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_input_dialog.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart' hide PopupMenuItemSelected;
 
@@ -108,6 +109,8 @@ class SplitModel extends SettingsModel {
     subtitle: effectiveSubtitle,
     setKey: switchModel.setKey,
     defaultVal: switchModel.defaultVal,
+    read: switchModel.windowPreference?.read,
+    write: switchModel.windowPreference?.save,
     onChanged: switchModel.onChanged,
     needReboot: switchModel.needReboot,
     leading: normalModel.leading,
@@ -216,6 +219,7 @@ class SwitchModel extends SettingsModel {
   final String? title;
   final String setKey;
   final bool defaultVal;
+  final WindowPreference? windowPreference;
   final FutureOr<void> Function(bool)? onChanged;
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
@@ -233,7 +237,7 @@ class SwitchModel extends SettingsModel {
     this.needReboot = false,
     this.onTap,
     this.children = const [],
-  });
+  }) : windowPreference = null;
 
   const SwitchModel.split({
     required this.setKey,
@@ -242,7 +246,21 @@ class SwitchModel extends SettingsModel {
     this.onChanged,
     this.onTap,
     this.children = const [],
-  }) : title = null;
+  }) : title = null,
+       windowPreference = null;
+
+  SwitchModel.window({
+    super.subtitle,
+    super.leading,
+    required String this.title,
+    required WindowPreference preference,
+    this.onChanged,
+    this.needReboot = false,
+  }) : setKey = preference.key,
+       defaultVal = preference.defaultValue,
+       windowPreference = preference,
+       onTap = null,
+       children = const [];
 
   @override
   String get effectiveTitle => title!;
@@ -263,6 +281,8 @@ class SwitchModel extends SettingsModel {
     subtitle: subtitle,
     setKey: setKey,
     defaultVal: defaultVal,
+    read: windowPreference?.read,
+    write: windowPreference?.save,
     onChanged: onChanged,
     needReboot: needReboot,
     leading: leading,
@@ -308,9 +328,9 @@ class _SettingEdit {
 SettingsModel getBanWordModel({
   required String title,
   required String key,
-  required ValueChanged<RegExp> onChanged,
+  ValueChanged<RegExp>? onChanged,
 }) {
-  String banWord = GStorage.setting.get(key, defaultValue: '');
+  String banWord = SettingsValues.general.readOr(key, '');
   bool editing = false;
   return NormalModel(
     leading: const Icon(Icons.filter_alt_outlined),
@@ -332,9 +352,9 @@ SettingsModel getBanWordModel({
             validationMessage: '请输入有效的正则表达式',
             isCurrent: () => edit.isCurrent,
             save: (pattern) async {
-              await GStorage.setting.put(key, pattern.pattern);
+              await SettingsValues.general.save(key, pattern.pattern);
               banWord = pattern.pattern;
-              edit.apply(() => onChanged(pattern));
+              edit.apply(() => onChanged?.call(pattern));
               setState();
             },
           ),
@@ -357,8 +377,7 @@ SettingsModel getVideoFilterSelectModel({
   bool isFilter = true,
   ValueChanged<int>? onChanged,
 }) {
-  assert(!isFilter || onChanged != null);
-  int value = GStorage.setting.get(key, defaultValue: defaultValue);
+  int value = SettingsValues.general.readOr(key, defaultValue);
   bool editing = false;
   return NormalModel(
     title: '$title${isFilter ? '过滤' : ''}',
@@ -374,7 +393,7 @@ SettingsModel getVideoFilterSelectModel({
       editing = true;
       final edit = _SettingEdit(context);
       Future<void> save(int next) async {
-        await GStorage.setting.put(key, next);
+        await SettingsValues.general.save(key, next);
         value = next;
         edit.apply(() => onChanged?.call(next));
         setState();

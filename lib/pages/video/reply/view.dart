@@ -6,57 +6,73 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 import 'package:pili_aurora_next/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/pages/video/reply_reply/view.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/rate_limiter.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
 import 'package:material_ui/material_ui.dart';
 
-class VideoReplyPanel extends StatefulWidget {
+class VideoReplyPanel extends ConsumerStatefulWidget {
   const VideoReplyPanel({
     super.key,
     this.replyLevel = 1,
-    required this.heroTag,
+    required this.videoTools,
     required this.isNested,
+    required this.query,
+    required this.sourceId,
+    required this.writeTarget,
+    required this.targetIsCurrent,
+    required this.scrollController,
   });
 
   final int replyLevel;
-  final String heroTag;
+  final CommentVideoTools videoTools;
   final bool isNested;
+  final CommentsQuery query;
+  final Object sourceId;
+  final CommentTarget writeTarget;
+  final bool Function() targetIsCurrent;
+  final ScrollController scrollController;
 
   @override
-  State<VideoReplyPanel> createState() => _VideoReplyPanelState();
+  ConsumerState<VideoReplyPanel> createState() => _VideoReplyPanelState();
 }
 
-class _VideoReplyPanelState extends State<VideoReplyPanel>
+class _VideoReplyPanelState extends ConsumerState<VideoReplyPanel>
     with
         AutomaticKeepAliveClientMixin,
         SingleTickerProviderStateMixin,
         BaseFabMixin,
         FabMixin {
   late ColorScheme colorScheme;
-  late VideoReplyController _videoReplyController;
-
-  String get heroTag => widget.heroTag;
+  final _interactions = CommentInteractions();
+  Comments get _comments => ref.read(commentsProvider(widget.query).notifier);
+  CommentsState get _snapshot => ref.read(commentsProvider(widget.query));
+  void _compose(CommentReply? item, {int? oid, int? replyType, int? index}) =>
+      _interactions.compose(
+        context,
+        _comments,
+        _snapshot,
+        widget.sourceId,
+        item,
+        oid: oid,
+        replyType: replyType,
+        targetIsCurrent: widget.targetIsCurrent,
+        videoTools: widget.videoTools,
+      );
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _videoReplyController = Get.find<VideoReplyController>(tag: heroTag);
-    if (_videoReplyController.loadingState.value is Loading) {
-      _videoReplyController.queryData();
-    }
-  }
 
   @override
   void didChangeDependencies() {
@@ -70,41 +86,44 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final state = ref.watch(commentsProvider(widget.query));
     return fabAnimWrapper(
       child: refreshIndicator(
-        onRefresh: _videoReplyController.onRefresh,
+        onRefresh: _comments.refresh,
         isClampingScrollPhysics: widget.isNested,
         child: ScaffoldLayout(
-          body: CustomScrollView(
-            controller: widget.isNested
-                ? null
-                : _videoReplyController.scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            key: const PageStorageKey(_VideoReplyPanelState),
-            slivers: [
-              SliverFloatingHeaderWidget(
-                backgroundColor: colorScheme.surface,
-                child: Padding(
-                  padding: const .fromLTRB(12, 2.5, 6, 2.5),
-                  child: Obx(() {
-                    final sortType = _videoReplyController.sortType.value;
-                    return Row(
+          body: FeedPagination.notifications(
+            dataSource: state.source,
+            dataRevision: state,
+            canLoadMore: () => state.canLoadMore,
+            onLoadMore: _comments.loadMore,
+            child: CustomScrollView(
+              controller: widget.isNested ? null : widget.scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              key: const PageStorageKey(_VideoReplyPanelState),
+              slivers: [
+                SliverFloatingHeaderWidget(
+                  backgroundColor: colorScheme.surface,
+                  child: Padding(
+                    padding: const .fromLTRB(12, 2.5, 6, 2.5),
+                    child: Row(
                       mainAxisAlignment: .spaceBetween,
                       children: [
                         Text(
-                          sortType.desc,
+                          state.sort.desc,
                           style: const TextStyle(fontSize: 13),
                         ),
                         TextButton.icon(
                           style: Style.buttonStyle,
-                          onPressed: _videoReplyController.queryBySort,
+                          onPressed: () =>
+                              _interactions.toggleSort(_comments, state),
                           icon: Icon(
                             Icons.sort,
                             size: 16,
                             color: colorScheme.secondary,
                           ),
                           label: Text(
-                            sortType.descShort,
+                            state.sort.descShort,
                             style: TextStyle(
                               fontSize: 13,
                               color: colorScheme.secondary,
@@ -112,12 +131,12 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                           ),
                         ),
                       ],
-                    );
-                  }),
+                    ),
+                  ),
                 ),
-              ),
-              Obx(() => _buildBody(_videoReplyController.loadingState.value)),
-            ],
+                _buildBody(state),
+              ],
+            ),
           ),
           fab: SlideTransition(
             position: fabAnimation,
@@ -130,10 +149,10 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                 heroTag: null,
                 onPressed: () {
                   feedBack();
-                  _videoReplyController.onReply(
+                  _compose(
                     null,
-                    oid: _videoReplyController.aid,
-                    replyType: _videoReplyController.videoType.replyType,
+                    oid: widget.writeTarget.oid,
+                    replyType: widget.query.target.type,
                   );
                 },
                 tooltip: '发表评论',
@@ -146,8 +165,8 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     );
   }
 
-  Widget _buildBody(LoadingState<List<ReplyInfo>?> loadingState) {
-    switch (loadingState) {
+  Widget _buildBody(CommentsState state) {
+    switch (state.loading) {
       case Loading():
         return const SliverPrototypeExtentList(
           prototypeItem: VideoReplySkeleton(),
@@ -157,9 +176,9 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
           ),
         );
       case Success(:final response):
-        if (response != null && response.isNotEmpty) {
+        if (response.isNotEmpty) {
           var count = response.length + 1;
-          final voteCard = _videoReplyController.voteCard;
+          final voteCard = state.vote;
           final hasVote = voteCard != null;
           if (hasVote) {
             count++;
@@ -174,13 +193,18 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                 }
               }
               if (index == response.length) {
-                _videoReplyController.onLoadMore();
+                if (state.pageError case final error?) {
+                  return TextButton(
+                    onPressed: () => _comments.loadMore(retry: true),
+                    child: Text('$error'),
+                  );
+                }
                 return Container(
                   height: 125,
                   alignment: .center,
                   margin: .only(bottom: bottom),
                   child: Text(
-                    _videoReplyController.isEnd ? '没有更多了' : '加载中...',
+                    !state.hasMore ? '没有更多了' : '加载中...',
                     textAlign: .center,
                     style: TextStyle(fontSize: 12, color: colorScheme.outline),
                   ),
@@ -190,17 +214,18 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   replyItem: response[index],
                   replyLevel: widget.replyLevel,
                   replyReply: replyReply,
-                  onReply: _videoReplyController.onReply,
+                  onReply: _compose,
                   onDelete: (item, subIndex) =>
-                      _videoReplyController.onRemove(index, item, subIndex),
-                  upMid: _videoReplyController.upMid,
-                  getTag: () => heroTag,
-                  onCheckReply: _videoReplyController.onCheckReply,
-                  onToggleTop: (item) => _videoReplyController.onToggleTop(
+                      _comments.remove(item, subIndex),
+                  upMid: state.upMid,
+                  videoTools: widget.videoTools,
+                  onCheckReply: (item) =>
+                      _interactions.check(_comments, widget.sourceId, item),
+                  onToggleTop: (item) => _interactions.togglePinned(
+                    context,
+                    _comments,
                     item,
-                    index,
-                    _videoReplyController.aid,
-                    _videoReplyController.videoType.replyType,
+                    target: widget.writeTarget,
                   ),
                 );
               }
@@ -210,13 +235,15 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         }
 
         final child = HttpError(
-          errMsg: _videoReplyController.emptyReplyMessage,
-          btnText: _videoReplyController.canLoadMore ? '继续加载' : null,
-          onReload: _videoReplyController.canLoadMore
-              ? _videoReplyController.onLoadMore
-              : _videoReplyController.onReload,
+          errMsg: CommentPreferences.minimumUserLevel > 0
+              ? '暂无符合等级条件的评论'
+              : '还没有评论',
+          btnText: state.hasMore ? '继续加载' : null,
+          onReload: state.hasMore
+              ? () => _comments.loadMore(retry: true)
+              : () => _comments.refresh(clear: true),
         );
-        if (_videoReplyController.voteCard case final voteCard?) {
+        if (state.vote case final voteCard?) {
           return SliverMainAxisGroup(
             slivers: [
               SliverToBoxAdapter(
@@ -230,28 +257,35 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
       case Error(:final errMsg):
         return HttpError(
           errMsg: errMsg,
-          onReload: _videoReplyController.onReload,
+          onReload: () => _comments.refresh(clear: true),
         );
     }
   }
 
   // 展示二级回复
-  void replyReply(ReplyInfo replyItem, int? id) {
+  void replyReply(CommentReply replyItem, int? id) {
     ActionThrottle.run('replyReply', const Duration(milliseconds: 500), () {
+      final comments = _comments;
+      final current = comments.capture();
+      final targetIsCurrent = widget.targetIsCurrent;
+      final state = _snapshot;
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
       MiniScaffold.of(context).showBottomSheet(
         constraints: const BoxConstraints(),
         (context) => VideoReplyReplyPanel(
+          videoTools: widget.videoTools,
           id: id,
           oid: oid,
           rpid: rpid,
           firstFloor: replyItem.replyControl.isNote ? null : replyItem,
-          replyType: _videoReplyController.videoType.replyType,
+          replyType: widget.query.target.type,
           isVideoDetail: true,
           isNested: widget.isNested,
-          upMid: _videoReplyController.upMid,
-          onUpdate: _videoReplyController.loadingState.refresh,
+          upMid: state.upMid,
+          onUpdate: () {
+            if (mounted && targetIsCurrent() && current()) comments.touch();
+          },
         ),
       );
     });

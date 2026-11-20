@@ -1,6 +1,7 @@
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
 
 import 'dart:convert';
 
@@ -13,14 +14,14 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.da
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/self_sized_horizontal_list.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/sort.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/value.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
-import 'package:pili_aurora_next/pages/pgc_index/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/sort.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/value.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/pgc_index.dart';
 import 'package:pili_aurora_next/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PgcIndexPage extends ConsumerStatefulWidget {

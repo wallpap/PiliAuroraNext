@@ -1,16 +1,16 @@
 import 'dart:convert';
 
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart' as pb;
-import 'package:pili_aurora_next/grpc/bilibili/dagw/component/avatar/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart' as pb;
+import 'package:pili_aurora_next/generated/bilibili/dagw/component/avatar/v1.pb.dart'
     as avatar;
-import 'package:pili_aurora_next/grpc/bilibili/dagw/component/avatar/common.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/dagw/component/avatar/common.pb.dart'
     as avatar_common;
 import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/services/messaging/session_models.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:protobuf/protobuf.dart' show PbMap;
 
 class SessionPageCursor {
@@ -96,15 +96,30 @@ class SessionAdapter {
     account: account,
   );
 
+  Future<LoadingState<bool>> readPinned({
+    required Account account,
+    required SessionKey key,
+  }) async {
+    final result = await ImGrpc.sessionUpdate(
+      sessionId: _sessionId(key),
+      account: account,
+    );
+    return switch (result) {
+      Success(:final response) => Success(response.session.isPinned),
+      final Error error => error,
+      final Loading pending => pending,
+    };
+  }
+
   Future<LoadingState<void>> setPinned({
     required Account account,
     required SessionKey key,
-    required bool isPinned,
+    required bool pinned,
   }) {
     final id = _sessionId(key);
-    return isPinned
-        ? ImGrpc.unpinSession(sessionId: id, account: account)
-        : ImGrpc.pinSession(sessionId: id, account: account);
+    return pinned
+        ? ImGrpc.pinSession(sessionId: id, account: account)
+        : ImGrpc.unpinSession(sessionId: id, account: account);
   }
 
   Future<LoadingState<void>> clearUnread({

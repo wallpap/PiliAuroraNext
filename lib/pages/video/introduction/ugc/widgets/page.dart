@@ -1,12 +1,11 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +16,6 @@ class PagesPanel extends StatefulWidget {
     this.list,
     this.cover,
     required this.bvid,
-    required this.heroTag,
     this.showEpisodes,
     required this.ugcIntroController,
     this.onDownload,
@@ -28,7 +26,6 @@ class PagesPanel extends StatefulWidget {
   final String? cover;
 
   final String bvid;
-  final String heroTag;
   final Function? showEpisodes;
   final UgcIntroController ugcIntroController;
 
@@ -42,9 +39,9 @@ class PagesPanel extends StatefulWidget {
 class _PagesPanelState extends State<PagesPanel> {
   late int cid;
   int pageIndex = -1;
-  late final VideoDetailController _videoDetailController;
+  VideoDetailController get _videoDetailController =>
+      widget.ugcIntroController.videoDetailCtr;
   late final ScrollController _scrollController;
-  StreamSubscription? _listener;
 
   List<Part> get pages =>
       widget.list ?? widget.ugcIntroController.videoDetail.value.pages!;
@@ -56,23 +53,23 @@ class _PagesPanelState extends State<PagesPanel> {
   @override
   void initState() {
     super.initState();
-    _videoDetailController = Get.find<VideoDetailController>(
-      tag: widget.heroTag,
-    );
     double offset = 0;
     if (widget.list == null) {
       cid = widget.ugcIntroController.cid.value;
       _updatePageIndex();
       offset = targetOffset;
-      _listener = _videoDetailController.cid.listen((cid) {
-        this.cid = cid;
-        _updatePageIndex();
-        if (!mounted) return;
-        setState(() {});
-        jumpToCurr();
-      });
+      _videoDetailController.episodeSelection.addListener(_onEpisodeChanged);
     }
     _scrollController = ScrollController(initialScrollOffset: offset);
+  }
+
+  void _onEpisodeChanged() {
+    if (!mounted) return;
+    setState(() {
+      cid = _videoDetailController.cid.value;
+      _updatePageIndex();
+    });
+    jumpToCurr();
   }
 
   double get targetOffset {
@@ -93,7 +90,7 @@ class _PagesPanelState extends State<PagesPanel> {
 
   @override
   void dispose() {
-    _listener?.cancel();
+    _videoDetailController.episodeSelection.removeListener(_onEpisodeChanged);
     _scrollController.dispose();
     super.dispose();
   }

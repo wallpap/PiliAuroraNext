@@ -33,6 +33,9 @@ class WindowsWebViewEnvironment extends PlatformWebViewEnvironment
   @override
   final String id = IdGenerator.generate();
 
+  final _viewReleases = <Future<void>>{};
+  Future<void>? _disposal;
+
   WindowsWebViewEnvironment(PlatformWebViewEnvironmentCreationParams params)
       : super.implementation(params is WindowsWebViewEnvironmentCreationParams
             ? params
@@ -102,8 +105,20 @@ class WindowsWebViewEnvironment extends PlatformWebViewEnvironment
         'compareBrowserVersions', args);
   }
 
+  void trackViewRelease(Future<void> released) {
+    if (_disposal != null) {
+      throw StateError('The WebView environment is disposing');
+    }
+    _viewReleases.add(released);
+    released.then<void>((_) => _viewReleases.remove(released),
+        onError: (Object _, StackTrace __) {});
+  }
+
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() => _disposal ??= _dispose();
+
+  Future<void> _dispose() async {
+    await Future.wait(_viewReleases);
     Map<String, dynamic> args = <String, dynamic>{};
     await channel?.invokeMethod('dispose', args);
     disposeChannel();

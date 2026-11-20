@@ -3,9 +3,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/native_playback_runtime.dart';
@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart
 import 'package:pili_aurora_next/plugin/pl_player/utils/native_video_options.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 typedef DecoderMediaHeaderWriter = void Function({
   String? userAgent,
@@ -192,12 +192,12 @@ abstract interface class DecoderTestSession {
 
 /// 每个组合使用独立播放会话；超时或停止后先确认原生释放，再允许下一个组合。
 class NativeDecoderTestSession implements DecoderTestSession {
-  NativeDecoderTestSession(this.decoder, this.sample) {
+  NativeDecoderTestSession(this.decoder, this.sample, {String? videoSync}) {
     _runtime = NativePlaybackRuntime(
       configuration: PlaybackRuntimeConfig(
         playerOptions: {
           'audio': 'no',
-          'video-sync': Pref.videoSync,
+          'video-sync': videoSync ?? Pref.videoSync,
           ...nativeVideoPlayerOptions(),
         },
         // 软件基线只切换 hwdec，保持相同的视频输出路径。

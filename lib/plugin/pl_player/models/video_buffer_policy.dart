@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
 
 /// 原生 demuxer 同时受时长和字节上限约束；高码率不能只提高时长目标。
 enum VideoBufferPolicy implements EnumWithLabel {

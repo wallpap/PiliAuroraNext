@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
 
 void main() {
   for (final value in ['', '普通签名 & = +', 'normal']) {

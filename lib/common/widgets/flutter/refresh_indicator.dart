@@ -8,7 +8,7 @@ import 'dart:async' show Completer;
 
 import 'package:pili_aurora_next/common/widgets/refresh_layout.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/input_preferences.dart';
 import 'package:extended_nested_scroll_view/refresh.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
@@ -22,13 +22,14 @@ const kIndicatorSize = 49.0;
 /// In most cases, [displacement] distance starts counting from the parent's
 /// edges. However, if [edgeOffset] is larger than zero then the [displacement]
 /// value is calculated from that offset instead of the parent's edge.
-double _displacement = Pref.refreshDisplacement;
+double _displacement = InputPreferences.refreshIndicatorOffset;
 double get displacement => _displacement;
 set displacement(double value) {
   if (_displacement == value) return;
   _displacement = value;
   _refreshDragExtent = (value + kIndicatorSize) * _kDragSizeFactorLimit;
 }
+
 // The over-scroll distance that moves the indicator to its maximum
 // displacement, as a percentage of the scrollable's container extent.
 double _refreshDragExtent =
@@ -66,6 +67,7 @@ enum RefreshIndicatorStatus {
   /// Animating the indicator's fade-out after not arming.
   canceled,
 }
+
 /// A widget that supports the Material "swipe to refresh" idiom.
 ///
 /// {@youtube 560 315 https://www.youtube.com/watch?v=ORApMlzwMdM}
@@ -604,6 +606,7 @@ class RefreshScrollBehavior extends CustomScrollBehavior {
     return scrollPhysics;
   }
 }
+
 class RefreshScrollPhysics extends ClampingScrollPhysics
     with RefreshScrollPhysicsMixin {
   const RefreshScrollPhysics({

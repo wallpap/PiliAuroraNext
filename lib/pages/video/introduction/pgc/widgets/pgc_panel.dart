@@ -1,21 +1,18 @@
-import 'dart:async';
-
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/horizontal_wheel_scroll.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/new_ep.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/season.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/section.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/new_ep.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/season.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/section.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart'
     hide EpisodeItem;
 import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PgcPanel extends StatefulWidget {
@@ -31,7 +28,7 @@ class PgcPanel extends StatefulWidget {
     required this.onChangeEpisode,
     this.onChangeEpisodeList,
     required this.showEpisodes,
-    required this.heroTag,
+    required this.videoDetail,
     this.newEp,
   });
 
@@ -45,7 +42,7 @@ class PgcPanel extends StatefulWidget {
   final ValueChanged<BaseEpisodeItem> onChangeEpisode;
   final ValueChanged<List<EpisodeItem>>? onChangeEpisodeList;
   final Function showEpisodes;
-  final String heroTag;
+  final VideoDetailController videoDetail;
   final NewEp? newEp;
 
   @override
@@ -61,8 +58,7 @@ class _PgcPanelState extends State<PgcPanel> {
   late final bool vipStatus;
   late int cid;
   bool _cidUpdateScheduled = false;
-  late final VideoDetailController videoDetailCtr;
-  late final StreamSubscription<int> _listener;
+  VideoDetailController get videoDetailCtr => widget.videoDetail;
 
   List<Section> get _extraSections => [
     for (final section in widget.sections ?? <Section>[])
@@ -118,34 +114,35 @@ class _PgcPanelState extends State<PgcPanel> {
       initialScrollOffset: currentIndex > 0 ? currentIndex * 164.0 : 0,
     );
 
-    vipStatus = Pref.userInfoCache?.vipStatus != 1;
-    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
+    vipStatus = AccountProfile.legacy.currentInfo?.vipStatus != 1;
     widget.onChangeEpisodeList?.call(visiblePages);
 
-    _listener = videoDetailCtr.cid.listen((int value) {
-      cid = value;
-      selectedSectionIndex = _sectionIndexForCid(cid) ?? -1;
-      final currentExtraIndex = _extraIndexForSection(selectedSectionIndex);
-      if (currentExtraIndex >= 0) {
-        selectedExtraSectionIndex = currentExtraIndex;
-      }
-      visiblePages = _pagesForSection(selectedSectionIndex) ?? widget.pages;
-      currentIndex = _indexForCid(visiblePages, cid);
-      widget.onChangeEpisodeList?.call(visiblePages);
-      if (!mounted || _cidUpdateScheduled) return;
-      _cidUpdateScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _cidUpdateScheduled = false;
-        if (!mounted) return;
-        setState(() {});
-        scrollToIndex();
-      });
+    videoDetailCtr.episodeSelection.addListener(_onEpisodeChanged);
+  }
+
+  void _onEpisodeChanged() {
+    cid = videoDetailCtr.cid.value;
+    selectedSectionIndex = _sectionIndexForCid(cid) ?? -1;
+    final currentExtraIndex = _extraIndexForSection(selectedSectionIndex);
+    if (currentExtraIndex >= 0) {
+      selectedExtraSectionIndex = currentExtraIndex;
+    }
+    visiblePages = _pagesForSection(selectedSectionIndex) ?? widget.pages;
+    currentIndex = _indexForCid(visiblePages, cid);
+    widget.onChangeEpisodeList?.call(visiblePages);
+    if (!mounted || _cidUpdateScheduled) return;
+    _cidUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _cidUpdateScheduled = false;
+      if (!mounted) return;
+      setState(() {});
+      scrollToIndex();
     });
   }
 
   @override
   void dispose() {
-    _listener.cancel();
+    videoDetailCtr.episodeSelection.removeListener(_onEpisodeChanged);
     listViewScrollCtr.dispose();
     super.dispose();
   }
@@ -333,7 +330,9 @@ class _PgcPanelState extends State<PgcPanel> {
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(8)),
           onTap: () {
-            if (item.badge == '会员' && Accounts.mainEqVideo && vipStatus) {
+            if (item.badge == '会员' &&
+                AccountScope.mainUsesVideoCredentials &&
+                vipStatus) {
               SmartDialog.showToast('需要大会员');
             }
             widget.onChangeEpisode(item);

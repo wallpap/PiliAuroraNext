@@ -1,48 +1,31 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:pili_aurora_next/features/community/application/emote_management.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/emote/package.dart';
-import 'package:pili_aurora_next/models/remote/emote/setting_panel.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/features/community/domain/emote/package.dart';
 import 'package:pili_aurora_next/pages/emote/preview.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 
 /// 原生管理评论区表情包。
-class EmoteManagePage extends StatefulWidget {
+class EmoteManagePage extends ConsumerStatefulWidget {
   const EmoteManagePage({super.key});
 
   @override
-  State<EmoteManagePage> createState() => _EmoteManagePageState();
+  ConsumerState<EmoteManagePage> createState() => _EmoteManagePageState();
 }
 
-class _EmoteManagePageState extends State<EmoteManagePage> {
+class _EmoteManagePageState extends ConsumerState<EmoteManagePage> {
+  final _owner = Object();
   final _searchController = TextEditingController();
-  final _busyPackageIds = <int>{};
-  EmoteSettingPanel? _panel;
-  String? _error;
-  bool _loading = true;
   String _keyword = '';
-  int _category = 0;
-  int _generation = 0;
-  late Account _account;
-  final _categoryPackages = <int, List<Package>>{};
-  final _categoryErrors = <int, String>{};
-  final _loadingCategories = <int>{};
   static const _categories = ['全部表情', '装扮商城', '会员专属', '包月充电'];
   static const _webUrl =
       'https://www.bilibili.com/h5/mall/emoji-package/home?navhide=1';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
 
   @override
   void dispose() {
@@ -50,132 +33,25 @@ class _EmoteManagePageState extends State<EmoteManagePage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final generation = ++_generation;
-    final account = _account = Accounts.main;
-    _categoryPackages.clear();
-    _categoryErrors.clear();
-    _loadingCategories.clear();
-    _busyPackageIds.clear();
-    setState(() {
-      _loading = true;
-      _error = null;
-      _panel = null;
-    });
-    final result = await ReplyHttp.getEmoteSettingPanel(account: account);
-    if (!mounted || generation != _generation) return;
-    setState(() {
-      _loading = false;
-      if (!identical(account, Accounts.main)) {
-        _error = '账号已切换，请刷新重试';
-      } else if (result case Success(:final response)) {
-        _panel = response;
-      } else {
-        _error = result.toString();
-      }
-    });
-    if (_panel != null && _error == null) await _loadCategory(_category);
-  }
-
-  Future<void> _loadCategory(int category) async {
-    if (!identical(_account, Accounts.main)) return _load();
-    setState(() => _category = category);
-    if (_categoryPackages.containsKey(category) ||
-        !_loadingCategories.add(category)) {
-      return;
-    }
-    final generation = _generation;
-    final account = _account;
-    setState(() => _categoryErrors.remove(category));
-    final result = await ReplyHttp.getMyEmotePackages(
-      type: category,
-      account: account,
-    );
-    if (!mounted || generation != _generation) return;
-    if (!identical(account, Accounts.main)) return _load();
-    setState(() {
-      _loadingCategories.remove(category);
-      if (result case Success(:final response)) {
-        _categoryPackages[category] = response;
-      } else {
-        _categoryErrors[category] = result.toString();
-      }
-    });
-  }
-
   Future<void> _changePackage(Package package, {required bool add}) async {
-    if (!identical(_account, Accounts.main)) return _load();
-    final panel = _panel;
-    final id = package.id;
-    if (panel == null || id == null || _busyPackageIds.contains(id)) return;
-    final account = _account;
-    final generation = _generation;
-    setState(() => _busyPackageIds.add(id));
-    try {
-      final result = add
-          ? await ReplyHttp.addEmotePackage(packageId: id, account: account)
-          : await ReplyHttp.removeEmotePackage(packageId: id, account: account);
-      if (!mounted || generation != _generation || !identical(panel, _panel)) {
-        return;
-      }
-      if (!identical(account, Accounts.main)) {
-        await _load();
-        return;
-      }
-      if (result is Success<void>) {
-        SmartDialog.showToast(add ? '添加成功' : '移除成功');
-        setState(() {
-          if (add) {
-            if (!panel.userPanelPackages.any((item) => item.id == id)) {
-              panel.userPanelPackages.add(package);
-            }
-          } else {
-            panel.userPanelPackages.removeWhere((item) => item.id == id);
-            if (!panel.allPackages.any((item) => item.id == id)) {
-              panel.allPackages.add(package);
-            }
-            final all = _categoryPackages[0];
-            if (all != null && !all.any((item) => item.id == id)) {
-              all.add(package);
-            }
-          }
-          for (final item in [
-            ...panel.userPanelPackages,
-            ...panel.allPackages,
-            ..._categoryPackages.values.expand((items) => items),
-          ]) {
-            if (item.id == id) item.flags = EmotePackageFlags(added: add);
-          }
-        });
-      } else {
-        result.toast();
-      }
-    } finally {
-      if (mounted && generation == _generation) {
-        setState(() => _busyPackageIds.remove(id));
-      }
+    final result = await ref
+        .read(emoteManagementProvider(_owner).notifier)
+        .changePackage(package, add: add);
+    if (!mounted || result == null) return;
+    if (result.isSuccess) {
+      SmartDialog.showToast(add ? '添加成功' : '移除成功');
+    } else {
+      result.toast();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final panel = _panel;
-    final addedIds = panel?.userPanelPackages.map((e) => e.id).toSet() ?? {};
-    final added =
-        panel?.userPanelPackages
-            .where((package) => (package.id ?? 0) > 0 && package.text != '收藏')
-            .toList() ??
-        const <Package>[];
-    final available =
-        _categoryPackages[_category]
-            ?.where(
-              (package) =>
-                  (package.id ?? 0) > 0 &&
-                  package.text != '收藏' &&
-                  !addedIds.contains(package.id),
-            )
-            .toList() ??
-        const <Package>[];
+    final provider = emoteManagementProvider(_owner);
+    final snapshot = ref.watch(provider);
+    final notifier = ref.read(provider.notifier);
+    final added = snapshot.added;
+    final available = snapshot.available;
 
     return DefaultTabController(
       length: 2,
@@ -185,7 +61,10 @@ class _EmoteManagePageState extends State<EmoteManagePage> {
           actions: [
             IconButton(
               tooltip: '刷新',
-              onPressed: _loading || _busyPackageIds.isNotEmpty ? null : _load,
+              onPressed:
+                  snapshot.panel is Loading || snapshot.busyIds.isNotEmpty
+                  ? null
+                  : notifier.refresh,
               icon: const Icon(Icons.refresh),
             ),
             IconButton(
@@ -230,22 +109,22 @@ class _EmoteManagePageState extends State<EmoteManagePage> {
                 ],
               ),
               Expanded(
-                child: _loading
-                    ? m3eLoading
-                    : _error != null
-                    ? Center(
-                        child: TextButton.icon(
-                          onPressed: _load,
-                          icon: const Icon(Icons.refresh),
-                          label: Text(_error!),
-                        ),
-                      )
-                    : TabBarView(
-                        children: [
-                          _buildPackageList(added, add: false),
-                          _buildAvailablePackages(available),
-                        ],
-                      ),
+                child: switch (snapshot.panel) {
+                  Loading() => m3eLoading,
+                  Error error => Center(
+                    child: TextButton.icon(
+                      onPressed: notifier.refresh,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(error.toString()),
+                    ),
+                  ),
+                  Success() => TabBarView(
+                    children: [
+                      _buildPackageList(added, snapshot.busyIds, add: false),
+                      _buildAvailablePackages(snapshot, available, notifier),
+                    ],
+                  ),
+                },
               ),
             ],
           ),
@@ -254,7 +133,11 @@ class _EmoteManagePageState extends State<EmoteManagePage> {
     );
   }
 
-  Widget _buildAvailablePackages(List<Package> packages) => Column(
+  Widget _buildAvailablePackages(
+    EmoteManagementState snapshot,
+    List<Package> packages,
+    EmoteManagement notifier,
+  ) => Column(
     children: [
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -265,37 +148,39 @@ class _EmoteManagePageState extends State<EmoteManagePage> {
                 padding: const EdgeInsets.all(4),
                 child: ChoiceChip(
                   label: Text(_categories[category]),
-                  selected: _category == category,
-                  onSelected: (_) => _loadCategory(category),
+                  selected: snapshot.category == category,
+                  onSelected: (_) => notifier.selectCategory(category),
                 ),
               ),
           ],
         ),
       ),
       Expanded(
-        child: _loadingCategories.contains(_category)
-            ? m3eLoading
-            : _categoryErrors.containsKey(_category)
-            ? Center(
-                child: TextButton(
-                  onPressed: () => _loadCategory(_category),
-                  child: Text('${_categoryErrors[_category]}，点击重试'),
-                ),
-              )
-            : _buildPackageList(packages, add: true),
+        child: switch (snapshot.selected) {
+          Loading() => m3eLoading,
+          Error error => Center(
+            child: TextButton(
+              onPressed: () => notifier.selectCategory(snapshot.category),
+              child: Text('$error，点击重试'),
+            ),
+          ),
+          _ => _buildPackageList(packages, snapshot.busyIds, add: true),
+        },
       ),
     ],
   );
 
-  Widget _buildPackageList(List<Package> packages, {required bool add}) {
+  Widget _buildPackageList(
+    List<Package> packages,
+    Set<int> busyIds, {
+    required bool add,
+  }) {
+    final keyword = _keyword.toLowerCase();
     final filtered = packages
         .where(
           (package) =>
-              (_keyword.isEmpty ||
-              (package.text?.toLowerCase().contains(
-                    _keyword.toLowerCase(),
-                  ) ??
-                  false)),
+              keyword.isEmpty ||
+              (package.text?.toLowerCase().contains(keyword) ?? false),
         )
         .toList();
     if (filtered.isEmpty) {
@@ -310,7 +195,7 @@ class _EmoteManagePageState extends State<EmoteManagePage> {
       itemBuilder: (context, index) {
         final package = filtered[index];
         final id = package.id;
-        final busy = id != null && _busyPackageIds.contains(id);
+        final busy = busyIds.contains(id);
         return ListTile(
           onTap: id == null
               ? null

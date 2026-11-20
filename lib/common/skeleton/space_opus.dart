@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/skeleton/skeleton.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SpaceOpusSkeleton extends StatelessWidget {
@@ -15,7 +15,7 @@ class SpaceOpusSkeleton extends StatelessWidget {
           crossAxisAlignment: .start,
           children: [
             AspectRatio(
-              aspectRatio: 1 / (0.68 + 0.82 * Utils.random.nextDouble()),
+              aspectRatio: 1 / (0.68 + 0.82 * sharedRandom.nextDouble()),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: surface,

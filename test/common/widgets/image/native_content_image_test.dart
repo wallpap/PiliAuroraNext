@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/content_demand.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/native_worker_backend.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/region_content_session.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart' as app_cache;
+import 'package:pili_aurora_next/services/cache/image_cache.dart' as app_cache;
 
 class _Cache implements BaseCacheManager {
   _Cache(this.file);

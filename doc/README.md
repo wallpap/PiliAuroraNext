@@ -22,26 +22,34 @@
 | 定位功能、源码与测试入口 | [功能领域地图](development/features.md) |
 | 理解模块、平台边界和术语 | [架构](development/architecture.md)、[架构图](diagrams/README.md) |
 | 追踪启动、请求、播放、下载、消息 | [运行流程](development/runtime-flows.md) |
-| 修改账号、状态、分页或异步结果 | [状态管理](development/state-management.md)、[账号拦截器](../lib/utils/accounts/account_manager/README.md) |
+| 修改账号、状态、分页或异步结果 | [状态管理](development/state-management.md)、[账号拦截器](../lib/features/account/data/account_manager/README.md) |
 | 修改播放状态、原生输出与释放 | [播放状态模型](development/playback-model.md)、[Windows 视频输出](maintenance/windows-video-output.md) |
-| 重构图片加载、交互预览与资源释放 | [使用场景与解码路径调查](development/image-usage-audit.md)、[图片加载与预览设计稿](development/image-pipeline-design.md)、[图片模块](../lib/common/widgets/image/README.md) |
+| 修改播放器控件、手势、选集或截图 | [播放器展示模块](../lib/plugin/pl_player/view/README.md) |
+| 修改图片加载、交互预览与资源释放 | [图片模块](../lib/common/widgets/image/README.md)、[图片测试契约](../test/common/widgets/image/CONTRACTS.md) |
 | 核对设置的生效时机 | [设置行为](development/settings-behavior.md) |
 | 修改桌面标题栏与提示浮层 | [桌面窗口与标题栏](development/architecture.md#桌面窗口与标题栏) |
+| 修改下载、离线列表或任务生命周期 | [下载模块](../lib/features/download/README.md) |
+| 修改共享账号资料、个人中心或无痕角色 | [账号模块](../lib/features/account/README.md) |
+| 修改首页推荐、视口补位、作者过滤或推荐偏好 | [内容发现模块](../lib/features/content_discovery/README.md) |
+| 修改动态列表、空间管理、互动名单、话题、小站、表情或发布选择/编辑 | [社区模块](../lib/features/community/README.md) |
+| 修改订阅列表、合集详情或失效清理 | [订阅模块](../lib/features/subscriptions/README.md) |
 | 修改消息、私信、未读或分享 | [消息模块](../lib/services/messaging/README.md) |
 | 运行检查、构建或制作发布包 | [构建与测试](development/build-and-test.md)、[测试目录](../test/README.md)、[工具入口](../tool/README.md) |
-| 核对默认引擎、缓存与已采用修复 | [默认构建与策略](development/build-defaults.md) |
+| 核对默认引擎、缓存与资源策略 | [默认构建与策略](development/build-defaults.md) |
 | 更新依赖或定制引擎 | [第三方依赖](../third_party/README.md)、[引擎差异](development/engine-patches/README.md)、[引擎工具](../tool/engine/README.md) |
 | 排查设备、性能与内存问题 | [维护与排障](maintenance/troubleshooting.md)、[探针](../tool/probes/README.md)、[实验](../tool/experiments/README.md) |
 
 ## 维护与历史
 
-- [历史排障经验](diagnostic-notes/README.md)保留可复用的排查方法；当前采用项见[默认构建与策略](development/build-defaults.md)。本地 `doc/dev/` 保存专题摘要、必要报告与独有材料，可再生的编译产物和采集临时输出放在 `build/`，整理方式见[实验资料归档](../tool/experiments/README.md#实验资料归档)。
-- 依赖调整记录见[迁移验收](../third_party/VALIDATION.md)和[精简记录](../third_party/SIMPLIFICATION.md)。
+- 可复用方法见[历史排障经验](diagnostic-notes/README.md)，当前采用项见[默认构建与策略](development/build-defaults.md)。本地 `doc/dev/` 保存调查摘要与按日期归档的证据。采集、生成及还原的工作副本放在 `build/`。整理和还原方式见[实验资料归档](../tool/experiments/README.md#实验资料归档)。
+- 依赖维护见[第三方依赖](../third_party/README.md)。来源、许可证与定制修订保留在登记和各包的 `UPSTREAM.md` 中。
 
 ## 维护文档
 
-用户指南以 UX 为核心，写清入口、操作、生效时机和失败后的操作；开发文档以 DX 为核心，给出源码入口、约束及验证方法；agent 入口以 AX 为核心，按任务链接所需上下文。
+公开文档保留用户操作、开发流程、模块边界、设计原因和行为约束。用户指南说明入口、生效时机与失败后的操作；开发指南提供源码入口和验证方法；agent 入口按任务链接所需上下文。
 
-同一主题集中维护，短说明优先并入现有章节，重复内容改为链接。模块与工具契约放在代码旁，开发设计放在 `development/`，当前排障方法放在 `maintenance/`，历史结论集中在排障经验中。日志与实验留在本地 `dev/`，可再生产物放在仓库 `build/`。
+版本、默认值、依赖清单和 CI 选中文件直接引用配置或脚本。具体用例查看测试源码，模块契约放在代码旁；索引只负责导航，避免重复维护实现细节。
 
-文档须对应当前源码，工具版本以配置文件为准。删改或合并后更新本索引及引用，检查相对链接与标题锚点；公开设备记录前脱敏并注明验证条件。
+迁移计划与进度、逐文件盘点、设计草稿、单次测试数字、性能对照和设备报告放在本地 `doc/dev/`，该目录由 Git 忽略。原始日志和可再生产物放在 `build/`。稳定结论提炼为约束或排查方法后再进入公开文档，并保留适用范围；许可证、上游来源和兼容性要求随源码维护。
+
+公开导航只链接 Git 跟踪的资料。移动或合并文档时同步更新引用，检查相对链接和标题锚点。行为、接口或操作流程变化时更新对应文档，日常代码调整无需另写进度记录。

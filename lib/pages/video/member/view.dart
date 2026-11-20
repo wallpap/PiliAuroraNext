@@ -1,6 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/skeleton/video_card_h.dart';
 import 'package:pili_aurora_next/common/sliver_single_child_delegate.dart';
 import 'package:pili_aurora_next/common/style.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
     show displacement;
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
@@ -11,73 +13,61 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/common/member/user_info_type.dart';
-import 'package:pili_aurora_next/models/member/info.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/features/member_space/presentation/user_info_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
+import 'package:pili_aurora_next/features/member_space/application/video_author.dart';
+import 'package:pili_aurora_next/features/member_space/domain/video_author.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/member_video/widgets/video_card_h_member_video.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/pages/video/member/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class HorizontalMemberPage extends StatefulWidget {
+class HorizontalMemberPage extends ConsumerStatefulWidget {
   const HorizontalMemberPage({
     super.key,
-    required this.mid,
-    required this.videoDetailController,
-    required this.ugcIntroController,
+    required this.query,
+    required this.bvid,
+    required this.onSelect,
   });
 
-  final dynamic mid;
-  final VideoDetailController videoDetailController;
-  final UgcIntroController ugcIntroController;
+  final AnchoredSpaceArchiveQuery query;
+  final String bvid;
+  final ValueChanged<SpaceArchiveItem> onSelect;
 
   @override
-  State<HorizontalMemberPage> createState() => _HorizontalMemberPageState();
+  ConsumerState<HorizontalMemberPage> createState() =>
+      _HorizontalMemberPageState();
 }
 
-class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
-  late final HorizontalMemberPageController _controller;
-  late final account = Accounts.main;
-  late final String _bvid;
+class _HorizontalMemberPageState extends ConsumerState<HorizontalMemberPage> {
+  static const _itemExtent = 112.0;
+  final _scroll = ScrollController();
   late ColorScheme colorScheme;
-  late final _isRefreshing = RxBool(false);
+  bool _positionedOnOpen = false;
+  bool _loadingPrevious = false;
+  int get _mid => widget.query.mid;
+  late final _authorProvider = videoAuthorProvider((
+    owner: widget.query.owner,
+    mid: _mid,
+  ));
+  late final _archiveProvider = anchoredSpaceArchiveProvider(widget.query);
 
   @override
-  void initState() {
-    super.initState();
-    _controller = Get.put(
-      HorizontalMemberPageController(
-        mid: widget.mid,
-        currAid: widget.videoDetailController.aid.toString(),
-      ),
-      tag: widget.videoDetailController.heroTag,
-    );
-    _bvid = widget.videoDetailController.bvid;
-    if (_controller.loadingState.value
-        case Success<List<SpaceArchiveItem>?> res) {
-      final index = res.response?.indexWhere((e) => e.bvid == _bvid) ?? -1;
-      if (index != -1) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _controller.scrollController.jumpTo(112.0 * index);
-        });
-      }
-    }
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -88,71 +78,70 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
 
   @override
   Widget build(BuildContext context) {
+    final author = ref.watch(_authorProvider);
+    final archive = ref.watch(_archiveProvider);
     return Material(
-      child: Obx(
-        () => _buildUserPage(_controller.userState.value),
-      ),
+      child: _buildUserPage(author, archive),
     );
   }
 
-  Future<void> _loadPrevAndKeepPos() async {
-    assert(_controller.hasPrev);
-    _isRefreshing.value = true;
-    final lastCount = _controller.loadingState.value.dataOrNull?.length;
-    await _controller.onRefresh();
-    if (mounted) {
-      _isRefreshing.value = false;
-      final newCount = _controller.loadingState.value.dataOrNull?.length;
-      if (lastCount != null && newCount != null && newCount > lastCount) {
-        _controller.scrollController.jumpTo((newCount - lastCount) * 112);
+  void _jumpAfterLayout(Object source, double offset) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_scroll.hasClients ||
+          !identical(source, ref.read(_archiveProvider).source)) {
+        return;
       }
+      final position = _scroll.position;
+      final target = offset.clamp(0.0, position.maxScrollExtent).toDouble();
+      if (target != position.pixels) _scroll.jumpTo(target);
+    });
+  }
+
+  Future<void> _loadPrevAndKeepPos(SpaceArchiveState archive) async {
+    setState(() => _loadingPrevious = true);
+    final result = await ref.read(_archiveProvider.notifier).previous();
+    if (!mounted) return;
+    setState(() => _loadingPrevious = false);
+    if (!identical(archive.source, ref.read(_archiveProvider).source)) return;
+    if (result case Error error) {
+      error.toast();
+    } else if (result.data > 0) {
+      _jumpAfterLayout(archive.source, result.data * _itemExtent);
     }
   }
 
   bool onNotification(ScrollEndNotification notification) {
-    if (notification.metrics.pixels == 0 &&
-        _controller.hasPrev &&
-        !_controller.isLoading) {
-      _loadPrevAndKeepPos();
+    final archive = ref.read(_archiveProvider);
+    if (notification.depth == 0 &&
+        notification.metrics.pixels == 0 &&
+        archive.hasPrevious &&
+        !archive.busy &&
+        !_loadingPrevious) {
+      _loadPrevAndKeepPos(archive);
     }
     return false;
   }
 
-  Widget _buildUserPage(LoadingState userState) {
-    return switch (userState) {
+  Widget _buildUserPage(VideoAuthorState author, SpaceArchiveState archive) {
+    return switch (author.profile) {
       Loading() => m3eLoading,
       Success(:final response) => Column(
         children: [
-          _buildUserInfo(response),
+          _buildUserInfo(author, response),
           Expanded(
             child: Stack(
               clipBehavior: .none,
               children: [
                 NotificationListener<ScrollEndNotification>(
                   onNotification: onNotification,
-                  child: CustomScrollView(
-                    physics: platformAlwaysClampingPhysics,
-                    controller: _controller.scrollController,
-                    slivers: [
-                      SliverPadding(
-                        padding: EdgeInsets.only(
-                          bottom:
-                              MediaQuery.viewPaddingOf(context).bottom + 100,
-                        ),
-                        sliver: Obx(
-                          () => _buildVideoList(_controller.loadingState.value),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: _buildArchive(archive),
                 ),
                 Positioned(
                   left: 0,
                   right: 0,
                   top: displacement + 35,
-                  child: Obx(
-                    () => RefreshIndicator_(isRefreshing: _isRefreshing.value),
-                  ),
+                  child: RefreshIndicator_(isRefreshing: _loadingPrevious),
                 ),
               ],
             ),
@@ -160,17 +149,50 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
         ],
       ),
       Error(:final errMsg) => scrollErrorWidget(
-        controller: _controller.scrollController,
+        controller: _scroll,
         errMsg: errMsg,
-        onReload: () {
-          _controller.userState.value = LoadingState<MemberInfoModel>.loading();
-          _controller.getUserInfo();
-        },
+        onReload: ref.read(_authorProvider.notifier).refresh,
       ),
     };
   }
 
-  Widget _buildHeader() {
+  Widget _buildArchive(SpaceArchiveState archive) {
+    final archives = ref.read(_archiveProvider.notifier);
+    final rows = archive.loading.dataOrNull;
+    if (!_positionedOnOpen && rows != null && rows.isNotEmpty) {
+      _positionedOnOpen = true;
+      final index = rows.indexWhere((item) => item.bvid == widget.bvid);
+      if (index > 0) _jumpAfterLayout(archive.source, index * _itemExtent);
+    }
+    return FeedPagination(
+      controller: _scroll,
+      dataSource: archive.source,
+      dataRevision: archive,
+      canLoadMore: () => archive.canLoadMore && !_loadingPrevious,
+      onLoadMore: archives.more,
+      child: CustomScrollView(
+        physics: platformAlwaysClampingPhysics,
+        controller: _scroll,
+        slivers: [
+          _buildVideoList(archive, archives),
+          if (archive.pageError case final error?)
+            SliverToBoxAdapter(
+              child: TextButton(
+                onPressed: () => archives.more(retry: true),
+                child: Text('$error，点击重试'),
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: MediaQuery.viewPaddingOf(context).bottom + 100,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(SpaceArchiveState archive, SpaceArchive archives) {
     return SliverPinnedHeader(
       backgroundColor: colorScheme.surface,
       child: Padding(
@@ -178,16 +200,15 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            ?_buildCount(),
-            _buildSortBtn(),
+            ?_buildCount(archive.count),
+            _buildSortBtn(archive, archives),
           ],
         ),
       ),
     );
   }
 
-  Widget? _buildCount() {
-    final count = _controller.count;
+  Widget? _buildCount(int? count) {
     if (count != null) {
       return Text(
         '共$count视频',
@@ -197,19 +218,22 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
     return null;
   }
 
-  Widget _buildSortBtn() {
+  Widget _buildSortBtn(SpaceArchiveState archive, SpaceArchive archives) {
     return TextButton.icon(
       style: Style.buttonStyle,
-      onPressed: () => _controller
-        ..lastAid = widget.videoDetailController.aid.toString()
-        ..queryBySort(),
+      onPressed: archive.busy
+          ? null
+          : () {
+              archives.toggleSort();
+              if (_scroll.hasClients) _scroll.jumpTo(0);
+            },
       icon: Icon(
         Icons.sort,
         size: 16,
         color: colorScheme.secondary,
       ),
       label: Text(
-        _controller.order.label,
+        archive.order.label,
         style: TextStyle(
           fontSize: 13,
           color: colorScheme.secondary,
@@ -219,125 +243,99 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
   }
 
   Widget _buildVideoList(
-    LoadingState<List<SpaceArchiveItem>?> loadingState,
+    SpaceArchiveState archive,
+    SpaceArchive archives,
   ) {
-    return switch (loadingState) {
+    return switch (archive.loading) {
       Loading() => const SliverFixedExtentList(
         delegate: SliverSingleChildDelegate(
           count: 10,
           child: VideoCardHSkeleton(),
         ),
-        itemExtent: 112,
+        itemExtent: _itemExtent,
       ),
       Success(:final response) =>
-        response != null && response.isNotEmpty
+        response.isNotEmpty
             ? SliverMainAxisGroup(
                 slivers: [
-                  _buildHeader(),
+                  _buildHeader(archive, archives),
                   SliverFixedExtentList.builder(
                     itemBuilder: (context, index) {
-                      if (index == response.length - 1 && _controller.hasNext) {
-                        _controller.onLoadMore();
-                      }
                       final videoItem = response[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 2),
                         child: VideoCardHMemberVideo(
                           videoItem: videoItem,
-                          bvid: _bvid,
-                          onTap: () {
-                            Get.back();
-                            widget.ugcIntroController.onChangeEpisode(
-                              BaseEpisodeItem(
-                                bvid: videoItem.bvid,
-                                cid: videoItem.cid,
-                                cover: videoItem.cover,
-                              ),
-                            );
-                          },
+                          bvid: widget.bvid,
+                          onTap: () => widget.onSelect(videoItem),
                         ),
                       );
                     },
                     itemCount: response.length,
-                    itemExtent: 112,
+                    itemExtent: _itemExtent,
                   ),
                 ],
               )
-            : HttpError(onReload: _controller.onReload),
+            : HttpError(onReload: archives.refresh),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
-        onReload: _controller.onReload,
+        onReload: archives.refresh,
       ),
     };
   }
 
-  Widget _buildUserInfo(MemberInfoModel memberInfoModel) {
+  Widget _buildUserInfo(VideoAuthorState author, VideoAuthorInfo profile) {
     return Padding(
       padding: const .only(left: 16, top: 10, right: 16, bottom: 3),
       child: Row(
         spacing: 10,
         children: [
-          _buildAvatar(memberInfoModel.face!),
-          Expanded(child: _buildInfo(memberInfoModel)),
+          _buildAvatar(profile.avatar),
+          Expanded(child: _buildInfo(author, profile)),
         ],
       ),
     );
   }
 
-  Column _buildInfo(MemberInfoModel memberInfoModel) => Column(
+  Column _buildInfo(VideoAuthorState author, VideoAuthorInfo profile) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Row(
         children: [
           GestureDetector(
-            onTap: () => Utils.copyText(memberInfoModel.name ?? ''),
+            onTap: () => copyText(profile.name ?? ''),
             child: Text(
-              memberInfoModel.name ?? '',
+              profile.name ?? '',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color:
-                    (memberInfoModel.vip?.status ?? -1) > 0 &&
-                        memberInfoModel.vip?.type == 2
-                    ? colorScheme.vipColor
-                    : null,
+                color: profile.annualVip ? colorScheme.vipColor : null,
               ),
             ),
           ),
           const SizedBox(width: 8),
-          BiliUtils.levelPicture(
-            memberInfoModel.level!,
-            isSeniorMember: memberInfoModel.isSeniorMember == 1,
-            height: 11,
-          ),
+          if (profile.level case final level?)
+            memberLevelPicture(
+              level,
+              isSeniorMember: profile.senior,
+              height: 11,
+            ),
         ],
       ),
       const SizedBox(height: 4),
-      Obx(
-        () => Row(
-          children: UserInfoType.values
-              .map(
-                (e) => _buildChildInfo(
-                  type: e,
-                  userStat: _controller.userStat,
-                  memberInfoModel: memberInfoModel,
-                ),
-              )
-              .expand((child) sync* {
-                yield SizedBox(
-                  height: 10,
-                  width: 20,
-                  child: VerticalDivider(
-                    width: 1,
-                    color: colorScheme.outline,
-                  ),
-                );
-                yield child;
-              })
-              .skip(1)
-              .toList(),
-        ),
+      Row(
+        children: [
+          for (final type in UserInfoType.values) ...[
+            if (type != UserInfoType.values.first)
+              SizedBox(
+                height: 10,
+                width: 20,
+                child: VerticalDivider(width: 1, color: colorScheme.outline),
+              ),
+            _buildChildInfo(type, author, profile.name),
+          ],
+        ],
       ),
       const SizedBox(height: 8),
       Row(
@@ -346,40 +344,38 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
           Expanded(
             child: FilledButton.tonal(
               style: FilledButton.styleFrom(
-                backgroundColor: memberInfoModel.isFollowed == true
+                backgroundColor: author.followed
                     ? colorScheme.onInverseSurface
                     : null,
-                foregroundColor: memberInfoModel.isFollowed == true
-                    ? colorScheme.outline
-                    : null,
+                foregroundColor: author.followed ? colorScheme.outline : null,
                 padding: EdgeInsets.zero,
                 tapTargetSize: .shrinkWrap,
                 visualDensity: const VisualDensity(vertical: -2),
               ),
               onPressed: () {
-                if (widget.mid == account.mid) {
+                if (_mid == author.account.mid) {
                   Get.toNamed('/editProfile');
-                } else {
-                  if (!account.isLogin) {
-                    SmartDialog.showToast('账号未登录');
-                    return;
-                  }
-                  RequestUtils.actionRelationMod(
-                    context: context,
-                    mid: widget.mid,
-                    isFollow: memberInfoModel.isFollowed ?? false,
-                    afterMod: (attribute) {
-                      _controller
-                        ..userState.value.data.isFollowed = attribute != 0
-                        ..userState.refresh();
-                    },
-                  );
+                  return;
                 }
+                if (!author.account.isLogin) {
+                  SmartDialog.showToast('账号未登录');
+                  return;
+                }
+                final profile = ref.read(_authorProvider.notifier);
+                showFollowActions(
+                  context: context,
+                  account: author.account,
+                  mid: _mid,
+                  isFollow: author.followed,
+                  isCurrent: () => mounted && profile.owns(author),
+                  afterMod: (attribute) =>
+                      profile.setFollowed(author, attribute != 0),
+                );
               },
               child: Text(
-                widget.mid == account.mid
+                _mid == author.account.mid
                     ? '编辑资料'
-                    : memberInfoModel.isFollowed == true
+                    : author.followed
                     ? '已关注'
                     : '关注',
                 maxLines: 1,
@@ -394,7 +390,7 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
                 tapTargetSize: .shrinkWrap,
                 visualDensity: const VisualDensity(vertical: -2),
               ),
-              onPressed: () => Get.toNamed('/member?mid=${widget.mid}'),
+              onPressed: () => Get.toNamed('/member?mid=$_mid'),
               child: const Text(
                 '查看主页',
                 maxLines: 1,
@@ -407,38 +403,36 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
     ],
   );
 
-  Widget _buildChildInfo({
-    required UserInfoType type,
-    required Map userStat,
-    required MemberInfoModel memberInfoModel,
-  }) {
-    dynamic num;
+  Widget _buildChildInfo(
+    UserInfoType type,
+    VideoAuthorState author,
+    String? name,
+  ) {
+    String count;
     VoidCallback? onTap;
     switch (type) {
       case UserInfoType.fan:
-        num = userStat['follower'] != null
-            ? NumUtils.numFormat(userStat['follower'])
+        count = author.followers != null
+            ? NumUtils.numFormat(author.followers)
             : '';
         onTap = () => FollowTypePage.open(
           kind: FollowKind.fans,
-          mid: widget.mid,
-          name: memberInfoModel.name,
+          mid: _mid,
+          name: name,
         );
       case UserInfoType.follow:
-        num = userStat['following'] ?? '';
+        count = author.following?.toString() ?? '';
         onTap = () => FollowPage.toFollowPage(
-          mid: widget.mid,
-          name: memberInfoModel.name,
+          mid: _mid,
+          name: name,
         );
       case UserInfoType.like:
-        num = userStat['likes'] != null
-            ? NumUtils.numFormat(userStat['likes'])
-            : '';
+        count = author.likes != null ? NumUtils.numFormat(author.likes) : '';
     }
     return GestureDetector(
       onTap: onTap,
       child: Text(
-        '$num${type.title}',
+        '$count${type.title}',
         style: TextStyle(
           fontSize: 14,
           color: colorScheme.outline,
@@ -447,10 +441,10 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
     );
   }
 
-  Widget _buildAvatar(String face) => GestureDetector(
-    onTap: () => PageUtils.imageView(
-      imgList: [SourceModel(url: face)],
-    ),
+  Widget _buildAvatar(String? face) => GestureDetector(
+    onTap: face == null
+        ? null
+        : () => PageUtils.imageView(imgList: [SourceModel(url: face)]),
     child: NetworkImgLayer(
       src: face,
       type: ImageType.avatar,

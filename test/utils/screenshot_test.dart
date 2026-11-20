@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/screenshot.dart';
+import 'package:pili_aurora_next/common/media/screenshot.dart';
 
 void main() {
   Future<BuildContext> mount(WidgetTester tester) async {

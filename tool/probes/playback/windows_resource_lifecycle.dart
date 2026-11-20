@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/super_resolution_poli
 import 'package:pili_aurora_next/plugin/pl_player/utils/native_video_options.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 import 'package:pili_aurora_next/services/windows_video_output_limit.dart';
-import 'package:pili_aurora_next/utils/asset_utils.dart';
+import 'package:pili_aurora_next/platform/files/bundled_assets.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../windows/process_heap_memory.dart';

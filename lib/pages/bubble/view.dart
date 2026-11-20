@@ -1,240 +1,289 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
-import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/features/community/application/bubble_feed.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble_catalog.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/bubble/dyn_list.dart';
-import 'package:pili_aurora_next/pages/bubble/controller.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:collection/collection.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/dyn_list.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart'
     hide ListTile, SliverGridDelegateWithMaxCrossAxisExtent;
 
-class BubblePage extends StatefulWidget {
-  const BubblePage({super.key, this.categoryId});
-
+class BubblePage extends ConsumerStatefulWidget {
+  const BubblePage({super.key, required this.tribeId, this.categoryId});
+  final String tribeId;
   final String? categoryId;
-
   @override
-  State<BubblePage> createState() => _BubblePageState();
+  ConsumerState<BubblePage> createState() => _BubblePageState();
 }
 
-class _BubblePageState extends State<BubblePage>
+class _BubblePageState extends ConsumerState<BubblePage>
     with AutomaticKeepAliveClientMixin {
-  late final BubbleController _controller;
+  final _owner = Object();
+  int? _sort;
+  BubbleQuery get _query => (
+    owner: _owner,
+    tribeId: widget.tribeId,
+    categoryId: widget.categoryId,
+    sortType: _sort,
+  );
+  @override
+  bool get wantKeepAlive => widget.categoryId != null;
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final state = ref.watch(bubbleFeedProvider(_query));
+    final catalog = state.metadata;
+    final child = _BubbleListing(query: _query);
+    if (widget.categoryId != null) return child;
+    return SimpleScaffold(
+      appBar: AppBar(
+        title: Text(catalog?.title == null ? '小站' : '${catalog!.title}小站'),
+      ),
+      body: Padding(
+        padding: EdgeInsets.only(
+          left: MediaQuery.viewPaddingOf(context).left,
+          right: MediaQuery.viewPaddingOf(context).right,
+        ),
+        child: catalog == null || catalog.categories.isEmpty
+            ? child
+            : _BubbleTabs(
+                key: ValueKey((
+                  ref.watch(mainAccountProvider),
+                  _query,
+                  catalog.categories.map((category) => category.id).join(','),
+                )),
+                query: _query,
+                catalog: catalog,
+              ),
+      ),
+      fab: catalog?.sort?.showSort != true
+          ? null
+          : FloatingActionButton.extended(
+              tooltip: '排序',
+              icon: const Icon(Icons.sort, size: 20),
+              label: const Text('排序'),
+              onPressed: () async {
+                final source = state.source;
+                final selected = await showDialog<int>(
+                  context: context,
+                  builder: (context) => SimpleDialog(
+                    children: [
+                      for (final item in catalog!.sort!.sortItems ?? [])
+                        ListTile(
+                          title: Text(item.text ?? ''),
+                          selected: item.sortType == catalog.sort!.curSortType,
+                          onTap: () => Navigator.of(context).pop(item.sortType),
+                        ),
+                    ],
+                  ),
+                );
+                if (!mounted ||
+                    selected == null ||
+                    !identical(
+                      ref.read(bubbleFeedProvider(_query)).source,
+                      source,
+                    )) {
+                  return;
+                }
+                setState(() => _sort = selected);
+              },
+            ),
+    );
+  }
+}
 
+class _BubbleTabs extends StatefulWidget {
+  const _BubbleTabs({
+    super.key,
+    required this.query,
+    required this.catalog,
+  });
+  final BubbleQuery query;
+  final BubbleCatalog catalog;
+  @override
+  State<_BubbleTabs> createState() => _BubbleTabsState();
+}
+
+class _BubbleTabsState extends State<_BubbleTabs>
+    with SingleTickerProviderStateMixin {
+  final _scrollToTop = <int, VoidCallback>{};
+  late final _tabs = TabController(
+    length: widget.catalog.categories.length,
+    vsync: this,
+  );
+  VoidCallback _register(int index, VoidCallback callback) {
+    _scrollToTop[index] = callback;
+    return () {
+      if (identical(_scrollToTop[index], callback)) _scrollToTop.remove(index);
+    };
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      TabBar(
+        controller: _tabs,
+        onTap: (index) {
+          if (!_tabs.indexIsChanging) _scrollToTop[index]?.call();
+        },
+        isScrollable: true,
+        tabAlignment: .start,
+        tabs: [
+          for (final category in widget.catalog.categories)
+            Tab(text: category.name ?? ''),
+        ],
+      ),
+      Expanded(
+        child: TabBarView(
+          controller: _tabs,
+          children: [
+            for (
+              var index = 0;
+              index < widget.catalog.categories.length;
+              index++
+            )
+              _BubbleListing(
+                key: ValueKey(widget.catalog.categories[index].id),
+                onRegister: (callback) => _register(index, callback),
+                query: (
+                  owner: widget.query.owner,
+                  tribeId: widget.query.tribeId,
+                  categoryId: index == 0
+                      ? widget.query.categoryId
+                      : widget.catalog.categories[index].id,
+                  sortType: widget.query.sortType,
+                ),
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _BubbleListing extends ConsumerStatefulWidget {
+  const _BubbleListing({super.key, required this.query, this.onRegister});
+  final BubbleQuery query;
+  final VoidCallback Function(VoidCallback)? onRegister;
+  @override
+  ConsumerState<_BubbleListing> createState() => _BubbleListingState();
+}
+
+class _BubbleListingState extends ConsumerState<_BubbleListing>
+    with AutomaticKeepAliveClientMixin {
+  final _scroll = ScrollController();
+  VoidCallback? _unregister;
+  BubbleFeed get controller =>
+      ref.read(bubbleFeedProvider(widget.query).notifier);
+  @override
+  bool get wantKeepAlive => true;
   @override
   void initState() {
     super.initState();
-    _controller = Get.put(
-      BubbleController(widget.categoryId),
-      tag: widget.categoryId ?? 'all',
-    );
+    _unregister = widget.onRegister?.call(_scroll.animToTop);
   }
 
-  BubbleController currCtr([int? index]) {
-    try {
-      index ??= _controller.tabController!.index;
-      if (index != 0) {
-        return Get.find<BubbleController>(
-          tag: _controller.tabs.value![index].id.toString(),
-        );
-      }
-    } catch (_) {}
-    return _controller;
+  @override
+  void dispose() {
+    _unregister?.call();
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final padding = MediaQuery.viewPaddingOf(context);
-    Widget child = refreshIndicator(
-      onRefresh: _controller.onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: _controller.scrollController,
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(bottom: padding.bottom + 100),
-            sliver: Obx(
-              () => _buildBody(_controller.loadingState.value),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (widget.categoryId != null) {
-      return child;
-    } else {
-      child = ScaffoldLayout(
-        body: child,
-        fab: Padding(
-          padding: .only(
-            right: kFloatingActionButtonMargin,
-            bottom: kFloatingActionButtonMargin + padding.bottom,
-          ),
-          child: Obx(
-            () {
-              final sortInfo = _controller.sortInfo.value;
-              if (sortInfo == null || sortInfo.showSort != true) {
-                return const SizedBox.shrink();
-              }
-              final item = sortInfo.sortItems?.firstWhereOrNull(
-                (e) => e.sortType == sortInfo.curSortType,
-              );
-              if (item != null) {
-                return FloatingActionButton.extended(
-                  tooltip: '排序',
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (context) => SimpleDialog(
-                      clipBehavior: .hardEdge,
-                      contentPadding: const .symmetric(vertical: 12),
-                      children: sortInfo.sortItems!.map(
-                        (e) {
-                          final isSelected = item.sortType == e.sortType;
-                          return ListTile(
-                            dense: true,
-                            enabled: !isSelected,
-                            onTap: () {
-                              Get.back();
-                              if (!isSelected) {
-                                _controller.onSort(e.sortType);
-                              }
-                            },
-                            title: Text(
-                              e.text!,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            trailing: isSelected
-                                ? const Icon(size: 22, Icons.check)
-                                : null,
-                          );
-                        },
-                      ).toList(),
-                    ),
-                  ),
-                  icon: const Icon(Icons.sort, size: 20),
-                  label: Text(item.text!),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-    }
-    return SimpleScaffold(
-      appBar: AppBar(
-        title: Obx(() {
-          final tribeName = _controller.tribeName.value;
-          if (tribeName == null) {
-            return const SizedBox.shrink();
-          }
-          return Text('$tribeName小站');
-        }),
-      ),
-      body: Padding(
-        padding: EdgeInsets.only(left: padding.left, right: padding.right),
-        child: Obx(() {
-          final tabs = _controller.tabs.value;
-          if (tabs == null || tabs.isEmpty) {
-            return child;
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TabBar(
-                isScrollable: true,
-                tabAlignment: .start,
-                controller: _controller.tabController,
-                onTap: (index) {
-                  if (!_controller.tabController!.indexIsChanging) {
-                    currCtr().scrollController.animToTop();
-                  }
-                },
-                tabs: tabs.map((item) => Tab(text: item.name!)).toList(),
-              ),
-              Expanded(
-                child: tabBarView(
-                  controller: _controller.tabController,
-                  children: [
-                    KeepAliveWrapper(child: child),
-                    ...tabs
-                        .skip(1)
-                        .map((item) => BubblePage(categoryId: item.id)),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-
-  late final gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
-    mainAxisExtent: 56,
-    maxCrossAxisExtent: 2 * Grid.smallCardWidth,
-  );
-
-  Widget _buildBody(LoadingState<List<DynList>?> loadingState) {
-    switch (loadingState) {
-      case Loading():
-        return const SliverFillRemaining(child: m3eLoading);
-      case Success(:final response):
-        if (response != null && response.isNotEmpty) {
-          return SliverGrid.builder(
-            gridDelegate: gridDelegate,
-            itemBuilder: (context, index) {
-              if (index == response.length - 1) {
-                _controller.onLoadMore();
-              }
-              final item = response[index];
-              return Material(
-                type: .transparency,
-                child: ListTile(
-                  safeArea: false,
-                  visualDensity: .standard,
-                  // PageUtils.pushDynFromId(id: item.dynId);
-                  onTap: () => Get.toNamed(
-                    '/articlePage',
-                    parameters: {
-                      'id': item.dynId!,
-                      'type': 'opus',
-                    },
-                  ),
-                  title: Text(
-                    item.title!,
-                    maxLines: 1,
-                    overflow: .ellipsis,
-                  ),
-                  trailing: item.meta?.timeText == null
-                      ? null
-                      : Text(
-                          item.meta!.timeText!,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                ),
-              );
-            },
-            itemCount: response.length,
-          );
+    final state = ref.watch(bubbleFeedProvider(widget.query));
+    ref.listen(
+      bubbleFeedProvider(widget.query).select((value) => value.source),
+      (_, _) {
+        // 同查询刷新保留滚动；账号替换的加载态才立即回顶。
+        if (ref.read(bubbleFeedProvider(widget.query)).loading is Loading) {
+          _scroll.jumpToTop();
         }
-        return HttpError(onReload: _controller.onReload);
-      case Error(:final errMsg):
-        return HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        );
-    }
+      },
+    );
+    return refreshIndicator(
+      onRefresh: controller.onRefresh,
+      child: FeedPagination(
+        controller: _scroll,
+        dataSource: state.source,
+        dataRevision: state,
+        canLoadMore: () => state.canLoadMore,
+        onLoadMore: controller.onLoadMore,
+        prefetchExtent: () => 300,
+        child: CustomScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+              ),
+              sliver: _body(state.loading),
+            ),
+            DiscoveryFooter(error: state.error, retry: controller.retry),
+          ],
+        ),
+      ),
+    );
   }
 
-  @override
-  bool get wantKeepAlive => widget.categoryId != null;
+  Widget _body(LoadingState<List<DynList>> loading) => switch (loading) {
+    Loading() => const SliverFillRemaining(child: m3eLoading),
+    Error(:final errMsg) => HttpError(
+      errMsg: errMsg,
+      onReload: controller.onReload,
+    ),
+    Success(:final response) =>
+      response.isEmpty
+          ? HttpError(onReload: controller.onReload)
+          : SliverGrid.builder(
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                mainAxisExtent: 56,
+                maxCrossAxisExtent: 2 * Grid.smallCardWidth,
+              ),
+              itemCount: response.length,
+              itemBuilder: (context, index) {
+                final item = response[index];
+                return Material(
+                  type: .transparency,
+                  child: ListTile(
+                    safeArea: false,
+                    visualDensity: .standard,
+                    onTap: () => Get.toNamed(
+                      '/articlePage',
+                      parameters: {'id': item.dynId ?? '', 'type': 'opus'},
+                    ),
+                    title: Text(
+                      item.title ?? '',
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                    ),
+                    trailing: item.meta?.timeText == null
+                        ? null
+                        : Text(
+                            item.meta!.timeText!,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                  ),
+                );
+              },
+            ),
+  };
 }

@@ -5,19 +5,19 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/login_devices/data.dart';
-import 'package:pili_aurora_next/models/login/result.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/account/data/login_devices_data.dart';
+import 'package:pili_aurora_next/features/account/domain/login/result.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/features/account/data/client_identity.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:encrypt/encrypt.dart';
 
 abstract final class LoginHttp {
-  static final String deviceId = LoginUtils.genDeviceId();
-  static String get buvid => LoginUtils.buvid;
+  static final String deviceId = ClientIdentity.generateDeviceId();
+  static String get buvid => ClientIdentity.buvid;
   static final Map<String, String> headers = {
     'buvid': buvid,
     'env': 'prod',
@@ -78,7 +78,7 @@ abstract final class LoginHttp {
 
   static Future<LoginResult> getWebKey() async {
     final res = await Request().get(Api.getWebKey);
-    //data: {'disable_rcmd': 0, 'local_id': LoginUtils.generateBuvid()});
+    //data: {'disable_rcmd': 0, 'local_id': ClientIdentity.generateBuvid()});
     return LoginResult.fromResponse(
       res.data,
       validate: (data) =>
@@ -158,7 +158,7 @@ abstract final class LoginHttp {
       final dynamic publicKey = RSAKeyParser().parse(key);
       final encrypter = Encrypter(RSA(publicKey: publicKey));
       passwordEncrypted = encrypter.encrypt(salt + password).base64;
-      deviceToken = encrypter.encrypt(Utils.generateRandomString(16)).base64;
+      deviceToken = encrypter.encrypt(generateRandomString(16)).base64;
     } catch (_) {
       return LoginResult.failure('登录加密失败，请刷新后重试');
     }
@@ -181,7 +181,7 @@ abstract final class LoginHttp {
       'gee_challenge': ?geeChallenge,
       'gee_seccode': ?geeSeccode,
       'gee_validate': ?geeValidate,
-      'local_id': buvid, //LoginUtils.generateBuvid(),
+      'local_id': buvid, //ClientIdentity.generateBuvid(),
       'mobi_app': 'android_hd',
       'password': passwordEncrypted,
       'permission': 'ALL',
@@ -222,7 +222,7 @@ abstract final class LoginHttp {
     try {
       final dynamic publicKey = RSAKeyParser().parse(key);
       deviceToken = Encrypter(RSA(publicKey: publicKey))
-          .encrypt(Utils.generateRandomString(16))
+          .encrypt(generateRandomString(16))
           .base64;
     } catch (_) {
       return LoginResult.failure('登录加密失败，请刷新后重试');
@@ -444,7 +444,7 @@ abstract final class LoginHttp {
   static Future<LoadingState<LoginDevicesData>> loginDevices({
     required Account account,
   }) {
-    final buvid = LoginUtils.buvid;
+    final buvid = ClientIdentity.buvid;
     final params = {
       'local_id': buvid,
       'buvid': buvid,

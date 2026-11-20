@@ -11,32 +11,29 @@ import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
+import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/episode_panel_type.dart';
-import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/episode_panel_type.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart'
     as pgc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart'
     as ugc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -45,7 +42,6 @@ class EpisodePanel extends CommonSlidePage {
     super.key,
     super.enableSlide,
     required this.ugcIntroController,
-    required this.heroTag,
     required this.type,
     // required this.count,
     // required this.name,
@@ -65,7 +61,6 @@ class EpisodePanel extends CommonSlidePage {
   }) : assert(type == EpisodeType.pgc || ugcIntroController != null);
 
   final UgcIntroController? ugcIntroController;
-  final String heroTag;
   final EpisodeType type;
   // final int count;
   // final String name;
@@ -91,7 +86,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     with TickerProviderStateMixin, CommonSlideMixin {
   // tab
   late final TabController _tabController;
-  late final RxInt _currentTabIndex = _tabController.index.obs;
+  late final _currentTabIndex = ValueNotifier(_tabController.index);
 
   late final showTitle = widget.showTitle;
 
@@ -111,8 +106,8 @@ class _EpisodePanelState extends State<EpisodePanel>
   late final List<ScrollController> _itemScrollController;
 
   // fav
-  Rx<LoadingState<bool>>? _favState;
-  final _favBusy = false.obs;
+  final _favState = ValueNotifier<LoadingState<bool>?>(null);
+  final _favBusy = ValueNotifier(false);
   int _favVersion = 0;
 
   void listener() {
@@ -141,7 +136,7 @@ class _EpisodePanelState extends State<EpisodePanel>
             _calcItemOffset(newItemIndex),
           );
         } catch (e, s) {
-          Utils.reportError(e, s);
+          reportError(e, s);
         }
       }
     }
@@ -181,48 +176,44 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
     _isReversed = List.filled(widget.list.length, false);
 
-    Accounts.mainChanges.addListener(_queryFav);
+    AccountScope.changes.addListener(_queryFav);
     _queryFav();
   }
 
   Future<void> _queryFav() async {
     final version = ++_favVersion;
     _favBusy.value = false;
-    final account = Accounts.main;
+    final owner = AccountScope.capture();
+    final account = owner.account;
     final seasonId = widget.seasonId;
     final bvid = widget.bvid;
     if (widget.type != EpisodeType.season ||
         !account.isLogin ||
         seasonId == null) {
-      _favState?.value = LoadingState.loading();
+      _favState.value = null;
       return;
     }
-    _favState ??= LoadingState<bool>.loading().obs;
-    _favState!.value = LoadingState.loading();
-    setState(() {});
-    final result = await VideoHttp.videoRelation(bvid: bvid, account: account);
+    _favState.value = LoadingState.loading();
+    final result = await VideoMetadata.seasonSubscription(
+      account,
+      bvid,
+    );
     if (!mounted ||
         version != _favVersion ||
-        !identical(account, Accounts.main) ||
+        !owner.isCurrent ||
         seasonId != widget.seasonId ||
         bvid != widget.bvid) {
       return;
     }
-    _favState!.value = switch (result) {
-      Success(:final response) when response.seasonFav != null => Success(
-        response.seasonFav!,
-      ),
-      Error error => error,
-      _ => const Error('订阅状态未加载，请重试'),
-    };
-    if (_favState!.value case Success(:final response)) {
+    _favState.value = result;
+    if (result case Success(:final response)) {
       widget.ugcIntroController?.seasonFavState[seasonId] = response;
     }
-    setState(() {});
   }
 
   Future<void> _toggleFav(bool wasFav) async {
-    final account = Accounts.main;
+    final owner = AccountScope.capture();
+    final account = owner.account;
     final target = widget.seasonId;
     if (_favBusy.value || !account.isLogin || target == null || target <= 0) {
       return;
@@ -230,23 +221,23 @@ class _EpisodePanelState extends State<EpisodePanel>
     final version = ++_favVersion;
     _favBusy.value = true;
     try {
-      final result = await FavHttp.seasonFav(
-        account: account,
-        isFav: wasFav,
-        seasonId: target,
+      final result = await FavoriteLibrary.legacy.season(
+        account,
+        target,
+        wasFav,
       );
       if (!mounted ||
           version != _favVersion ||
-          !identical(account, Accounts.main) ||
+          !owner.isCurrent ||
           target != widget.seasonId) {
         return;
       }
       if (result.isSuccess) {
-        _favState!.value = Success(!wasFav);
+        _favState.value = Success(!wasFav);
         widget.ugcIntroController?.seasonFavState[target] = !wasFav;
         SmartDialog.showToast('${wasFav ? '取消' : ''}订阅成功');
       } else {
-        if (result is UnknownResult) _favState!.value = result;
+        if (result is UnknownResult) _favState.value = result;
         result.toast();
       }
     } finally {
@@ -256,13 +247,14 @@ class _EpisodePanelState extends State<EpisodePanel>
 
   @override
   void dispose() {
-    Accounts.mainChanges.removeListener(_queryFav);
+    AccountScope.changes.removeListener(_queryFav);
     _favVersion++;
-    _favBusy.close();
+    _favBusy.dispose();
     _tabController
       ..removeListener(listener)
       ..dispose();
-    _favState?.close();
+    _favState.dispose();
+    _currentTabIndex.dispose();
     for (final e in _itemScrollController) {
       e.dispose();
     }
@@ -385,7 +377,6 @@ class _EpisodePanelState extends State<EpisodePanel>
                                     ? null
                                     : episode.pages,
                                 cover: episode.arc?.pic,
-                                heroTag: widget.heroTag,
                                 ugcIntroController: widget.ugcIntroController!,
                                 bvid:
                                     episode.bvid ?? IdUtils.av2bv(episode.aid!),
@@ -422,7 +413,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
   }
 
-  late final int? vipStatus = Pref.userInfoCache?.vipStatus;
+  late final int? vipStatus = AccountProfile.legacy.currentInfo?.vipStatus;
   Widget _buildEpisodeItem({
     required ThemeData theme,
     required ugc.BaseEpisodeItem episode,
@@ -497,7 +488,7 @@ class _EpisodePanelState extends State<EpisodePanel>
             onTap: () {
               if (isCurrentIndex) return;
               if (episode.badge == "会员" &&
-                  Accounts.mainEqVideo &&
+                  AccountScope.mainUsesVideoCredentials &&
                   vipStatus != 1) {
                 SmartDialog.showToast('需要大会员');
                 // return;
@@ -511,12 +502,9 @@ class _EpisodePanelState extends State<EpisodePanel>
                     _currentItemIndex = index;
                   }
                   if (widget.type == EpisodeType.season) {
-                    try {
-                      Get.find<VideoDetailController>(
-                        tag: widget.ugcIntroController!.heroTag,
-                      ).seasonCid = episode.cid;
-                    } catch (_) {
-                      if (kDebugMode) rethrow;
+                    if (widget.ugcIntroController case final intro?
+                        when !intro.isClosed) {
+                      intro.videoDetailCtr.seasonCid = episode.cid;
                     }
                   }
                 }
@@ -661,7 +649,7 @@ class _EpisodePanelState extends State<EpisodePanel>
     );
   }
 
-  Widget _buildFavBtn(LoadingState<bool> loadingState) {
+  Widget _buildFavBtn(LoadingState<bool>? loadingState) {
     return switch (loadingState) {
       Success(:final response) => iconButton(
         iconSize: 22,
@@ -717,7 +705,10 @@ class _EpisodePanelState extends State<EpisodePanel>
             widget.type.title,
             style: theme.textTheme.titleMedium,
           ),
-        if (_favState != null) Obx(() => _buildFavBtn(_favState!.value)),
+        ListenableBuilder(
+          listenable: Listenable.merge([_favState, _favBusy]),
+          builder: (context, child) => _buildFavBtn(_favState.value),
+        ),
         iconButton(
           iconSize: 22,
           tooltip: '跳至顶部',
@@ -738,7 +729,8 @@ class _EpisodePanelState extends State<EpisodePanel>
             final currentTabIndex = _currentTabIndex.value;
             if (currentTabIndex != widget.initialTabIndex) {
               _tabController.animateTo(widget.initialTabIndex);
-              await Future.pause(const Duration(milliseconds: 225));
+              await Future<void>.delayed(const Duration(milliseconds: 225));
+              if (!mounted) return;
             }
             _itemScrollController[widget.initialTabIndex].animTo(
               _calcItemOffset(_currentItemIndex),
@@ -747,17 +739,18 @@ class _EpisodePanelState extends State<EpisodePanel>
           },
         ),
         if (widget.isSupportReverse == true)
-          Obx(
-            () {
-              return _currentTabIndex.value == widget.initialTabIndex
+          ValueListenableBuilder(
+            valueListenable: _currentTabIndex,
+            builder: (context, index, child) {
+              return index == widget.initialTabIndex
                   ? _buildReverseBtn
                   : const SizedBox.shrink();
             },
           ),
         const Spacer(),
-        Obx(
-          () {
-            final currentTabIndex = _currentTabIndex.value;
+        ValueListenableBuilder(
+          valueListenable: _currentTabIndex,
+          builder: (context, currentTabIndex, child) {
             return iconButton(
               iconSize: 22,
               tooltip: _isReversed[currentTabIndex] ? '顺序' : '倒序',

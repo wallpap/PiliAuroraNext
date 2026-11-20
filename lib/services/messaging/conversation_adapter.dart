@@ -1,15 +1,15 @@
 import 'dart:convert';
 
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/bilibili/im/interfaces/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/im/interfaces/v1.pb.dart'
     show EmotionInfo, RspSessionMsg;
-import 'package:pili_aurora_next/grpc/bilibili/im/type.pb.dart' show Msg, MsgType;
+import 'package:pili_aurora_next/generated/bilibili/im/type.pb.dart' show Msg, MsgType;
 import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
-import 'package:pili_aurora_next/models/remote/upload_bfs/data.dart';
+import 'package:pili_aurora_next/features/community/domain/upload/data.dart';
 import 'package:pili_aurora_next/services/messaging/message_models.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:mime/mime.dart';
 
 abstract interface class ConversationAdapter {

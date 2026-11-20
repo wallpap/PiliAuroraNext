@@ -3,7 +3,7 @@ part of 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart
 Future<void> showDeleteReplyDialog(
   BuildContext context, {
   required Account account,
-  required ReplyInfo item,
+  required CommentReply item,
   required bool Function() isCurrent,
   required VoidCallback onDelete,
 }) {
@@ -39,12 +39,7 @@ Future<void> showDeleteReplyDialog(
                     final route = ModalRoute.of(context);
                     setState(() => submitting = true);
                     try {
-                      final result = await VideoHttp.replyDel(
-                        account: account,
-                        type: item.type.toInt(),
-                        oid: item.oid.toInt(),
-                        rpid: item.id.toInt(),
-                      );
+                      final result = await CommentActions.delete(account, item);
                       if (!context.mounted ||
                           !isCurrent() ||
                           route?.isCurrent != true) {
@@ -80,7 +75,7 @@ Future<void> showDeleteReplyDialog(
 void showReplyCopyDialog(
   BuildContext context,
   String message,
-  Map<String, Emote> emotes,
+  Map<String, CommentEmote> emotes,
 ) {
   bool showEmote = false;
   showDialog(
@@ -109,16 +104,17 @@ void showReplyCopyDialog(
             if (state.isUncollapsed) {
               buttonItems.add(
                 ContextMenuButtonItem(
-                  onPressed: () {
-                    String text = RegExp.escape(state.selectedText!);
-                    if (ReplyGrpc.enableFilter) text = '|$text';
+                  onPressed: () async {
+                    final previous = CommentFilterSettings.keywords;
+                    final selected = RegExp.escape(state.selectedText!);
+                    final text = previous.isNotEmpty ? '|$selected' : selected;
 
-                    showConfirmDialog(
+                    final confirmed = await showConfirmDialog(
                       context: context,
                       title: const Text('是否确认评论过滤的变更：'),
                       content: Text.rich(
                         TextSpan(
-                          text: ReplyGrpc.replyRegExp.pattern,
+                          text: previous,
                           children: [
                             TextSpan(
                               text: text,
@@ -130,20 +126,24 @@ void showReplyCopyDialog(
                           ],
                         ),
                       ),
-                      onConfirm: () {
-                        final filter = ReplyGrpc.replyRegExp.pattern + text;
-                        ReplyGrpc.replyRegExp = RegExp(
-                          filter,
-                          caseSensitive: true,
-                        );
-                        ReplyGrpc.enableFilter = true;
-                        GStorage.setting.put(
-                          SettingBoxKey.banWordForReply,
-                          filter,
-                        );
-                        SmartDialog.showToast('已保存');
-                      },
                     );
+                    if (!confirmed || !context.mounted) return;
+                    try {
+                      final saved = await CommentFilterSettings.appendKeyword(
+                        previous,
+                        text,
+                      );
+                      if (saved && context.mounted) {
+                        SmartDialog.showToast('已保存');
+                      }
+                    } catch (error, stack) {
+                      logger.w(
+                        '评论过滤设置保存失败',
+                        error: error.runtimeType,
+                        stackTrace: stack,
+                      );
+                      if (context.mounted) SmartDialog.showToast('保存失败，请重试');
+                    }
                   },
                   label: '加入过滤',
                 ),

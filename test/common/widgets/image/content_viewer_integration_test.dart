@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/content_demand.dart';
 import 'package:pili_aurora_next/common/widgets/image_viewer/content_viewer.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../../support/memory_box.dart';
 

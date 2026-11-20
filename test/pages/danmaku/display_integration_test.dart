@@ -5,10 +5,11 @@ import 'dart:typed_data';
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/echo_source.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_queue.dart';
@@ -22,11 +23,13 @@ import 'package:pili_aurora_next/pages/live_room/view.dart' as live;
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/media_clock.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
-Widget host(Widget child) => Directionality(
-  textDirection: TextDirection.ltr,
-  child: MediaQuery(data: const MediaQueryData(), child: child),
+Widget host(Widget child) => ProviderScope(
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: MediaQuery(data: const MediaQueryData(), child: child),
+  ),
 );
 
 void main() {

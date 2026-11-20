@@ -118,7 +118,9 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   final _nativeMemoryMetrics = WindowsNativeMemoryMetrics();
   final _graphicsMetrics = FlutterGraphicsMetrics();
   final _graphicsMemoryMetrics = WindowsGraphicsMemoryMetrics(
-    includeResources: const bool.fromEnvironment('PILIAURORANEXT_GRAPHICS_DETAILS'),
+    includeResources: const bool.fromEnvironment(
+      'PILIAURORANEXT_GRAPHICS_DETAILS',
+    ),
   );
   Object? _graphicsSampleId;
   int? _graphicsRecordTick;
@@ -168,6 +170,8 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   DiagnosticLogLevel _playerLevel = DiagnosticLogLevel.info;
   Timer? _timer;
   Timer? _notification;
+  Future<void>? _stopping;
+  Future<void>? _shutdown;
   bool _tracing = false;
   bool _observingLifecycle = false;
   DiagnosticLogLevel _level = DiagnosticLogLevel.warning;
@@ -182,7 +186,7 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
       _saveSettings = callback;
 
   void observeLifecycle() {
-    if (_observingLifecycle) return;
+    if (_observingLifecycle || _shutdown != null) return;
     WidgetsBinding.instance.addObserver(this);
     _observingLifecycle = true;
   }
@@ -338,12 +342,13 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     bool? tracing,
     int? intervalMs,
   }) async {
+    if (_shutdown != null) return;
     if (level != null) _level = level;
     if (playerLevel != null) _playerLevel = playerLevel;
     if (intervalMs != null && intervals.contains(intervalMs)) {
       _intervalMs = intervalMs;
     }
-    if (tracing == false && _tracing) _stop();
+    if (tracing == false && _tracing) unawaited(_stop());
     if (tracing == true && !_tracing) _start();
     if (_tracing && intervalMs != null) {
       _timer?.cancel();
@@ -513,6 +518,7 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> pauseWrites() async {
+    if (_shutdown != null) return;
     _writesResumed ??= Completer<void>();
     _writesPaused = true;
     _pauseTimeout?.cancel();
@@ -542,6 +548,7 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<T> _maintain<T>(Future<T> Function() action) {
     final result = _maintenanceTail.then((_) async {
+      if (_shutdown != null) throw StateError('诊断已停止');
       var failed = false;
       try {
         await pauseWrites();
@@ -653,7 +660,9 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     _graphicsRecordTick = null;
     if (Platform.isWindows) {
       _graphicsMetrics.start(
-        captureStacks: const bool.fromEnvironment('PILIAURORANEXT_GRAPHICS_STACKS'),
+        captureStacks: const bool.fromEnvironment(
+          'PILIAURORANEXT_GRAPHICS_STACKS',
+        ),
       );
       unawaited(_graphicsMemoryMetrics.start());
     }
@@ -814,14 +823,10 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     _notifySoon();
   }
 
-  void _stop() {
+  Future<void> _stop() {
     capture(forceAttribution: true);
     _tracing = false;
-    unawaited(_gpuMetrics.stop());
-    unawaited(_nativeMemoryMetrics.stop());
-    unawaited(_memoryMetrics.stop());
     _graphicsMetrics.stop();
-    unawaited(_graphicsMemoryMetrics.stop());
     _timer?.cancel();
     _timer = null;
     _elapsed.stop();
@@ -831,6 +836,12 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
       'session': _session,
       'time': DateTime.now().toUtc().toIso8601String(),
     });
+    return _stopping = Future.wait([
+      _gpuMetrics.stop(),
+      _nativeMemoryMetrics.stop(),
+      _memoryMetrics.stop(),
+      _graphicsMemoryMetrics.stop(),
+    ]);
   }
 
   // 性能开关独立于应用日志等级；每批独立限界，避免共用预算截断资源。
@@ -934,6 +945,7 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _notifySoon() {
+    if (_shutdown != null) return;
     _notification ??= Timer(const Duration(milliseconds: 250), () {
       _notification = null;
       notifyListeners();
@@ -1209,12 +1221,38 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   String snapshotText() =>
       const JsonEncoder.withIndent('  ').convert(latest ?? {});
 
-  @override
-  void dispose() {
-    if (_tracing) _stop();
+  Future<void> shutdown() => _shutdown ??= Future<void>.microtask(() async {
+    final stopping = _tracing ? _stop() : _stopping;
+    _detachLifecycle();
+    try {
+      resumeWrites();
+      await flush();
+    } finally {
+      forwardRecord = null;
+      forwardFlush = null;
+      pauseChildren = null;
+      resumeChildren = null;
+      clearChildren = null;
+      onSettingsChanged = null;
+      _saveSettings = null;
+      _sources.clear();
+      await stopping;
+    }
+  });
+
+  void _detachLifecycle() {
     _notification?.cancel();
     _pauseTimeout?.cancel();
-    if (_observingLifecycle) WidgetsBinding.instance.removeObserver(this);
+    if (_observingLifecycle) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observingLifecycle = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_tracing) unawaited(_stop());
+    _detachLifecycle();
     super.dispose();
   }
 }

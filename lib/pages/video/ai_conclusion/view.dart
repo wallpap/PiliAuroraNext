@@ -1,17 +1,17 @@
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
-import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/model_result.dart';
+import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/model_result.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:material_ui/material_ui.dart';
 
 class AiConclusionPanel extends CommonSlidePage {
   final AiConclusionResult item;
+  final ValueChanged<Duration> onSeek;
 
   const AiConclusionPanel({
     super.key,
     required this.item,
+    required this.onSeek,
   });
 
   @override
@@ -23,6 +23,7 @@ class AiConclusionPanel extends CommonSlidePage {
     AiConclusionResult res, {
     Key? key,
     bool tap = true,
+    ValueChanged<Duration>? onSeek,
   }) {
     final outline = res.outline;
     final hasOutline = outline != null && outline.isNotEmpty;
@@ -92,24 +93,20 @@ class AiConclusionPanel extends CommonSlidePage {
                                     text: DurationUtils.formatDuration(
                                       item.timestamp,
                                     ),
-                                    style: tap
+                                    style: onSeek != null
                                         ? TextStyle(
                                             color: theme.colorScheme.primary,
                                           )
                                         : null,
-                                    recognizer: tap
+                                    recognizer: onSeek != null
                                         ? (NoDeadlineTapGestureRecognizer()
                                             ..onTap = () {
-                                              try {
-                                                Get.find<VideoDetailController>(
-                                                  tag: Get.arguments['heroTag'],
-                                                ).plPlayerController.seekTo(
-                                                  Duration(
-                                                    seconds: item.timestamp!,
-                                                  ),
-                                                  isSeek: false,
+                                              if (item.timestamp
+                                                  case final timestamp?) {
+                                                onSeek(
+                                                  Duration(seconds: timestamp),
                                                 );
-                                              } catch (_) {}
+                                              }
                                             })
                                         : null,
                                   ),
@@ -141,7 +138,7 @@ class _AiDetailState extends State<AiConclusionPanel>
       child: Column(
         children: [
           GestureDetector(
-            onTap: Get.back,
+            onTap: () => Navigator.of(context).maybePop(),
             child: SizedBox(
               height: 35,
               child: Center(
@@ -180,6 +177,7 @@ class _AiDetailState extends State<AiConclusionPanel>
       theme,
       widget.item,
       key: _key,
+      onSeek: widget.onSeek,
     );
   }
 }

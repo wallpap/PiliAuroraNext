@@ -140,7 +140,9 @@ sequenceDiagram
 
 seek 命令携带 `seekSequence`，经运行时传给 media_kit 的 `observationId`。提交后暂停发布普通媒体锚点，等待与当前 Player、加载绑定和跳转序号匹配的原生完成通知，再更新连续性并恢复采样。下一次 seek 的就绪等待在会话命令执行器之外进行，使暂停、切源和关闭仍可推进；新请求或所有者失效会取消旧等待。
 
-实现见 [`media_clock.dart`](../../lib/plugin/pl_player/playback/media_clock.dart)、[`native_media_clock_sampling.dart`](../../lib/plugin/pl_player/playback/native_media_clock_sampling.dart) 和 media_kit 的 [`seek_observation.dart`](../../third_party/media_kit/lib/src/player/native/player/seek_observation.dart)。对应回归位于 `test/plugin/pl_player/playback/` 的 `media_clock_test.dart`、`native_media_clock_test.dart`、`native_media_clock_sampling_test.dart`、`native_seek_observation_test.dart` 和 `playback_session_test.dart`。
+[`media_clock.dart`](../../lib/plugin/pl_player/playback/media_clock.dart) 定义媒体时钟，[`native_media_clock_sampling.dart`](../../lib/plugin/pl_player/playback/native_media_clock_sampling.dart) 管理采样；media_kit 在 [`seek_observation.dart`](../../third_party/media_kit/lib/src/player/native/player/seek_observation.dart) 处理跳转确认。
+
+回归在 `test/plugin/pl_player/playback/` 下：`media_clock_test.dart`、`native_media_clock_test.dart`、`native_media_clock_sampling_test.dart`、`native_seek_observation_test.dart` 和 `session_media_clock_test.dart`。
 
 ### 网络错误恢复
 
@@ -285,7 +287,7 @@ flowchart TD
     Cancel -->|删除| Remove
 ```
 
-实现与测试：[`download_service.dart`](../../lib/services/download/download_service.dart)、[`download_repository.dart`](../../lib/services/download/download_repository.dart)、[`download_manager.dart`](../../lib/services/download/download_manager.dart)；`test/services/download/`。
+实现与测试：[`download_service.dart`](../../lib/features/download/application/download_service.dart)、[`download_repository.dart`](../../lib/features/download/data/download_repository.dart)、[`download_manager.dart`](../../lib/features/download/data/download_manager.dart)；`test/services/download/`。
 
 ## 账号消息与私信
 

@@ -7,13 +7,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space_setting/privacy.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/space_setting/controller.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_privacy.dart';
+import 'package:pili_aurora_next/features/member_space/domain/privacy.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/space_setting/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -169,7 +169,7 @@ void main() {
     requests.last.reply.complete({'code': -1, 'message': 'query failed'});
     await expectLater(
       container.read(spacePrivacyProvider.future),
-      throwsA(anything),
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
     );
     notifier.setValue('fav_video', false);
     expect((await notifier.save()).isSuccess, isFalse);

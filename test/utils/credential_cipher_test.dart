@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/credential_cipher.dart';
+import 'package:pili_aurora_next/features/account/data/credential_cipher.dart';
 
 void main() {
   test('round trips Unicode with a fresh nonce on every write', () {

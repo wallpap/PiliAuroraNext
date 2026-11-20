@@ -2,12 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/playback/application/cdn_speed_probe.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_http_adapter.dart';
 import '../../support/memory_box.dart';
@@ -57,7 +58,10 @@ void main() {
   Future<void> host(WidgetTester tester, {BaseItem? value}) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: CdnSelectDialog(sample: value, client: dio),
+        home: CdnSelectDialog(
+          sample: value,
+          createProbe: () => CdnSpeedProbe(client: dio),
+        ),
       ),
     );
   }

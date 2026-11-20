@@ -10,14 +10,11 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/common/widgets/webview_ready.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
+import 'package:pili_aurora_next/pages/home/view.dart';
+import 'package:pili_aurora_next/pages/main/view.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
@@ -26,15 +23,17 @@ import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
-import 'package:pili_aurora_next/utils/login_utils.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/application/web_account_cookies.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
+import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
+import 'mounted_state.dart';
 import 'process_heap_memory.dart';
 
 const _native = MethodChannel('com.alexmercerind/media_kit_video');
@@ -67,7 +66,8 @@ Future<void> main(List<String> arguments) async {
           .clamp(1, 120);
   final idleSeconds =
       (int.tryParse(
-                Platform.environment['PILIAURORANEXT_PLAYBACK_IDLE_SECONDS'] ?? '',
+                Platform.environment['PILIAURORANEXT_PLAYBACK_IDLE_SECONDS'] ??
+                    '',
               ) ??
               70)
           .clamp(1, 300);
@@ -85,11 +85,14 @@ Future<void> main(List<String> arguments) async {
       Platform.environment['PILIAURORANEXT_OPTIMIZE_IDLE_HEAPS'] == '1';
   final scrollExercise =
       Platform.environment['PILIAURORANEXT_PLAYBACK_SCROLL'] == '1';
-  final candidatePath = Platform.environment['PILIAURORANEXT_PLAYBACK_CANDIDATE'];
-  final eagerWebView = Platform.environment['PILIAURORANEXT_WEBVIEW_EAGER'] == '1';
+  final candidatePath =
+      Platform.environment['PILIAURORANEXT_PLAYBACK_CANDIDATE'];
+  final eagerWebView =
+      Platform.environment['PILIAURORANEXT_WEBVIEW_EAGER'] == '1';
   final exerciseWebView =
       Platform.environment['PILIAURORANEXT_EXERCISE_WEBVIEW'] == '1';
-  final webViewOnly = Platform.environment['PILIAURORANEXT_WEBVIEW_ONLY'] == '1';
+  final webViewOnly =
+      Platform.environment['PILIAURORANEXT_WEBVIEW_ONLY'] == '1';
   final retainWebView =
       Platform.environment['PILIAURORANEXT_WEBVIEW_RETAIN'] == '1';
   final local4k = Platform.environment['PILIAURORANEXT_PLAYBACK_LOCAL_4K'];
@@ -187,7 +190,8 @@ Future<void> main(List<String> arguments) async {
 
   try {
     if (!Platform.isWindows ||
-        Platform.environment['PILIAURORANEXT_MEMORY_ROOT']?.isNotEmpty != true) {
+        Platform.environment['PILIAURORANEXT_MEMORY_ROOT']?.isNotEmpty !=
+            true) {
       throw StateError('Windows and explicit isolated memory root required');
     }
     await logging
@@ -200,7 +204,7 @@ Future<void> main(List<String> arguments) async {
     if (retainWebView) releaseWebControl = AppWebViewEnvironment.retain();
     if (eagerWebView) {
       await AppWebViewEnvironment.ensureInitialized();
-      await LoginUtils.setWebCookie();
+      await WebAccountCookies.sync();
     }
     if (cacheMiB != null) {
       if (cacheMiB < 1) throw ArgumentError('Positive cache size required');
@@ -238,9 +242,7 @@ Future<void> main(List<String> arguments) async {
     };
     await _until(
       () =>
-          Get.isRegistered<MainController>() &&
-          Get.isRegistered<HomeController>() &&
-          !SmartDialog.checkExist(),
+          findMountedState<MainAppState>() != null && !SmartDialog.checkExist(),
       'startup',
     );
     await record('baseline');
@@ -260,14 +262,23 @@ Future<void> main(List<String> arguments) async {
             'returnFromSettings',
           );
         }
-        final main = Get.find<MainController>();
-        final home = Get.find<HomeController>();
-        final homeIndex = main.navigationBars.indexOf(NavigationBarType.home);
-        final rcmdIndex = home.tabs.indexOf(HomeTabType.rcmd);
-        if (homeIndex < 0 || rcmdIndex < 0) {
+        final main = findMountedState<MainAppState>()!;
+        if (!main.showDestination(.home)) {
+          throw StateError('home tab unavailable');
+        }
+        HomePageState? mountedHome;
+        await _until(
+          () =>
+              (mountedHome = findMountedState<HomePageState>(
+                main.context as Element,
+              )) !=
+              null,
+          'homePage',
+        );
+        final home = mountedHome!;
+        if (!home.showTab(.rcmd)) {
           throw StateError('recommendation tab unavailable');
         }
-        if (main.selectedIndex.value != homeIndex) main.setIndex(homeIndex);
         if (browseExercise) {
           final visits = <Map<String, Object?>>[];
           result['browseVisits'] = visits;
@@ -279,37 +290,21 @@ Future<void> main(List<String> arguments) async {
             HomeTabType.cinema,
             HomeTabType.live,
           ]) {
-            final index = home.tabs.indexOf(tab);
-            if (index < 0) continue;
-            if (home.tabController.index != index) {
-              home.tabController.animateTo(index);
-            }
+            if (!home.showTab(tab)) continue;
             final visit = <String, Object?>{'tab': tab.name};
             frames.clear();
             measuringFrames = true;
             try {
               await Future<void>.delayed(const Duration(milliseconds: 400));
               await _until(
-                () {
-                  final selected = home.controller;
-                  final controller = selected is RankController
-                      ? selected.controller
-                      : selected;
-                  return controller is CommonController &&
-                      controller.loadingState.value.isSuccess;
-                },
+                () => feedLoading(home.registeredPage(tab))?.isSuccess ?? false,
                 'browse:${tab.name}',
                 seconds: 20,
               );
               await Future<void>.delayed(const Duration(seconds: 2));
-              final selected = home.controller;
-              final controller = selected is RankController
-                  ? selected.controller
-                  : selected;
-              final data = controller is CommonController
-                  ? controller.loadingState.value.dataOrNull
-                  : null;
-              visit['items'] = data is List ? data.length : null;
+              final controller = home.registeredPage(tab);
+              if (controller == null) throw StateError('page unavailable');
+              visit['items'] = feedLoading(controller)?.dataOrNull?.length;
               final scroll = controller.scrollController;
               if (scroll.hasClients && scroll.positions.length == 1) {
                 final distance = (scroll.position.viewportDimension * .75)
@@ -336,21 +331,22 @@ Future<void> main(List<String> arguments) async {
               visits.length >= 4 &&
               visits.every((visit) => visit['loaded'] == true);
         }
-        if (home.tabController.index != rcmdIndex) {
-          home.tabController.animateTo(rcmdIndex);
-        }
+        home.showTab(.rcmd);
         await _until(
           () =>
-              Get.isRegistered<RcmdController>() &&
-              (Get.find<RcmdController>()
-                      .loadingState
-                      .value
+              (home.registeredPage(HomeTabType.rcmd)
+                  is RecommendationPageHandle) &&
+              ((home.registeredPage(HomeTabType.rcmd)
+                          as RecommendationPageHandle)
+                      .snapshot
+                      .loading
                       .dataOrNull
                       ?.isNotEmpty ??
                   false),
           'recommendations',
         );
-        final recommendations = Get.find<RcmdController>();
+        final recommendations =
+            (home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle);
         // 为首屏图片预留加载时间，减少首次填充对播放前后差值的影响。
         await Future<void>.delayed(const Duration(seconds: 4));
         if (scrollExercise) {
@@ -381,7 +377,7 @@ Future<void> main(List<String> arguments) async {
           result['scrollFrames'] = frameSummary();
         }
         await record('round$round:beforePlayback');
-        final candidate = recommendations.loadingState.value.dataOrNull!
+        final candidate = recommendations.snapshot.loading.dataOrNull!
             .whereType<BaseRcmdVideoItemModel>()
             .where(
               (item) =>
@@ -598,7 +594,7 @@ Future<void> main(List<String> arguments) async {
           () => Scaffold(
             body: WebViewReady(
               prepare: () async {
-                if (!await LoginUtils.setWebCookie()) {
+                if (!await WebAccountCookies.sync()) {
                   throw StateError('Web account changed');
                 }
               },
@@ -626,7 +622,7 @@ Future<void> main(List<String> arguments) async {
         await loaded.future.timeout(const Duration(seconds: 30));
         final expectedCookies = Accounts.main.cookieJar.toList();
         // 浏览响应仍可能更新匿名设备 Cookie；先同步本次快照再读取，不比较过期时点。
-        await LoginUtils.setWebCookie();
+        await WebAccountCookies.sync();
         final webCookies = web.CookieManager.instance(
           webViewEnvironment: AppWebViewEnvironment.instance,
         );

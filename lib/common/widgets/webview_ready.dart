@@ -13,38 +13,63 @@ class WebViewReady extends StatefulWidget {
 }
 
 class _WebViewReadyState extends State<WebViewReady> {
-  final _release = AppWebViewEnvironment.retain();
+  void Function()? _release;
   late Future<void> _ready = _prepare();
 
   @override
+  void initState() {
+    super.initState();
+    if (AppWebViewEnvironment.closing.value) return;
+    _release = AppWebViewEnvironment.retain();
+    AppWebViewEnvironment.closing.addListener(_onEnvironmentClosing);
+  }
+
+  void _onEnvironmentClosing() {
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) => _releasePage());
+  }
+
+  void _releasePage() {
+    final release = _release;
+    _release = null;
+    release?.call();
+  }
+
+  @override
   void dispose() {
-    _release();
+    AppWebViewEnvironment.closing.removeListener(_onEnvironmentClosing);
+    _releasePage();
     super.dispose();
   }
 
   Future<void> _prepare() async {
     await AppWebViewEnvironment.ensureInitialized();
-    if (mounted) await widget.prepare?.call();
+    if (mounted && !AppWebViewEnvironment.closing.value) {
+      await widget.prepare?.call();
+    }
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<void>(
-    future: _ready,
-    builder: (context, snapshot) {
-      if (snapshot.hasError) {
-        return Center(
-          child: TextButton(
-            onPressed: () => setState(() {
-              _ready = _prepare();
-            }),
-            child: const Text('网页初始化失败，点击重试'),
-          ),
-        );
-      }
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      return widget.builder(context);
-    },
-  );
+  Widget build(BuildContext context) {
+    if (AppWebViewEnvironment.closing.value) return const SizedBox.shrink();
+    return FutureBuilder<void>(
+      future: _ready,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: TextButton(
+              onPressed: () => setState(() {
+                _ready = _prepare();
+              }),
+              child: const Text('网页初始化失败，点击重试'),
+            ),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return widget.builder(context);
+      },
+    );
+  }
 }

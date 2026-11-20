@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' show max;
 
-import 'package:pili_aurora_next/models/common/publish_panel_type.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/community/presentation/publish_panel_type.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract class CommonPublishPage<T> extends StatefulWidget {
@@ -30,13 +29,13 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   late bool _paused = false;
   late final FocusNode focusNode;
   late final controller = ChatBottomPanelContainerController<PanelType>(
-    uiScale: Pref.uiScale,
+    uiScale: DisplayPreferences.uiScale,
   );
   TextEditingController get editController;
 
-  final Rx<PanelType> panelType = PanelType.none.obs;
-  late final RxBool readOnly = false.obs;
-  late final RxBool enablePublish = false.obs;
+  final panelType = ValueNotifier(PanelType.none);
+  final readOnly = ValueNotifier(false);
+  final enablePublish = ValueNotifier(false);
 
   bool isPublishing = false;
 
@@ -87,6 +86,9 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
     }
     focusNode.dispose();
     editController.dispose();
+    panelType.dispose();
+    readOnly.dispose();
+    enablePublish.dispose();
     if (handleKeyboard) {
       WidgetsBinding.instance.removeObserver(this);
     }
@@ -157,7 +159,7 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
     if (isUpdated) {
       // Waiting for the input view to update.
       WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-        updatePanelTypeFunc();
+        if (mounted) updatePanelTypeFunc();
       });
     } else {
       updatePanelTypeFunc();
@@ -166,7 +168,7 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
 
   Future<void> hidePanel([_]) async {
     if (focusNode.hasFocus) {
-      await Future.pause(const Duration(milliseconds: 100));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
       if (!mounted) return;
       focusNode.unfocus();
     }

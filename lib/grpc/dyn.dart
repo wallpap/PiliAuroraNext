@@ -1,6 +1,6 @@
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v1.pb.dart'
     show DynRedReq, TabOffset, DynRedReply;
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v2.pb.dart'
     show
         OpusType,
         OpusDetailReq,
@@ -13,17 +13,18 @@ import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v2.pb.dart'
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:fixnum/fixnum.dart';
 
 abstract final class DynGrpc {
-  static Future<int?> dynRed() async {
+  static Future<int?> dynRed(Account account) async {
     final res = await GrpcReq.request(
       GrpcUrl.dynRed,
       DynRedReq(tabOffset: [TabOffset(tab: 1)]),
       DynRedReply.fromBuffer,
       kind: .query,
+      account: account,
     );
     return res.dataOrNull?.dynRedItem.count.toInt();
   }

@@ -130,11 +130,11 @@ Dart 工作量。其他 GPU 与真实音视频仍须分别验证。
 
 ### 下载
 
-`lib/pages/download/` → `lib/services/download/` → `lib/http/download.dart`、响应适配和流式写入 → 本地下载目录。重点检查路径权限、磁盘空间、网络重试、写入回压和任务生命周期；任务状态见[下载流程](../development/runtime-flows.md#下载)。
+[下载模块](../../lib/features/download/README.md)的 `presentation/` → `application/` → `data/` 中的地址解析、响应适配和流式写入 → 本地下载目录。重点检查路径权限、磁盘空间、网络重试、写入回压和任务生命周期；任务状态见[下载流程](../development/runtime-flows.md#下载)。
 
 ### 登录与账号
 
-`lib/pages/login/` → `lib/http/login.dart` → `lib/services/account_service.dart`、`lib/utils/accounts/` 与本地存储。日志和 issue 内容应去掉 Cookie、Token、二维码和签名信息。
+登录页面经[账号模块](../../lib/features/account/README.md)协调登录请求、凭证存储和状态同步。日志和 issue 内容应去掉 Cookie、Token、二维码和签名信息。
 
 ### 消息与私信分享
 

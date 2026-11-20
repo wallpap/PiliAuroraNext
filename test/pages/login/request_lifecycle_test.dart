@@ -6,7 +6,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/pages/login/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_http_adapter.dart';
 import '../../support/memory_box.dart';
@@ -15,23 +17,39 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Adapter adapter;
   late _Controller controller;
+  final savedAccounts = MemoryBox<LoginAccount>();
 
   setUpAll(() {
+    Accounts.account = savedAccounts;
     GStorage.setting = MemoryBox<dynamic>();
     GStorage.localCache = MemoryBox<dynamic>();
     Request();
     Request.dio.interceptors.clear();
   });
   setUp(() {
+    savedAccounts.data.clear();
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
-    controller = _Controller()..onStart();
+    controller = _Controller()..attach(const TestVSync());
   });
   tearDown(() {
-    if (!controller.isClosed) controller.onDelete();
+    if (!controller.isClosed) controller.dispose();
     adapter.close();
   });
   tearDownAll(() => Request.dio.close(force: true));
+
+  testWidgets('Cookie 验证期间编辑输入后不保存未验证的凭据', (tester) async {
+    await _mount(tester);
+    controller.cookieTextController.text = 'DedeUserID=100; bili_jct=fixture';
+    final request = controller.loginByCookie();
+    await _flush(tester);
+    expect(adapter.pending, hasLength(1));
+    controller.cookieTextController.text = 'DedeUserID=200; bili_jct=edited';
+    adapter.json(0, {'code': 0});
+    await _flush(tester);
+    await request;
+    expect(savedAccounts.values, isEmpty);
+  });
 
   testWidgets('短信登录忽略页面关闭后的成功响应', (tester) async {
     await _mount(tester);
@@ -59,7 +77,7 @@ SQIDAQAB
     });
     await _flush(tester);
     expect(adapter.pending, hasLength(2));
-    controller.onDelete();
+    controller.dispose();
     adapter.json(1, {
       'code': 0,
       'data': {
@@ -70,6 +88,31 @@ SQIDAQAB
     await _flush(tester);
     await request;
     expect(controller.savedAccounts, 0);
+  });
+
+  testWidgets('获取短信验证码后修改号码不会沿用旧验证码', (tester) async {
+    await _mount(tester);
+    controller.telTextController.text = '10000000000';
+    final sending = controller.sendSmsCode();
+    await _flush(tester);
+    adapter.json(0, {
+      'code': 0,
+      'data': {'captcha_key': 'original'},
+    });
+    await _flush(tester);
+    await sending;
+
+    controller.telTextController.text = '20000000000';
+    controller.smsCodeTextController.text = '123456';
+    await controller.loginBySmsCode();
+    await _flush(tester);
+
+    expect(adapter.pending, hasLength(1));
+    expect(controller.savedAccounts, 0);
+    controller.dispose();
+    final dismissal = SmartDialog.dismiss(status: SmartStatus.allToast);
+    await tester.pumpAndSettle();
+    await dismissal;
   });
 
   testWidgets('二维码申请失败显示错误并允许重新申请', (tester) async {
@@ -85,7 +128,7 @@ SQIDAQAB
     await _flush(tester);
     await retry;
     expect(controller.codeInfo.value.data.authCode, 'retry');
-    controller.onDelete();
+    controller.dispose();
   });
 
   testWidgets('二维码刷新后旧响应不能覆盖新二维码', (tester) async {
@@ -99,7 +142,7 @@ SQIDAQAB
     await _flush(tester);
     await Future.wait([first, second]);
     expect(controller.codeInfo.value.data.authCode, 'new');
-    controller.onDelete();
+    controller.dispose();
   });
 
   testWidgets('离开扫码标签后迟到的成功轮询不会保存账号', (tester) async {
@@ -127,7 +170,7 @@ SQIDAQAB
   testWidgets('关闭控制器后二维码申请不创建定时器', (tester) async {
     final request = controller.refreshQRCode();
     await _flush(tester);
-    controller.onDelete();
+    controller.dispose();
     adapter.qr(0, 'late');
     await _flush(tester);
     await request;
@@ -198,7 +241,7 @@ SQIDAQAB
     await request;
     expect(controller.smsSending.value, isFalse);
     expect(controller.smsSendCooldown.value, 60);
-    controller.onDelete();
+    controller.dispose();
     await tester.pump(const Duration(seconds: 4));
   });
 
@@ -229,7 +272,7 @@ SQIDAQAB
     await retry;
     expect(controller.captchaKey, 'retry');
     expect(controller.smsSendCooldown.value, 60);
-    controller.onDelete();
+    controller.dispose();
     final dismissal = SmartDialog.dismiss(status: SmartStatus.allToast);
     await tester.pumpAndSettle();
     await dismissal;
@@ -239,7 +282,7 @@ SQIDAQAB
     controller.telTextController.text = '10000000000';
     final request = controller.sendSmsCode();
     await _flush(tester);
-    controller.onDelete();
+    controller.dispose();
     adapter.json(0, {
       'code': 0,
       'data': {'recaptcha_url': '', 'captcha_key': 'synthetic'},

@@ -8,16 +8,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/search_trending/controller.dart';
+import 'package:pili_aurora_next/features/search/application/search_trending.dart';
 import 'package:pili_aurora_next/pages/search_trending/view.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/trending_header.dart';
-import 'package:pili_aurora_next/models/remote/search/search_trending/data.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/search/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_trending/data.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/search/application/search_home.dart';
+import 'package:pili_aurora_next/features/search/application/search_hint.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -141,6 +142,28 @@ void main() {
     query('disabled');
     await flush();
     expect(requests, isEmpty);
+  });
+
+  test('关闭默认词后不展示迟到的搜索提示', () async {
+    const key = SettingBoxKey.enableSearchWord;
+    settings.data[key] = true;
+    final hint = SearchHint();
+    addTearDown(() {
+      hint.dispose();
+      settings.data.remove(key);
+    });
+    await dispatched(1);
+
+    settings.data[key] = false;
+    settings.changes.add(const BoxEvent(key, false, false));
+    await flush();
+    requests.single.reply.complete({
+      'code': 0,
+      'data': {'name': '迟到的提示'},
+    });
+    await flush();
+    expect(hint.text.value, isEmpty);
+    expect(hint.enabled, isFalse);
   });
 
   test('关闭页面后忽略迟到的建议，不再发起新请求', () async {

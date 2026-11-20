@@ -1,0 +1,6 @@
+name: pili_aurora_protocol_generator
+publish_to: none
+environment:
+  sdk: ^3.3.0
+dependencies:
+  protoc_plugin: 25.1.0

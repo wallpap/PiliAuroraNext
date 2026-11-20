@@ -3,15 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/member_space/data/upower_rank_repository.dart';
 import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 
@@ -123,7 +124,7 @@ void main() {
       name: '关键词',
     ),
     'opus': () => MemberHttp.spaceOpus(hostMid: 3, page: 1),
-    'upower': () => MemberHttp.upowerRank(account: original, upMid: 3, page: 1),
+    'upower': () => UpowerRankRepository.load(original, 3),
     'coin': () => MemberHttp.coinArc(account: original, mid: 3, page: 1),
     'like': () => MemberHttp.likeArc(account: original, mid: 3, page: 1),
     'shop': () => MemberHttp.spaceShop(account: original, mid: 3),

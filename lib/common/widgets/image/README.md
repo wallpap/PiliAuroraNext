@@ -1,6 +1,6 @@
 # 图片模块
 
-2026-11-14。架构取舍见[设计稿](../../../../doc/development/image-pipeline-design.md)，实现前的调用清单见[调查快照](../../../../doc/development/image-usage-audit.md)。
+普通图片沿用 Flutter Provider 生命周期，正文与预览由内容会话管理视口和资源。行为回归与原生测试前提见[测试契约](../../../../test/common/widgets/image/CONTRACTS.md)。
 
 ## 入口与所有权
 
@@ -25,12 +25,7 @@ Windows 的 ContentImage 有交互视口、未指定缩小目标且来源为网�
 
 `src/native_worker_backend.dart` 为每份不可变来源启动独立 CPU worker：WIC 处理静态 JPEG/PNG，固定 libwebp decoder 处理静态 WebP。有界管道输出预乘 RGBA，由普通 `ui.Image` 绘制；没有外部 GPU 纹理或 raw 临时文件。来源租约保留到进程退出，隐藏、换源、取消和错误关闭均等待排空；`imageRegionWorkers` 记录进程数。
 
-| 预算 | 范围 |
-| --- | --- |
-| Gallery 会话 48MiB | 当前会话的基础层与细节 |
-| 基础层最多 32MiB | 按物理采样直接解码；整层超限时先用不超过 4MiB 的粗层 |
-| 共享输出 128MiB | 在途预留、保留图像及待绘制退役图像 |
-| 通用 RegionContentSession 16MiB/4MiB | 默认会话/基础层，支持受控 tile 后端 |
+会话预算、基础层上限和共享输出预算分别约束保留像素及在途预留。通用配置见 `src/region_content_session.dart`，Gallery 覆盖值见 `content_image.dart`，共享预算见 `image_resources.dart`。显示交接期间的新旧图像和待绘制退役图像也须计费。
 
 基础层采样足够时省去细节，放大后合并可见矩形并补充 1:1 区域。`RegionImageSurface` 对基础与细节互斥裁剪，避免半透明像素重复混合。旧图先从显示状态移除，绘制后再释放根句柄；任务持独立来源租约。滤镜、颜色和源坐标保持稳定。
 
@@ -42,6 +37,6 @@ ImageSourceStore 目录由 CacheManager.imageSources 提供。普通完整帧不
 
 用例、命令及各阶段的像素、生命周期、能力回退和打包结果见[测试说明](../../../../test/common/widgets/image/CONTRACTS.md)。
 
-2026-11-14 本机压力组各两轮对照，包含全部子进程的 Job 峰值保守降低 23.19%；可见延迟 p95 最差值从 791ms 增至 944ms（+153ms），未通过原定 10% 延迟门槛。测试矩阵已停止，真实混合组尚缺候选轮。最后增加的签名分流只做定向测试和分析，未重测性能；原始记录保存在本地 `doc/dev/`。
+性能对照须固定源码、输入、物理视口与缓存条件，同时记录进程树峰值和可见延迟。模块输出预算不能证明进程总内存或延迟满足要求。
 
 其他 GPU/驱动、Android、完整应用长期运行及通知原生缓存仍待设备验证。输出预算不包含全部解码工作区，完整帧回退仍可能产生大图峰值。跨 surface 区域去重、Android 原生区域后端和第二套通用像素 LRU 尚未实现；弹幕重复静态表情仍由各消费者各建 codec。

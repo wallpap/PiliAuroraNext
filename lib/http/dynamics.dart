@@ -1,36 +1,36 @@
 import 'dart:convert';
 
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/error_msg.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/models/common/dynamic/dynamics_type.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/dynamics/up.dart';
-import 'package:pili_aurora_next/models/dynamics/vote_model.dart';
-import 'package:pili_aurora_next/models/remote/article/article_info/data.dart';
-import 'package:pili_aurora_next/models/remote/article/article_list/data.dart';
-import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
-import 'package:pili_aurora_next/models/remote/bubble/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/group.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reaction/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_reserve_info/data.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_feed/topic_card_list.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/top_details.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_topic_top/topic_item.dart';
-import 'package:pili_aurora_next/models/remote/followee_votes/vote.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/accounts/account_manager/account_mgr.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dynamics_type.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_option_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/up.dart';
+import 'package:pili_aurora_next/features/community/domain/vote.dart';
+import 'package:pili_aurora_next/features/community/domain/article/article_info/data.dart';
+import 'package:pili_aurora_next/features/community/domain/article/article_view/data.dart';
+import 'package:pili_aurora_next/features/community/domain/bubble/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/group.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dyn_reaction/data.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/dyn_reserve/data.dart';
+import 'package:pili_aurora_next/features/community/domain/reserve.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_feed/topic_card_list.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/top_details.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_topic_top/topic_item.dart';
+import 'package:pili_aurora_next/features/community/domain/votes/vote.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/data/account_manager/account_mgr.dart';
+import 'package:pili_aurora_next/core/random/random_text.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class DynamicsHttp {
@@ -41,6 +41,7 @@ abstract final class DynamicsHttp {
     String? offset,
     Set<int>? tempBannedList,
     DynamicsTabType type = .all,
+    bool refillFiltered = true,
   }) async {
     account ??= AccountManager.resolveAccount(Api.followDynamic);
     final banned = tempBannedList == null ? null : Set<int>.of(tempBannedList);
@@ -53,6 +54,7 @@ abstract final class DynamicsHttp {
           body['data'],
           type: type,
           tempBannedList: banned,
+          options: ContentFilterPreferences.dynamics(),
         ),
         errorMessages: const {4101132: '没有数据'},
         queryParameters: {
@@ -63,6 +65,8 @@ abstract final class DynamicsHttp {
         options: Options(extra: {'account': account}),
       );
       if (result is Error) return result;
+      // Riverpod 调用方在 application 层持有游标、补读预算与释放资格。
+      if (!refillFiltered) return result;
       final data = result.data;
       if (data.loadNext != true) return result;
       offset = data.offset;
@@ -227,7 +231,7 @@ abstract final class DynamicsHttp {
           'pics': ?pics,
           "attach_card": attachCard,
           "upload_id":
-              "${rid != null ? 0 : mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.random.nextInt(9000) + 1000}",
+              "${rid != null ? 0 : mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${sharedRandom.nextInt(9000) + 1000}",
           "meta": {
             "app_meta": {"from": "create.dynamic.web", "mobi_app": "web"},
           },
@@ -267,7 +271,10 @@ abstract final class DynamicsHttp {
       Api.dynamicDetail,
       kind: ApiCallKind.query,
       decode: (body) {
-        final item = DynamicItemModel.fromJson(body['data']['item']);
+        final item = DynamicItemModel.fromJson(
+          body['data']['item'],
+          options: ContentFilterPreferences.dynamics(),
+        );
         if ((int.tryParse(item.idStr.toString()) ?? 0) <= 0) {
           throw const FormatException('动态详情缺少有效 ID');
         }
@@ -387,7 +394,10 @@ abstract final class DynamicsHttp {
         Api.opusDetail,
         kind: ApiCallKind.query,
         decode: (body) {
-          final item = DynamicItemModel.fromOpusJson(body['data']);
+          final item = DynamicItemModel.fromOpusJson(
+            body['data'],
+            options: ContentFilterPreferences.dynamics(),
+          );
           if (item.fallback?.id == null &&
               (item.basic?.commentType == null ||
                   (int.tryParse(item.basic?.commentIdStr ?? '') ?? 0) <= 0)) {
@@ -487,7 +497,9 @@ abstract final class DynamicsHttp {
       kind: ApiCallKind.query,
       decode: (body) {
         final data = body['data']?['topic_card_list'];
-        return data == null ? null : TopicCardList.fromJson(data);
+        return data == null
+            ? null
+            : TopicCardList.fromJson(data, options: ContentFilterPreferences.dynamics());
       },
       queryParameters: {
         'topic_id': topicId,
@@ -512,29 +524,15 @@ abstract final class DynamicsHttp {
       kind: ApiCallKind.query,
       decode: (body) {
         final data = body['data']?['topic_card_list'];
-        return data == null ? null : TopicCardList.fromJson(data);
+        return data == null
+            ? null
+            : TopicCardList.fromJson(data, options: ContentFilterPreferences.dynamics());
       },
       queryParameters: {
         'topic_id': topicId,
         'sort_by': sortBy,
       },
       options: Options(extra: {'account': account}),
-    );
-  }
-
-  static Future<LoadingState<ArticleListData>> articleList({
-    required Object id,
-    required Account account,
-  }) async {
-    return await Request().requestApi(
-      Api.articleList,
-      kind: ApiCallKind.query,
-      decode: (body) => ArticleListData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'id': id,
-        'web_location': 333.1400,
-      },
     );
   }
 
@@ -815,7 +813,7 @@ abstract final class DynamicsHttp {
   }) async {
     account ??= AccountManager.resolveAccount(Api.editDyn);
     final uploadId =
-        "${account.mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.random.nextInt(9000) + 1000}";
+        "${account.mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${sharedRandom.nextInt(9000) + 1000}";
     try {
       return await Request().requestApi(
         Api.editDyn,

@@ -3,21 +3,20 @@ import 'dart:io' show File, Platform;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart'
-    show DetailItem;
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_info_h5/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_info/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as path;
@@ -458,13 +457,13 @@ class VideoPlayerServiceHandler extends BaseAudioHandler {
           duration: Duration(seconds: data.duration ?? 0),
           artUri: getUri(cover),
         );
-      case DetailItem(:final arc):
+      case AudioTrack(:final info):
         mediaItem = MediaItem(
           id: id,
-          title: arc.title,
-          artist: data.owner.name,
-          duration: Duration(seconds: arc.duration.toInt()),
-          artUri: getUri(arc.cover),
+          title: info.title,
+          artist: info.artistName ?? '',
+          duration: Duration(seconds: info.duration),
+          artUri: getUri(info.cover),
         );
       case BiliDownloadEntryInfo():
         final coverFile = File(

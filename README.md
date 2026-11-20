@@ -21,19 +21,21 @@ PiliAuroraNext 是面向 Android 和 Windows x64 的 Bilibili 第三方客户端
 
 新仓库以迁移时的源码快照建立独立提交历史，原提交历史留存于原仓库。现有功能和定制依赖的修改继续保留，本地定制包统一从 `+piliauroranext.1` 开始计数，详见[依赖维护说明](third_party/README.md#版本与来源)。原有版权、许可证及上游来源说明继续保留。
 
-`1.0.0` 是迁移至 PiliAuroraNext 后的首个版本，也是新仓库独立版本序列的起点。版本记录见[更新日志](CHANGELOG.md)，安装包与发布状态以 Releases 页面为准。
+新仓库从 `1.0.0` 独立编号，版本记录见[更新日志](CHANGELOG.md)。
 
 ## 适配平台与下载
 
-在 [GitHub Releases](https://github.com/wallpap/PiliAuroraNext/releases/latest) 选择对应设备的安装包。已发布版本以 Releases 页面为准。
+打开 [GitHub Releases](https://github.com/wallpap/PiliAuroraNext/releases/latest)，按设备和文件名末尾选择安装包。
 
-| 设备 | 选择的文件 |
+| 设备 | 文件名末尾 |
 | --- | --- |
 | Android ARM64，常见的新款手机和平板 | `arm64-v8a.apk` |
 | Android 32 位 ARM 设备 | `armeabi-v7a.apk` |
 | Android x86_64 设备或对应模拟器 | `x86_64.apk` |
 | Windows x64，需要安装和快捷方式 | `x64_setup.exe` |
-| Windows x64，直接解压使用 | `x64_portable.zip`，完整解压后启动 `PiliAuroraNext.exe` |
+| Windows x64，免安装 | `x64_portable.zip` |
+
+使用 Windows 便携版时，先完整解压 ZIP，再启动 `PiliAuroraNext.exe`。
 
 应用的“检查更新”比较正式发布的版本号，通过浏览器下载安装包；预发布版本从 Releases 页面手动下载。
 

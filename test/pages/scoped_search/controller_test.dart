@@ -3,18 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/interfaces/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/app/interfaces/v1.pb.dart'
     show SearchArchiveReply, SearchArchiveReq, Arc;
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/common/search/scoped_search.dart';
+import 'package:pili_aurora_next/http/loading_state.dart' show Error;
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/search/application/scoped_search.dart';
 import 'package:pili_aurora_next/pages/live_search/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -160,7 +161,10 @@ void main() {
     final refresh = container.refresh(scopedSearchProvider(query).future);
     await dispatched(3);
     requests.last.reply.complete({'code': -1, 'message': 'failed'});
-    await expectLater(refresh, throwsA(anything));
+    await expectLater(
+      refresh,
+      throwsA(isA<Error>().having((error) => error.code, 'business code', -1)),
+    );
     requests[1].reply.complete(page([99]));
     await pending;
     expect(container.read(scopedSearchProvider(query)).hasError, isTrue);
@@ -229,7 +233,7 @@ void main() {
     );
     final data = await container.read(scopedSearchProvider(q).future);
     expect(data.hasMore, isFalse);
-    expect(data.items.single.archive.aid.toInt(), 42);
+    expect((data.items.single as ScopedSearchArchive).aid, 42);
     sub.close();
   });
   test('空间动态过滤后的空页按游标继续，连续五页无增长后停止', () async {

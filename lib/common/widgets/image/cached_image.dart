@@ -134,6 +134,11 @@ class CachedImageProvider extends ImageProvider<CachedImageProvider> {
 
   Future<File> getSourceFile() => _getFile();
 
+  Future<void> prefetchSourceFile() async {
+    final manager = cacheManager ?? DefaultCacheManager.instance!;
+    if (await manager.getFileFromCache(url) == null) await _getFile();
+  }
+
   Future<File> _getFile() {
     final manager = cacheManager ?? DefaultCacheManager.instance!;
     final key = (manager, url);

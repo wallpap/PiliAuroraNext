@@ -1,13 +1,13 @@
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/http/live.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/card_data_list_item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_feed_index/feedback.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/live_feedback.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/feedback.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -77,12 +77,12 @@ class LiveCardVApp extends StatelessWidget {
             child: IconButton(
               padding: .zero,
               onPressed: () {
-                final account = LiveHttp.recommend;
                 final roomId = item.roomid;
+                final submission = LiveFeedback.capture(roomId);
                 var submitting = false;
                 bool current() =>
                     context.mounted &&
-                    identical(account, LiveHttp.recommend) &&
+                    submission.isCurrent &&
                     identical((context.widget as LiveCardVApp).item, item) &&
                     roomId == item.roomid;
                 Widget actionButton(Reason r) => SearchText(
@@ -98,12 +98,9 @@ class LiveCardVApp extends StatelessWidget {
                     submitting = true;
                     Get.back();
                     SmartDialog.showLoading(msg: '正在提交');
-                    final res =
-                        await LiveHttp.liveFeedback(
-                          roomId,
-                          id,
-                          type,
-                        ).whenComplete(
+                    final res = await submission
+                        .submit(id, type)
+                        .whenComplete(
                           () => SmartDialog.dismiss(status: .loading),
                         );
                     if (!current()) return;

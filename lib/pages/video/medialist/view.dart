@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
@@ -5,13 +6,13 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/media_list/media_list.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/playlist/media_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -25,23 +26,21 @@ class MediaListPanel extends CommonSlidePage {
     this.panelTitle,
     required this.bvid,
     required this.loadMoreMedia,
-    required this.count,
     required this.desc,
     required this.onReverse,
     required this.loadPrevious,
     this.onDelete,
   });
 
-  final RxList<MediaListItemModel> mediaList;
+  final ValueListenable<List<MediaListItemModel>> mediaList;
   final ValueChanged<BaseEpisodeItem> onChangeEpisode;
   final String? panelTitle;
   final String bvid;
   final VoidCallback loadMoreMedia;
-  final int? count;
   final bool desc;
   final VoidCallback onReverse;
   final RefreshCallback? loadPrevious;
-  final void Function(MediaListItemModel item, int index)? onDelete;
+  final ValueChanged<MediaListItemModel>? onDelete;
 
   @override
   State<MediaListPanel> createState() => _MediaListPanelState();
@@ -55,10 +54,18 @@ class _MediaListPanelState extends State<MediaListPanel>
   void initState() {
     super.initState();
     final bvid = widget.bvid;
-    final bvIndex = widget.mediaList.indexWhere((item) => item.bvid == bvid);
+    final bvIndex = widget.mediaList.value.indexWhere(
+      (item) => item.bvid == bvid,
+    );
     _controller = ScrollController(
       initialScrollOffset: bvIndex <= 0 ? 0 : bvIndex * 112.0 + 7,
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -123,7 +130,6 @@ class _MediaListPanelState extends State<MediaListPanel>
   }
 
   Widget _buildList(ThemeData theme) {
-    final showDelBtn = widget.onDelete != null && widget.mediaList.length > 1;
     return CustomScrollView(
       controller: _controller,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -133,21 +139,21 @@ class _MediaListPanelState extends State<MediaListPanel>
             top: 7,
             bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
           ),
-          sliver: Obx(
-            () => SliverFixedExtentList.builder(
-              itemExtent: 112,
-              itemCount: widget.mediaList.length,
-              itemBuilder: (context, index) {
-                if (index == widget.mediaList.length - 1 &&
-                    (widget.count == null ||
-                        widget.mediaList.length < widget.count!)) {
-                  widget.loadMoreMedia();
-                }
-                final item = widget.mediaList[index];
-                final isCurr = item.bvid == widget.bvid;
-                return _buildItem(theme, index, item, isCurr, showDelBtn);
-              },
-            ),
+          sliver: ValueListenableBuilder(
+            valueListenable: widget.mediaList,
+            builder: (context, items, child) {
+              final showDelBtn = widget.onDelete != null && items.length > 1;
+              return SliverFixedExtentList.builder(
+                itemExtent: 112,
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  if (index == items.length - 1) widget.loadMoreMedia();
+                  final item = items[index];
+                  final isCurr = item.bvid == widget.bvid;
+                  return _buildItem(theme, item, isCurr, showDelBtn);
+                },
+              );
+            },
           ),
         ),
       ],
@@ -156,7 +162,6 @@ class _MediaListPanelState extends State<MediaListPanel>
 
   Widget _buildItem(
     ThemeData theme,
-    int index,
     MediaListItemModel item,
     bool isCurr,
     bool showDelBtn,
@@ -290,12 +295,22 @@ class _MediaListPanelState extends State<MediaListPanel>
                     bottom: -6,
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () => showConfirmDialog(
-                        context: context,
-                        title: const Text('确定移除该视频？'),
-                        onConfirm: () => widget.onDelete!(item, index),
-                      ),
-                      onLongPress: () => widget.onDelete!(item, index),
+                      onTap: () async {
+                        final remove = widget.onDelete;
+                        final confirmed = await showConfirmDialog(
+                          context: context,
+                          title: const Text('确定移除该视频？'),
+                        );
+                        if (!confirmed ||
+                            !context.mounted ||
+                            !identical(remove, widget.onDelete)) {
+                          return;
+                        }
+                        if (widget.mediaList.value.contains(item)) {
+                          remove?.call(item);
+                        }
+                      },
+                      onLongPress: () => widget.onDelete?.call(item),
                       child: Padding(
                         padding: const EdgeInsets.all(9),
                         child: Icon(

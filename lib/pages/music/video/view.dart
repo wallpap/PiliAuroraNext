@@ -1,42 +1,50 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/music/bgm_recommend_list.dart';
-import 'package:pili_aurora_next/pages/music/video/controller.dart';
+import 'package:pili_aurora_next/features/playback/application/music_queries.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/music/bgm_recommend_list.dart';
 import 'package:pili_aurora_next/pages/music/widget/music_video_card_h.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MusicRecommendPage extends StatefulWidget {
+class MusicRecommendPage extends ConsumerStatefulWidget {
   const MusicRecommendPage({super.key});
 
   @override
-  State<MusicRecommendPage> createState() => _MusicRecommendPageState();
+  ConsumerState<MusicRecommendPage> createState() => _MusicRecommendPageState();
 }
 
-class _MusicRecommendPageState extends State<MusicRecommendPage>
+class _MusicRecommendPageState extends ConsumerState<MusicRecommendPage>
     with GridMixin {
-  final MusicRecommendController _controller = Get.putOrFind(
-    MusicRecommendController.new,
-    tag: (Get.arguments as MusicRecommendArgs).id,
-  );
+  late final _arguments = Get.arguments as MusicRecommendArgs;
+  late final _provider = musicRecommendationsProvider(_arguments.id);
+
+  Future<void> _reload() async {
+    ref.invalidate(_provider);
+    try {
+      await ref.read(_provider.future);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
+    final snapshot = ref.watch(_provider);
+    final items = !snapshot.isLoading && !snapshot.hasError
+        ? snapshot.value
+        : null;
     final theme = Theme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
     return Material(
       color: theme.colorScheme.surface,
       child: refreshIndicator(
-        onRefresh: _controller.onRefresh,
+        onRefresh: _reload,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            _buildAppBar(theme, padding),
+            _buildAppBar(theme, padding, items?.length),
             SliverPadding(
               padding: EdgeInsets.only(
                 top: 7,
@@ -44,8 +52,12 @@ class _MusicRecommendPageState extends State<MusicRecommendPage>
                 right: padding.right,
                 bottom: padding.bottom + 100,
               ),
-              sliver: Obx(
-                () => _buildBody(_controller.loadingState.value),
+              sliver: snapshot.when(
+                skipLoadingOnRefresh: false,
+                loading: () => gridSkeleton,
+                error: (error, _) =>
+                    HttpError(errMsg: error.toString(), onReload: _reload),
+                data: _buildBody,
               ),
             ),
           ],
@@ -54,27 +66,18 @@ class _MusicRecommendPageState extends State<MusicRecommendPage>
     );
   }
 
-  Widget _buildBody(LoadingState<List<BgmRecommend>?> loadingState) {
-    return switch (loadingState) {
-      Loading() => gridSkeleton,
-      Success(:final response) =>
-        response != null && response.isNotEmpty
-            ? SliverGrid.builder(
-                gridDelegate: gridDelegate,
-                itemBuilder: (context, index) =>
-                    MusicVideoCardH(videoItem: response[index]),
-                itemCount: response.length,
-              )
-            : HttpError(onReload: _controller.onReload),
-      Error(:final errMsg) => HttpError(
-        errMsg: errMsg,
-        onReload: _controller.onReload,
-      ),
-    };
-  }
+  Widget _buildBody(List<BgmRecommend>? response) =>
+      response == null || response.isEmpty
+      ? HttpError(onReload: _reload)
+      : SliverGrid.builder(
+          gridDelegate: gridDelegate,
+          itemBuilder: (context, index) =>
+              MusicVideoCardH(videoItem: response[index]),
+          itemCount: response.length,
+        );
 
-  Widget _buildAppBar(ThemeData theme, EdgeInsets padding) {
-    final info = _controller.musicDetail;
+  Widget _buildAppBar(ThemeData theme, EdgeInsets padding, int? count) {
+    final info = _arguments.item;
     return SliverAppBar(
       pinned: true,
       title: Row(
@@ -96,15 +99,11 @@ class _MusicRecommendPageState extends State<MusicRecommendPage>
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium,
               ),
-              Obx(() {
-                final count = _controller.loadingState.value.dataOrNull?.length;
-                return count == null
-                    ? const SizedBox.shrink()
-                    : Text(
-                        '共$count条视频',
-                        style: theme.textTheme.labelMedium,
-                      );
-              }),
+              if (count != null)
+                Text(
+                  '共$count条视频',
+                  style: theme.textTheme.labelMedium,
+                ),
             ],
           ),
         ],

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:material_ui/material_ui.dart';
 
 class RadioWidget<T> extends StatefulWidget {

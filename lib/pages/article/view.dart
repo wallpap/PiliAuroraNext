@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:math';
 
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
@@ -13,38 +15,38 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
-import 'package:pili_aurora_next/models/common/image_preview_type.dart';
-import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
+import 'package:pili_aurora_next/common/media/image_preview_source.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/article_content_model.dart'
     show Pic;
-import 'package:pili_aurora_next/models/dynamics/result.dart' show DynamicStat;
-import 'package:pili_aurora_next/pages/article/controller.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart' show DynamicStat;
+import 'package:pili_aurora_next/features/community/application/article_detail.dart';
 import 'package:pili_aurora_next/pages/article/widgets/article_ops.dart';
 import 'package:pili_aurora_next/pages/article/widgets/html_render.dart';
 import 'package:pili_aurora_next/pages/article/widgets/opus_content.dart';
 import 'package:pili_aurora_next/pages/article/widgets/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:html/parser.dart' as parser;
 import 'package:material_ui/material_ui.dart';
 
-class ArticlePage extends StatefulWidget {
+class ArticlePage extends ConsumerStatefulWidget {
   const ArticlePage({super.key});
 
   @override
-  State<ArticlePage> createState() => _ArticlePageState();
+  ConsumerState<ArticlePage> createState() => _ArticlePageState();
 }
 
 class _ArticlePageState extends CommonDynPageState<ArticlePage> {
@@ -63,10 +65,24 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       );
 
   @override
-  final ArticleController controller = Get.putOrFind(
-    ArticleController.new,
-    tag: Get.parameters['type']! + Get.parameters['id']!,
-  );
+  late final ArticleController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = ArticleController(
+      ref.read(dynamicsActionsProvider),
+      id: Get.parameters['id'] ?? '',
+      type: Get.parameters['type'] ?? '',
+      onFeedback: SmartDialog.showToast,
+    )..open();
+  }
+
+  @override
+  void dispose() {
+    controller.close();
+    super.dispose();
+  }
 
   @override
   dynamic get arguments => {
@@ -96,25 +112,27 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       return Padding(
         padding: .symmetric(horizontal: padding),
         child: SelectionArea(
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              _buildContent(
-                maxWidth - this.padding.horizontal - 2 * padding - 24,
-              ),
-              SelectionContainer.disabled(
-                child: SliverToBoxAdapter(
-                  child: Divider(
-                    thickness: 8,
-                    color: theme.dividerColor.withValues(alpha: 0.05),
+          child: commentPagination(
+            CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _buildContent(
+                  maxWidth - this.padding.horizontal - 2 * padding - 24,
+                ),
+                SelectionContainer.disabled(
+                  child: SliverToBoxAdapter(
+                    child: Divider(
+                      thickness: 8,
+                      color: theme.dividerColor.withValues(alpha: 0.05),
+                    ),
                   ),
                 ),
-              ),
-              SelectionContainer.disabled(child: buildReplyHeader()),
-              SelectionContainer.disabled(
-                child: Obx(() => replyList(controller.loadingState.value)),
-              ),
-            ],
+                SelectionContainer.disabled(child: buildReplyHeader()),
+                SelectionContainer.disabled(
+                  child: replyList(),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -159,13 +177,15 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             padding: .only(right: padding),
             child: MiniScaffold(
               body: refreshIndicator(
-                onRefresh: controller.onRefresh,
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    buildReplyHeader(),
-                    Obx(() => replyList(controller.loadingState.value)),
-                  ],
+                onRefresh: refreshComments,
+                child: commentPagination(
+                  CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      buildReplyHeader(),
+                      replyList(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -177,8 +197,9 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
 
   Widget _buildContent(double maxWidth) => SliverPadding(
     padding: const .symmetric(horizontal: 12, vertical: 8),
-    sliver: Obx(
-      () {
+    sliver: ListenableBuilder(
+      listenable: controller.isLoaded,
+      builder: (context, _) {
         if (controller.isLoaded.value) {
           final Widget content;
           if (controller.opus != null) {
@@ -238,7 +259,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                   SliverToBoxAdapter(child: _buildImageGallery(pics)),
               if (controller.summary.title != null)
                 SliverToBoxWithVisibilityAdapter(
-                  onVisibilityChanged: controller.showTitle.call,
+                  onVisibilityChanged: controller.setShowTitle,
                   child: Text(
                     controller.summary.title!,
                     style: const TextStyle(fontSize: 17, fontWeight: .bold),
@@ -266,15 +287,18 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
   );
 
   PreferredSizeWidget _buildAppBar() => AppBar(
-    title: Obx(() {
-      final title = controller.summary.title;
-      if (controller.isLoaded.value &&
-          controller.showTitle.value &&
-          title != null) {
-        return Text(title);
-      }
-      return const SizedBox.shrink();
-    }),
+    title: ListenableBuilder(
+      listenable: Listenable.merge([controller.showTitle, controller.isLoaded]),
+      builder: (context, _) {
+        final title = controller.summary.title;
+        if (controller.isLoaded.value &&
+            controller.showTitle.value &&
+            title != null) {
+          return Text(title);
+        }
+        return const SizedBox.shrink();
+      },
+    ),
     actions: [
       const SizedBox(width: 4),
       if (!isPortrait) ratioWidget(maxWidth),
@@ -298,7 +322,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             ),
           ),
           AppPopupMenuItem(
-            onTap: () => Utils.copyText(controller.url),
+            onTap: () => copyText(controller.url),
             child: const Row(
               spacing: 10,
               mainAxisSize: .min,
@@ -314,7 +338,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             AppPopupMenuItem(
               onTap: () async {
                 final summary = controller.summary;
-                final account = Accounts.main;
+                final identity = AccountScope.capture();
                 final articleId = controller.commentId;
                 if (summary.cover == null &&
                     !await controller.getArticleInfo(true)) {
@@ -322,7 +346,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 }
                 if (!mounted ||
                     controller.isClosed ||
-                    !identical(account, Accounts.main) ||
+                    !identity.isCurrent ||
                     articleId != controller.commentId) {
                   return;
                 }
@@ -376,151 +400,156 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
 
     return Padding(
       padding: .only(left: padding.left, right: padding.right),
-      child: Obx(() {
-        final stats = controller.stats.value;
+      child: ListenableBuilder(
+        listenable: controller.stats,
+        builder: (context, _) {
+          final stats = controller.stats.value;
 
-        final fab = Padding(
-          padding: .only(
-            right: kFloatingActionButtonMargin,
-            bottom:
-                kFloatingActionButtonMargin +
-                (stats != null ? 0 : padding.bottom),
-          ),
-          child: replyButton,
-        );
-
-        if (stats == null) {
-          return Align(alignment: .bottomRight, child: fab);
-        }
-
-        Widget textIconButton({
-          required IconData icon,
-          required String text,
-          required DynamicStat? stat,
-          required VoidCallback onPressed,
-          IconData? activatedIcon,
-        }) {
-          final bool status;
-          final String count;
-          if (stat != null) {
-            status = stat.status ?? false;
-            count = stat.count != null ? NumUtils.numFormat(stat.count) : text;
-          } else {
-            status = false;
-            count = text;
-          }
-          final color = status ? primary : outline;
-          return TextButton.icon(
-            style: btnStyle,
-            onPressed: onPressed,
-            label: Text(count, style: TextStyle(color: color)),
-            icon: Icon(status ? activatedIcon : icon, size: 16, color: color),
+          final fab = Padding(
+            padding: .only(
+              right: kFloatingActionButtonMargin,
+              bottom:
+                  kFloatingActionButtonMargin +
+                  (stats != null ? 0 : padding.bottom),
+            ),
+            child: replyButton,
           );
-        }
 
-        return Column(
-          mainAxisSize: .min,
-          crossAxisAlignment: .end,
-          children: [
-            fab,
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                border: Border(
-                  top: BorderSide(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.08),
+          if (stats == null) {
+            return Align(alignment: .bottomRight, child: fab);
+          }
+
+          Widget textIconButton({
+            required IconData icon,
+            required String text,
+            required DynamicStat? stat,
+            required VoidCallback onPressed,
+            IconData? activatedIcon,
+          }) {
+            final bool status;
+            final String count;
+            if (stat != null) {
+              status = stat.status ?? false;
+              count = stat.count != null
+                  ? NumUtils.numFormat(stat.count)
+                  : text;
+            } else {
+              status = false;
+              count = text;
+            }
+            final color = status ? primary : outline;
+            return TextButton.icon(
+              style: btnStyle,
+              onPressed: onPressed,
+              label: Text(count, style: TextStyle(color: color)),
+              icon: Icon(status ? activatedIcon : icon, size: 16, color: color),
+            );
+          }
+
+          return Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .end,
+            children: [
+              fab,
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.08),
+                    ),
                   ),
                 ),
-              ),
-              padding: .only(bottom: padding.bottom),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Builder(
-                      builder: (btnContext) {
-                        final forward = stats.forward;
-                        return textIconButton(
-                          text: '转发',
-                          icon: FontAwesomeIcons.shareFromSquare.data,
-                          stat: forward,
-                          onPressed: () {
-                            if (controller.opusData == null &&
-                                controller.articleData?.dynIdStr == null) {
-                              SmartDialog.showToast(
-                                'err: ${controller.id}',
-                              );
-                              return;
-                            }
-                            final summary = controller.summary;
-                            final account = Accounts.main;
-                            final articleId = controller.id;
-                            final articleType = controller.type;
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              useSafeArea: true,
-                              builder: (context) => RepostPanel(
-                                item: controller.opusData,
-                                dynIdStr: controller.articleData?.dynIdStr,
-                                pic: summary.cover,
-                                title: summary.title,
-                                uname: summary.author?.name,
-                                onSuccess: () {
-                                  if (forward != null &&
-                                      btnContext.mounted &&
-                                      !controller.isClosed &&
-                                      identical(account, Accounts.main) &&
-                                      articleId == controller.id &&
-                                      articleType == controller.type &&
-                                      identical(
-                                        stats,
-                                        controller.stats.value,
-                                      )) {
-                                    if (forward.count case final count?) {
-                                      forward.count = count + 1;
-                                      controller.stats.refresh();
+                padding: .only(bottom: padding.bottom),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Builder(
+                        builder: (btnContext) {
+                          final forward = stats.forward;
+                          return textIconButton(
+                            text: '转发',
+                            icon: FontAwesomeIcons.shareFromSquare.data,
+                            stat: forward,
+                            onPressed: () {
+                              if (controller.opusData == null &&
+                                  controller.articleData?.dynIdStr == null) {
+                                SmartDialog.showToast(
+                                  'err: ${controller.id}',
+                                );
+                                return;
+                              }
+                              final summary = controller.summary;
+                              final identity = AccountScope.capture();
+                              final articleId = controller.id;
+                              final articleType = controller.type;
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                useSafeArea: true,
+                                builder: (context) => RepostPanel(
+                                  item: controller.opusData,
+                                  dynIdStr: controller.articleData?.dynIdStr,
+                                  pic: summary.cover,
+                                  title: summary.title,
+                                  uname: summary.author?.name,
+                                  onSuccess: () {
+                                    if (forward != null &&
+                                        btnContext.mounted &&
+                                        !controller.isClosed &&
+                                        identity.isCurrent &&
+                                        articleId == controller.id &&
+                                        articleType == controller.type &&
+                                        identical(
+                                          stats,
+                                          controller.stats.value,
+                                        )) {
+                                      if (forward.count case final count?) {
+                                        forward.count = count + 1;
+                                        controller.stats.refresh();
+                                      }
                                     }
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                        );
-                      },
+                                  },
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: textIconButton(
-                      text: '分享',
-                      icon: CustomIcons.share_node,
-                      stat: null,
-                      onPressed: () => ShareUtils.shareText(controller.url),
+                    Expanded(
+                      child: textIconButton(
+                        text: '分享',
+                        icon: CustomIcons.share_node,
+                        stat: null,
+                        onPressed: () => ShareUtils.shareText(controller.url),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: textIconButton(
-                      icon: FontAwesomeIcons.star.data,
-                      activatedIcon: FontAwesomeIcons.solidStar.data,
-                      text: '收藏',
-                      stat: stats.favorite,
-                      onPressed: controller.onFav,
+                    Expanded(
+                      child: textIconButton(
+                        icon: FontAwesomeIcons.star.data,
+                        activatedIcon: FontAwesomeIcons.solidStar.data,
+                        text: '收藏',
+                        stat: stats.favorite,
+                        onPressed: controller.onFav,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: textIconButton(
-                      icon: FontAwesomeIcons.thumbsUp.data,
-                      activatedIcon: FontAwesomeIcons.solidThumbsUp.data,
-                      text: '点赞',
-                      stat: stats.like,
-                      onPressed: controller.onLike,
+                    Expanded(
+                      child: textIconButton(
+                        icon: FontAwesomeIcons.thumbsUp.data,
+                        activatedIcon: FontAwesomeIcons.solidThumbsUp.data,
+                        text: '点赞',
+                        stat: stats.like,
+                        onPressed: controller.onLike,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        );
-      }),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -545,7 +574,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             physics: tabBarScrollPhysics,
             horizontalDragGestureRecognizer:
                 CustomHorizontalDragGestureRecognizer.new,
-            onPageChanged: controller.topIndex.call,
+            onPageChanged: controller.setTopIndex,
             itemCount: length,
             itemBuilder: (context, index) {
               final pic = pics[index];
@@ -601,8 +630,9 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             },
           ),
         ),
-        Obx(
-          () => PBadge(
+        ListenableBuilder(
+          listenable: controller.topIndex,
+          builder: (context, _) => PBadge(
             top: 12,
             right: 12,
             type: .gray,

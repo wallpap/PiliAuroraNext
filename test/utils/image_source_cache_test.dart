@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
 
 class _Cache extends Fake implements cache.DefaultCacheManager {
   _Cache(this.cacheDir);

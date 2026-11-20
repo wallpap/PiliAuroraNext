@@ -10,23 +10,34 @@ abstract final class AppWebViewEnvironment {
   static String? _userDataPath;
   static Future<void>? _initializing;
   static Future<void>? _disposing;
+  static Future<void>? _closing;
+  static final _closingState = ValueNotifier(false);
+  static Completer<void>? _leasesReleased;
   static Timer? _idle;
   static int _users = 0;
   static bool get isConfigured => _userDataPath != null;
+  static ValueListenable<bool> get closing => _closingState;
 
   /// 页面和 Cookie 操作各持有租约，避免关闭一个页面时销毁其他使用者的环境。
   static void Function() retain() {
+    if (_closing != null) throw StateError('网页环境已关闭');
     if (!isConfigured) return () {};
     _idle?.cancel();
+    _idle = null;
     _users++;
     var released = false;
     return () {
       if (released) return;
       released = true;
       if (--_users == 0) {
-        // 给原生 Widget 的异步销毁和连续打开页面留出交接时间。
-        _idle = Timer(const Duration(seconds: 5), () {
-          unawaited(_disposeIdle());
+        if (_leasesReleased case final released?) {
+          released.complete();
+          return;
+        }
+        // 连续打开页面时复用环境；Windows 原生视图另有实际释放屏障。
+        late final Timer idle;
+        _idle = idle = Timer(const Duration(seconds: 5), () {
+          unawaited(_disposeIdle(idle));
         });
       }
     };
@@ -42,18 +53,12 @@ abstract final class AppWebViewEnvironment {
     }
   }
 
-  static Future<void> _disposeIdle() async {
+  static Future<void> _disposeIdle(Timer idle) async {
     try {
       await _initializing;
-      if (_users != 0 || _instance == null) return;
-      final environment = _instance!;
-      _instance = null;
-      final disposal = _disposing = environment.dispose();
-      try {
-        await disposal;
-      } finally {
-        _disposing = null;
-      }
+      if (!identical(_idle, idle) || _users != 0) return;
+      _idle = null;
+      await _disposeEnvironment();
     } catch (error, stack) {
       FlutterError.reportError(
         FlutterErrorDetails(
@@ -62,6 +67,38 @@ abstract final class AppWebViewEnvironment {
           library: 'WebView environment idle disposal',
         ),
       );
+    }
+  }
+
+  static Future<void> _disposeEnvironment() async {
+    if (_disposing case final pending?) return pending;
+    final environment = _instance;
+    if (environment == null) return;
+    _instance = null;
+    final disposal = _disposing = Future<void>.sync(environment.dispose);
+    try {
+      await disposal;
+    } finally {
+      _disposing = null;
+    }
+  }
+
+  static Future<void> close() {
+    if (!isConfigured) return Future.value();
+    if (_closing case final pending?) return pending;
+    final pending = _closing = _close();
+    _closingState.value = true;
+    return pending;
+  }
+
+  static Future<void> _close() async {
+    _idle?.cancel();
+    _idle = null;
+    if (_users > 0) await (_leasesReleased = Completer<void>()).future;
+    try {
+      await _initializing;
+    } finally {
+      await _disposeEnvironment();
     }
   }
 
@@ -80,6 +117,9 @@ abstract final class AppWebViewEnvironment {
   static Future<void> ensureInitialized() {
     // 非 Windows 不登记目录，继续使用平台自己的默认环境。
     if (_userDataPath == null || _instance != null) return Future.value();
+    if (_closing != null && _users == 0) {
+      return Future.error(StateError('网页环境已关闭'));
+    }
     return _initializing ??= _create();
   }
 

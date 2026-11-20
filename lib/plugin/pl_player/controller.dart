@@ -3,27 +3,28 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/frame_timing.dart';
 import 'dart:async' show Completer, StreamSubscription, Timer, unawaited;
 import 'dart:convert' show ascii;
 import 'dart:io' show Platform;
-import 'dart:math' show max, min;
+import 'dart:math' show min;
 
-import 'package:pili_aurora_next/utils/volume_utils.dart';
+import 'package:pili_aurora_next/features/playback/application/volume_adjustment.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, visibleForTesting;
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/audio_normalization.dart';
-import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/application/audio_normalization.dart';
+import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_rule_cache.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
+import 'package:pili_aurora_next/features/playback/application/seek_preview_timeline.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
+import 'package:pili_aurora_next/features/playback/domain/seek_preview.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
-import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/double_tap_type.dart';
@@ -56,24 +57,25 @@ import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/asset_utils.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/desktop_window_visibility.dart';
-import 'package:pili_aurora_next/utils/desktop_window_background.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/extension/box_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/platform/files/bundled_assets.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/platform/desktop/window_visibility.dart';
+import 'package:pili_aurora_next/platform/desktop/window_background.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/services/settings/box_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
@@ -159,7 +161,6 @@ class PlPlayerController
   final RxInt position = RxInt(0);
   final RxInt seekPosition = RxInt(0);
   final _progressProjection = PlaybackProgressProjection();
-  int? _progressProjectionLoadId;
   int get progress => isSeeking.value ? seekPosition.value : position.value;
 
   int get positionInMilliseconds =>
@@ -171,11 +172,11 @@ class PlPlayerController
 
   final RxInt duration = RxInt(0);
 
-  int durationInMilliseconds = 0;
+  int get durationInMilliseconds => _progressProjection.duration.inMilliseconds;
 
   void updateDuration(Duration value) {
+    _progressProjection.updateDuration(value);
     duration.value = value.inSeconds;
-    durationInMilliseconds = value.inMilliseconds;
   }
 
   late double lastPlaybackSpeed = 1.0;
@@ -224,8 +225,6 @@ class PlPlayerController
   late final tryLook = !Accounts.get(AccountType.video).isLogin && Pref.p1080;
 
   Timer? _timer;
-  StreamSubscription? _subForSeek;
-  Completer<void>? _seekCompletion;
 
   Box setting = GStorage.setting;
 
@@ -398,9 +397,28 @@ class PlPlayerController
   RxBool get enableShowDanmakuAdaptive =>
       isLive ? enableShowLiveDanmaku : enableShowDanmaku;
 
+  Future<void> toggleDanmakuVisibility({required bool live}) async {
+    final visibility = live ? enableShowLiveDanmaku : enableShowDanmaku;
+    final enabled = !visibility.value;
+    visibility.value = enabled;
+    if (tempPlayerConf) return;
+    try {
+      await setting.put(
+        live
+            ? SettingBoxKey.enableShowLiveDanmaku
+            : SettingBoxKey.enableShowDanmaku,
+        enabled,
+      );
+    } catch (error, stackTrace) {
+      logger.w('保存弹幕开关失败', error: error.runtimeType, stackTrace: stackTrace);
+    }
+  }
+
   late final RxBool autoPipEnabled = Pref.autoPiP.obs;
   bool get autoPiP => autoPipEnabled.value;
-  late final RxBool pauseOnMinimize = Pref.pauseOnMinimize.obs;
+  late final RxBool pauseOnMinimize = WindowPreference.pauseOnMinimize
+      .read()
+      .obs;
   PlaybackOwner? _minimizedWindowOwner;
   PlaybackInhibitorToken? _minimizedWindowToken;
   bool _listensToWindowEvents = false;
@@ -476,7 +494,7 @@ class PlPlayerController
     try {
       await DesktopPlaybackWindows.instance.playerReady();
     } catch (_) {
-      DesktopPlaybackWindows.instance.playerFailed();
+      await DesktopPlaybackWindows.instance.failPlayerWindow();
     }
   }
 
@@ -551,7 +569,7 @@ class PlPlayerController
 
   // 弹幕相关配置
   bool get enableTapDm => PlatformUtils.isMobile && Pref.enableTapDm;
-  late RuleFilter _filters = Pref.danmakuFilterRule;
+  late RuleFilter _filters = DanmakuRuleCache.read();
   RuleFilter get filters => _filters;
   set filters(RuleFilter value) {
     _filters = value;
@@ -583,6 +601,22 @@ class PlPlayerController
   }
 
   DanmakuDisplayBinding? danmakuDisplay;
+
+  bool Function() captureDanmakuMedia() {
+    final part = cid;
+    final display = danmakuDisplay;
+    final owner = activePlaybackOwner;
+    final ownsPlayback = owner?.guard();
+    final request = _session.revision;
+    return () =>
+        !_facadeDisposed &&
+        cid == part &&
+        identical(display, danmakuDisplay) &&
+        identical(owner, activePlaybackOwner) &&
+        request == _session.revision &&
+        (ownsPlayback?.call() ?? true);
+  }
+
   DanmakuInteractionHandle<DanmakuExtra>? get danmakuInteraction =>
       danmakuDisplay?.interaction();
   void clearDanmakuDisplay() => danmakuDisplay?.clear();
@@ -915,6 +949,10 @@ class PlPlayerController
   }
 
   void closePlaybackOwner(PlaybackOwner owner) {
+    if (identical(_activeOwner, owner)) {
+      _progressProjection.cancelPendingSeek();
+      if (showSeekPreview) _clearPreview();
+    }
     owner.close();
     if (_session.isDisposed) _watchRuntimeRelease();
   }
@@ -931,6 +969,7 @@ class PlPlayerController
       _session.synchronizePlaybackIntent();
 
   Future<PlaybackShutdownResult> shutdownPlaybackFacade() {
+    _progressProjection.cancelPendingSeek();
     _watchRuntimeRelease();
     return _session.shutdown();
   }
@@ -950,7 +989,7 @@ class PlPlayerController
       _runtime.released.then<void>(
         (_) => _disposeFacadeAfterRelease(),
         onError: (Object error, StackTrace stackTrace) {
-          Utils.reportError(error, stackTrace);
+          reportError(error, stackTrace);
           _disposeFacadeAfterRelease();
         },
       ),
@@ -960,6 +999,8 @@ class PlPlayerController
   void _disposeFacadeAfterRelease() {
     if (_facadeDisposed) return;
     _facadeDisposed = true;
+    audioSessionHandler?.detachPlaybackController(this);
+    _progressProjection.cancelPendingSeek();
     if (_listensToWindowEvents) {
       windowManager.removeListener(this);
       WidgetsBinding.instance.removeObserver(this);
@@ -1007,12 +1048,14 @@ class PlPlayerController
   void activatePlaybackOwner(PlaybackOwner owner) {
     owner.activate();
     if (identical(_activeOwner, owner)) return;
+    _progressProjection.cancelPendingSeek();
+    if (_activeOwner != null && showSeekPreview) _clearPreview();
     _activeOwner = owner;
     unawaited(_snapshotSubscription?.cancel());
     _projectPlaybackSnapshot(_session.currentSnapshot, owner);
     _snapshotSubscription = owner.snapshots.listen(
       (snapshot) => _projectPlaybackSnapshot(snapshot, owner),
-      onError: Utils.reportError,
+      onError: reportError,
     );
   }
 
@@ -1045,7 +1088,7 @@ class PlPlayerController
                 },
                 onError: (Object error, StackTrace stackTrace) {
                   _acknowledgingActionIds.remove(action.id);
-                  Utils.reportError(error, stackTrace);
+                  reportError(error, stackTrace);
                 },
               ),
         );
@@ -1091,20 +1134,17 @@ class PlPlayerController
       PlaybackPhase.failed => DataStatus.error,
       PlaybackPhase.closing || PlaybackPhase.disposed => DataStatus.none,
     };
-    if (snapshot.phase == PlaybackPhase.ready &&
-        snapshot.loadId != null &&
-        snapshot.loadId == _session.loadId &&
-        _session.currentSnapshot.phase == PlaybackPhase.ready &&
-        snapshot.loadId != _progressProjectionLoadId) {
-      _progressProjectionLoadId = snapshot.loadId;
+    if (snapshot.loadId case final loadId?
+        when snapshot.phase == PlaybackPhase.ready &&
+            loadId == _session.loadId &&
+            _session.currentSnapshot.phase == PlaybackPhase.ready) {
       final plan = _session.currentPlan;
-      final acceptedPosition = plan?.reloadPosition ?? plan?.startPosition;
-      if (!_audioSeekInProgress &&
-          _progressProjection.awaitingPosition &&
-          acceptedPosition != null) {
-        // 只在新加载首次就绪时交接修正后的起点，后续进度不再重置。
-        _progressProjection.begin(acceptedPosition);
-      }
+      _progressProjection.alignReadyLoad(
+        loadId,
+        _audioSeekInProgress
+            ? null
+            : plan?.reloadPosition ?? plan?.startPosition,
+      );
     }
     if (snapshot.phase == PlaybackPhase.ready && player != null) {
       _publishPlaybackPosition(player.state.position);
@@ -1157,7 +1197,7 @@ class PlPlayerController
       try {
         listener(nextStatus);
       } catch (error, stackTrace) {
-        Utils.reportError(error, stackTrace);
+        reportError(error, stackTrace);
       }
     }
     if (nextStatus.isCompleted && !completedAction) {
@@ -1306,7 +1346,7 @@ class PlPlayerController
     height = plan.metadata?.height;
     _videoType = videoType ?? VideoType.ugc;
     _androidDecodeRecovery?.reset();
-    _cancelSubForSeek();
+    _progressProjection.cancelPendingSeek();
     _currentPlan = plan;
     _av1DecodeErrorObserved = false;
     dataStatus.value = DataStatus.loading;
@@ -1324,8 +1364,6 @@ class PlPlayerController
     }
     if (showSeekPreview) {
       _clearPreview();
-    } else {
-      _previewGeneration++;
     }
     cancelLongPressTimer();
     _heartDuration = 0;
@@ -1383,6 +1421,7 @@ class PlPlayerController
     switch (result.outcome) {
       case LoadOutcome.ready:
         _initVideoFit();
+        _prewarmSeekPreview();
         if (autoFullScreenFlag && autoEnterFullScreen) {
           triggerFullScreen(status: true);
         }
@@ -1402,6 +1441,7 @@ class PlPlayerController
 
   void onPlaybackQueryReady({bool autoFullScreenFlag = false}) {
     _initVideoFit();
+    _prewarmSeekPreview();
     if (autoFullScreenFlag && autoEnterFullScreen) {
       triggerFullScreen(status: true);
     }
@@ -1678,7 +1718,7 @@ class PlPlayerController
             ? PlaybackRecoveryTrack.audio
             : PlaybackRecoveryTrack.video,
       ),
-      onError: Utils.reportError,
+      onError: reportError,
       canRecover: () =>
           !_audioSeekInProgress &&
           !isSeeking.value &&
@@ -1839,7 +1879,7 @@ class PlPlayerController
           }
           _wakeLockHeld = next;
         } catch (error, stackTrace) {
-          Utils.reportError(error, stackTrace);
+          reportError(error, stackTrace);
           _wakeLockWanted = _wakeLockHeld;
         }
       }
@@ -1958,7 +1998,7 @@ class PlPlayerController
             level: DiagnosticLogLevel.error,
             details: {'error': error},
           );
-          Utils.reportError(error);
+          reportError(error);
         },
       );
     }
@@ -2053,7 +2093,7 @@ class PlPlayerController
             return;
           }
           if (!kDebugMode) {
-            Utils.reportError('$event\n${player.state.playlist}');
+            reportError('$event\n${player.state.playlist}');
           }
           // SmartDialog.showToast('视频加载错误, $event');
         }
@@ -2091,16 +2131,6 @@ class PlPlayerController
     _subscriptions?.forEach((e) => e.cancel());
     _subscriptions?.clear();
     _subscriptions = null;
-  }
-
-  void _cancelSubForSeek() {
-    final completion = _seekCompletion;
-    _seekCompletion = null;
-    if (completion != null && !completion.isCompleted) completion.complete();
-    if (_subForSeek != null) {
-      _subForSeek!.cancel();
-      _subForSeek = null;
-    }
   }
 
   Future<void> seek(Duration position, {bool isSeek = false}) async {
@@ -2157,36 +2187,16 @@ class PlPlayerController
   }
 
   /// 跳转至指定位置
-  Future<void> seekTo(Duration position, {bool isSeek = true}) async {
-    _cancelSubForSeek();
+  Future<void> seekTo(Duration position, {bool isSeek = true}) {
     final owner = _activeOwner;
-    if (owner == null || !owner.isActive) return;
-    if (position < Duration.zero) {
-      position = Duration.zero;
-    }
-    _heartDuration = position.inSeconds;
-
-    if (duration.value != 0) {
-      await seek(position, isSeek: isSeek);
-    } else {
-      final plan = _currentPlan;
-      final completion = _seekCompletion = Completer<void>();
-      _subForSeek = duration.listen((value) {
-        if (value <= 0) return;
-        _subForSeek?.cancel();
-        _subForSeek = null;
-        _seekCompletion = null;
-        if (!owner.isActive || !identical(plan, _currentPlan)) {
-          completion.complete();
-          return;
-        }
-        seek(
-          position,
-          isSeek: isSeek,
-        ).then(completion.complete, onError: completion.completeError);
-      });
-      await completion.future;
-    }
+    if (owner == null || !owner.isActive) return Future.value();
+    final target = position < Duration.zero ? Duration.zero : position;
+    _heartDuration = target.inSeconds;
+    final plan = _currentPlan;
+    return _progressProjection.seekWhenDurationKnown(() async {
+      if (!owner.isActive || !identical(plan, _currentPlan)) return;
+      await seek(target, isSeek: isSeek);
+    });
   }
 
   /// 设置倍速
@@ -2321,9 +2331,7 @@ class PlPlayerController
   }
 
   void onSeekEnd() {
-    if (showSeekPreview) {
-      showPreview.value = false;
-    }
+    if (showSeekPreview) hideSeekPreview();
     hasToasted = false;
     isSeeking.value = false;
     _audioRecovery?.onPlaybackChanged();
@@ -2794,61 +2802,58 @@ class PlPlayerController
   }
 
   late final previewCache = PreviewImageCache();
-  LoadingState<VideoShotData>? videoShot;
-  late final RxBool showPreview = false.obs;
   late final showSeekPreview = Pref.showSeekPreview;
-  late final previewIndex = RxnInt();
-  int _previewGeneration = 0;
+  late final seekPreviewFrame = Rxn<SeekPreviewFrame>();
+  late final _previewTimeline = SeekPreviewTimeline(
+    (frame) => seekPreviewFrame.value = frame,
+  );
 
   void updatePreviewIndex(int seconds) {
-    if (videoShot == null) {
-      videoShot = LoadingState.loading();
-      getVideoShot();
-      return;
-    }
-    if (videoShot case Success(:final response)) {
-      if (!showPreview.value) {
-        showPreview.value = true;
-      }
-      final index = response.index;
-      var low = 0;
-      var high = index.length;
-      while (low < high) {
-        final middle = (low + high) ~/ 2;
-        if (index[middle] <= seconds) {
-          low = middle + 1;
-        } else {
-          high = middle;
-        }
-      }
-      final nextIndex = max(0, low - 2);
-      if (previewIndex.value != nextIndex) {
-        previewIndex.value = nextIndex;
-      }
-    }
+    final scope = _seekPreviewScope();
+    if (scope == null) return;
+    _previewTimeline.select(
+      scope.source,
+      seconds,
+      isCurrent: scope.isCurrent,
+    );
   }
+
+  void _prewarmSeekPreview() {
+    if (currentPlaybackSnapshot.phase != PlaybackPhase.ready) return;
+    final scope = _seekPreviewScope();
+    if (scope == null) return;
+    _previewTimeline.prewarm(
+      scope.source,
+      isCurrent: scope.isCurrent,
+      canStart: () => currentPlaybackSnapshot.phase == PlaybackPhase.ready,
+    );
+  }
+
+  ({SeekPreviewSource source, bool Function() isCurrent})? _seekPreviewScope() {
+    final owner = activePlaybackOwner;
+    final bvid = _bvid;
+    final cid = this.cid;
+    if (!showSeekPreview ||
+        isLive ||
+        isFileSource ||
+        bvid == null ||
+        cid == null ||
+        owner == null) {
+      return null;
+    }
+    final ownsPlayback = owner.guard();
+    final plan = _currentPlan;
+    return (
+      source: (bvid: bvid, cid: cid),
+      isCurrent: () => ownsPlayback() && identical(_currentPlan, plan),
+    );
+  }
+
+  void hideSeekPreview() => _previewTimeline.hide();
 
   void _clearPreview() {
-    _previewGeneration++;
-    showPreview.value = false;
-    previewIndex.value = null;
-    videoShot = null;
+    _previewTimeline.clear();
     previewCache.clear();
-  }
-
-  Future<void> getVideoShot() async {
-    final generation = _previewGeneration;
-    final requestBvid = bvid;
-    final requestCid = cid!;
-    final result = await VideoHttp.videoshot(
-      bvid: requestBvid,
-      cid: requestCid,
-    );
-    if (generation == _previewGeneration &&
-        requestBvid == _bvid &&
-        requestCid == cid) {
-      videoShot = result;
-    }
   }
 
   bool _takingScreenshot = false;

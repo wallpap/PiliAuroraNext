@@ -1,42 +1,42 @@
 import 'dart:io';
 
 import 'package:pili_aurora_next/common/constants.dart';
+import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/error_msg.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
-import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
-import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/member/info.dart';
-import 'package:pili_aurora_next/models/member/tags.dart';
-import 'package:pili_aurora_next/models/remote/follow/data.dart';
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
-import 'package:pili_aurora_next/models/remote/member/coin_like_arc/data.dart';
-import 'package:pili_aurora_next/models/remote/member/search_archive/data.dart';
-import 'package:pili_aurora_next/models/remote/member/season_web/data.dart';
-import 'package:pili_aurora_next/models/remote/member_card_info/data.dart';
-import 'package:pili_aurora_next/models/remote/member_guard/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_article/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_audio/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_cheese/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_opus/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space_season_series/item.dart';
-import 'package:pili_aurora_next/models/remote/space/space_shop/data.dart';
-import 'package:pili_aurora_next/models/remote/upower_rank/data.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_order_type_web.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archive_sort_type_app.dart';
+import 'package:pili_aurora_next/features/member_space/domain/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/domain/web_ss_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
+import 'package:pili_aurora_next/features/member_space/domain/details/info.dart';
+import 'package:pili_aurora_next/features/member_space/domain/details/tags.dart';
+import 'package:pili_aurora_next/features/following/domain/list/data.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/coin_like_arc/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/search_archive/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/archives/season_web/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/card/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/guard/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_article/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_audio/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_cheese/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_opus/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_season_series/item.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_shop/data.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/http/client_fingerprint.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class MemberHttp {
@@ -186,7 +186,14 @@ abstract final class MemberHttp {
       'vmid': mid,
     };
     return await Request().requestApi(
-      type.api,
+      switch (type) {
+        ContributeType.video => Api.spaceArchive,
+        ContributeType.charging => Api.spaceChargingArchive,
+        ContributeType.season => Api.spaceSeason,
+        ContributeType.series => Api.spaceSeries,
+        ContributeType.bangumi => Api.spaceBangumi,
+        ContributeType.comic => Api.spaceComic,
+      },
       kind: ApiCallKind.query,
       decode: (body) => SpaceArchiveData.fromJson(body['data']),
       queryParameters: params,
@@ -279,8 +286,8 @@ abstract final class MemberHttp {
   }) async {
     try {
       account ??= Accounts.main;
-      String dmImgStr = Utils.base64EncodeRandomString(16, 64);
-      String dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      String dmImgStr = randomFingerprint(16, 64);
+      String dmCoverImgStr = randomFingerprint(32, 128);
       final params = await WbiSign.makSign({
         'mid': mid,
         'token': token,
@@ -352,8 +359,8 @@ abstract final class MemberHttp {
   }) async {
     try {
       account ??= Accounts.main;
-      String dmImgStr = Utils.base64EncodeRandomString(16, 64);
-      String dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      String dmImgStr = randomFingerprint(16, 64);
+      String dmCoverImgStr = randomFingerprint(32, 128);
       final params = await WbiSign.makSign({
         'mid': mid,
         'ps': ps,
@@ -401,7 +408,10 @@ abstract final class MemberHttp {
   }) async {
     account ??= Accounts.main;
     return await Request().requestApi(
-      type.api,
+      switch (type) {
+        WebSsType.season => Api.seasonArchives,
+        WebSsType.series => Api.seriesArchives,
+      },
       kind: ApiCallKind.query,
       errorMessages: errorMsg,
       decode: (body) => SeasonWebData.fromJson(body['data']),
@@ -440,6 +450,7 @@ abstract final class MemberHttp {
     Account? account,
     String? offset,
     required int mid,
+    bool refillFiltered = true,
   }) async {
     account ??= Accounts.main;
     final offsets = {offset};
@@ -448,7 +459,10 @@ abstract final class MemberHttp {
         final result = await Request().requestApi(
           Api.memberDynamic,
           kind: ApiCallKind.query,
-          decode: (body) => DynamicsDataModel.fromJson(body['data']),
+          decode: (body) => DynamicsDataModel.fromJson(
+            body['data'],
+            options: ContentFilterPreferences.dynamics(),
+          ),
           errorMessages: errorMsg,
           queryParameters: await WbiSign.makSign({
             'offset': offset ?? '',
@@ -458,8 +472,8 @@ abstract final class MemberHttp {
             'platform': 'web',
             'web_location': '333.1387',
             'dm_img_list': '[]',
-            'dm_img_str': Utils.base64EncodeRandomString(16, 64),
-            'dm_cover_img_str': Utils.base64EncodeRandomString(32, 128),
+            'dm_img_str': randomFingerprint(16, 64),
+            'dm_cover_img_str': randomFingerprint(32, 128),
             'dm_img_inter': '{"ds":[],"wh":[0,0,0],"of":[0,0,0]}',
             'x-bili-device-req-json':
                 '{"platform":"web","device":"pc","spmid":"333.1387"}',
@@ -475,7 +489,7 @@ abstract final class MemberHttp {
         );
         if (result is Error) return result;
         final data = result.data;
-        if (data.loadNext != true) return result;
+        if (!refillFiltered || data.loadNext != true) return result;
         offset = data.offset;
         if (offset == null || offset.isEmpty || !offsets.add(offset)) {
           return const Error('动态分页未取得进展，请重试');
@@ -497,7 +511,10 @@ abstract final class MemberHttp {
     return await Request().requestApi(
       Api.dynSearch,
       kind: ApiCallKind.query,
-      decode: (body) => DynamicsDataModel.fromJson(body['data']),
+      decode: (body) => DynamicsDataModel.fromJson(
+        body['data'],
+        options: ContentFilterPreferences.dynamics(),
+      ),
       options: Options(extra: {'account': account}),
       queryParameters: {
         'host_mid': mid,
@@ -756,29 +773,6 @@ abstract final class MemberHttp {
     } catch (error, stackTrace) {
       return Error.fromException(error, stackTrace);
     }
-  }
-
-  static Future<LoadingState<UpowerRankData>> upowerRank({
-    required Account account,
-    required Object upMid,
-    required int page,
-    int? privilegeType,
-  }) async {
-    return await Request().requestApi(
-      Api.upowerRank,
-      kind: ApiCallKind.query,
-      decode: (body) => UpowerRankData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'up_mid': upMid,
-        'pn': page,
-        'ps': 100,
-        'privilege_type': ?privilegeType,
-        'mobi_app': 'web',
-        'web_location': 333.1196,
-        if (account.isLogin) 'csrf': account.csrf,
-      },
-    );
   }
 
   static Future<LoadingState<CoinLikeArcData>> coinArc({

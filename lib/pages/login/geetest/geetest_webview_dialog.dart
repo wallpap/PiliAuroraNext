@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:pili_aurora_next/http/browser_ua.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/common/widgets/webview_ready.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';

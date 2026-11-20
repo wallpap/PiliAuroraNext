@@ -1,8 +1,8 @@
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/processing_budget.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 /// worker 仅接收当前批次的规则快照，不持有页面或来源控制器。
 class DanmakuProcessingRules {
@@ -68,13 +68,15 @@ class DanmakuProcessingRules {
     }
   }
 
-  bool retain(DanmakuElem element) {
+  bool retain(DanmakuElement element) {
     if (!fileSource &&
         (segmentIndex == null ||
-            DmUtils.calcSegment(element.progress) != segmentIndex)) {
+            DanmakuSegment.indexAtMillis(element.progress) != segmentIndex)) {
       return false;
     }
     if (selfHash != null) element.isSelf = element.midHash == selfHash;
-    return element.isSelf || _filter.count == 0 || !_filter.remove(element);
+    return element.isSelf ||
+        _filter.count == 0 ||
+        !_filter.matches(midHash: element.midHash, content: element.content);
   }
 }

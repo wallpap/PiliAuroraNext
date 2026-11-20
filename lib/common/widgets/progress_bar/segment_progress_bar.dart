@@ -17,7 +17,7 @@
 
 import 'dart:ui' as ui;
 
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart' show TapGestureRecognizer;
@@ -335,16 +335,13 @@ class RenderViewPointProgressBar
     }
   }
 
-  @pragma('vm:notify-debugger-on-exception')
   void _onTapUp(TapUpDetails details) {
-    try {
-      final seg = details.localPosition.dx / size.width;
-      final item = _segments[_segments.lowerBoundByKey((i) => i.end, seg)];
-      if (item.from case final from?) {
-        _onSeek?.call(Duration(seconds: from));
-      }
-      // if (kDebugMode) debugPrint('${item.title},,${item.from}');
-    } catch (_) {}
+    final fraction = details.localPosition.dx / size.width;
+    final index = _segments.lowerBoundByKey((segment) => segment.end, fraction);
+    if (index == _segments.length) return;
+    if (_segments[index].from case final from?) {
+      _onSeek?.call(Duration(seconds: from));
+    }
   }
 }
 

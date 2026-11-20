@@ -4,9 +4,9 @@ import 'package:pili_aurora_next/services/logger.dart';
 
 import 'package:flutter/services.dart';
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/theme/app_icon_style.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 abstract final class AppIcon {
   static const channel = MethodChannel('piliauroranext/app_icon');

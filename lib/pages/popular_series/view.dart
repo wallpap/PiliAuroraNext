@@ -4,49 +4,54 @@ import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
-    show ReloadScrollPhysics;
+    show ReloadScrollPhysics, ReloadMixin;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';
-import 'package:pili_aurora_next/pages/popular_series/controller.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/config.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/curated_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/discovery_footer.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class PopularSeriesPage extends StatefulWidget {
+class PopularSeriesPage extends ConsumerStatefulWidget {
   const PopularSeriesPage({super.key});
 
   @override
-  State<PopularSeriesPage> createState() => _PopularSeriesPageState();
+  ConsumerState<PopularSeriesPage> createState() => _PopularSeriesPageState();
 }
 
-class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
-  final _controller = Get.put(PopularSeriesController());
+class _PopularSeriesPageState extends ConsumerState<PopularSeriesPage>
+    with GridMixin, ReloadMixin {
+  final _owner = Object();
+  int? _number;
+  WeeklyQuery get _query => (owner: _owner, number: _number);
+  WeeklyFeed get _controller => ref.read(weeklyFeedProvider(_query).notifier);
+  WeeklyCatalog? get _catalog => ref.read(weeklyFeedProvider(_query)).metadata;
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(weeklyFeedProvider(_query));
     return SimpleScaffold(
       appBar: AppBar(
-        title: Obx(() {
-          final config = _controller.config.value;
-          if (config != null) {
-            return Text(config.name!);
-          }
-          return const Text('每周必看');
-        }),
+        title: Text(state.metadata?.config?.name ?? '每周必看'),
       ),
       body: refreshIndicator(
         onRefresh: _controller.onRefresh,
         child: CustomScrollView(
-          physics: ReloadScrollPhysics(controller: _controller),
+          physics: ReloadScrollPhysics(controller: this),
           slivers: [
+            if (state.loading is Success && state.error != null)
+              DiscoveryFooter(error: state.error, retry: _controller.retry),
             ViewSliverSafeArea(
-              sliver: Obx(() => _buildBody(_controller.loadingState.value)),
+              sliver: _buildBody(state.loading),
             ),
           ],
         ),
@@ -54,13 +59,13 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
     );
   }
 
-  Widget _buildBody(LoadingState<List<HotVideoItemModel>?> value) {
+  Widget _buildBody(LoadingState<List<HotVideoItemModel>> value) {
     switch (value) {
       case Loading():
         return gridSkeleton;
-      case Success<List<HotVideoItemModel>?>(:final response):
+      case Success<List<HotVideoItemModel>>(:final response):
         Widget sliver;
-        if (response != null && response.isNotEmpty) {
+        if (response.isNotEmpty) {
           sliver = SliverGrid.builder(
             gridDelegate: gridDelegate,
             itemCount: response.length,
@@ -69,7 +74,7 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
               return VideoCardH(
                 videoItem: item,
                 onTap: () {
-                  final config = _controller.config.value;
+                  final config = _catalog?.config;
                   PageUtils.toVideoPage(
                     bvid: item.bvid,
                     cid: item.cid!,
@@ -90,7 +95,7 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
         } else {
           sliver = HttpError(onReload: _controller.onReload);
         }
-        if (_controller.config.value case final config?) {
+        if (_catalog?.config case final config?) {
           sliver = SliverMainAxisGroup(
             slivers: [
               _buildSeriesList(config),
@@ -112,8 +117,10 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
     Widget child = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        final number = _controller.number;
-        final seriesList = _controller.seriesList!;
+        final query = _query;
+        final source = ref.read(weeklyFeedProvider(query)).source;
+        final number = _catalog?.number;
+        final seriesList = _catalog!.series;
         final size = MediaQuery.sizeOf(context);
         final padding = MediaQuery.viewPaddingOf(context);
         final width = min(
@@ -148,10 +155,17 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
                     enabled: !isCurr,
                     onTap: () {
                       Get.back();
-                      if (!isCurr) {
-                        _controller
-                          ..number = item.number
-                          ..onReload();
+                      if (!isCurr &&
+                          mounted &&
+                          _query == query &&
+                          identical(
+                            ref.read(weeklyFeedProvider(query)).source,
+                            source,
+                          )) {
+                        setState(() {
+                          _number = item.number;
+                          reload = true;
+                        });
                       }
                     },
                     title: Text(
@@ -191,7 +205,7 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
         ),
       ),
     );
-    if (_controller.reminder case final reminder?) {
+    if (_catalog?.reminder case final reminder?) {
       child = Row(
         spacing: 16,
         children: [

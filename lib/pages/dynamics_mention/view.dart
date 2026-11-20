@@ -1,36 +1,41 @@
-import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
+import 'package:pili_aurora_next/features/community/application/topic_queries.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/group.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
+import 'package:pili_aurora_next/features/community/presentation/community_search_field.dart';
+import 'package:pili_aurora_next/features/community/presentation/community_picker_memory.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/group.dart';
-import 'package:pili_aurora_next/pages/dynamics_mention/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_mention/widgets/item.dart';
-import 'package:pili_aurora_next/common/widgets/debounced_state.dart' show DebounceStreamState;
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/scroll_controller_ext.dart';
+import 'package:get/route_manager.dart';
 import 'package:material_ui/material_ui.dart';
 
-class DynMentionPanel extends StatefulWidget {
+class DynMentionPanel extends ConsumerStatefulWidget {
   const DynMentionPanel({
     super.key,
     this.scrollController,
     this.onCachePos,
+    this.memory,
   });
 
   final ScrollController? scrollController;
   final ValueChanged<double>? onCachePos;
+  final CommunityPickerMemory<MentionItem>? memory;
 
   static Future<Object? /* ListOr<MentionItem> */> onDynMention(
     BuildContext context, {
     double offset = 0,
     ValueChanged<double>? onCachePos,
+    CommunityPickerMemory<MentionItem>? memory,
   }) {
     return showModalBottomSheet(
       context: Get.context!,
@@ -50,225 +55,217 @@ class DynMentionPanel extends StatefulWidget {
         builder: (context, scrollController) => DynMentionPanel(
           scrollController: scrollController,
           onCachePos: onCachePos,
+          memory: memory,
         ),
       ),
     );
   }
 
   @override
-  State<DynMentionPanel> createState() => _DynMentionPanelState();
+  ConsumerState<DynMentionPanel> createState() => _DynMentionPanelState();
 }
 
-class _DynMentionPanelState
-    extends DebounceStreamState<DynMentionPanel, String> {
-  final _controller = Get.put(DynMentionController());
-  @override
-  Duration get duration => const Duration(milliseconds: 300);
-
+class _DynMentionPanelState extends ConsumerState<DynMentionPanel> {
+  final _text = TextEditingController();
+  final _focus = FocusNode();
+  final _fallbackScroll = ScrollController();
+  ScrollController get _scroll => widget.scrollController ?? _fallbackScroll;
+  CommunityLookup _query = (owner: Object(), keyword: '', debounce: false);
+  final _selected = <String, MentionItem>{};
+  bool _restorePosition = true;
   @override
   void initState() {
     super.initState();
-    if (_controller.loadingState.value is Error) {
-      _controller.onReload();
+    final memory = widget.memory;
+    final account = ref.read(mainAccountProvider);
+    if (memory != null) {
+      if (!identical(memory.account, account)) memory.selected.clear();
+      memory.account = account;
+      _text.text = memory.keyword;
+      for (final item in memory.selected) {
+        if (item.uid != null) _selected[item.uid!] = item;
+      }
+    }
+    _query = (owner: Object(), keyword: _text.text, debounce: false);
+  }
+
+  void _rememberSelection() {
+    final memory = widget.memory;
+    if (memory != null) {
+      memory.selected
+        ..clear()
+        ..addAll(_selected.values);
     }
   }
 
   @override
-  void onValueChanged(String value) => _controller
-    ..enableClear.value = value.isNotEmpty
-    ..onRefresh().whenComplete(
-      () => WidgetsBinding.instance.addPostFrameCallback(
-        (_) => widget.scrollController?.jumpToTop(),
-      ),
-    );
+  void dispose() {
+    _text.dispose();
+    _focus.dispose();
+    _fallbackScroll.dispose();
+    super.dispose();
+  }
+
+  void _search(String value, {bool debounce = true}) {
+    widget.memory?.keyword = value;
+    widget.memory?.selected.clear();
+    _restorePosition = false;
+    setState(() {
+      _selected.clear();
+      _query = (owner: Object(), keyword: value, debounce: debounce);
+    });
+    _scroll.jumpToTop();
+  }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(mainAccountProvider, (previous, next) {
+      if (!identical(previous, next)) {
+        widget.memory?.account = next;
+        widget.memory?.selected.clear();
+        setState(_selected.clear);
+      }
+    });
+    final provider = mentionSearchProvider(_query);
+    final snapshot = ref.watch(provider);
+    if (_restorePosition && snapshot.loading is Success) {
+      _restorePosition = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients) {
+          _scroll.jumpTo(
+            _scroll.initialScrollOffset.clamp(
+              0,
+              _scroll.position.maxScrollExtent,
+            ),
+          );
+        }
+      });
+    }
     final theme = Theme.of(context);
     final padding = MediaQuery.paddingOf(context).bottom;
     return Column(
       children: [
-        SizedBox(
-          height: 35,
-          child: Center(
-            child: Container(
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.outline,
-                borderRadius: const BorderRadius.all(Radius.circular(3)),
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 5),
-          child: TextField(
-            focusNode: _controller.focusNode,
-            controller: _controller.controller,
-            onChanged: ctr!.add,
-            decoration: InputDecoration(
-              visualDensity: .standard,
-              border: const OutlineInputBorder(
-                gapPadding: 0,
-                borderSide: BorderSide.none,
-                borderRadius: BorderRadius.all(Radius.circular(25)),
-              ),
-              isDense: true,
-              filled: true,
-              fillColor: theme.colorScheme.onInverseSurface,
-              hintText: '输入你想@的人',
-              hintStyle: const TextStyle(fontSize: 14),
-              prefixIcon: const Padding(
-                padding: EdgeInsets.only(left: 12, right: 4),
-                child: Icon(Icons.search, size: 20),
-              ),
-              prefixIconConstraints: const .new(minHeight: 0, minWidth: 0),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 6,
-              ),
-              suffixIcon: Obx(
-                () => _controller.enableClear.value
-                    ? Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: GestureDetector(
-                          child: Container(
-                            padding: const EdgeInsetsDirectional.all(2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: theme.colorScheme.secondaryContainer,
-                            ),
-                            child: Icon(
-                              Icons.clear,
-                              size: 16,
-                              color: theme.colorScheme.onSecondaryContainer,
-                            ),
-                          ),
-                          onTap: () => _controller
-                            ..enableClear.value = false
-                            ..controller.clear()
-                            ..onRefresh().whenComplete(
-                              () =>
-                                  WidgetsBinding.instance.addPostFrameCallback(
-                                    (_) => widget.scrollController?.jumpToTop(),
-                                  ),
-                            ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-              suffixIconConstraints: const BoxConstraints(
-                minHeight: 0,
-                minWidth: 0,
-              ),
-            ),
-          ),
+        CommunitySearchField(
+          controller: _text,
+          focusNode: _focus,
+          hint: '输入你想@的人',
+          onChanged: _search,
+          onClear: () {
+            _text.clear();
+            _search('', debounce: false);
+          },
         ),
         Expanded(
           child: ScaffoldLayout(
             body: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
-                if (notification is UserScrollNotification) {
-                  if (_controller.focusNode.hasFocus) {
-                    _controller.focusNode.unfocus();
-                  }
-                } else if (notification is ScrollEndNotification) {
+                if (notification is UserScrollNotification) _focus.unfocus();
+                if (notification is ScrollEndNotification) {
                   widget.onCachePos?.call(notification.metrics.pixels);
                 }
                 return false;
               },
               child: CustomScrollView(
-                controller: widget.scrollController,
+                controller: _scroll,
                 slivers: [
-                  Obx(
-                    () => _buildBody(theme, _controller.loadingState.value),
-                  ),
+                  _body(theme, snapshot.loading, snapshot.source),
                   SliverToBoxAdapter(child: SizedBox(height: padding + 100)),
                 ],
               ),
             ),
-            fab: Obx(() {
-              return Padding(
-                padding: .only(
-                  right: kFloatingActionButtonMargin,
-                  bottom: kFloatingActionButtonMargin + padding,
-                ),
-                child: ViewInsetsSafeArea(
-                  child: AnimatedSlide(
-                    offset: _controller.showBtn.value
-                        ? .zero
-                        : const Offset(0, 3),
-                    duration: const Duration(milliseconds: 120),
-                    child: FloatingActionButton(
-                      onPressed: () {
-                        if (_controller.mentionList.isNullOrEmpty) {
-                          _controller.showBtn.value = false;
-                          return;
-                        }
-                        Get.back(result: _controller.mentionList);
-                        _controller.showBtn.value = false;
-                      },
-                      child: const Icon(Icons.check),
-                    ),
+            fab: Padding(
+              padding: EdgeInsets.only(
+                right: kFloatingActionButtonMargin,
+                bottom: kFloatingActionButtonMargin + padding,
+              ),
+              child: ViewInsetsSafeArea(
+                child: AnimatedSlide(
+                  offset: _selected.isNotEmpty
+                      ? Offset.zero
+                      : const Offset(0, 3),
+                  duration: const Duration(milliseconds: 120),
+                  child: FloatingActionButton(
+                    onPressed: () {
+                      if (_selected.isNotEmpty) {
+                        final selected = Set<MentionItem>.of(_selected.values);
+                        widget.memory?.selected.clear();
+                        Navigator.of(context).pop(selected);
+                      }
+                    },
+                    child: const Icon(Icons.check),
                   ),
                 ),
-              );
-            }),
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBody(
+  Widget _body(
     ThemeData theme,
-    LoadingState<List<MentionGroup>?> loadingState,
+    LoadingState<List<MentionGroup>> loading,
+    Object source,
   ) {
-    return switch (loadingState) {
+    final query = _query;
+    final account = ref.read(mainAccountProvider);
+    bool current() =>
+        _query == query &&
+        identical(account, ref.read(mainAccountProvider)) &&
+        identical(source, ref.read(mentionSearchProvider(query)).source);
+    return switch (loading) {
       Loading() => const SliverPadding(
         padding: EdgeInsets.only(top: 8),
         sliver: linearLoading,
       ),
-      Success<List<MentionGroup>?>(:final response) =>
-        response != null && response.isNotEmpty
-            ? SliverMainAxisGroup(
-                slivers: response.map((group) {
-                  if (group.items.isNullOrEmpty) {
-                    return const SliverToBoxAdapter();
-                  }
-                  return SliverMainAxisGroup(
-                    slivers: [
-                      SliverPinnedHeader(
-                        backgroundColor: theme.bottomSheetTheme.backgroundColor,
-                        child: Padding(
-                          padding: const .symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          child: Text(group.groupName!),
-                        ),
+      Success(:final response) when response.isNotEmpty => SliverMainAxisGroup(
+        slivers: [
+          for (final group in response)
+            if (group.items?.isNotEmpty == true)
+              SliverMainAxisGroup(
+                slivers: [
+                  SliverPinnedHeader(
+                    backgroundColor: theme.bottomSheetTheme.backgroundColor,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
                       ),
-                      SliverList.builder(
-                        itemCount: group.items!.length,
-                        itemBuilder: (context, index) {
-                          final item = group.items![index];
-                          return DynMentionItem(
-                            item: item,
-                            onTap: () => Get.back(result: item),
-                            onCheck: (value) =>
-                                _controller.onCheck(value, item),
-                          );
+                      child: Text(group.groupName ?? ''),
+                    ),
+                  ),
+                  SliverList.builder(
+                    itemCount: group.items!.length,
+                    itemBuilder: (context, index) {
+                      final item = group.items![index];
+                      return DynMentionItem(
+                        item: item,
+                        selected: _selected.containsKey(item.uid),
+                        onTap: () {
+                          if (current()) Navigator.of(context).pop(item);
                         },
-                      ),
-                    ],
-                  );
-                }).toList(),
-              )
-            : HttpError(onReload: _controller.onReload),
-      Error(:final errMsg) => HttpError(
-        errMsg: errMsg,
-        onReload: _controller.onReload,
+                        onCheck: (value) {
+                          if (item.uid == null || !current()) return;
+                          setState(() {
+                            if (value == true) {
+                              _selected[item.uid!] = item;
+                            } else {
+                              _selected.remove(item.uid);
+                            }
+                          });
+                          _rememberSelection();
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+        ],
+      ),
+      _ => HttpError(
+        errMsg: loading is Error ? loading.errMsg : null,
+        onReload: ref.read(mentionSearchProvider(_query).notifier).onReload,
       ),
     };
   }

@@ -2,13 +2,13 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:get/get.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
@@ -667,30 +667,29 @@ class _ReserveButton extends StatefulWidget {
 
 class _ReserveButtonState extends State<_ReserveButton> {
   bool _saving = false;
-  final _account = Accounts.main;
+  final _owner = AccountScope.capture();
 
   Future<void> _onReserve() async {
     if (_saving) return;
-    if (!identical(_account, Accounts.main)) {
+    if (!_owner.isCurrent) {
       SmartDialog.showToast('账号已切换，请刷新后重试');
       return;
     }
     final reserve = widget.reserve;
     final button = reserve.button;
     if (button == null || reserve.rid == null) return;
-    final account = Accounts.main;
+    final account = _owner.account;
     final dynamicId = widget.dynamicId;
     setState(() => _saving = true);
     try {
-      final result = await DynamicsHttp.dynReserve(
-        account: account,
-        reserveId: reserve.rid,
-        curBtnStatus: button.status,
-        dynamicIdStr: dynamicId,
-        reserveTotal: reserve.reserveTotal,
+      final result = await DynamicDetails.legacy.reserve(
+        account,
+        dynamicId,
+        reserve,
       );
-      if (!mounted ||
-          !identical(account, Accounts.main) ||
+      if (result == null ||
+          !mounted ||
+          !_owner.isCurrent ||
           !identical(reserve, widget.reserve) ||
           !identical(button, reserve.button) ||
           dynamicId != widget.dynamicId) {

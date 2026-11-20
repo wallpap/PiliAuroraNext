@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/pages/danmaku/interaction.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_queue.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
 class LiveDanmakuLayer<T> extends StatefulWidget {
@@ -262,11 +262,8 @@ class _LiveDanmakuLayerState<T> extends State<LiveDanmakuLayer<T>> {
           ? _presentationUs
           : renderer.validUntilUs,
     );
-    final active = renderer.interaction.snapshot
-        .map((item) => item.identity)
-        .toSet();
     _contents.removeWhere((identity, content) {
-      if (active.contains(identity)) return false;
+      if (renderer.hasPresentedItem(identity)) return false;
       content.dispose();
       return true;
     });

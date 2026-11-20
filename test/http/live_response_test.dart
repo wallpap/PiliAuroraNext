@@ -1,16 +1,19 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/live_catalog_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
+import 'package:pili_aurora_next/features/playback/data/live_chat_repository.dart';
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
-import 'package:pili_aurora_next/models/common/live/live_search_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank_type.dart';
+import 'package:pili_aurora_next/features/search/domain/live/search_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../support/memory_box.dart';
 
@@ -25,6 +28,7 @@ void main() {
   final heartbeat = account(2);
   final recommend = account(3);
   final replacement = account(4);
+  const catalog = LiveCatalogRepository();
   Object? body;
   var failTransport = false;
   var switchWhileSigning = false;
@@ -32,23 +36,23 @@ void main() {
   final queries = <String, Future<LoadingState<dynamic>> Function()>{
     '播放地址': () => LiveHttp.liveRoomInfo(roomId: 12),
     '房间详情': () => LiveHttp.liveRoomInfoH5(roomId: 12),
-    '弹幕历史': () => LiveHttp.liveRoomDmPrefetch(roomId: 12),
-    '弹幕凭据': () => LiveHttp.liveRoomGetDanmakuToken(roomId: 12),
+    '弹幕历史': () => LiveChatRepository.liveRoomDmPrefetch(roomId: 12),
+    '弹幕凭据': () => LiveChatRepository.liveRoomGetDanmakuToken(roomId: 12),
     '直播表情': () => LiveHttp.getLiveEmoticons(roomId: 12),
     '推荐': () => LiveHttp.liveFeedIndex(pn: 1),
     '关注': () => LiveHttp.liveFollow(1, account: main),
     '分区推荐': () => LiveHttp.liveSecondList(pn: 1, areaId: 1, parentAreaId: 2),
-    '分区目录': LiveHttp.liveAreaList,
-    '常用标签': () => LiveHttp.getLiveFavTag(account: main),
-    '子分区': () => LiveHttp.liveRoomAreaList(parentid: 2),
+    '分区目录': () => catalog.areas(recommend),
+    '常用标签': () => catalog.favoriteTags(main),
+    '子分区': () => catalog.subareas(recommend, 2),
     '搜索': () => LiveHttp.liveSearch(
       account: recommend,
       page: 1,
       keyword: 'sample',
       type: LiveSearchType.room,
     ),
-    '屏蔽规则': () => LiveHttp.getLiveInfoByUser(12),
-    '醒目留言': () => LiveHttp.superChatMsg(12),
+    '屏蔽规则': () => LiveChatRepository.getLiveInfoByUser(12),
+    '醒目留言': () => LiveChatRepository.superChatMsg(12),
     '贡献榜': () => LiveHttp.liveContributionRank(
       ruid: 1,
       roomId: 12,
@@ -60,7 +64,10 @@ void main() {
   };
   final writes = <String, Future<LoadingState<dynamic>> Function()>{
     '发送弹幕': () => LiveHttp.sendLiveMsg(roomId: 12, msg: 'sample'),
-    '常用标签': () => LiveHttp.setLiveFavTag(ids: '1,2', account: main),
+    '常用标签': () => catalog.saveFavoriteTags(main, const [
+      AreaItem(id: 1),
+      AreaItem(id: 2),
+    ]),
     '屏蔽等级': () => LiveHttp.liveSetSilent(type: 'off', level: 0),
     '添加关键词': () => LiveHttp.addShieldKeyword(keyword: 'sample', account: main),
     '移除关键词': () => LiveHttp.delShieldKeyword(keyword: 'sample', account: main),
@@ -216,19 +223,22 @@ void main() {
 
   test('直播可选列表和屏蔽信息保留空数据语义', () async {
     body = {'code': 0, 'data': <String, dynamic>{}};
-    expect((await LiveHttp.liveRoomDmPrefetch(roomId: 12)).data, isNull);
+    expect(
+      (await LiveChatRepository.liveRoomDmPrefetch(roomId: 12)).data,
+      isNull,
+    );
     expect((await LiveHttp.getLiveEmoticons(roomId: 12)).data, isNull);
-    expect((await LiveHttp.liveAreaList()).data, isNull);
-    expect((await LiveHttp.getLiveFavTag(account: main)).data, isEmpty);
-    expect((await LiveHttp.getLiveInfoByUser(12)).data, isNull);
-    expect((await LiveHttp.superChatMsg(12)).data.list, isNull);
+    expect((await catalog.areas(recommend)).data, isNull);
+    expect((await catalog.favoriteTags(main)).data, isEmpty);
+    expect((await LiveChatRepository.getLiveInfoByUser(12)).data, isNull);
+    expect((await LiveChatRepository.superChatMsg(12)).data.list, isNull);
     body = {'code': 0, 'data': null};
-    expect((await LiveHttp.liveRoomAreaList(parentid: 1)).data, isNull);
+    expect((await catalog.subareas(recommend, 1)).data, isNull);
     body = {
       'code': 0,
       'data': <String, dynamic>{'tags': 'private body'},
     };
-    expect(await LiveHttp.getLiveFavTag(account: main), isA<Error>());
+    expect(await catalog.favoriteTags(main), isA<Error>());
   });
 
   test('签名等待期间切号仍绑定发起时账号与 CSRF', () async {

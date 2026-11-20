@@ -1,11 +1,11 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart' hide SessionInfo;
-import 'package:pili_aurora_next/grpc/bilibili/im/interfaces/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/im/type.pb.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/im/v1.pb.dart' hide SessionInfo;
+import 'package:pili_aurora_next/generated/bilibili/im/interfaces/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/im/type.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/random_id.dart';
+import 'package:pili_aurora_next/core/random/random_id.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:protobuf/protobuf.dart' show PbMap;
 

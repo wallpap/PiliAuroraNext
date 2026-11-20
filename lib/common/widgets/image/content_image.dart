@@ -1,7 +1,7 @@
 import 'dart:io' show File;
 import 'dart:async';
 
-import 'package:pili_aurora_next/utils/cache_manager.dart' show CacheManager;
+import 'package:pili_aurora_next/services/cache/image_cache.dart' show CacheManager;
 import 'package:pili_aurora_next/common/widgets/image/image_resources.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/image_source_store.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/region_content_session.dart';

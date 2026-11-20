@@ -1,23 +1,24 @@
 import 'dart:io';
 
+import 'package:pili_aurora_next/features/download/presentation/entry_menu.dart';
+
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
-import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
 class LocalIntroPanel extends StatefulWidget {
-  const LocalIntroPanel({super.key, required this.heroTag});
+  const LocalIntroPanel({super.key, required this.controller});
 
-  final String heroTag;
+  final LocalIntroController controller;
 
   @override
   State<LocalIntroPanel> createState() => _LocalIntroPanelState();
@@ -28,23 +29,27 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
   @override
   bool get wantKeepAlive => true;
 
-  late final _controller = Get.find<LocalIntroController>(tag: widget.heroTag);
+  LocalIntroController get _controller => widget.controller;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
-    return Obx(() {
-      final currIndex = _controller.index.value;
-      return SliverFixedExtentList.builder(
-        itemCount: _controller.list.length,
-        itemBuilder: (context, index) {
-          final item = _controller.list[index];
-          return _buildItem(theme, currIndex == index, index, item);
-        },
-        itemExtent: 112,
-      );
-    });
+    return ListenableBuilder(
+      listenable: Listenable.merge([_controller.index, _controller.list]),
+      builder: (context, child) {
+        final currIndex = _controller.index.value;
+        final entries = _controller.list.value;
+        return SliverFixedExtentList.builder(
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final item = entries[index];
+            return _buildItem(theme, currIndex == index, index, item);
+          },
+          itemExtent: 112,
+        );
+      },
+    );
   }
 
   Widget _buildItem(

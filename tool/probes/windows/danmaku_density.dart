@@ -10,9 +10,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
@@ -53,7 +53,7 @@ Future<void> _runProbe(List<String> args) async {
     maxPerBucket: cap,
     maxBytes: 20 * 1024 * 1024,
   );
-  final elements = <DanmakuElem>[];
+  final elements = <DanmakuElement>[];
   await for (final batch in readDanmakuFile(File(args[2]))) {
     for (final e in batch) {
       if (e.progress >= startMs &&
@@ -115,7 +115,7 @@ Future<void> _runProbe(List<String> args) async {
 class _Source implements DanmakuTimelineSource {
   _Source(this.cache, this.input);
   final DanmakuCache cache;
-  final List<DanmakuElem> input;
+  final List<DanmakuElement> input;
   @override
   Stream<DanmakuSourceChange> get changes => const Stream.empty();
   @override
@@ -264,14 +264,14 @@ class _ProbeState extends State<_Probe> {
           'merge': widget.merge,
           'tailSeconds': 8,
           'inputByWeight': weightCounts(widget.source.input),
-          'retainedByWeight': weightCounts(
+          'retainedByWeight': tallyWeights(
             widget.source.cache
                 .readRange(
                   widget.startMs * 1000,
                   (widget.startMs + 30000) * 1000,
                 )
                 .entries
-                .map((e) => e.element),
+                .map((entry) => entry.weight),
           ),
           'viewport': [metrics!.size.width, metrics!.size.height],
           'videoStartMs': videoStartMs,
@@ -331,7 +331,10 @@ class _ProbeState extends State<_Probe> {
                   : e.mode == 4
                   ? DanmakuItemType.bottom
                   : DanmakuItemType.scroll,
-              extra: (weight: e.weight, sourceMs: e.progress),
+              extra: (
+                weight: e.weight,
+                sourceMs: e.positionUs ~/ Duration.microsecondsPerMillisecond,
+              ),
             ),
           );
         }

@@ -1,19 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:fixnum/fixnum.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/im/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/im.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/model_avatar.dart';
-import 'package:pili_aurora_next/models/remote/msg/im_user_infos/datum.dart';
-import 'package:pili_aurora_next/models/remote/msg/msg_dnd/uid_setting.dart';
-import 'package:pili_aurora_next/models/remote/msg/session_ss/data.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
+import 'package:pili_aurora_next/services/messaging/models/im_user_infos/datum.dart';
+import 'package:pili_aurora_next/services/messaging/models/msg_dnd/uid_setting.dart';
+import 'package:pili_aurora_next/services/messaging/models/session_ss/data.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
-import 'package:protobuf/protobuf.dart'
-    show GeneratedMessageGenericExtensions, PbMap;
+import 'package:pili_aurora_next/services/messaging/session_adapter.dart';
+import 'package:pili_aurora_next/services/messaging/session_models.dart';
+import 'package:pili_aurora_next/services/messaging/settings_adapter.dart';
+import 'package:pili_aurora_next/services/messaging/settings_models.dart';
 
 @immutable
 class WhisperSettingsSnapshot {
@@ -22,289 +21,146 @@ class WhisperSettingsSnapshot {
     this.title = '',
   });
 
-  final LoadingState<PbMap<int, Setting>> loadingState;
+  final LoadingState<Map<int, WhisperSetting>> loadingState;
   final String title;
 }
 
 class _SettingWrites {
   _SettingWrites(this.confirmed);
 
-  Setting? confirmed;
+  WhisperSettingRecord confirmed;
   Future<void>? tail;
   int version = 0;
 }
 
-/// 全局接收设置。设置写入前复制 protobuf，乐观回滚只覆盖本次操作。
+class WhisperSettingConfirmation {
+  const WhisperSettingConfirmation._(this._session, this._key, this._record);
+
+  final MessagingSession _session;
+  final int _key;
+  final WhisperSettingRecord _record;
+}
+
 class WhisperSettingsHandle {
   WhisperSettingsHandle({
     required this.session,
     required this.type,
   }) : state = ValueNotifier(
          WhisperSettingsSnapshot(
-           loadingState: LoadingState<PbMap<int, Setting>>.loading(),
+           loadingState: LoadingState.loading(),
          ),
        );
 
   final MessagingSession session;
-  final IMSettingType type;
+  final WhisperSettingsSection type;
   final ValueNotifier<WhisperSettingsSnapshot> state;
   int _generation = 0;
+  Map<int, WhisperSettingRecord> _records = {};
   final Map<int, _SettingWrites> _writes = {};
   bool _disposed = false;
 
   Future<void> refresh() async {
-    if (_disposed || !session.isActive) return;
+    if (_disposed) return;
     if (_writes.isNotEmpty) {
       await Future.wait(_writes.values.map((writes) => writes.tail!));
-      if (_isActive) await refresh();
+      if (isActive) await refresh();
       return;
     }
     final generation = ++_generation;
     state.value = WhisperSettingsSnapshot(
-      loadingState: LoadingState<PbMap<int, Setting>>.loading(),
+      loadingState: LoadingState.loading(),
     );
-    final result = await session.run(
-      (account) => ImGrpc.getImSettings(type: type, account: account),
-    );
-    if (!_isCurrent(generation)) return;
+    final result = await WhisperSettingsAdapter.load(session, type);
+    if (_disposed || generation != _generation) return;
     switch (result) {
-      case Success<GetImSettingsReply>(:final response):
-        state.value = WhisperSettingsSnapshot(
-          loadingState: Success(_copySettings(response.settings)),
-          title: response.pageTitle,
-        );
+      case Success(:final response) when isActive:
+        _records = response.records;
+        _publish(response.title);
       case Error():
         state.value = WhisperSettingsSnapshot(loadingState: result);
-      case Loading():
-        state.value = WhisperSettingsSnapshot(
-          loadingState: LoadingState<PbMap<int, Setting>>.loading(),
-        );
+      default:
+        break;
     }
   }
 
-  Future<LoadingState<void>> setSetting(int key, Setting setting) async {
-    final current = state.value.loadingState.dataOrNull;
-    if (_disposed || !session.isActive || current == null) {
+  Future<LoadingState<WhisperSettingConfirmation>> edit(
+    int key,
+    WhisperSettingEdit edit,
+  ) async {
+    final current = _records[key];
+    if (!isActive || state.value.loadingState is! Success || current == null) {
       return const Error('当前操作不可用');
     }
-    final writes = _writes.putIfAbsent(
-      key,
-      () => _SettingWrites(current[key]?.deepCopy()),
-    );
+    final desired = current.edit(edit);
+    if (desired == null) return const Error('设置已更新，请重新选择');
+    final writes = _writes.putIfAbsent(key, () => _SettingWrites(current));
     final version = ++writes.version;
-    final desired = setting.deepCopy();
     final previous = writes.tail;
     final completion = Completer<void>();
     writes.tail = completion.future;
-    // 写入开始后废弃此前读取，避免覆盖本次设置。
     _generation++;
-    _replaceSetting(key, desired);
+    _records[key] = desired;
+    _publish(state.value.title);
     try {
       if (previous != null) await previous;
-      if (!_isActive) return const Error('账号已切换');
-      final result = await session.run<void>(
-        (account) => ImGrpc.setImSettings(
-          settings: {key: desired.deepCopy()},
-          account: account,
-        ),
-      );
-      if (!_isActive) return const Error('账号已切换');
-      if (result case Success<void>()) {
+      if (!isActive) return const Error('账号已切换');
+      final result = await WhisperSettingsAdapter.save(session, key, desired);
+      if (!isActive) return const Error('账号已切换');
+      if (result.isSuccess) {
         writes.confirmed = desired;
         session.notifyChanged(MessagingChangeKind.settings);
       }
       if (writes.version == version) {
         _generation++;
-        final confirmed = writes.confirmed;
-        if (confirmed != null) {
-          _replaceSetting(key, confirmed);
-        } else {
-          _removeSetting(key);
-        }
         _writes.remove(key);
+        _records[key] = writes.confirmed;
+        _publish(state.value.title);
       }
-      return result;
+      final LoadingState<WhisperSettingConfirmation> confirmation =
+          switch (result) {
+            Success() => Success(
+              WhisperSettingConfirmation._(session, key, desired),
+            ),
+            Error() => result,
+            Loading() => result,
+          };
+      return confirmation;
     } finally {
       completion.complete();
     }
   }
 
-  void mergeSubSettings(int parentKey, Map<int, Setting> values) {
-    final current = state.value.loadingState.dataOrNull;
-    final existing = current?[parentKey];
-    if (_disposed || existing == null || !existing.hasRedirect()) return;
-    final updated = existing.deepCopy();
-    updated.redirect.settingPage.subSettings.addEntries(
-      values.entries.map(
-        (entry) => MapEntry(entry.key, entry.value.deepCopy()),
-      ),
-    );
-    _replaceSetting(parentKey, updated);
+  void mergeChild(int parentKey, WhisperSettingConfirmation child) {
+    if (!isActive ||
+        !identical(session, child._session) ||
+        state.value.loadingState is! Success) {
+      return;
+    }
+    final updated = _records[parentKey]?.withChild(child._key, child._record);
+    if (updated == null) return;
+    _records[parentKey] = updated;
+    _publish(state.value.title);
   }
 
-  void _replaceSetting(int key, Setting setting) {
-    final current = state.value.loadingState.dataOrNull;
-    if (current == null || _disposed) return;
-    final copy = _copySettings(current)..[key] = setting.deepCopy();
+  void _publish(String title) {
     state.value = WhisperSettingsSnapshot(
-      loadingState: Success(copy),
-      title: state.value.title,
-    );
-  }
-
-  void _removeSetting(int key) {
-    final current = state.value.loadingState.dataOrNull;
-    if (current == null || _disposed) return;
-    final copy = _copySettings(current)..remove(key);
-    state.value = WhisperSettingsSnapshot(
-      loadingState: Success(copy),
-      title: state.value.title,
-    );
-  }
-
-  static PbMap<int, Setting> _copySettings(Map<int, Setting> source) {
-    return GetImSettingsReply(
-      settings: source.entries.map(
-        (entry) => MapEntry(entry.key, entry.value.deepCopy()),
+      loadingState: Success(
+        Map.unmodifiable({
+          for (final entry in _records.entries) entry.key: entry.value.value,
+        }),
       ),
-    ).settings;
+      title: title,
+    );
   }
 
-  bool get _isActive => !_disposed && session.isActive;
-  bool _isCurrent(int generation) => _isActive && generation == _generation;
+  bool get isActive => !_disposed && session.isActive;
 
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     _generation++;
     _writes.clear();
-    state.dispose();
-  }
-}
-
-@immutable
-class KeywordBlockSnapshot {
-  const KeywordBlockSnapshot({
-    required this.loadingState,
-    this.listLimit,
-    this.charLimit,
-  });
-
-  final LoadingState<List<KeywordBlockingItem>?> loadingState;
-  final int? listLimit;
-  final int? charLimit;
-  int get count => loadingState.dataOrNull?.length ?? 0;
-}
-
-class KeywordBlockHandle {
-  KeywordBlockHandle({required this.session})
-    : state = ValueNotifier(
-        KeywordBlockSnapshot(
-          loadingState: LoadingState<List<KeywordBlockingItem>?>.loading(),
-        ),
-      );
-
-  final MessagingSession session;
-  final ValueNotifier<KeywordBlockSnapshot> state;
-  int _generation = 0;
-  bool _disposed = false;
-
-  Future<void> refresh() async {
-    if (_disposed || !session.isActive) return;
-    final generation = ++_generation;
-    state.value = KeywordBlockSnapshot(
-      loadingState: LoadingState<List<KeywordBlockingItem>?>.loading(),
-    );
-    final result = await session.run(
-      (account) => ImGrpc.keywordBlockingList(account: account),
-    );
-    if (!_isCurrent(generation)) return;
-    switch (result) {
-      case Success<KeywordBlockingListReply>(:final response):
-        state.value = KeywordBlockSnapshot(
-          loadingState: Success(
-            List<KeywordBlockingItem>.unmodifiable(
-              response.items.map((item) => item.deepCopy()),
-            ),
-          ),
-          listLimit: response.listLimit,
-          charLimit: response.charLimit,
-        );
-      case Error():
-        state.value = KeywordBlockSnapshot(loadingState: result);
-      case Loading():
-        state.value = KeywordBlockSnapshot(
-          loadingState: LoadingState<List<KeywordBlockingItem>?>.loading(),
-        );
-    }
-  }
-
-  Future<LoadingState<void>> add(String keyword) async {
-    if (_disposed || !session.isActive) return const Error('当前操作不可用');
-    _generation++;
-    final result = await session.run(
-      (account) => ImGrpc.keywordBlockingAdd(keyword, account: account),
-    );
-    if (!_isActive) return const Error('账号已切换');
-    if (result case Success<void>()) {
-      _generation++;
-      final existing = state.value.loadingState.dataOrNull;
-      if (existing != null) {
-        state.value = KeywordBlockSnapshot(
-          loadingState: Success(
-            List<KeywordBlockingItem>.unmodifiable([
-              ...existing.where((item) => item.keyword != keyword),
-              KeywordBlockingItem(keyword: keyword),
-            ]),
-          ),
-          listLimit: state.value.listLimit,
-          charLimit: state.value.charLimit,
-        );
-      } else {
-        await refresh();
-      }
-      session.notifyChanged(MessagingChangeKind.settings);
-    }
-    return result;
-  }
-
-  Future<LoadingState<void>> remove(String keyword) async {
-    if (_disposed || !session.isActive) return const Error('当前操作不可用');
-    _generation++;
-    final result = await session.run(
-      (account) => ImGrpc.keywordBlockingDelete(keyword, account: account),
-    );
-    if (!_isActive) return const Error('账号已切换');
-    if (result case Success<void>()) {
-      _generation++;
-      final existing = state.value.loadingState.dataOrNull;
-      if (existing != null) {
-        state.value = KeywordBlockSnapshot(
-          loadingState: Success(
-            List<KeywordBlockingItem>.unmodifiable(
-              existing.where((item) => item.keyword != keyword),
-            ),
-          ),
-          listLimit: state.value.listLimit,
-          charLimit: state.value.charLimit,
-        );
-      } else {
-        await refresh();
-      }
-      session.notifyChanged(MessagingChangeKind.settings);
-    }
-    return result;
-  }
-
-  bool _isCurrent(int generation) =>
-      !_disposed && session.isActive && generation == _generation;
-
-  bool get _isActive => !_disposed && session.isActive;
-
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    _generation++;
+    _records.clear();
     state.dispose();
   }
 }
@@ -398,14 +254,14 @@ class ConversationSettingsHandle {
   Future<void> getIsPinned() async {
     final generation = ++_pinGeneration;
     final result = await session.run(
-      (account) => ImGrpc.sessionUpdate(
-        sessionId: _sessionId,
+      (account) => const SessionAdapter().readPinned(
+        key: _sessionKey,
         account: account,
       ),
     );
     if (!_isCurrent(_pinGeneration, generation)) return;
-    if (result case Success<SessionUpdateReply>(:final response)) {
-      state.value = _copy(isPinned: response.session.isPinned);
+    if (result case Success<bool>(:final response)) {
+      state.value = _copy(isPinned: response);
     }
   }
 
@@ -443,9 +299,11 @@ class ConversationSettingsHandle {
     final version = ++_pinWriteVersion;
     _pinGeneration++;
     final result = await session.run<void>(
-      (account) => next
-          ? ImGrpc.pinSession(sessionId: _sessionId, account: account)
-          : ImGrpc.unpinSession(sessionId: _sessionId, account: account),
+      (account) => const SessionAdapter().setPinned(
+        key: _sessionKey,
+        account: account,
+        pinned: next,
+      ),
     );
     if (!_isActive) return const Error('账号已切换');
     if (result case Success<void>() when version == _pinWriteVersion) {
@@ -526,8 +384,9 @@ class ConversationSettingsHandle {
     return result;
   }
 
-  SessionId get _sessionId => SessionId(
-    privateId: PrivateId(talkerUid: Int64(talkerUid)),
+  late final _sessionKey = SessionKey(
+    kind: SessionKeyKind.private,
+    primary: talkerUid,
   );
 
   ConversationSettingsSnapshot _copy({

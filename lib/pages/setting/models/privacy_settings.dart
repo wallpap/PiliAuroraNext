@@ -1,15 +1,13 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/http/login.dart';
-import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/login/controller.dart';
+import 'package:pili_aurora_next/features/account/application/account_logout.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_switch_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/multi_select_dialog.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 List<SettingsModel> get privacySettings => [
   const SwitchModel(
@@ -30,7 +28,7 @@ List<SettingsModel> get privacySettings => [
   ),
   NormalModel(
     onTap: (context, setState) {
-      if (!Accounts.main.isLogin) {
+      if (!AccountLogout.hasMainAccount) {
         SmartDialog.showToast('登录后查看');
         return;
       }
@@ -43,7 +41,7 @@ List<SettingsModel> get privacySettings => [
   NormalModel(
     title: '切换账号',
     leading: const Icon(Icons.switch_account_outlined),
-    onTap: (context, _) => LoginPageController.switchAccountDialog(context),
+    onTap: (context, _) => showAccountSwitchDialog(context),
   ),
   const NormalModel(
     title: '退出登录',
@@ -52,130 +50,56 @@ List<SettingsModel> get privacySettings => [
   ),
 ];
 
-bool _isStoredLogin(LoginAccount account) =>
-    Accounts.account.values.any((value) => identical(value, account));
-
-Future<LoadingState<void>> _logoutWrapper(LoginAccount account) async {
-  if (!_isStoredLogin(account)) {
-    return const Error('登录信息已更新，请重新选择');
-  }
-  try {
-    return await LoginHttp.logout(account);
-  } catch (error, stackTrace) {
-    logger.w('退出登录请求失败', error: error.runtimeType, stackTrace: stackTrace);
-    return UnknownResult(cause: error, stackTrace: stackTrace);
-  }
-}
-
-Future<void> _logoutDialog(BuildContext context, VoidCallback refresh) async {
-  if (Accounts.account.isEmpty) {
+Future<void> _logoutDialog(
+  BuildContext pageContext,
+  VoidCallback refresh,
+) async {
+  final candidates = AccountLogout.candidates;
+  if (candidates.isEmpty) {
     SmartDialog.showToast('当前没有已登录账号');
     return;
   }
-  final theme = Theme.of(context);
+  final theme = Theme.of(pageContext);
   final result = await showDialog<Set<LoginAccount>>(
-    context: context,
+    context: pageContext,
     builder: (context) => MultiSelectDialog<LoginAccount>(
       title: '选择要登出的账号uid',
       initValues: const Iterable.empty(),
       values: {
-        for (final i in Accounts.account.values) i: i.mid.toString(),
+        for (final account in candidates) account: account.mid.toString(),
       },
     ),
   );
-  if (!context.mounted || result == null || result.isEmpty) return;
+  if (!pageContext.mounted || result == null || result.isEmpty) return;
 
   var submitting = false;
-  final confirmed = Set<LoginAccount>.identity();
-  final messages = <LoginAccount, String>{};
-  String? cleanupWarning;
-
-  Future<void> cleanup(Set<LoginAccount> accounts) async {
-    // LoginAccount 按 mid 相等；旧凭据的回执不能删除同 mid 的新登录。
-    final current = <LoginAccount>{};
-    for (final account in accounts) {
-      if (_isStoredLogin(account)) {
-        current.add(account);
-      } else {
-        messages[account] = confirmed.contains(account)
-            ? '远端已退出，登录信息已更新，请核对'
-            : '登录信息已更新，请重新选择';
-      }
-    }
-    if (current.isEmpty) return;
-    try {
-      await Accounts.deleteAll(current);
-    } catch (error, stackTrace) {
-      logger.w(
-        '退出登录后的本地清理失败',
-        error: error.runtimeType,
-        stackTrace: stackTrace,
-      );
-      cleanupWarning = '账号已登出，部分本地清理失败，请重启后核对';
-    }
-    for (final account in current) {
-      final remaining = Accounts.account.values.where(
-        (a) => a.mid == account.mid,
-      );
-      if (remaining.isEmpty) {
-        result.remove(account);
-        messages.remove(account);
-      } else if (remaining.any((a) => identical(a, account))) {
-        messages[account] = confirmed.contains(account)
-            ? '远端已退出，本地清理失败；再次确认将仅重试清理'
-            : '本地清理失败，请重试';
-      } else {
-        messages[account] = confirmed.contains(account)
-            ? '远端已退出，登录信息已更新，请核对'
-            : '登录信息已更新，请重新选择';
-      }
-    }
-    if (context.mounted) {
-      try {
-        refresh();
-      } catch (error, stackTrace) {
-        logger.w(
-          '退出登录后的页面刷新失败',
-          error: error.runtimeType,
-          stackTrace: stackTrace,
-        );
-      }
-    }
-  }
+  final logout = AccountLogout(result);
 
   await showDialog<void>(
-    context: context,
+    context: pageContext,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) {
         Future<void> submit({required bool revoke}) async {
           final route = ModalRoute.of(dialogContext);
           if (submitting || route?.isCurrent != true) return;
           setState(() => submitting = true);
-          cleanupWarning = null;
           try {
-            if (revoke) {
-              final targets = result
-                  .where((a) => !confirmed.contains(a))
-                  .toList();
-              final outcomes = await Future.wait(targets.map(_logoutWrapper));
-              for (var i = 0; i < targets.length; i++) {
-                final account = targets[i];
-                final outcome = outcomes[i];
-                if (outcome.isSuccess) {
-                  confirmed.add(account);
-                  messages.remove(account);
-                } else {
-                  messages[account] = outcome.toString();
-                }
+            final didCleanup = await logout.submit(revoke: revoke);
+            if (didCleanup && pageContext.mounted) {
+              try {
+                refresh();
+              } catch (error, stackTrace) {
+                logger.w(
+                  '退出登录后的页面刷新失败',
+                  error: error.runtimeType,
+                  stackTrace: stackTrace,
+                );
               }
-              await cleanup(result.where(confirmed.contains).toSet());
-            } else {
-              await cleanup(Set.of(result));
             }
             if (!dialogContext.mounted || route?.isCurrent != true) return;
-            if (result.isEmpty) {
+            if (logout.result.isEmpty) {
               Navigator.of(dialogContext).pop();
-              SmartDialog.showToast(cleanupWarning ?? '所选账号已退出登录');
+              SmartDialog.showToast(logout.cleanupWarning ?? '所选账号已退出登录');
             }
           } catch (error, stackTrace) {
             logger.w(
@@ -199,11 +123,11 @@ Future<void> _logoutDialog(BuildContext context, VoidCallback refresh) async {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('确认要退出以下账号登录吗'),
-                for (final account in result)
+                for (final account in logout.result)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(
-                      ['${account.mid}', ?messages[account]].join('\n'),
+                      ['${account.mid}', ?logout.messages[account]].join('\n'),
                     ),
                   ),
               ],

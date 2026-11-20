@@ -1,19 +1,18 @@
-import 'package:pili_aurora_next/pages/member_upower_rank/controller.dart';
-import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
+import 'package:pili_aurora_next/features/member_space/application/upower_ranking.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/common/member_feed.dart';
-import 'package:pili_aurora_next/pages/article_list/controller.dart';
-import 'package:pili_aurora_next/pages/pgc_index/controller.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_feed.dart';
+import 'package:pili_aurora_next/features/community/application/article_collection.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/pgc_index.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -163,7 +162,7 @@ void main() {
       Api.spaceShop: MemberFeedKind.shop,
       Api.memberGuard: MemberFeedKind.guard,
       Api.spaceCheese: MemberFeedKind.cheese,
-      ContributeType.comic.api: MemberFeedKind.comic,
+      Api.spaceComic: MemberFeedKind.comic,
       Api.seasonSeries: MemberFeedKind.series,
     };
     for (final request in requests) {

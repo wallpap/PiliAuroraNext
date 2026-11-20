@@ -4,21 +4,21 @@ import 'dart:math' as math;
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/arrangement.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
-import 'package:pili_aurora_next/pages/danmaku/priority.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
+import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
 // 真实文件通过 DANMAKU_REAL_FILES（| 分隔）传入，仅输出聚合统计。
 // DANMAKU_DENSITY_REPORT 指定本地 JSON；不将弹幕正文写入报告。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('compare dense real and synthetic timelines', () async {
-    final inputs = <String, List<DanmakuElem>>{};
+    final inputs = <String, List<DanmakuElement>>{};
     final files = Platform.environment['DANMAKU_REAL_FILES']?.split('|') ?? [];
     for (var i = 0; i < files.length; i++) {
-      final elements = <DanmakuElem>[];
+      final elements = <DanmakuElement>[];
       await for (final batch in readDanmakuFile(File(files[i]))) {
         elements.addAll(batch);
       }
@@ -26,7 +26,7 @@ void main() {
     }
     inputs['synthetic'] = [
       for (var i = 0; i < 24000; i++)
-        DanmakuElem(
+        DanmakuElement(
           progress: i ~/ 40 * 100 + i % 40 * 2,
           content: '合成弹幕$i',
           mode: i % 15 == 0 ? 5 : 1,
@@ -84,7 +84,7 @@ void main() {
             .entries;
         final ranked = entries.indexed.toList()
           ..sort((a, b) {
-            final priority = compareDanmakuPriority(a.$2.element, b.$2.element);
+            final priority = DanmakuTimelineEntry.comparePriority(a.$2, b.$2);
             return priority != 0 ? priority : a.$1.compareTo(b.$1);
           });
         for (var offset = 0; offset < entries.length; offset += 4) {
@@ -95,15 +95,15 @@ void main() {
               DanmakuMeasuredCandidate<int>(
                 identity: id++,
                 sourceUs: e.positionUs,
-                width: math.min(1100, e.element.content.runes.length * 25.0),
+                width: math.min(1100, e.content.runes.length * 25.0),
                 height: 30,
-                type: e.element.mode == 5
+                type: e.mode == 5
                     ? DanmakuItemType.top
-                    : e.element.mode == 4
+                    : e.mode == 4
                     ? DanmakuItemType.bottom
                     : DanmakuItemType.scroll,
-                payload: e.element.weight,
-                weight: e.element.weight,
+                payload: e.weight,
+                weight: e.weight,
               ),
           ];
           selected += candidates.length;

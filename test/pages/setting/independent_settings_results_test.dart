@@ -4,13 +4,15 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/pages/setting/models/style_settings.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_color_type.dart';
+import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/system_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
+import 'package:pili_aurora_next/pages/setting/pages/color_select.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/popup_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/memory_box.dart';
 
@@ -97,18 +99,34 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('主题保存失败保持原偏好并消费错误', (tester) async {
-    final model = flatten(styleSettings)
-        .where((item) => item.title == '主题模式')
-        .first;
-    await mount(tester, model.widget);
+  testWidgets('主题页兼容旧配色值，保存成功后才更新所选模式', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(350, 320));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await settings.putAll({
+      SettingBoxKey.themeMode: 99,
+      SettingBoxKey.customColor: colorThemeTypes.length,
+      SettingBoxKey.dynamicColor: false,
+    });
+    await mount(tester, const ColorSelectPage());
+    expect(find.text('当前模式：跟随系统'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    Future<void> pickDark() async {
+      await tester.tap(find.text('主题模式'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('深色'));
+      await tester.pumpAndSettle();
+    }
+
     settings.fail = true;
-    await tester.tap(find.text('主题模式'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('深色'));
-    await tester.pumpAndSettle();
-    expect(settings.data[SettingBoxKey.themeMode], isNull);
+    await pickDark();
+    expect(settings.data[SettingBoxKey.themeMode], 99);
+    expect(find.text('当前模式：跟随系统'), findsOneWidget);
     expect(find.text('设置保存失败，请重试'), findsOneWidget);
+    settings.fail = false;
+    await pickDark();
+    expect(settings.data[SettingBoxKey.themeMode], ThemeType.dark.index);
+    expect(find.text('当前模式：深色'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await finish(tester);
   });

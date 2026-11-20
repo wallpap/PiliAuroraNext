@@ -1,42 +1,36 @@
 import 'dart:async';
-import 'dart:math' show max;
 
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/http/fav.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
+import 'package:pili_aurora_next/features/playback/application/video_details.dart';
+import 'package:pili_aurora_next/features/playback/application/season_collection.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/pgc.dart';
-import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
-import 'package:pili_aurora_next/models/remote/pgc/season_follow_status.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart'
     hide EpisodeItem;
-import 'package:pili_aurora_next/models/remote/video/video_detail/stat_detail.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/android/android_helper.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/platform/android/android_helper.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-
-enum _FollowAction { add, remove, update }
 
 class PgcIntroController extends CommonIntroController {
   int? seasonId;
@@ -56,31 +50,28 @@ class PgcIntroController extends CommonIntroController {
   @override
   StatDetail? getStat() => pgcItem.stat;
 
-  final followState = LoadingState<SeasonFollowStatus>.loading().obs;
-  final followBusy = false.obs;
-  int _followQueryVersion = 0;
-  int _followOperation = 0;
-  var _followAccount = Accounts.main;
   int? get followSeasonId => pgcItem.seasonId ?? seasonId;
-  late final pugvFavState = Rx<LoadingState<bool>>(
-    pgcItem.userStatus?.favored == null
-        ? const Error('收藏状态未加载，请重试')
-        : Success(pgcItem.userStatus!.favored == 1),
+  SeasonCollection? _collection;
+  SeasonCollection get collection => _collection ??= SeasonCollection(
+    trackedSeason: () => followSeasonId,
+    course: () => (season: seasonId, episode: epId),
+    initialBookmark: () => switch (pgcItem.userStatus?.favored) {
+      final value? => value == 1,
+      _ => null,
+    },
   );
-  final pugvFavBusy = false.obs;
-  int _pugvVersion = 0;
 
   @override
-  void onInit() {
-    final args = Get.arguments;
+  void open(VideoDetailController video, TickerProvider vsync) {
+    final args = video.args;
     seasonId = args['seasonId'];
     epId = args['epId'];
     isPgc = args['videoType'] == VideoType.pgc;
     pgcItem = args['pgcItem'];
     _playbackEpisodes = pgcItem.episodes ?? <EpisodeItem>[];
 
-    super.onInit();
-    Accounts.mainChanges.addListener(_onFollowAccountChanged);
+    super.open(video, vsync);
+    collection.observeAccount(pgc: isPgc);
 
     if (isPgc) {
       queryIsFollowed();
@@ -96,58 +87,12 @@ class PgcIntroController extends CommonIntroController {
   }
 
   @override
-  Object get interactionTarget => (bvid, epId);
+  int? get interactionEpisode => epId;
 
-  int _relationQuery = 0;
-
-  // 获取点赞/投币/收藏状态
   Future<void> queryPgcLikeCoinFav() async {
-    if (interactionBusy || isClosed || epId == null) return;
-    final account = Accounts.main;
-    final target = interactionTarget;
-    final revision = interactionRevision;
-    final query = ++_relationQuery;
-    final result = await VideoHttp.pgcLikeCoinFav(
-      epId: epId!,
-      account: account,
-    );
-    if (!ownsInteraction(account, target) ||
-        revision != interactionRevision ||
-        query != _relationQuery) {
-      return;
-    }
-    if (result case Success(:final response)) {
-      final hasLike = response.like == 1;
-      final hasFav = response.favorite == 1;
-      final stat = getStat();
-      if (hasLike) stat?.like = max(1, stat.like);
-      if (hasFav) stat?.favorite = max(1, stat.favorite);
-      this.hasLike.value = hasLike;
-      coinNum.value = response.coinNumber;
-      this.hasFav.value = hasFav;
-    } else {
-      result.toast();
-    }
+    final error = await interactions.refresh(pgc: true);
+    if (!isClosed) error?.toast();
   }
-
-  // （取消）点赞
-  @override
-  Future<void> actionLikeVideo() => runInteraction((account, current) async {
-    final newVal = !hasLike.value;
-    final result = await VideoHttp.likeVideo(
-      bvid: bvid,
-      type: newVal,
-      account: account,
-    );
-    if (!current()) return;
-    if (result case Success(:final response)) {
-      SmartDialog.showToast(newVal ? response ?? '点赞成功' : '取消赞');
-      getStat()?.like += newVal ? 1 : -1;
-      hasLike.value = newVal;
-    } else {
-      result.toast();
-    }
-  });
 
   @override
   int get copyright => 1;
@@ -160,7 +105,7 @@ class PgcIntroController extends CommonIntroController {
       SmartDialog.showToast('分集信息尚未加载，请重试');
       return;
     }
-    final account = Accounts.main;
+    final accountOwner = AccountScope.capture();
     final pgcTitle = pgcItem.title;
     final pgcCover = pgcItem.cover;
     final pgcType = pgcItem.type;
@@ -177,7 +122,7 @@ class PgcIntroController extends CommonIntroController {
     final shareUrl = item?.shareUrl;
     final shareCover = item?.cover;
     bool ownsAccount() =>
-        context.mounted && !isClosed && identical(account, Accounts.main);
+        context.mounted && !isClosed && accountOwner.isCurrent;
 
     String videoUrl =
         '${HttpString.baseUrl}/bangumi/play/ep$epId${videoDetailCtr.playedTimePos(false)}';
@@ -191,7 +136,7 @@ class PgcIntroController extends CommonIntroController {
             child: const Text('复制链接', style: TextStyle(fontSize: 14)),
             onPressed: () {
               Get.back();
-              Utils.copyText(videoUrl);
+              copyText(videoUrl);
             },
           ),
           DialogOption(
@@ -304,16 +249,16 @@ class PgcIntroController extends CommonIntroController {
   Future<bool> onChangeEpisode(BaseEpisodeItem episode) async {
     if (isClosed) return false;
     final version = ++_episodeChange;
-    final account = Accounts.heartbeat;
-    final mainAccount = Accounts.main;
+    final playbackAccount = AccountScope.captureHeartbeat();
+    final mainAccount = AccountScope.capture();
     final source = (bvid, cid.value, epId);
     final videoSource = (videoDetailCtr.bvid, videoDetailCtr.cid.value);
     final ownsPlayback = videoDetailCtr.playbackOwner.guard();
     bool current() =>
         !isClosed &&
         version == _episodeChange &&
-        identical(account, Accounts.heartbeat) &&
-        identical(mainAccount, Accounts.main) &&
+        playbackAccount.isCurrent &&
+        mainAccount.isCurrent &&
         source == (bvid, cid.value, epId) &&
         videoSource == (videoDetailCtr.bvid, videoDetailCtr.cid.value) &&
         ownsPlayback();
@@ -325,10 +270,10 @@ class PgcIntroController extends CommonIntroController {
       final String? cover = episode.cover;
       int? cid = episode.cid;
       if (cid == null || cid <= 0) {
-        final result = await SearchHttp.pageWithDimension(
-          account: account,
-          aid: aid,
-          bvid: bvid,
+        final result = await VideoDetails.resolvePart(
+          playbackAccount.account,
+          bvid,
+          aid,
         );
         if (!current()) return false;
         if (result is Error) {
@@ -360,16 +305,7 @@ class PgcIntroController extends CommonIntroController {
         videoDetailCtr.cover.value = cover;
       }
 
-      // 重新请求评论
-      if (videoDetailCtr.showReply) {
-        try {
-          final replyCtr = Get.find<VideoReplyController>(tag: heroTag)
-            ..aid = aid;
-          if (replyCtr.loadingState.value is! Loading) {
-            replyCtr.onReload();
-          }
-        } catch (_) {}
-      }
+      videoDetailCtr.onReplyTargetChanged?.call();
 
       if (isPgc && isLogin) {
         queryPgcLikeCoinFav();
@@ -387,60 +323,13 @@ class PgcIntroController extends CommonIntroController {
     }
   }
 
-  Future<void> pgcAdd() => _changeFollow(_FollowAction.add);
-  Future<void> pgcDel() => _changeFollow(_FollowAction.remove);
-  Future<void> pgcUpdate(int status) =>
-      _changeFollow(_FollowAction.update, status: status);
-
-  Future<void> _changeFollow(_FollowAction action, {int? status}) async {
-    if (isClosed || followBusy.value) return;
-    final account = Accounts.main;
-    if (!account.isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-    final target = followSeasonId;
-    final operation = ++_followOperation;
-    _followQueryVersion++;
-    followBusy.value = true;
-    try {
-      final result = await switch (action) {
-        _FollowAction.add => VideoHttp.pgcAdd(
-          seasonId: target,
-          account: account,
-        ),
-        _FollowAction.remove => VideoHttp.pgcDel(
-          seasonId: target,
-          account: account,
-        ),
-        _FollowAction.update => VideoHttp.pgcUpdate(
-          seasonId: '$target',
-          status: status!,
-          account: account,
-        ),
-      };
-      if (isClosed ||
-          operation != _followOperation ||
-          !identical(account, Accounts.main) ||
-          target != followSeasonId) {
-        return;
-      }
-      if (result case Success(:final response)) {
-        followState.value = Success(
-          SeasonFollowStatus(
-            followed: action != _FollowAction.remove,
-            status: action == _FollowAction.remove ? null : status ?? 2,
-          ),
-        );
-        SmartDialog.showToast(response);
-      } else {
-        if (followState.value is Loading) followState.value = result as Error;
-        result.toast();
-      }
-    } finally {
-      if (operation == _followOperation) followBusy.value = false;
-    }
-  }
+  Future<void> pgcAdd() =>
+      showInteractionResult(collection.changeTracking(.add));
+  Future<void> pgcDel() =>
+      showInteractionResult(collection.changeTracking(.remove));
+  Future<void> pgcUpdate(int status) => showInteractionResult(
+    collection.changeTracking(.changeGroup, group: status),
+  );
 
   @override
   bool prevPlay() {
@@ -490,102 +379,25 @@ class PgcIntroController extends CommonIntroController {
     }
   }
 
-  // 一键三连
   @override
-  Future<void> actionTriple() => runInteraction((account, current) async {
-    feedBack();
-    if (hasTriple) {
-      SmartDialog.showToast('已三连');
-      return;
-    }
-    final episode = epId;
-    if (episode == null) {
-      SmartDialog.showToast('剧集信息不完整，请刷新后重试');
-      return;
-    }
-    final previousCoins = coinNum.value;
-    final result = await VideoHttp.pgcTriple(
-      epId: episode,
-      seasonId: seasonId,
-      account: account,
-    );
-    if (result case Success(:final response)) {
-      final paid = response.coin == 1
-          ? max(0, response.coinNumber - previousCoins)
-          : 0;
-      if (identical(account, Accounts.main)) GlobalData().afterCoin(paid);
-      if (!current()) return;
-      final stat = getStat();
-      if (response.like == 1 && !hasLike.value) {
-        stat?.like++;
-        hasLike.value = true;
-      }
-      if (response.coin == 1) {
-        stat?.coin += paid;
-        coinNum.value = response.coinNumber;
-      }
-      if (response.favorite == 1 && !hasFav.value) {
-        stat?.favorite++;
-        hasFav.value = true;
-      }
-      SmartDialog.showToast(hasTriple ? '三连成功' : '三连未全部完成，请核对点赞、投币和收藏状态');
-    } else if (current()) {
-      result.toast();
-    }
-  });
-
-  void _onFollowAccountChanged() {
-    if (identical(_followAccount, Accounts.main)) return;
-    _followAccount = Accounts.main;
-    _followOperation++;
-    _followQueryVersion++;
-    followBusy.value = false;
-    followState.value = LoadingState.loading();
-    if (isPgc) {
-      queryIsFollowed();
-    } else {
-      _pugvVersion++;
-      pugvFavBusy.value = false;
-      queryPugvFav();
-    }
-  }
+  Future<void> actionTriple() => showInteractionResult(
+    interactions.triple(pgc: true, seasonId: seasonId, onAccepted: feedBack),
+  );
 
   @override
-  void onClose() {
-    Accounts.mainChanges.removeListener(_onFollowAccountChanged);
-    _followQueryVersion++;
-    _followOperation++;
-    _pugvVersion++;
-    super.onClose();
+  void close() {
+    if (isClosed) return;
+    _collection?.dispose();
+    super.close();
   }
 
-  Future<void> queryIsFollowed() async {
-    if (isClosed || followBusy.value) return;
-    final version = ++_followQueryVersion;
-    final account = Accounts.main;
-    _followAccount = account;
-    final target = followSeasonId;
-    followState.value = LoadingState.loading();
-    if (!account.isLogin) {
-      followState.value = const Success(SeasonFollowStatus(followed: false));
-      return;
-    }
-    final result = await PgcHttp.seasonStatus(target, account: account);
-    if (isClosed ||
-        version != _followQueryVersion ||
-        !identical(account, Accounts.main) ||
-        target != followSeasonId) {
-      return;
-    }
-    followState.value = result;
-  }
+  Future<void> queryIsFollowed() =>
+      isClosed ? Future.value() : collection.refreshTracking();
 
   @override
   void queryVideoIntro([EpisodeItem? episode]) {
     episode ??= pgcItem.episodes!.firstWhere((e) => e.cid == cid.value);
-    videoDetail
-      ..value.title = episode.showTitle
-      ..refresh();
+    videoDetail.value = VideoDetailData(title: episode.showTitle);
     videoPlayerServiceHandler?.onVideoDetailChange(
       episode,
       cid.value,
@@ -595,70 +407,6 @@ class PgcIntroController extends CommonIntroController {
     );
   }
 
-  Future<void> queryPugvFav() async {
-    if (isClosed || pugvFavBusy.value) return;
-    final account = Accounts.main;
-    final target = seasonId;
-    final version = ++_pugvVersion;
-    pugvFavState.value = LoadingState.loading();
-    if (!account.isLogin) {
-      pugvFavState.value = const Success(false);
-      return;
-    }
-    final result = await SearchHttp.pugvInfo(
-      account: account,
-      seasonId: target,
-      epId: epId,
-    );
-    if (isClosed ||
-        version != _pugvVersion ||
-        !identical(account, Accounts.main) ||
-        target != seasonId) {
-      return;
-    }
-    pugvFavState.value = switch (result) {
-      Success(:final response) when response.userStatus?.favored != null =>
-        Success(response.userStatus!.favored == 1),
-      Error error => error,
-      _ => const Error('收藏状态未加载，请重试'),
-    };
-  }
-
-  Future<void> onFavPugv() async {
-    final account = Accounts.main;
-    final target = seasonId;
-    if (isClosed || pugvFavBusy.value || target == null || target <= 0) return;
-    if (!account.isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-    final state = pugvFavState.value;
-    if (state is! Success<bool>) {
-      await queryPugvFav();
-      return;
-    }
-    final wasFav = state.response;
-    final version = ++_pugvVersion;
-    pugvFavBusy.value = true;
-    try {
-      final result = wasFav
-          ? await FavHttp.delFavPugv(target, account: account)
-          : await FavHttp.addFavPugv(target, account: account);
-      if (isClosed ||
-          version != _pugvVersion ||
-          !identical(account, Accounts.main) ||
-          target != seasonId) {
-        return;
-      }
-      if (result.isSuccess) {
-        pugvFavState.value = Success(!wasFav);
-        SmartDialog.showToast('${wasFav ? '取消' : ''}收藏成功');
-      } else {
-        if (result is UnknownResult) pugvFavState.value = result;
-        result.toast();
-      }
-    } finally {
-      if (version == _pugvVersion) pugvFavBusy.value = false;
-    }
-  }
+  Future<void> onFavPugv() =>
+      showInteractionResult(collection.toggleBookmark());
 }

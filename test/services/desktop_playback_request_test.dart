@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 
 void main() {
@@ -37,5 +37,18 @@ void main() {
       ),
       throwsFormatException,
     );
+  });
+  test('独立窗口请求不携带主窗口的离线列表快照', () {
+    const request = DesktopPlaybackRequest.video({
+      'aid': 100,
+      'cid': 200,
+      'videoType': VideoType.ugc,
+      'offlineEntries': [Object()],
+    });
+    final decoded = DesktopPlaybackRequest.fromJson(
+      jsonDecode(jsonEncode(request.toJson())),
+    );
+    expect((decoded.arguments as Map).containsKey('offlineEntries'), false);
+    expect((request.arguments as Map).containsKey('offlineEntries'), true);
   });
 }

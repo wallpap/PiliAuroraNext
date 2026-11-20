@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 
 /// 打开时的播放快照，分类滚动不持有播放器订阅。
 class PlayerInfoDialog extends StatelessWidget {
@@ -169,7 +169,7 @@ class PlayerInfoDialog extends StatelessWidget {
                         child: IconButton(
                           tooltip: '复制信息摘要',
                           padding: EdgeInsets.zero,
-                          onPressed: () => Utils.copyText(summary),
+                          onPressed: () => copyText(summary),
                           icon: const Icon(Icons.copy_outlined, size: 18),
                         ),
                       ),
@@ -236,7 +236,7 @@ class PlayerInfoDialog extends StatelessWidget {
         for (final row in rows)
           InkWell(
             onTap: () =>
-                Utils.copyText(DiagnosticRedactor.text('${row.$1}：${row.$2}')),
+                copyText(DiagnosticRedactor.text('${row.$1}：${row.$2}')),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 7),
               decoration: BoxDecoration(
@@ -287,7 +287,7 @@ class PlayerInfoDialog extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: () => Utils.copyText(safeRaw),
+                onPressed: () => copyText(safeRaw),
                 icon: const Icon(Icons.copy_outlined, size: 16),
                 label: const Text('复制脱敏参数'),
               ),

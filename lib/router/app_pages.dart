@@ -5,26 +5,23 @@ import 'package:pili_aurora_next/pages/blacklist/view.dart';
 import 'package:pili_aurora_next/pages/bubble/view.dart';
 import 'package:pili_aurora_next/pages/danmaku_block/view.dart';
 import 'package:pili_aurora_next/pages/dlna/view.dart';
-import 'package:pili_aurora_next/pages/download/view.dart';
+import 'package:pili_aurora_next/features/download/presentation/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_create_vote/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_detail/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic/view.dart';
 import 'package:pili_aurora_next/pages/dynamics_topic_rcmd/view.dart';
-import 'package:pili_aurora_next/pages/fav/view.dart';
-import 'package:pili_aurora_next/pages/fav_create/view.dart';
-import 'package:pili_aurora_next/pages/fav_detail/view.dart';
-import 'package:pili_aurora_next/pages/fav_search/view.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/favorites_page.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/folder_editor.dart';
+import 'package:pili_aurora_next/features/favorites/presentation/favorite_detail_page.dart';
 import 'package:pili_aurora_next/pages/follow/view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
-import 'package:pili_aurora_next/pages/history/view.dart';
-import 'package:pili_aurora_next/pages/history_search/view.dart';
+import 'package:pili_aurora_next/features/history/presentation/history_page.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/hot/view.dart';
-import 'package:pili_aurora_next/pages/later/view.dart';
-import 'package:pili_aurora_next/pages/later_search/view.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/later_page.dart';
 import 'package:pili_aurora_next/pages/live_dm_block/view.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart';
 import 'package:pili_aurora_next/pages/login/view.dart';
@@ -61,8 +58,8 @@ import 'package:pili_aurora_next/pages/setting/view.dart';
 import 'package:pili_aurora_next/pages/settings_search/view.dart';
 import 'package:pili_aurora_next/pages/space_setting/view.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/view.dart';
-import 'package:pili_aurora_next/pages/subscription/view.dart';
-import 'package:pili_aurora_next/pages/subscription_detail/view.dart';
+import 'package:pili_aurora_next/features/subscriptions/presentation/subscriptions_page.dart';
+import 'package:pili_aurora_next/features/subscriptions/presentation/subscription_detail_page.dart';
 import 'package:pili_aurora_next/pages/video/view.dart';
 import 'package:pili_aurora_next/pages/webview/view.dart';
 import 'package:pili_aurora_next/pages/whisper/view.dart';
@@ -83,9 +80,9 @@ class Routes {
     // 设置
     GetPage(name: '/setting', page: () => const SettingPage()),
     //
-    GetPage(name: '/fav', page: () => const FavPage()),
+    GetPage(name: '/fav', page: () => const FavoritesPage()),
     //
-    GetPage(name: '/favDetail', page: () => const FavDetailPage()),
+    GetPage(name: '/favDetail', page: () => const FavoriteDetailPage()),
     // 稍后再看
     GetPage(name: '/later', page: () => const LaterPage()),
     // 历史记录
@@ -125,9 +122,15 @@ class Routes {
     // 历史记录搜索
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     // 收藏搜索
-    GetPage(name: '/favSearch', page: () => const FavSearchPage()),
-    GetPage(name: '/historySearch', page: () => const HistorySearchPage()),
-    GetPage(name: '/laterSearch', page: () => const LaterSearchPage()),
+    GetPage(
+      name: '/favSearch',
+      page: () => const FavoriteDetailPage(search: true),
+    ),
+    GetPage(
+      name: '/historySearch',
+      page: () => const HistoryPage(search: true),
+    ),
+    GetPage(name: '/laterSearch', page: () => const LaterPage(search: true)),
     GetPage(
       name: '/followSearch',
       page: () => FollowSearchPage.fromArguments(Get.arguments),
@@ -161,7 +164,13 @@ class Routes {
     GetPage(name: '/editProfile', page: () => const EditProfilePage()),
     GetPage(name: '/settingsSearch', page: () => const SettingsSearchPage()),
     GetPage(name: '/searchTrending', page: () => const SearchTrendingPage()),
-    GetPage(name: '/dynTopic', page: () => const DynTopicPage()),
+    GetPage(
+      name: '/dynTopic',
+      page: () => DynTopicPage(
+        topicId: Get.parameters['id']!,
+        name: Get.parameters['name'] ?? '',
+      ),
+    ),
     GetPage(name: '/articleList', page: () => const ArticleListPage()),
     GetPage(name: '/barSetting', page: () => const BarSetPage()),
     GetPage(name: '/upowerRank', page: () => const UpowerRankPage()),
@@ -186,11 +195,20 @@ class Routes {
       page: () => FollowTypePage.fromArguments(FollowKind.same, Get.arguments),
     ),
     GetPage(name: '/download', page: () => const DownloadPage()),
-    GetPage(name: '/dlna', page: () => const DLNAPage()),
+    GetPage(
+      name: '/dlna',
+      page: () => DLNAPage(
+        url: Get.parameters['url'] ?? '',
+        title: Get.parameters['title'] ?? '',
+      ),
+    ),
     GetPage(name: '/myReply', page: () => const MyReply()),
     GetPage(name: '/videoWeb', page: () => const MemberVideoWeb()),
     GetPage(name: '/ssWeb', page: () => const MemberSSWeb()),
     GetPage(name: '/memberGuard', page: () => const MemberGuard()),
-    GetPage(name: '/bubble', page: () => const BubblePage()),
+    GetPage(
+      name: '/bubble',
+      page: () => BubblePage(tribeId: Get.arguments['id'].toString()),
+    ),
   ];
 }

@@ -9,25 +9,25 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
 import 'package:pili_aurora_next/http/search.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/rcmd/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
+import 'package:pili_aurora_next/pages/home/view.dart';
+import 'package:pili_aurora_next/pages/main/view.dart';
+import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
+import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
+import 'mounted_state.dart';
 
 Future<void> _until(bool Function() ready, String stage) async {
   final clock = Stopwatch()..start();
@@ -138,26 +138,24 @@ Future<void> main(List<String> arguments) async {
     await stage('startup', () => logging.main(arguments));
     await _until(
       () =>
-          Get.isRegistered<MainController>() &&
-          Get.isRegistered<HomeController>() &&
-          !SmartDialog.checkExist(),
+          findMountedState<MainAppState>() != null && !SmartDialog.checkExist(),
       'startup',
     );
-    final main = Get.find<MainController>();
-    final home = Get.find<HomeController>();
+    final main = findMountedState<MainAppState>()!;
     void selectMain(NavigationBarType tab) {
-      final index = main.navigationBars.indexOf(tab);
-      if (index < 0) throw StateError('missing main tab');
-      if (main.selectedIndex.value != index) main.setIndex(index);
+      if (!main.showDestination(tab)) throw StateError('missing main tab');
     }
 
+    selectMain(.home);
+    HomePageState? mountedHome;
+    await _until(
+      () => (mountedHome = findMountedDescendant<HomePageState>(main)) != null,
+      'homePage',
+    );
+    final home = mountedHome!;
     void selectHome(HomeTabType tab) {
       selectMain(NavigationBarType.home);
-      final index = home.tabs.indexOf(tab);
-      if (index < 0) throw StateError('missing home tab');
-      if (home.tabController.index != index) {
-        home.tabController.animateTo(index);
-      }
+      if (!home.showTab(tab)) throw StateError('missing home tab');
     }
 
     const tabs = [
@@ -177,16 +175,13 @@ Future<void> main(List<String> arguments) async {
         selectHome(tab);
         await pause(5000);
         final source = diagnostics.readSources(prefix: 'homePage');
-        final controller = home.controller;
-        final stateController = controller is RankController
-            ? controller.controller
-            : controller;
-        final loaded =
-            stateController is CommonController &&
-            stateController.loadingState.value.isSuccess;
+        final controller = home.registeredPage(tab);
+        final loaded = feedLoading(controller)?.isSuccess ?? false;
         visits.add({'tab': tab.name, 'source': source, 'loaded': loaded});
-        final scroll = home.controller.scrollController;
-        if (scroll.hasClients && scroll.positions.length == 1) {
+        final scroll = controller?.scrollController;
+        if (scroll != null &&
+            scroll.hasClients &&
+            scroll.positions.length == 1) {
           await scroll.animateTo(
             (scroll.position.viewportDimension * .8).clamp(
               0.0,
@@ -236,17 +231,18 @@ Future<void> main(List<String> arguments) async {
     selectHome(HomeTabType.rcmd);
     await _until(
       () =>
-          Get.isRegistered<RcmdController>() &&
-          (Get.find<RcmdController>()
-                  .loadingState
-                  .value
+          (home.registeredPage(HomeTabType.rcmd) is RecommendationPageHandle) &&
+          ((home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle)
+                  .snapshot
+                  .loading
                   .dataOrNull
                   ?.isNotEmpty ??
               false),
       'recommendations',
     );
-    final recommendations = Get.find<RcmdController>();
-    final item = recommendations.loadingState.value.dataOrNull!
+    final recommendations =
+        (home.registeredPage(HomeTabType.rcmd) as RecommendationPageHandle);
+    final item = recommendations.snapshot.loading.dataOrNull!
         .whereType<BaseRcmdVideoItemModel>()
         .where(
           (x) =>

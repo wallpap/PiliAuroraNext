@@ -1,12 +1,13 @@
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/follow/child/child_view.dart';
 import 'package:pili_aurora_next/pages/follow_search/view.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

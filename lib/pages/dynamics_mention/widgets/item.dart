@@ -1,18 +1,20 @@
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/dynamic/dyn_mention/item.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dyn_mention/item.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 import 'package:material_ui/material_ui.dart';
 
 class DynMentionItem extends StatelessWidget {
   const DynMentionItem({
     super.key,
     required this.item,
+    required this.selected,
     required this.onTap,
     required this.onCheck,
   });
 
   final MentionItem item;
+  final bool selected;
   final VoidCallback onTap;
   final ValueChanged<bool?> onCheck;
 
@@ -40,12 +42,8 @@ class DynMentionItem extends StatelessWidget {
         ),
         trailing: Checkbox(
           tristate: false,
-          value: item.checked,
-          onChanged: (value) {
-            item.checked = value!;
-            (context as Element).markNeedsBuild();
-            onCheck(value);
-          },
+          value: selected,
+          onChanged: onCheck,
         ),
       ),
     );

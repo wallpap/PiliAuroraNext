@@ -1,6 +1,6 @@
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 
 /// 窗口间传递内容标识，播放地址仍由现有页面按账号和画质获取。
 class DesktopPlaybackRequest {
@@ -20,7 +20,9 @@ class DesktopPlaybackRequest {
       'route': route,
       'arguments': args is Map<String, dynamic>
           ? {
-              ...args,
+              // 离线列表只在主窗口页面间传递，独立播放窗口沿用单项归属。
+              for (final entry in args.entries)
+                if (entry.key != 'offlineEntries') entry.key: entry.value,
               'videoType': (args['videoType'] as VideoType).name,
               if (args['sourceType'] is SourceType)
                 'sourceType': (args['sourceType'] as SourceType).name,

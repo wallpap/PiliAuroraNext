@@ -1,19 +1,22 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/models/common/setting_type.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
 import 'package:pili_aurora_next/pages/setting/common_setting.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/models/content_settings.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_level_filter.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_level_filter.dart';
 import 'package:pili_aurora_next/pages/setting/models/play_settings.dart';
 import 'package:pili_aurora_next/pages/setting/models/privacy_settings.dart';
+import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/video_settings.dart';
 import 'package:pili_aurora_next/pages/setting/view.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/pages/settings_search/view.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 import '../../support/memory_box.dart';
 
@@ -25,6 +28,24 @@ void main() {
   });
   setUp(settings.data.clear);
   tearDown(Get.reset);
+
+  testWidgets('设置搜索清空时取消尚未执行的查询', (tester) async {
+    await settings.put(SettingBoxKey.downloadPath, 'test-downloads');
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: SettingsSearchPage())),
+    );
+
+    final query = find.byType(TextField);
+    final result = find.text('检查更新');
+    await tester.enterText(query, '检查更');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(result, findsOneWidget);
+
+    await tester.enterText(query, '更新');
+    await tester.tap(find.byIcon(Icons.clear));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(result, findsNothing);
+  });
 
   testWidgets('评论等级默认关闭，选择后保存并可恢复关闭', (tester) async {
     final group = contentSettings.whereType<SettingsGroup>().firstWhere(
@@ -55,23 +76,24 @@ void main() {
   });
 
   testWidgets('黑名单父子开关默认开启，父开关切换后保留子项选择', (tester) async {
+    const authorFilter = DiscoveryFilter();
     final item = privacySettings.whereType<SwitchModel>().single;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: item.widget)));
-    expect(Pref.filterBlockedAuthors, isTrue);
-    expect(Pref.checkCooperativeAuthors, isTrue);
+    expect(authorFilter.enabled, isTrue);
+    expect(authorFilter.includeCoauthors, isTrue);
     expect(find.text('检查合作视频作者'), findsOneWidget);
     await tester.tap(find.text('检查合作视频作者'));
     await tester.pumpAndSettle();
-    expect(Pref.checkCooperativeAuthors, isFalse);
-    expect(Pref.filterBlockedAuthors, isTrue);
+    expect(authorFilter.includeCoauthors, isFalse);
+    expect(authorFilter.enabled, isTrue);
     await tester.tap(find.text('增强黑名单屏蔽'));
     await tester.pumpAndSettle();
-    expect(Pref.filterBlockedAuthors, isFalse);
+    expect(authorFilter.enabled, isFalse);
     expect(find.text('检查合作视频作者'), findsNothing);
     await tester.tap(find.text('增强黑名单屏蔽'));
     await tester.pumpAndSettle();
-    expect(Pref.filterBlockedAuthors, isTrue);
-    expect(Pref.checkCooperativeAuthors, isFalse);
+    expect(authorFilter.enabled, isTrue);
+    expect(authorFilter.includeCoauthors, isFalse);
     expect(find.text('检查合作视频作者'), findsOneWidget);
   });
 
@@ -112,7 +134,9 @@ void main() {
     tester.view.physicalSize = const Size(1200, 900);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MaterialApp(home: SettingPage()));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: SettingPage())),
+    );
     expect(find.text('切换账号'), findsNothing);
     expect(find.text('退出登录'), findsNothing);
 

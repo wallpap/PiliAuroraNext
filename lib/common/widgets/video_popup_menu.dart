@@ -1,17 +1,18 @@
-import 'package:pili_aurora_next/utils/request_utils.dart';
+import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_action.dart';
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
+import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
+import 'package:pili_aurora_next/features/account/presentation/incognito_action.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/video_feedback.dart';
 import 'package:pili_aurora_next/pages/video/ai_conclusion/view.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -43,28 +44,70 @@ class VideoPopupMenu extends StatefulWidget {
 }
 
 class _VideoPopupMenuState extends State<VideoPopupMenu> {
+  Future<void> _confirmBlock(
+    BaseSimpleVideoItemModel item,
+    VoidCallback? onRemove,
+  ) async {
+    final memberId = item.owner.mid;
+    if (!mounted || !identical(item, widget.videoItem) || memberId == null) {
+      return;
+    }
+    final moderation = MemberModeration.capture();
+    final route = ModalRoute.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('提示'),
+        content: Text(
+          '确定拉黑:${item.owner.name}($memberId)?'
+          '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              '点错了',
+              style: TextStyle(color: ColorScheme.of(dialogContext).outline),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    bool sourceIsCurrent() =>
+        mounted &&
+        identical(item, widget.videoItem) &&
+        route?.isCurrent != false;
+    if (confirm != true || !sourceIsCurrent()) return;
+    if (!moderation.isCurrent) {
+      SmartDialog.showToast('账号已切换，请重试');
+      return;
+    }
+    final result = await moderation.block(memberId);
+    if (!sourceIsCurrent() || !moderation.isCurrent) return;
+    if (result.isSuccess) {
+      onRemove?.call();
+    } else {
+      result.toast();
+    }
+  }
+
   void _showFeedback(BaseSimpleVideoItemModel item, VoidCallback? onRemove) {
     if (!mounted || !identical(item, widget.videoItem)) return;
-    final account = item is RcmdVideoItemAppModel
-        ? Accounts.get(.recommend)
-        : Accounts.main;
-    if (account.accessKey?.isNotEmpty != true) {
-      SmartDialog.showToast(account.isLogin ? '请退出账号后重新登录' : '账号未登录');
+    final operation = VideoFeedback.capture(item);
+    if (operation.loginError case final message?) {
+      SmartDialog.showToast(message);
       return;
     }
     showDialog<void>(
       context: context,
       builder: (_) => VideoFeedbackDialog(
         item: item,
-        isCurrent: () =>
-            mounted &&
-            identical(item, widget.videoItem) &&
-            identical(
-              account,
-              item is RcmdVideoItemAppModel
-                  ? Accounts.get(.recommend)
-                  : Accounts.main,
-            ),
+        operation: operation,
+        isCurrent: () => mounted && identical(item, widget.videoItem),
         onRemove: onRemove,
       ),
     );
@@ -90,15 +133,15 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                   _VideoCustomAction(
                     videoItem.bvid!,
                     const Icon(CustomIcons.identifier_circle, size: 16),
-                    () => Utils.copyText(videoItem.bvid!),
+                    () => copyText(videoItem.bvid!),
                   ),
-                  if (Accounts.main.isLogin)
+                  if (AccountScope.signedIn)
                     _VideoCustomAction(
                       '稍后再看',
                       const Icon(MdiIcons.clockTimeEightOutline, size: 16),
-                      () => RequestUtils.addToWatchLater(bvid: videoItem.bvid),
+                      () => addToWatchLater(bvid: videoItem.bvid),
                     ),
-                  if (videoItem.cid != null && Pref.enableAi)
+                  if (videoItem.cid != null && VideoPreferences.showAiSummary)
                     _VideoCustomAction(
                       'AI总结',
                       const Icon(CustomIcons.ai_circle, size: 16),
@@ -141,53 +184,15 @@ class _VideoPopupMenuState extends State<VideoPopupMenu> {
                   _VideoCustomAction(
                     '拉黑：${videoItem.owner.name}',
                     const Icon(MdiIcons.cancel, size: 16),
-                    () => showDialog(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
-                          title: const Text('提示'),
-                          content: Text(
-                            '确定拉黑:${videoItem.owner.name}(${videoItem.owner.mid})?'
-                            '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: Get.back,
-                              child: Text(
-                                '点错了',
-                                style: TextStyle(
-                                  color: ColorScheme.of(context).outline,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                Get.back();
-                                final res = await VideoHttp.relationMod(
-                                  mid: videoItem.owner.mid!,
-                                  act: 5,
-                                  reSrc: 11,
-                                );
-                                if (res.isSuccess) {
-                                  onRemove?.call();
-                                } else {
-                                  res.toast();
-                                }
-                              },
-                              child: const Text('确认'),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                    () => _confirmBlock(videoItem, onRemove),
                   ),
                 ],
                 _VideoCustomAction(
-                  "${MineController.anonymity.value ? '退出' : '进入'}无痕模式",
-                  MineController.anonymity.value
+                  "${AccountPrivacy.enabled ? '退出' : '进入'}无痕模式",
+                  AccountPrivacy.enabled
                       ? const Icon(MdiIcons.incognitoOff, size: 16)
                       : const Icon(MdiIcons.incognito, size: 16),
-                  MineController.onChangeAnonymity,
+                  toggleIncognito,
                 ),
               ]
               .map(

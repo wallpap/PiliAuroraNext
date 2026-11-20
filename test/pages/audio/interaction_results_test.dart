@@ -1,24 +1,27 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:media_kit/media_kit.dart' hide AudioTrack;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/features/account/application/coin_balance.dart';
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
 import '../../support/controlled_http_adapter.dart';
@@ -140,6 +143,13 @@ void main() {
     'fixture-$id',
     null,
   );
+  AudioTrack track(int id, {int type = 1, int coins = 0}) => AudioTrack(
+    AudioTrackInfo(target: (oid: Int64(id), type: type, parts: const [])),
+    stats: AudioTrackStats(viewerCoins: coins),
+  );
+  PlaylistResp initialResponse() => PlaylistResp(
+    list: [DetailItem(item: PlayItem(oid: Int64.ONE, itemType: 1))],
+  );
   setUpAll(() {
     GStorage.setting = MemoryBox<dynamic>({
       SettingBoxKey.enableSponsorBlock: false,
@@ -152,32 +162,35 @@ void main() {
   setUp(() {
     previousAccount = Accounts.main;
     Accounts.accountMode[AccountType.main.index] = account(1);
-    GlobalData().coins = 10;
+    CoinBalance.instance.confirm(Accounts.main, 10);
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
-    controller = AudioController()
-      ..oid = Int64.ONE
-      ..subId = [Int64.ONE]
-      ..itemType = 1;
-    final item = DetailItem(item: PlayItem(oid: Int64.ONE, itemType: 1))
-      ..ensureStat();
-    controller.audioItem.value = item;
-    controller.animController = AnimationController(
-      vsync: controller,
-      duration: const Duration(milliseconds: 200),
-    );
+    controller =
+        AudioController(
+            initialPlaylist: [
+              track(2, type: 2),
+            ],
+          )
+          ..oid = Int64.ONE
+          ..subId = [Int64.ONE]
+          ..itemType = 1
+          ..id = Int64.ONE
+          ..from = AudioPlaylistSource.fallback;
+    controller.audioItem.value = track(1);
   });
   tearDown(() {
-    controller.onClose();
+    controller.dispose();
     adapter.close();
     Accounts.accountMode[AccountType.main.index] = previousAccount;
-    GlobalData().coins = null;
+    CoinBalance.instance.confirm(Accounts.main, null);
   });
   tearDownAll(() => Request.dio.close(force: true));
   Future<void> host(WidgetTester tester) => tester.pumpWidget(
-    MaterialApp(
-      builder: FlutterSmartDialog.init(),
-      home: const Scaffold(body: SizedBox(key: ValueKey('body'))),
+    ProviderScope(
+      child: MaterialApp(
+        builder: FlutterSmartDialog.init(),
+        home: const Scaffold(body: SizedBox(key: ValueKey('body'))),
+      ),
     ),
   );
 
@@ -194,18 +207,18 @@ void main() {
     expect(adapter.requests.single.extra['noRetry'], isTrue);
     adapter.reply(0, ThumbUpResp(message: '已点赞'));
     await _complete(tester, operation);
-    expect(controller.hasLike.value, isTrue);
+    expect(controller.audioItem.value!.stats.liked, isTrue);
   });
   _check('late like cannot update a replacement item', (tester) async {
     await host(tester);
     final operation = controller.actionLikeVideo();
     await _until(tester, () => adapter.requests.isNotEmpty);
     controller
-      ..audioItem.value = DetailItem()
+      ..audioItem.value = track(2)
       ..oid = Int64(2);
     adapter.reply(0, ThumbUpResp(message: '已点赞'));
     await _complete(tester, operation);
-    expect(controller.hasLike.value, isFalse);
+    expect(controller.audioItem.value!.stats.liked, isFalse);
   });
   _check('late coin cannot update replacement account or its balance', (
     tester,
@@ -216,9 +229,9 @@ void main() {
     Accounts.accountMode[AccountType.main.index] = account(1);
     adapter.reply(0, CoinAddResp());
     await _complete(tester, operation);
-    expect(controller.coinNum.value, 0);
-    expect(controller.hasLike.value, isFalse);
-    expect(GlobalData().coins, 10);
+    expect(controller.audioItem.value!.stats.viewerCoins, 0);
+    expect(controller.audioItem.value!.stats.liked, isFalse);
+    expect(CoinBalance.instance.amount, isNull);
   });
   _check(
     'triple honors individual acknowledgements without guessing extra coins',
@@ -226,7 +239,7 @@ void main() {
       tester,
     ) async {
       await host(tester);
-      controller.coinNum.value = 1;
+      controller.audioItem.value = track(1, coins: 1);
       final operation = controller.actionTriple();
       await _until(tester, () => adapter.requests.isNotEmpty);
       adapter.reply(
@@ -234,11 +247,11 @@ void main() {
         TripleLikeResp(thumbOk: false, coinOk: true, favOk: true),
       );
       await _complete(tester, operation);
-      expect(controller.hasLike.value, isFalse);
-      expect(controller.hasFav.value, isTrue);
-      expect(controller.coinNum.value, 1);
-      expect(GlobalData().coins, 10);
-      expect(controller.audioItem.value!.stat.favourite, 1);
+      expect(controller.audioItem.value!.stats.liked, isFalse);
+      expect(controller.audioItem.value!.stats.favored, isTrue);
+      expect(controller.audioItem.value!.stats.viewerCoins, 1);
+      expect(CoinBalance.instance.amount, 10);
+      expect(controller.audioItem.value!.stats.favorites, 1);
     },
   );
   _check('coin confirmation stays bound to the item that opened the panel', (
@@ -264,13 +277,13 @@ void main() {
         ),
       );
       await _complete(tester, first);
-      expect(controller.hasLike.value, isFalse);
+      expect(controller.audioItem.value!.stats.liked, isFalse);
       expect(adapter.requests, hasLength(1));
       final second = controller.actionLikeVideo();
       await _until(tester, () => adapter.requests.length == 2);
       adapter.reply(1, ThumbUpResp(message: '已点赞'));
       await _complete(tester, second);
-      expect(controller.hasLike.value, isTrue);
+      expect(controller.audioItem.value!.stats.liked, isTrue);
     },
   );
   _check('loading a new target blocks writes using the earlier item state', (
@@ -298,10 +311,11 @@ void main() {
     await tester.pump();
     controller
       ..oid = Int64(2)
-      ..audioItem.value = DetailItem(
-        item: PlayItem(oid: Int64(2), itemType: 1),
-      );
-    await controller.actionFavVideo();
+      ..audioItem.value = track(2);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+    expect(find.text('视频或账号已更新，请重新打开'), findsOneWidget);
     expect(adapter.requests, hasLength(1));
   });
   _check(
@@ -325,9 +339,7 @@ void main() {
         await tester.pumpAndSettle();
         controller
           ..oid = Int64(2)
-          ..audioItem.value = DetailItem(
-            item: PlayItem(oid: Int64(2), itemType: 2),
-          );
+          ..audioItem.value = track(2, type: 2);
         await tester.tap(find.text('复制链接'));
         await tester.pump();
         expect(copied, contains(IdUtils.av2bv(1)));
@@ -343,12 +355,9 @@ void main() {
     tester,
   ) async {
     await host(tester);
-    controller
-      ..id = Int64.ONE
-      ..from = PlaylistSource.DEFAULT;
     final loading = controller.reloadPlaylist();
     await _until(tester, () => adapter.requests.isNotEmpty);
-    adapter.reply(0, PlaylistResp(list: [controller.audioItem.value!]));
+    adapter.reply(0, initialResponse());
     var done = false;
     loading.then((_) => done = true);
     await _until(tester, () => done);
@@ -357,11 +366,29 @@ void main() {
     await controller.actionLikeVideo();
     expect(adapter.requests, hasLength(1));
   });
+  _check('a late playlist refresh cannot undo a confirmed like', (
+    tester,
+  ) async {
+    await host(tester);
+    final initial = controller.reloadPlaylist();
+    await _until(tester, () => adapter.requests.isNotEmpty);
+    adapter.reply(0, initialResponse());
+    await _complete(tester, initial);
+    final reload = controller.reloadPlaylist();
+    await _until(tester, () => adapter.requests.length == 2);
+    final like = controller.actionLikeVideo();
+    await _until(tester, () => adapter.requests.length == 3);
+    adapter.reply(2, ThumbUpResp(message: '已点赞'));
+    await _complete(tester, like);
+    adapter.reply(1, initialResponse());
+    await _complete(tester, reload);
+    expect(controller.audioItem.value!.stats.liked, isTrue);
+    expect(controller.audioItem.value!.stats.likes, 1);
+  });
   _check('empty subparts preserve the protocol empty target', (tester) async {
     await host(tester);
     final player = _Player();
     controller
-      ..playlist = [DetailItem(item: PlayItem(oid: Int64(2), itemType: 2))]
       ..player = player
       ..cacheAudioQa = 30280;
     final operation = controller.playIndex(0);
@@ -369,6 +396,6 @@ void main() {
     expect(controller.subId, isEmpty);
     adapter.reply(0, _source());
     await _complete(tester, operation);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
 }

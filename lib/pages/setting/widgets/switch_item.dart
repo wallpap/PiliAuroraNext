@@ -4,8 +4,8 @@ import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
@@ -14,6 +14,8 @@ class SetSwitchItem extends StatefulWidget {
   final String? subtitle;
   final String setKey;
   final bool defaultVal;
+  final bool Function()? read;
+  final Future<void> Function(bool)? write;
   final FutureOr<void> Function(bool)? onChanged;
   final bool needReboot;
   final Widget? leading;
@@ -29,6 +31,8 @@ class SetSwitchItem extends StatefulWidget {
     this.subtitle,
     required this.setKey,
     this.defaultVal = false,
+    this.read,
+    this.write,
     this.onChanged,
     this.needReboot = false,
     this.leading,
@@ -49,7 +53,9 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
   int _generation = 0;
 
   void _setVal() {
-    val = GStorage.setting.get(widget.setKey, defaultValue: widget.defaultVal);
+    val =
+        widget.read?.call() ??
+        SettingsValues.general.readOr(widget.setKey, widget.defaultVal);
   }
 
   @override
@@ -94,7 +100,12 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
         if (!confirmed || !canPresent()) return;
       }
       try {
-        await GStorage.setting.put(source.setKey, next);
+        final write = source.write;
+        if (write == null) {
+          await SettingsValues.general.save(source.setKey, next);
+        } else {
+          await write(next);
+        }
       } catch (error, stackTrace) {
         logger.w('保存设置开关失败', error: error.runtimeType, stackTrace: stackTrace);
         if (canPresent()) SmartDialog.showToast('设置保存失败，请重试');

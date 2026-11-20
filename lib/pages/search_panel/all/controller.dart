@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/search/result.dart';
-import 'package:pili_aurora_next/models/search/search_esports.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
+import 'package:pili_aurora_next/features/search/domain/search_esports.dart';
 import 'package:pili_aurora_next/pages/search_panel/video/controller.dart';
 
 class SearchAllController extends SearchVideoController with SearchVideoMixin {

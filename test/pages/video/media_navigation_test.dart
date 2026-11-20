@@ -1,13 +1,13 @@
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart'
     as pgc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/section.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/ugc_season.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/section.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/ugc_season.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
@@ -18,9 +18,9 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/audio_handler.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 
@@ -33,15 +33,20 @@ class _Owner extends Fake implements PlaybackOwner {
 class _Player extends Fake implements PlPlayerController {
   @override
   PlayRepeat playRepeat = PlayRepeat.listOrder;
+  bool repeated = false;
+
+  @override
+  Future<void> play({bool repeat = false, bool hideControls = true}) async =>
+      repeated = repeat;
 }
 
 class _Video extends Fake implements VideoDetailController {
   @override
   final _Owner playbackOwner = _Owner();
   @override
-  final plPlayerController = _Player();
+  final _Player plPlayerController = _Player();
   @override
-  final cid = 1.obs;
+  final cid = ValueNotifier(1);
   @override
   bool get isPlayAll => false;
 }
@@ -95,20 +100,56 @@ void main() {
     GStorage.localCache = MemoryBox();
   });
 
+  test('合集缺少分区或分集时安全处理首尾与列表循环', () {
+    final video = _Video();
+    final ugc = _Ugc(video)..cid.value = 1;
+    final season = UgcSeason();
+    ugc.videoDetail.value.ugcSeason = season;
+    expect(ugc.nextPlay(), isFalse);
+    video.plPlayerController.playRepeat = PlayRepeat.listCycle;
+    expect(ugc.prevPlay(), isFalse);
+    expect(ugc.nextPlay(), isTrue);
+    expect(video.plPlayerController.repeated, isTrue);
+
+    season.sections = [
+      SectionItem(),
+      SectionItem(episodes: [EpisodeItem(), EpisodeItem(cid: 2)]),
+    ];
+    expect(ugc.nextPlay(), isTrue);
+    expect(ugc.cid.value, 2);
+    expect(ugc.nextPlay(), isFalse);
+  });
+
+  test('倒序分 P 到末尾后按合集锚点继续播放', () {
+    final ugc = _Ugc(_Video())..cid.value = 12;
+    ugc.videoDetail.value
+      ..pages = [Part(cid: 12), Part(cid: 11)]
+      ..isPageReversed = true
+      ..ugcSeason = UgcSeason(
+        sections: [
+          SectionItem(episodes: [EpisodeItem(cid: 11), EpisodeItem(cid: 21)]),
+        ],
+      );
+    expect(ugc.nextPlay(), isTrue);
+    expect(ugc.cid.value, 11);
+    expect(ugc.nextPlay(), isTrue);
+    expect(ugc.cid.value, 21);
+  });
+
   for (final mode in ['UGC 分P', 'UGC 合集', 'PGC', '本地列表']) {
     test('系统媒体上下曲复用 $mode 顺序，失活与切号后停止调度', () async {
       final video = _Video();
       final CommonIntroController controller;
       if (mode == '本地列表') {
         controller = _Local(video)..index.value = 0;
-        (controller as _Local).list.addAll([_Entry(), _Entry(), _Entry()]);
+        (controller as _Local).list.value = [_Entry(), _Entry(), _Entry()];
       } else if (mode == 'PGC') {
         controller = _Pgc(video)
           ..setPlaybackEpisodes([
             for (var id = 1; id <= 3; id++) pgc.EpisodeItem(cid: id),
           ]);
       } else {
-        final ugc = _Ugc(video)..cid = 1.obs;
+        final ugc = _Ugc(video)..cid.value = 1;
         if (mode == 'UGC 分P') {
           ugc.videoDetail.value.pages = [
             for (var id = 1; id <= 3; id++) Part(cid: id),
@@ -135,7 +176,7 @@ void main() {
         Accounts.accountMode[AccountType.main.index] = account;
         handler.clear();
         videoPlayerServiceHandler = null;
-        controller.onDelete();
+        controller.close();
       });
       handler.onVideoDetailChange(
         Part(part: mode),

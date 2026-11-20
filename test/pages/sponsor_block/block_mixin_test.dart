@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/segment_model.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 
@@ -23,7 +23,7 @@ void main() {
     controller = _BlockController();
   });
   tearDown(() async {
-    controller.onClose();
+    controller.disposeBlock();
     await controller.player.positions.close();
     await controller.player.playing.close();
   });
@@ -34,6 +34,21 @@ void main() {
     uuid: 'fixture',
     videoDuration: 600000,
   );
+
+  test('追加片段时进度条保留每个片段且不重复旧标记', () async {
+    await controller.handleSBData([intro]);
+    await controller.handleSBData([
+      SegmentItemModel(
+        category: 'outro',
+        segment: [540000, 600000],
+        uuid: 'end',
+      ),
+    ]);
+    expect(
+      controller.segmentProgressList.map((segment) => segment.start),
+      [0.0, 0.9],
+    );
+  });
 
   test('片段响应早于原生媒体就绪时等待真实进度，保留 109 秒续播位置', () async {
     controller.player.state.playing = true;
@@ -227,7 +242,7 @@ void main() {
   });
 }
 
-class _BlockController extends GetxController with BlockMixin {
+class _BlockController with BlockMixin {
   @override
   final blockConfig = _BlockConfig();
   @override

@@ -12,6 +12,7 @@
 | `run-native-probes.ps1` | 使用项目固定 Flutter 源码执行 Android 主机 Java 探针。 |
 | `check-tooling.ps1` | Python 语法与 Ruff、PowerShell 语法与 PSScriptAnalyzer 扫描。 |
 | `check_dependencies.dart` | 依赖版本、来源和许可证验收。 |
+| `analyze-protocol.ps1` | 单独分析 Bilibili 生成协议快照。 |
 | `export_shortcut_icons.py` | 从 Android mdpi 源图生成快捷方式图标的其他密度，保留日夜配置。 |
 | `verify_libmpv.py` | 校验 Windows libmpv 下载归档、合并通知及原文哈希。 |
 | [`packaging/`](packaging/README.md) | Windows 打包前置、程序文件清单及覆盖安装回归。 |
@@ -34,7 +35,9 @@
 pwsh -NoProfile -File tool/run-ci-tests.ps1
 ```
 
-`run-ci-tests.ps1` 默认使用 FVM，通过 `flutter test --no-pub` 执行共享回归与当前平台回归，覆盖依赖政策、诊断、消息、设置、弹幕及播放恢复等模块；清单以脚本为准。`-PlatformOnly` 只运行当前主机的平台回归，供 PR 的 Windows 任务补充 Linux 已执行的共享回归；独立构建和本地默认仍包含共享回归。扩大帧率矩阵、实验对照和其余模块测试通过 `fvm flutter test` 按需运行。依赖需预先准备；脚本不解析或安装依赖、不修改 Flutter SDK、不应用补丁，也不构建应用。GitHub Actions 由补丁步骤统一解析一次依赖，随后运行依赖验收工具并调用同一测试脚本；测试和构建阶段均使用 `--no-pub`。
+`run-ci-tests.ps1` 自动发现 `test/` 下的共享测试。[`test-platforms.json`](test-platforms.json) 记录有平台要求的套件。`bothHosts` 只登记需要在 Linux 和 Windows 上分别验证实际宿主行为的套件。
+
+Windows PR 任务用 `-PlatformOnly` 补跑宿主测试。原生图片用 `-NativeImages` 单独运行，缺少区域解码夹具会失败。用 `-List` 查看本次选中的文件。脚本用 `--no-pub` 运行应用测试，须先准备依赖并应用对应的 Flutter 补丁。设备探针和实验各有自己的入口。
 
 独立测试文件由 Flutter 并行执行，默认采用其并发配置；传入 `-Concurrency 4` 可指定同时运行的文件数。共用构建输出的 Flutter 命令仍使用同一入口执行。
 

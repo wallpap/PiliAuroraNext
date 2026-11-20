@@ -3,11 +3,10 @@ import 'dart:math' as math;
 
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_segment.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
 
 /// 按 100 毫秒分桶保存弹幕，按分段淘汰以避免只留下不完整分段。
 class DanmakuCache {
@@ -30,7 +29,7 @@ class DanmakuCache {
   final int maxElementsPerBucket;
   final int maxSegments;
 
-  final _buckets = SplayTreeMap<int, List<DanmakuElem>>();
+  final _buckets = SplayTreeMap<int, List<DanmakuElement>>();
   final _segmentBuckets = <int, Set<int>>{};
   final _segmentOrder = Queue<int>();
   final _loadedSegments = <int>{};
@@ -89,7 +88,25 @@ class DanmakuCache {
         maxEntriesPerBucket ?? upper - lower,
         compareDanmakuPriority,
       );
-      entries.addAll(selected.map(DanmakuTimelineEntry.new));
+      for (final element in selected) {
+        entries.add(
+          DanmakuTimelineEntry(
+            positionUs: element.progress * Duration.microsecondsPerMillisecond,
+            content: element.content,
+            id: element.id,
+            idStr: element.idStr,
+            mode: element.mode,
+            fontSize: element.fontSize,
+            color: element.color,
+            midHash: element.midHash,
+            weight: element.weight,
+            likeCount: element.likeCount,
+            count: element.count,
+            isSelf: element.isSelf,
+            vipGradient: element.vipGradient,
+          ),
+        );
+      }
       bucket = _buckets.firstKeyAfter(bucket);
     }
     return DanmakuTimelineRange(
@@ -102,7 +119,7 @@ class DanmakuCache {
     );
   }
 
-  static List<DanmakuElem> _ordered(List<DanmakuElem> items) {
+  static List<DanmakuElement> _ordered(List<DanmakuElement> items) {
     // 在写入边界固定同时间戳来源次序，热帧读取不再复制并排序整个桶。
     final indexed = items.indexed.toList()
       ..sort((a, b) {
@@ -116,7 +133,11 @@ class DanmakuCache {
   int get elementCount => _elementCount;
   bool containsSegment(int segment) => _loadedSegments.contains(segment);
 
-  Iterable<DanmakuElem> peekRange(int start, int end, {int limit = 64}) sync* {
+  Iterable<DanmakuElement> peekRange(
+    int start,
+    int end, {
+    int limit = 64,
+  }) sync* {
     var remaining = limit;
     for (var bucket = start ~/ 100; bucket * 100 < end; bucket++) {
       final elements = _buckets[bucket];
@@ -142,8 +163,8 @@ class DanmakuCache {
     _segmentBytes.clear();
   }
 
-  List<DanmakuElem>? getAt(int progress) {
-    final segment = DmUtils.calcSegment(progress);
+  List<DanmakuElement>? getAt(int progress) {
+    final segment = DanmakuSegment.indexAtMillis(progress);
     if (_loadedSegments.contains(segment) && _segmentOrder.last != segment) {
       // 实际播放中的分段优先保留，旧分段先淘汰。
       _segmentOrder
@@ -153,7 +174,7 @@ class DanmakuCache {
     return _buckets[progress ~/ 100];
   }
 
-  void addSegmentBuckets(int segment, Map<int, List<DanmakuElem>> buckets) {
+  void addSegmentBuckets(int segment, Map<int, List<DanmakuElement>> buckets) {
     if (_loadedSegments.contains(segment)) return;
     final retained = DanmakuPriorityRetention(
       maxElements: maxElements,
@@ -163,7 +184,7 @@ class DanmakuCache {
     );
     var index = 0;
     for (final entry in buckets.entries) {
-      if (DmUtils.calcSegment(entry.key * 100) != segment) continue;
+      if (DanmakuSegment.indexAtMillis(entry.key * 100) != segment) continue;
       for (final item in entry.value) {
         retained.add(index++, item);
       }
@@ -191,12 +212,12 @@ class DanmakuCache {
     _trim(protectedSegment: segment);
   }
 
-  void addFileElements(Iterable<DanmakuElem> elements) {
+  void addFileElements(Iterable<DanmakuElement> elements) {
     _revision++;
     _fileComplete = true;
     final changed = <int>{};
     for (final element in elements) {
-      final segment = DmUtils.calcSegment(element.progress);
+      final segment = DanmakuSegment.indexAtMillis(element.progress);
       if (_loadedSegments.add(segment)) {
         _segmentOrder.addLast(segment);
         _segmentBytes[segment] = segmentIndexBytes;
@@ -204,7 +225,7 @@ class DanmakuCache {
       }
       final bucket = element.progress ~/ 100;
       final bytes =
-          estimateDanmakuElementBytes(element) +
+          element.storageBytes +
           elementSlotBytes +
           (_buckets.containsKey(bucket) ? 0 : bucketIndexBytes);
       if (_estimatedBytes + bytes > maxBytes) {
@@ -214,7 +235,7 @@ class DanmakuCache {
       _estimatedBytes += bytes;
       _segmentBytes[segment] = _segmentBytes[segment]! + bytes;
       changed.add(bucket);
-      (_buckets[bucket] ??= <DanmakuElem>[]).add(element);
+      (_buckets[bucket] ??= <DanmakuElement>[]).add(element);
       (_segmentBuckets[segment] ??= <int>{}).add(bucket);
       _elementCount++;
     }
@@ -227,7 +248,7 @@ class DanmakuCache {
   void replaceFileRange(
     int first,
     int last,
-    Map<int, List<DanmakuElem>> buckets,
+    Map<int, List<DanmakuElement>> buckets,
   ) {
     clear();
     final segmentBytes = <int, int>{
@@ -235,15 +256,14 @@ class DanmakuCache {
         segment: segmentIndexBytes,
     };
     for (final entry in buckets.entries) {
-      final segment = DmUtils.calcSegment(entry.key * 100);
+      final segment = DanmakuSegment.indexAtMillis(entry.key * 100);
       if (segment < first || segment > last) continue;
       segmentBytes[segment] =
           segmentBytes[segment]! +
           bucketIndexBytes +
           entry.value.fold<int>(
             0,
-            (sum, item) =>
-                sum + estimateDanmakuElementBytes(item) + elementSlotBytes,
+            (sum, item) => sum + item.storageBytes + elementSlotBytes,
           );
     }
     final bytes = segmentBytes.values.fold<int>(0, (a, b) => a + b);
@@ -256,7 +276,7 @@ class DanmakuCache {
       _segmentBuckets[segment] = {};
     }
     for (final entry in buckets.entries) {
-      final segment = DmUtils.calcSegment(entry.key * 100);
+      final segment = DanmakuSegment.indexAtMillis(entry.key * 100);
       if (segment < first || segment > last) continue;
       _buckets[entry.key] = _ordered(entry.value);
       _segmentBuckets[segment]!.add(entry.key);

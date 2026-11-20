@@ -1,19 +1,20 @@
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/dynamic/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/dynamic/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:pili_aurora_next/features/app_shell/application/shell_badges.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_http_adapter.dart';
 
@@ -37,7 +38,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Adapter adapter;
   late List<Account> originals;
-  late AccountService service;
   setUpAll(() async {
     GStorage.setting = await Hive.openBox(
       'final-audit-settings',
@@ -58,17 +58,19 @@ void main() {
     originals = List.of(Accounts.accountMode);
     Request();
     Request.dio.interceptors.clear();
-    Get.testMode = true;
   });
   setUp(() {
     adapter = _Adapter();
     Request.dio.httpClientAdapter = adapter;
-    service = Get.put(AccountService())..isLogin.value = true;
+    Accounts.accountMode[AccountType.main.index] = LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'fixture'}),
+      null,
+      null,
+    );
   });
   tearDown(() {
     adapter.close();
     Accounts.accountMode.setAll(0, originals);
-    Get.reset();
   });
   tearDownAll(() async {
     Request.dio.close(force: true);
@@ -80,35 +82,53 @@ void main() {
     }
   }
 
-  test(
-    'logout invalidates an outstanding dynamic badge query',
-    () async {
-      final controller = MainController()
-        ..hasDyn = true
-        ..getUnreadDynamic();
-      await flush();
-      expect(adapter.pending, hasLength(1));
-      service.isLogin.value = false;
-      controller.onChangeAccount(false);
-      expect(controller.dynCount.value, 0);
-      adapter.red(0, 7);
-      await flush();
-      expect(controller.dynCount.value, 0);
-    },
-  );
-  test('主动清除角标使在途查询失效', () async {
-    final controller = MainController()
-      ..hasDyn = true
-      ..getUnreadDynamic();
+  ShellBadges startBadges() {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final subscription = container.listen(shellBadgesProvider, (_, _) {});
+    return subscription.read()
+      ..attach(hasHome: false, hasDynamics: true)
+      ..start(onDynamics: false);
+  }
+
+  test('同 UID 换凭据清空角标并拒绝旧响应', () async {
+    final badges = startBadges();
     await flush();
-    controller.setDynCount();
+    adapter.red(0, 8);
+    await flush();
+    expect(badges.dynamicCount.value, 8);
+    Accounts.replaceCredentials(
+      LoginAccount(
+        BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'rotated'}),
+        null,
+        null,
+      ),
+    );
+    expect(badges.dynamicCount.value, 0);
+    await flush();
+    Accounts.replaceCredentials(
+      LoginAccount(
+        BiliCookieJar.fromJson({'DedeUserID': '123', 'bili_jct': 'new'}),
+        null,
+        null,
+      ),
+    );
+    await flush();
+    expect(adapter.pending, hasLength(3));
+    adapter
+      ..red(2, 3)
+      ..red(1, 7);
+    await flush();
+    expect(badges.dynamicCount.value, 3);
+  });
+
+  test('进入动态后清除的角标不会被在途查询恢复', () async {
+    final badges = startBadges();
+    await flush();
+    expect(adapter.pending, hasLength(1));
+    badges.clearDynamics();
     adapter.red(0, 7);
     await flush();
-    expect(controller.dynCount.value, 0);
-    controller.getUnreadDynamic();
-    await flush();
-    adapter.red(1, 3);
-    await flush();
-    expect(controller.dynCount.value, 3);
+    expect(badges.dynamicCount.value, 0);
   });
 }

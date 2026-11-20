@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:pili_aurora_next/services/danmaku/work_quota.dart';
+import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/painting.dart';
@@ -10,10 +10,11 @@ import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/generated/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/pages/danmaku/controller.dart';
 import 'package:pili_aurora_next/pages/danmaku/raw_cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
@@ -21,9 +22,9 @@ import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 class _Player implements PlPlayerController {
   _Player({this.mergeDanmaku = true});
@@ -34,10 +35,16 @@ class _Player implements PlPlayerController {
   RuleFilter filters = RuleFilter(['屏蔽'], [], {});
 
   @override
+  Set<int> dmState = {};
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-DanmakuElem _dm(String text, int time) =>
+DanmakuElement _dm(String text, int time, {int pool = 0}) =>
+    DanmakuElement(content: text, progress: time, mode: 1, pool: pool);
+
+DanmakuElem _wireDm(String text, int time) =>
     DanmakuElem(content: text, progress: time, mode: 1);
 
 void main() {
@@ -67,7 +74,7 @@ void main() {
       ], segmentIndex: 0);
       final range = source.readRange(0, 100000);
       expect(range.entries.length, 12);
-      expect(range.entries.last.element.content, '高权重');
+      expect(range.entries.last.content, '高权重');
       expect(
         range.entries.map((e) => e.positionUs),
         orderedEquals([
@@ -86,10 +93,10 @@ void main() {
     await file.writeAsBytes(
       DmSegMobileReply(
         elems: [
-          _dm('等待提升', 0)..weight = 1,
-          for (var i = 0; i < 120; i++) _dm('独立内容$i', i % 90)..weight = 9,
-          for (var i = 0; i < 300; i++) _dm('其他时间$i', 1000 + i * 100),
-          _dm('等待提升', 10000)..weight = 11,
+          _wireDm('等待提升', 0)..weight = 1,
+          for (var i = 0; i < 120; i++) _wireDm('独立内容$i', i % 90)..weight = 9,
+          for (var i = 0; i < 300; i++) _wireDm('其他时间$i', 1000 + i * 100),
+          _wireDm('等待提升', 10000)..weight = 11,
         ],
       ).writeToBuffer(),
     );
@@ -102,18 +109,19 @@ void main() {
     await source.ensureRange(0, 360000000);
     final range = source.readRange(0, 100000);
     expect(range.entries.length, 120);
-    final restored = range.entries
-        .singleWhere((e) => e.element.content == '等待提升')
-        .element;
+    final restored = range.entries.singleWhere(
+      (entry) => entry.content == '等待提升',
+    );
     expect(restored.weight, 11);
     expect(restored.count, 2);
-    expect(restored.progress, 0);
+    expect(restored.positionUs, 0);
   });
 
   test(
     'dense valid gRPC segment remains available after decode and processing',
     () async {
       final reply = DmSegMobileReply(
+        state: 1,
         elems: [
           for (var i = 0; i < 17502; i++)
             DanmakuElem(
@@ -134,15 +142,23 @@ void main() {
             ),
         ],
       );
-      Request.dio.httpClientAdapter = _DmAdapter()..reply = reply;
-      final source = PlDanmakuController(1, _Player(), false);
+      final adapter = _DmAdapter()..reply = reply;
+      Request.dio.httpClientAdapter = adapter;
+      final player = _Player();
+      final source = PlDanmakuController(1, player, false);
       addTearDown(source.dispose);
       await source.ensureRange(0, 360000000);
       final range = source.readRange(0, 360000000);
       expect(range.isLoaded, isTrue);
       expect(range.entries, hasLength(reply.elems.length));
-      expect(range.entries.first.element.content, '正常弹幕0');
-      expect(range.entries.last.element.content, '正常弹幕17501');
+      expect(range.entries.first.content, '正常弹幕0');
+      expect(range.entries.last.content, '正常弹幕17501');
+      expect(player.dmState, {1});
+      final request = adapter.requests.single;
+      expect(
+        (request.oid.toInt(), request.segmentIndex.toInt(), request.type),
+        (1, 1, 1),
+      );
     },
   );
 
@@ -228,10 +244,10 @@ void main() {
     await file.writeAsBytes(
       DmSegMobileReply(
         elems: [
-          _dm('跨段重复', 360100),
-          _dm('屏蔽内容', 360200),
-          for (var i = 0; i < 600; i++) _dm('条目$i', 1000 + i * 100),
-          _dm('跨段重复', 359900),
+          _wireDm('跨段重复', 360100),
+          _wireDm('屏蔽内容', 360200),
+          for (var i = 0; i < 600; i++) _wireDm('条目$i', 1000 + i * 100),
+          _wireDm('跨段重复', 359900),
         ],
       ).writeToBuffer(),
     );
@@ -246,20 +262,20 @@ void main() {
     final before = source.readRange(359000000, 361000000);
     expect(before.isLoaded, isTrue);
     expect(before.entries, hasLength(1));
-    expect(before.entries.single.element.count, 2);
+    expect(before.entries.single.count, 2);
     player.filters = RuleFilter([], [], {});
     await source.refreshRules();
     final after = source.readRange(359000000, 361000000);
-    expect(after.entries.map((e) => e.element.content), ['跨段重复', '屏蔽内容']);
-    expect(after.entries.first.element.count, 2);
+    expect(after.entries.map((entry) => entry.content), ['跨段重复', '屏蔽内容']);
+    expect(after.entries.first.count, 2);
     await source.ensureRange(0, 2000000);
     expect(source.readRange(0, 2000000).isLoaded, isTrue);
     await file.writeAsBytes(
-      DmSegMobileReply(elems: [_dm('文件已替换', 100)]).writeToBuffer(),
+      DmSegMobileReply(elems: [_wireDm('文件已替换', 100)]).writeToBuffer(),
     );
     await source.ensureRange(0, 2000000);
     expect(
-      source.readRange(0, 2000000).entries.single.element.content,
+      source.readRange(0, 2000000).entries.single.content,
       '文件已替换',
     );
   });
@@ -526,11 +542,11 @@ void main() {
       final controller = PlDanmakuController(1, _Player(), false);
       addTearDown(controller.dispose);
       await controller.handleDanmaku([
-        _dm('5', 26600)..pool = 3,
-        _dm('5', 27082)..pool = 3,
-        _dm('1', 42600)..pool = 3,
-        _dm('5', 42600)..pool = 3,
-        _dm('1', 42796)..pool = 3,
+        _dm('5', 26600, pool: 3),
+        _dm('5', 27082, pool: 3),
+        _dm('1', 42600, pool: 3),
+        _dm('5', 42600, pool: 3),
+        _dm('1', 42796, pool: 3),
       ], segmentIndex: 0);
       final cached = controller.peekBufferedDanmaku(26000, 43000).toList();
       expect(cached.map((e) => e.content), ['5', '1']);
@@ -608,7 +624,7 @@ class _HoldingController extends PlDanmakuController {
 
   @override
   Future<void> handleDanmaku(
-    List<DanmakuElem> elems, {
+    List<DanmakuElement> elems, {
     int? segmentIndex,
     DanmakuWorkLease? lease,
   }) async {
@@ -623,6 +639,7 @@ class _DmAdapter implements HttpClientAdapter {
   bool fail = false;
   int progress = 100;
   DmSegMobileReply? reply;
+  final requests = <DmSegMobileReq>[];
 
   @override
   Future<ResponseBody> fetch(
@@ -631,6 +648,11 @@ class _DmAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     calls++;
+    requests.add(
+      DmSegMobileReq.fromBuffer(
+        GrpcReq.decompressProtobuf(options.data as Uint8List),
+      ),
+    );
     if (fail) {
       return ResponseBody.fromBytes(
         [],
@@ -643,7 +665,7 @@ class _DmAdapter implements HttpClientAdapter {
     final reply =
         this.reply ??
         DmSegMobileReply(
-          elems: [_dm('重复', progress), _dm('重复', progress + 1)],
+          elems: [_wireDm('重复', progress), _wireDm('重复', progress + 1)],
         );
     return ResponseBody.fromBytes(
       GrpcReq.compressProtobuf(reply.writeToBuffer()),

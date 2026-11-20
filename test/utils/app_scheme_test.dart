@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
 
 void main() {
   tearDown(Get.reset);

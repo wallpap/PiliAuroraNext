@@ -4,14 +4,13 @@ import 'package:pili_aurora_next/common/widgets/flutter/list_tile.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/switch_item.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/filtering_text.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/common/input/filtering_text.dart';
+import 'package:pili_aurora_next/services/settings/settings_values.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class PlaySpeedPage extends StatefulWidget {
@@ -52,8 +51,6 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
       ),
     ),
   ];
-
-  Box video = GStorage.video;
 
   // 添加自定义倍速
   void onAddSpeed() {
@@ -98,7 +95,10 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                   speedList
                     ..add(val)
                     ..sort();
-                  video.put(VideoBoxKey.speedsList, speedList);
+                  SettingsValues.video.save(
+                    VideoBoxKey.speedsList,
+                    List.of(speedList),
+                  );
                   setState(() {});
                 }
               } catch (e) {
@@ -159,11 +159,14 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
     if (id == 1) {
       // 设置默认倍速
       playSpeedDefault = speed;
-      video.put(VideoBoxKey.playSpeedDefault, playSpeedDefault);
+      SettingsValues.video.save(VideoBoxKey.playSpeedDefault, playSpeedDefault);
     } else if (id == 2) {
       // 设置默认长按倍速
       longPressSpeedDefault = speed;
-      video.put(VideoBoxKey.longPressSpeedDefault, longPressSpeedDefault);
+      SettingsValues.video.save(
+        VideoBoxKey.longPressSpeedDefault,
+        longPressSpeedDefault,
+      );
     } else if (id == -1) {
       if ([
         1.0,
@@ -174,7 +177,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
         return;
       }
       speedList.removeAt(index);
-      video.put(VideoBoxKey.speedsList, speedList);
+      SettingsValues.video.save(VideoBoxKey.speedsList, List.of(speedList));
     }
     setState(() {});
   }
@@ -188,7 +191,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
         actions: [
           TextButton(
             onPressed: () async {
-              await video.delete(VideoBoxKey.speedsList);
+              await SettingsValues.video.reset(VideoBoxKey.speedsList);
               speedList = Pref.speedList;
               setState(() {});
             },

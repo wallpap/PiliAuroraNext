@@ -1,14 +1,12 @@
-import 'package:pili_aurora_next/models/common/setting_type.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
-import 'package:pili_aurora_next/common/widgets/debounced_state.dart'
-    show DebounceStreamState;
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/waterfall.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/pages/setting/models/setting_type.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/core/async/rate_limiter.dart';
+import 'package:pili_aurora_next/common/layout/waterfall.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
@@ -20,34 +18,41 @@ class SettingsSearchPage extends StatefulWidget {
   State<SettingsSearchPage> createState() => _SettingsSearchPageState();
 }
 
-class _SettingsSearchPageState
-    extends DebounceStreamState<SettingsSearchPage, String> {
+class _SettingsSearchPageState extends State<SettingsSearchPage> {
   final _textEditingController = TextEditingController();
-  final RxList<SettingsModel> _list = <SettingsModel>[].obs;
-  late final _settings = [
-    for (final type in SettingType.values)
-      if (type != SettingType.webdavSetting)
-        for (final item in type.settings) ...item.searchableItems,
-  ];
+  final _debouncer = Debouncer(const Duration(milliseconds: 200));
+  List<SettingsModel> _results = const [];
+  late List<SettingsModel> _settings;
 
   @override
-  void onValueChanged(String value) {
-    if (value.isEmpty) {
-      _list.clear();
-    } else {
-      value = value.toLowerCase();
-      _list.value = _settings
-          .where(
-            (item) =>
-                item.effectiveTitle.toLowerCase().contains(value) ||
-                item.effectiveSubtitle?.toLowerCase().contains(value) == true,
-          )
-          .toList();
-    }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _settings = [
+      for (final type in SettingType.values)
+        if (type != SettingType.webdavSetting)
+          for (final item in type.settings(context)) ...item.searchableItems,
+    ];
+  }
+
+  void _search(String value) {
+    final query = value.toLowerCase();
+    setState(() {
+      _results = query.isEmpty
+          ? const []
+          : _settings
+                .where(
+                  (item) =>
+                      item.effectiveTitle.toLowerCase().contains(query) ||
+                      item.effectiveSubtitle?.toLowerCase().contains(query) ==
+                          true,
+                )
+                .toList();
+    });
   }
 
   @override
   void dispose() {
+    _debouncer.cancel();
     _textEditingController.dispose();
     super.dispose();
   }
@@ -60,10 +65,11 @@ class _SettingsSearchPageState
           IconButton(
             onPressed: () {
               if (_textEditingController.text.isNotEmpty) {
+                _debouncer.cancel();
                 _textEditingController.clear();
-                _list.clear();
+                _search('');
               } else {
-                Get.back();
+                Navigator.pop(context);
               }
             },
             icon: const Icon(Icons.clear),
@@ -74,7 +80,7 @@ class _SettingsSearchPageState
           autofocus: true,
           controller: _textEditingController,
           textAlignVertical: TextAlignVertical.center,
-          onChanged: ctr!.add,
+          onChanged: (value) => _debouncer.run(() => _search(value)),
           decoration: const InputDecoration(
             isDense: true,
             hintText: '搜索',
@@ -87,20 +93,18 @@ class _SettingsSearchPageState
         child: CustomScrollView(
           slivers: [
             ViewSliverSafeArea(
-              sliver: Obx(
-                () => _list.isEmpty
-                    ? const HttpError()
-                    : SliverWaterfallFlow(
-                        gridDelegate:
-                            SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: Grid.smallCardWidth * 2,
-                            ),
-                        delegate: SliverChildBuilderDelegate(
-                          (_, index) => _list[index].widget,
-                          childCount: _list.length,
-                        ),
+              sliver: _results.isEmpty
+                  ? const HttpError()
+                  : SliverWaterfallFlow(
+                      gridDelegate:
+                          SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: Grid.smallCardWidth * 2,
+                          ),
+                      delegate: SliverChildBuilderDelegate(
+                        (_, index) => _results[index].widget,
+                        childCount: _results.length,
                       ),
-              ),
+                    ),
             ),
           ],
         ),

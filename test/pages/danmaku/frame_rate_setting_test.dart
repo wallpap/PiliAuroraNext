@@ -5,11 +5,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/pages/danmaku/view.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_screen.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_layer.dart';
 import 'package:pili_aurora_next/pages/danmaku/live_queue.dart';
@@ -19,8 +20,8 @@ import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart' as live;
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 void main() {
   setUpAll(() async {
@@ -35,24 +36,26 @@ void main() {
     testWidgets('保存帧率后当前${isLive ? '直播' : '视频'}弹幕立即更新且保留控制器', (tester) async {
       final player = _Player(isLive: isLive);
       await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: MediaQuery(
-            data: const MediaQueryData(),
-            child: isLive
-                ? live.LiveDanmaku(
-                    liveRoomController: _LiveRoom(),
-                    plPlayerController: player,
-                    isFullScreen: false,
-                    size: const Size(800, 600),
-                  )
-                : PlDanmaku(
-                    cid: 1,
-                    playerController: player,
-                    isFullScreen: false,
-                    isFileSource: false,
-                    size: const Size(800, 600),
-                  ),
+        ProviderScope(
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(),
+              child: isLive
+                  ? live.LiveDanmaku(
+                      liveRoomController: _LiveRoom(),
+                      plPlayerController: player,
+                      isFullScreen: false,
+                      size: const Size(800, 600),
+                    )
+                  : PlDanmaku(
+                      cid: 1,
+                      playerController: player,
+                      isFullScreen: false,
+                      isFileSource: false,
+                      size: const Size(800, 600),
+                    ),
+            ),
           ),
         ),
       );

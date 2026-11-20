@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';
@@ -34,7 +34,7 @@ class _Source implements DanmakuTimelineSource {
     requests.add((startUs, endUs));
   }
 
-  void load(List<DanmakuElem> elements) {
+  void load(List<DanmakuElement> elements) {
     cache.addFileElements(elements);
     events.add(
       DanmakuSourceChange(
@@ -74,8 +74,8 @@ class _Clock implements PlaybackMediaClock {
   Stream<PlaybackMediaAnchor?> get mediaAnchors => events.stream;
 }
 
-DanmakuElem _dm(String text, int milliseconds) =>
-    DanmakuElem(content: text, progress: milliseconds);
+DanmakuElement _dm(String text, int milliseconds, {int mode = 0}) =>
+    DanmakuElement(content: text, progress: milliseconds, mode: mode);
 DanmakuWindowRenderer<void> _renderer() => DanmakuWindowRenderer(
   option: const DanmakuOption(
     duration: 8,
@@ -85,11 +85,12 @@ DanmakuWindowRenderer<void> _renderer() => DanmakuWindowRenderer(
   ),
   size: const Size(500, 200),
 );
-DanmakuContentItem<void> _content(DanmakuElem element) => DanmakuContentItem(
-  element.content,
-  color: const Color(0xffffffff),
-  selfSend: true,
-);
+DanmakuContentItem<void> _content(DanmakuTimelineEntry element) =>
+    DanmakuContentItem(
+      element.content,
+      color: const Color(0xffffffff),
+      selfSend: true,
+    );
 
 void main() {
   test('source selection and per-frame preparation fill twelve slots by relative weight', () {
@@ -376,7 +377,7 @@ void main() {
 
   test('special candidates keep the per-bucket cap across ready replays', () {
     final source = _Source()
-      ..load([for (var i = 0; i < 6; i++) _dm('script$i', 0)..mode = 7]);
+      ..load([for (var i = 0; i < 6; i++) _dm('script$i', 0, mode: 7)]);
     final renderer = _renderer();
     var converted = 0;
     final coordinator = DanmakuWindowCoordinator(

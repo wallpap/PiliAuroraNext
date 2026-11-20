@@ -12,19 +12,21 @@ import 'package:flutter/animation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
+import 'package:pili_aurora_next/common/scroll_or_refresh.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_feed_sliver.dart';
-import 'package:pili_aurora_next/models/common/nav_bar_config.dart';
-import 'package:pili_aurora_next/pages/common/common_controller.dart';
-import 'package:pili_aurora_next/pages/dynamics/controller.dart';
-import 'package:pili_aurora_next/pages/home/controller.dart';
-import 'package:pili_aurora_next/pages/main/controller.dart';
-import 'package:pili_aurora_next/pages/mine/controller.dart';
-import 'package:pili_aurora_next/pages/rank/controller.dart';
+import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
+import 'package:pili_aurora_next/pages/home/view.dart';
+import 'package:pili_aurora_next/pages/main/view.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/account/application/account_profile.dart';
+import 'package:pili_aurora_next/features/account/presentation/account_dashboard.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
 
+import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
+import 'mounted_state.dart';
 import 'process_heap_memory.dart';
 
 const _channel = MethodChannel(
@@ -271,13 +273,10 @@ Future<void> main(List<String> arguments) async {
       final controller = find();
       if (controller == null) throw StateError('controller unavailable');
       controllerIdentities[name] = identityHashCode(controller);
-      final stateController = controller is RankController
-          ? controller.controller
-          : controller;
-      if (stateController is CommonController) {
-        final state = stateController.loadingState.value;
+      final state = feedLoading(controller);
+      if (state != null) {
         final data = state.dataOrNull;
-        final items = data is List ? data.length : null;
+        final items = data?.length;
         entry.addAll({
           'state': state.isSuccess ? 'success' : state.runtimeType.toString(),
           'items': items,
@@ -325,8 +324,8 @@ Future<void> main(List<String> arguments) async {
         )
         .timeout(const Duration(seconds: 90));
     final ready = Stopwatch()..start();
-    while (!Get.isRegistered<MainController>() ||
-        !Get.isRegistered<HomeController>() ||
+    MainAppState? shell;
+    while ((shell = findMountedState<MainAppState>()) == null ||
         SmartDialog.checkExist()) {
       if (ready.elapsed > const Duration(seconds: 45)) {
         throw TimeoutException(
@@ -335,16 +334,22 @@ Future<void> main(List<String> arguments) async {
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    final main = Get.find<MainController>();
-    final home = Get.find<HomeController>();
+    final main = shell!;
     void select(NavigationBarType tab) {
-      final index = main.navigationBars.indexOf(tab);
-      if (index < 0) throw StateError('navigation tab unavailable');
-      // 再次选择当前tab会触发刷新；探针只做页面切换。
-      if (main.selectedIndex.value != index) main.setIndex(index);
+      if (!main.showDestination(tab)) {
+        throw StateError('navigation tab unavailable');
+      }
     }
 
     select(NavigationBarType.home);
+    HomePageState? mountedHome;
+    while ((mountedHome = findMountedDescendant<HomePageState>(main)) == null) {
+      if (ready.elapsed > const Duration(seconds: 45)) {
+        throw TimeoutException('home page not ready');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    final home = mountedHome!;
     for (final tab in const [
       HomeTabType.rcmd,
       HomeTabType.hot,
@@ -353,8 +358,7 @@ Future<void> main(List<String> arguments) async {
       HomeTabType.cinema,
       HomeTabType.live,
     ]) {
-      final index = home.tabs.indexOf(tab);
-      if (index < 0) {
+      if (!home.showTab(tab)) {
         visits.add({
           'tab': tab.name,
           'loaded': false,
@@ -362,19 +366,39 @@ Future<void> main(List<String> arguments) async {
         });
         continue;
       }
-      if (home.tabController.index != index) {
-        home.tabController.animateTo(index);
-      }
-      await visit(tab.name, () => home.controller, requireItems: true);
+      await visit(tab.name, () => home.registeredPage(tab), requireItems: true);
     }
     select(NavigationBarType.dynamics);
     await visit(
       'dynamics',
-      () => Get.find<DynamicsController>().controller,
+      () => main.dynamicsHandle,
       requireItems: true,
     );
     select(NavigationBarType.mine);
-    await visit('mine', Get.find<MineController>);
+    await Future<void>.delayed(Duration(seconds: dwell));
+    Element? dashboard;
+    void findDashboard(Element element) {
+      if (element.widget is AccountDashboard) dashboard = element;
+      element.visitChildren(findDashboard);
+    }
+
+    final root = WidgetsBinding.instance.rootElement;
+    if (root != null) findDashboard(root);
+    final profile = dashboard == null
+        ? null
+        : ProviderScope.containerOf(dashboard!).read(accountProfileProvider);
+    visits.add({
+      'tab': 'mine',
+      'elapsedMs': clock.elapsedMilliseconds,
+      'state': profile?.loading == true
+          ? 'loading'
+          : profile?.error?.runtimeType.toString() ?? 'success',
+      'loaded':
+          profile?.info != null &&
+          profile?.loading == false &&
+          profile?.error == null,
+    });
+    await record('visit:mine', 'switchTabAndReadAccountProfile');
     report['validWorkload'] =
         visits.length == 8 && visits.every((entry) => entry['loaded'] == true);
     // 不await路由Future：它在设置页pop时才结束。
@@ -449,28 +473,28 @@ Future<void> main(List<String> arguments) async {
           }
           Get.back<void>();
           select(NavigationBarType.home);
-          final index = home.tabs.indexOf(HomeTabType.rcmd);
-          if (index < 0) throw StateError('recommend tab unavailable');
-          if (home.tabController.index != index) {
-            home.tabController.animateTo(index);
+          if (!home.showTab(HomeTabType.rcmd)) {
+            throw StateError('recommend tab unavailable');
           }
           await Future<void>.delayed(Duration(seconds: dwell));
-          final controller = home.controller;
-          final scroll = controller.scrollController;
+          final controller = home.registeredPage(HomeTabType.rcmd);
+          final scroll = controller?.scrollController;
           final expected = scrollOffsets[HomeTabType.rcmd.name];
-          final actual = scroll.hasClients && scroll.positions.length == 1
+          final actual =
+              scroll != null &&
+                  scroll.hasClients &&
+                  scroll.positions.length == 1
               ? scroll.position.pixels
               : null;
           final sameController =
+              controller != null &&
               identityHashCode(controller) ==
-              controllerIdentities[HomeTabType.rcmd.name];
+                  controllerIdentities[HomeTabType.rcmd.name];
           final offsetPreserved =
               expected != null &&
               actual != null &&
               (expected - actual).abs() < 0.5;
-          final loaded =
-              controller is CommonController &&
-              controller.loadingState.value.isSuccess;
+          final loaded = feedLoading(controller)?.isSuccess ?? false;
           receipt = {
             'status': 'resumed',
             'sameController': sameController,

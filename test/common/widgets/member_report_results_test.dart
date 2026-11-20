@@ -2,12 +2,14 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/report_member.dart';
+import 'package:pili_aurora_next/common/widgets/video_popup_menu.dart';
+import 'package:pili_aurora_next/features/member_space/presentation/member_report_dialog.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommendation/result.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -22,6 +24,7 @@ void main() {
     null,
   );
   setUpAll(() {
+    Accounts.account = MemoryBox<LoginAccount>();
     GStorage.setting = MemoryBox();
     GStorage.video = MemoryBox();
     GStorage.localCache = MemoryBox();
@@ -155,6 +158,59 @@ void main() {
     expect(requests, hasLength(1));
     expect(find.text('账号已切换，请重新打开举报'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('视频卡片拉黑不使用确认前替换的凭据，重开后成功移除卡片', (tester) async {
+    var removed = 0;
+    final item = RcmdVideoItemAppModel.fromJson({
+      'param': '1',
+      'title': '视频',
+      'card_goto': 'av',
+      'args': {'up_id': 42, 'up_name': '成员'},
+    });
+    await tester.pumpWidget(
+      GetMaterialApp(
+        builder: FlutterSmartDialog.init(),
+        home: Scaffold(
+          body: VideoPopupMenu(
+            iconSize: 20,
+            videoItem: item,
+            onRemove: () => removed++,
+          ),
+        ),
+      ),
+    );
+    SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
+
+    Future<void> openBlock() async {
+      await tester.tap(find.byIcon(Icons.more_vert_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('拉黑：成员'));
+      await tester.pumpAndSettle();
+      expect(find.text('确认'), findsOneWidget);
+    }
+
+    await openBlock();
+    final renewed = LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': 'renewed'}),
+      null,
+      null,
+    );
+    Accounts.accountMode[AccountType.main.index] = renewed;
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    expect(requests, isEmpty);
+    expect(removed, 0);
+
+    await openBlock();
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    expect(requests, hasLength(1));
+    expect((requests.single.options.data as Map)['csrf'], 'renewed');
+    requests.single.reply.complete({'code': 0});
+    await tester.pumpAndSettle();
+    expect(removed, 1);
     await finish(tester);
   });
 }

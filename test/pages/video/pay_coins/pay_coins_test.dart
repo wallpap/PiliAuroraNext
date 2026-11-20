@@ -7,9 +7,8 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/pages/video/pay_coins/view.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../../support/memory_box.dart';
 
@@ -39,6 +38,7 @@ Future<void> openPage(
   List<(int, bool)> calls, {
   bool hasCoin = false,
   bool hasCopyright = true,
+  num? availableCoins = 10,
   OnPayCoin? onPayCoin,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -57,6 +57,7 @@ Future<void> openPage(
                   },
               hasCoin: hasCoin,
               hasCopyright: hasCopyright,
+              availableCoins: availableCoins,
             ),
             child: const Text('打开投币'),
           ),
@@ -77,13 +78,9 @@ void main() {
   });
   setUp(() async {
     Get.testMode = true;
-    GlobalData().coins = 10;
     await GStorage.setting.clear();
   });
-  tearDown(() {
-    GlobalData().coins = null;
-    Get.reset();
-  });
+  tearDown(Get.reset);
 
   test('抛币 GIF 各播放一次，帧时长与页面完成回调一致', () async {
     for (final path in [Assets.coinTossOne, Assets.coinTossTwo]) {
@@ -140,8 +137,7 @@ void main() {
 
   testWidgets('余额不足及已投一枚时限制双币', (tester) async {
     final calls = <(int, bool)>[];
-    GlobalData().coins = 1;
-    await openPage(tester, calls, hasCoin: true);
+    await openPage(tester, calls, hasCoin: true, availableCoins: 1);
     await tester.tap(asset(Assets.right));
     await tester.pumpAndSettle();
     expect(asset(Assets.coinsEmpty), findsOneWidget);
@@ -154,8 +150,7 @@ void main() {
 
   testWidgets('零余额显示空币槽，点击和上滑均不提交', (tester) async {
     final calls = <(int, bool)>[];
-    GlobalData().coins = 0;
-    await openPage(tester, calls);
+    await openPage(tester, calls, availableCoins: 0);
     await tester.tap(asset(Assets.coinsEmpty));
     await tester.drag(asset(Assets.coinsEmpty), const Offset(0, -65));
     await tester.pump(const Duration(seconds: 2));

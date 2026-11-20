@@ -2,33 +2,32 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_info/host_list.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/user_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/danmaku_msg.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_connection/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_connection/host_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/user_info.dart';
 import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_panel.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/chat_panel.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' as ui;
 
 import '../../support/memory_box.dart';
 
 class _TestController extends LiveRoomController {
-  _TestController() : super('chat-test');
+  _TestController() : super('chat-test', 1);
 
   final tokenRequests = <Completer<LoadingState<LiveDmInfoData>>>[];
   final historyRequests = <Completer<LoadingState<List<DanmakuMsg>?>>>[];
@@ -129,13 +128,12 @@ void main() {
     GStorage.localCache = MemoryBox({
       LocalCacheKey.buvid: 'chat-test-buvid',
     });
-    Get.routing.args = 1;
   });
 
   _TestController createController() {
-    final controller = _TestController()..onInit();
+    final controller = _TestController()..open();
     controller.plPlayerController.showDanmaku = true;
-    addTearDown(controller.onDelete.call);
+    addTearDown(controller.close);
     return controller;
   }
 
@@ -152,7 +150,7 @@ void main() {
     );
     final controller = createController()..addDm(_message(1));
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    controller.superChatMsg.add(
+    controller.addSuperChat(
       SuperChatItem(
         id: 1,
         uid: 1,
@@ -184,7 +182,7 @@ void main() {
             child: PageView(
               controller: controller.pageController,
               physics: tabBarScrollPhysics,
-              onPageChanged: controller.pageIndex.call,
+              onPageChanged: controller.selectPage,
               horizontalDragGestureRecognizer:
                   CustomHorizontalDragGestureRecognizer.new,
               children: [
@@ -210,7 +208,7 @@ void main() {
     await tester.pump(const Duration(seconds: 31));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
-    expect(controller.superChatMsg, isEmpty);
+    expect(controller.superChat.value, isEmpty);
     expect(find.text('即将过期的 SC'), findsNothing);
     expect(find.text('暂无 SC'), findsOneWidget);
     await tester.drag(find.byType(PageView), const Offset(300, 0));
@@ -225,7 +223,7 @@ void main() {
     expect(find.textContaining('消息 1', findRichText: true), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
-    controller.onDelete();
+    controller.close();
   });
 
   testWidgets(
@@ -240,10 +238,10 @@ void main() {
       expect(find.textContaining('消息 499', findRichText: true), findsOneWidget);
       controller.addDm(_message(500));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.messages.value.length, 500);
+      expect(controller.chatHistory.value.messages.length, 500);
       expect(find.textContaining('消息 500', findRichText: true), findsOneWidget);
-      expect(controller.shouldRefresh, isFalse);
-      controller.onDelete();
+      expect(controller.chatHistory.value.truncated, isTrue);
+      controller.close();
     },
   );
 
@@ -260,12 +258,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.disableAutoScroll.value, isTrue);
       final offset = controller.scrollController.offset;
-      final frozen = controller.messages.value;
+      final frozen = controller.chatHistory.value.messages;
       for (var i = 500; i < 2500; i++) {
         controller.addDm(_message(i));
       }
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.messages.value, same(frozen));
+      expect(controller.chatHistory.value.messages, same(frozen));
       expect(controller.scrollController.offset, offset);
       expect(controller.unreadMessages.value, (500, 1500));
       expect(find.text('回到底部 · 500 条新消息\n已略过 1500 条'), findsOneWidget);
@@ -274,10 +272,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.disableAutoScroll.value, isFalse);
       expect(controller.unreadMessages.value, (0, 0));
-      expect(controller.messages.value.length, 500);
-      expect(controller.messages.value.last.content.text, '消息 2499');
+      expect(controller.chatHistory.value.messages.length, 500);
+      expect(
+        controller.chatHistory.value.messages.last.content.text,
+        '消息 2499',
+      );
       expect(controller.scrollController.offset, 0);
-      controller.onDelete();
+      controller.close();
     },
   );
 
@@ -292,24 +293,24 @@ void main() {
         controller.addDm(_message(i));
       }
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.messages.value.single.content.text, '消息 0');
+      expect(controller.chatHistory.value.messages.single.content.text, '消息 0');
       controller.refreshMsgIfNeeded();
       controller.plPlayerController.showDanmaku = true;
       await tester.pumpAndSettle();
-      expect(controller.messages.value.last.content.text, '消息 600');
+      expect(controller.chatHistory.value.messages.last.content.text, '消息 600');
       expect(controller.unreadMessages.value, (0, 0));
 
       controller.disableAutoScroll.value = true;
-      final frozen = controller.messages.value;
+      final frozen = controller.chatHistory.value.messages;
       controller.plPlayerController.showDanmaku = false;
       controller
         ..addDm(_message(601))
         ..refreshMsgIfNeeded();
       controller.plPlayerController.showDanmaku = true;
       await tester.pumpAndSettle();
-      expect(controller.messages.value, same(frozen));
+      expect(controller.chatHistory.value.messages, same(frozen));
       expect(controller.unreadMessages.value, (1, 0));
-      controller.onDelete();
+      controller.close();
     },
   );
 
@@ -323,15 +324,15 @@ void main() {
       ..autoScroll = false
       ..addDm(_message(1));
     await tester.pump(const Duration(milliseconds: 100));
-    expect(controller.messages.value.length, 1);
+    expect(controller.chatHistory.value.messages.length, 1);
     controller
       ..autoScroll = true
       ..refreshMsgIfNeeded();
     await tester.pumpAndSettle();
-    expect(controller.messages.value.length, 2);
-    expect(controller.messages.value.last.content.text, '消息 1');
+    expect(controller.chatHistory.value.messages.length, 2);
+    expect(controller.chatHistory.value.messages.last.content.text, '消息 1');
     expect(controller.unreadMessages.value, (0, 0));
-    controller.onDelete();
+    controller.close();
   });
 
   testWidgets('scrolling back near the bottom resumes unread messages', (
@@ -352,9 +353,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.disableAutoScroll.value, isFalse);
     expect(controller.unreadMessages.value, (0, 0));
-    expect(controller.messages.value.last.content.text, '消息 500');
+    expect(controller.chatHistory.value.messages.last.content.text, '消息 500');
     expect(controller.scrollController.offset, 0);
-    controller.onDelete();
+    controller.close();
   });
 
   testWidgets(
@@ -363,11 +364,11 @@ void main() {
       final controller = createController()..addDm(_message(0));
       await tester.pumpWidget(_app(controller));
       controller
-        ..onDelete()
+        ..close()
         ..addDm(_message(1))
         ..refreshMsgIfNeeded();
       await tester.pump(const Duration(seconds: 1));
-      expect(controller.messages.value, isEmpty);
+      expect(controller.chatHistory.value.messages, isEmpty);
       expect(controller.chatBuffer.historyCount, 0);
       expect(controller.chatBuffer.pendingCount, 0);
       expect(tester.takeException(), isNull);
@@ -453,7 +454,7 @@ void main() {
       expect(controller.messageStreams, hasLength(2));
       expect(controller.messageStreams.last.isActive, isTrue);
       expect(controller.dmInfo?.token, 'retry');
-      controller.onDelete();
+      controller.close();
       final dismissal = SmartDialog.dismiss(status: SmartStatus.allToast);
       await tester.pumpAndSettle();
       await dismissal;
@@ -475,7 +476,7 @@ void main() {
     await first;
     expect(controller.messageStreams.last.isActive, isTrue);
     expect(controller.dmInfo?.token, 'retained');
-    controller.onDelete();
+    controller.close();
   });
 
   test(
@@ -549,7 +550,7 @@ void main() {
       await restoreAfterRoute();
 
       expect(controller.routeQueryPolicies, [PlaybackStartPolicy.preserve]);
-      controller.onDelete();
+      controller.close();
     },
   );
 }

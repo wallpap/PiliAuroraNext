@@ -12,26 +12,34 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart'
     show RichTextItem;
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/common_rich_text_pub_page.dart';
-import 'package:pili_aurora_next/pages/video/reply/controller.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_interactions.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
+    show MainListReply, CursorReply;
+import 'package:pili_aurora_next/http/loading_state.dart';
+
+import '../../support/comment_fixture.dart';
+
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:pili_aurora_next/pages/video/reply_new/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
+import '../common/publish/upload_fixture.dart';
 import '../../support/memory_box.dart';
 
 class _CapturePlayer implements Player {
@@ -58,16 +66,14 @@ class _CaptureFacade extends GetxController implements PlPlayerController {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _CaptureVideo extends GetxController implements VideoDetailController {
-  _CaptureVideo(this.plPlayerController);
+class _CaptureVideo extends VideoDetailController {
+  _CaptureVideo(this._facade) {
+    bvid = 'BV17x411w7KC';
+    cid.value = 1;
+  }
+  final _CaptureFacade _facade;
   @override
-  final _CaptureFacade plPlayerController;
-  @override
-  final bvid = 'BV17x411w7KC';
-  @override
-  final cid = 1.obs;
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  _CaptureFacade get plPlayerController => _facade;
 }
 
 void main() {
@@ -164,7 +170,7 @@ void main() {
     return owner;
   }
 
-  ReplyPage page({ValueChanged<ReplyInfo?>? onSuccess}) => ReplyPage(
+  ReplyPage page({ValueChanged<CommentReply?>? onSuccess}) => ReplyPage(
     oid: 1,
     root: 2,
     parent: 3,
@@ -180,15 +186,6 @@ void main() {
     editor.editController.text = text;
   }
 
-  Object uploaded() => {
-    'code': 0,
-    'data': {
-      'image_url': 'https://example.invalid/image.png',
-      'image_width': 1,
-      'image_height': 1,
-    },
-  };
-
   for (final change in ['切号', '替换播放器', '离页再返回']) {
     testWidgets('评论截图$change后不进入新草稿', (
       tester,
@@ -196,12 +193,23 @@ void main() {
       await mount(tester);
       final player = _CapturePlayer();
       final facade = _CaptureFacade(player);
-      Get.put<VideoDetailController>(_CaptureVideo(facade), tag: 'capture');
+      final video = _CaptureVideo(facade);
       Get.to(
-        () => const Scaffold(
-          body: ReplyPage(oid: 1, root: 0, parent: 0, replyType: 1),
+        () => Scaffold(
+          body: ReplyPage(
+            oid: 1,
+            root: 0,
+            parent: 0,
+            replyType: 1,
+            videoTools: (
+              durationMilliseconds: () => null,
+              seek: (_) => false,
+              position: () => null,
+              capture: video.commentFrame,
+              share: (_) => null,
+            ),
+          ),
         ),
-        arguments: {'heroTag': 'capture'},
       );
       await settle(tester);
       await tester.tap(find.byTooltip('更多'));
@@ -239,19 +247,29 @@ void main() {
   }
 
   testWidgets('评论编辑器保留楼中楼根 ID，草稿按完整目标隔离', (tester) async {
-    await mount(tester);
-    final controller = VideoReplyController(
-      aid: 1,
-      videoType: VideoType.ugc,
-      heroTag: 'reply-editor',
-    )..onInit();
+    final context = await mount(tester);
+    final fixture = CommentFixture()
+      ..responses.add(Success(MainListReply(cursor: CursorReply(isEnd: true))));
+    final container = commentContainer(fixture);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    final comments = container.read(provider.notifier);
+    final interactions = CommentInteractions();
+    await tester.pump();
+    void compose(ReplyInfo item) => interactions.compose(
+      context,
+      comments,
+      container.read(provider),
+      1,
+      commentFromProtocol(item),
+    );
     final parent = ReplyInfo(
       id: Int64(3),
       oid: Int64.ONE,
       type: Int64.ONE,
       root: Int64(2),
     );
-    controller.onReply(parent);
+    compose(parent);
     await settle(tester);
     final target = tester.widget<ReplyPage>(find.byType(ReplyPage));
     expect(target.root, 2);
@@ -259,13 +277,16 @@ void main() {
     draft(state(tester), '草稿');
     Get.back();
     await settle(tester);
-    expect(controller.savedReplies, hasLength(1));
-    controller.onReply(
+    compose(parent);
+    await settle(tester);
+    expect(tester.widget<ReplyPage>(find.byType(ReplyPage)).items, isNotEmpty);
+    Get.back();
+    await settle(tester);
+    compose(
       ReplyInfo(id: Int64(2), oid: Int64(2), type: Int64.ONE),
     );
     await settle(tester);
     expect(tester.widget<ReplyPage>(find.byType(ReplyPage)).items, isNull);
-    controller.onDelete();
     await finish(tester);
   });
 
@@ -283,21 +304,17 @@ void main() {
     );
     final editor = state(tester);
     draft(editor, '原草稿');
-    editor.imageList.add(FilePicModel(path: image.path));
-    late Future<void> pending;
-    await tester.runAsync(() async {
-      pending = editor.onPublish();
-      await editor.onPublish();
-      await interceptor.waitForRequests(1);
-    });
-    expect(requests.single.options.path, Api.uploadBfs);
-    draft(editor, '新草稿');
-    editor.imageList.clear();
-    await tester.runAsync(() async {
-      requests.first.reply.complete(uploaded());
-      await interceptor.waitForRequests(2);
-    });
-    final body = requests.last.options.data as Map;
+    editor.addDraftImage(FilePicModel(path: image.path));
+    final submission = await reachPublishRequest(
+      tester,
+      interceptor: interceptor,
+      publish: editor.onPublish,
+      replaceDraft: () {
+        draft(editor, '新草稿');
+        editor.removeDraftImage(0);
+      },
+    );
+    final body = submission.request.data as Map;
     expect(body['message'], '原草稿');
     expect(body['root'], 2);
     expect(body['parent'], 3);
@@ -305,7 +322,7 @@ void main() {
     expect(requests.last.options.extra['account'], same(original));
     await tester.runAsync(() async {
       requests.last.reply.complete({'code': 0});
-      await pending;
+      await submission.completion;
     });
     await settle(tester);
     expect(delivered, 1);
@@ -321,7 +338,7 @@ void main() {
     await mount(tester, page(onSuccess: (_) => delivered++));
     final editor = state(tester);
     draft(editor, '草稿');
-    editor.imageList.add(FilePicModel(path: image.path));
+    editor.addDraftImage(FilePicModel(path: image.path));
     late Future<void> uploading;
     await tester.runAsync(() async {
       uploading = editor.onPublish();
@@ -329,12 +346,12 @@ void main() {
     });
     Accounts.accountMode[AccountType.main.index] = replacement;
     await tester.runAsync(() async {
-      requests.first.reply.complete(uploaded());
+      requests.first.reply.complete(uploadedPicture());
       await uploading;
     });
     await settle(tester);
     expect(requests, hasLength(1));
-    editor.imageList.clear();
+    editor.removeDraftImage(0);
     final saving = editor.onPublish();
     await until(tester, () => requests.length == 2);
     requests.last.reply.complete({'code': '0'});
@@ -374,10 +391,12 @@ void main() {
     await finish(tester);
   });
 
-  ReplyInfo item() => ReplyInfo(
-    id: Int64(2),
-    oid: Int64.ONE,
-    type: Int64.ONE,
+  CommentReply item() => commentFromProtocol(
+    ReplyInfo(
+      id: Int64(2),
+      oid: Int64.ONE,
+      type: Int64.ONE,
+    ),
   );
 
   testWidgets('删除评论防重复，失败保留弹窗，成功回调失败仍显示成功', (tester) async {

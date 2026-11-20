@@ -1,21 +1,21 @@
 import 'dart:io';
 
-import 'package:pili_aurora_next/app/back_navigation.dart';
 import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
+import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:pili_aurora_next/services/webview_environment.dart';
-import 'package:pili_aurora_next/utils/calc_window_position.dart';
-import 'package:pili_aurora_next/utils/max_screen_size.dart';
-import 'package:pili_aurora_next/utils/path_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/desktop_window_background.dart';
+import 'package:pili_aurora_next/platform/desktop/window_position.dart';
+import 'package:pili_aurora_next/platform/android/max_screen_size.dart';
+import 'package:pili_aurora_next/platform/files/path_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/platform/desktop/window_background.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
@@ -90,8 +90,6 @@ Future<void> initializePlatformWindow() async {
         );
       }
     }
-    FocusManager.instance.addEarlyKeyEventHandler(handleAppKeyEvent);
-
     await windowManager.ensureInitialized();
     if (Platform.isWindows) {
       final (light, dark) = ThemeUtils.getAllTheme();
@@ -130,11 +128,11 @@ Future<void> initializePlatformWindow() async {
       title: Constants.appName,
     );
     await windowManager.waitUntilReadyToShow(windowOptions);
-    final windowSize = Pref.windowSize;
+    final windowSize = WindowPreferences.size;
     await windowManager.setBounds(
       await calcWindowPosition(windowSize) & windowSize,
     );
-    if (Pref.isWindowMaximized) await windowManager.maximize();
+    if (WindowPreferences.isMaximized) await windowManager.maximize();
     await windowManager.show();
     await windowManager.focus();
   }

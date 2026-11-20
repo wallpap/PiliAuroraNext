@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
 import 'package:pili_aurora_next/pages/share/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
@@ -15,10 +15,10 @@ import 'package:pili_aurora_next/services/messaging/conversation.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/sharing.dart';
 import 'package:pili_aurora_next/services/messaging/sharing_adapter.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/memory_box.dart';
 
@@ -92,7 +92,7 @@ void main() {
       final CommonIntroController controller = ugc
           ? (_UgcShareController()
               ..bvid = 'BV17x411w7KC'
-              ..cid = 1.obs)
+              ..cid.value = 1)
           : (_ShareController()
               ..pgcItem = PgcInfoModel.fromJson({
                 'title': '测试',

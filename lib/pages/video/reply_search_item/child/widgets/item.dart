@@ -2,60 +2,29 @@ import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show SearchItem, SearchItemVideoSubType;
-import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_search_type.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/features/community/domain/reply_search.dart';
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:material_ui/material_ui.dart';
 
 class ReplySearchItem extends StatelessWidget {
-  const ReplySearchItem({
-    super.key,
-    required this.item,
-    required this.type,
-  });
+  const ReplySearchItem({super.key, required this.item});
 
-  final SearchItem item;
-  final ReplySearchType type;
+  final ReplySearchEntry item;
 
   @override
   Widget build(BuildContext context) {
-    String title = '';
-    String cover = '';
-    String? upNickname;
-    String? category;
-    int? duration;
-    switch (type) {
-      case ReplySearchType.video:
-        if (item.video.type == SearchItemVideoSubType.UGC) {
-          final ugc = item.video.ugc;
-          title = ugc.title;
-          cover = ugc.cover;
-          upNickname = ugc.upNickname;
-          duration = ugc.duration.toInt();
-        } else {
-          final pgc = item.video.pgc;
-          title = pgc.title;
-          cover = pgc.cover;
-          category = pgc.category;
-        }
-      case ReplySearchType.article:
-        final article = item.article;
-        title = article.title;
-        cover = article.covers.firstOrNull ?? '';
-        upNickname = article.upNickname;
-    }
+    final item = this.item;
     void onLongPress() => imageSaveDialog(
-      title: title,
-      cover: cover,
+      title: item.title,
+      cover: item.cover,
     );
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => Get.back(result: (title: title, url: item.url)),
+        onTap: () =>
+            Navigator.of(context).pop((title: item.title, url: item.url)),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
@@ -73,17 +42,17 @@ class ReplySearchItem extends StatelessWidget {
                     return Stack(
                       children: [
                         NetworkImgLayer(
-                          src: cover,
+                          src: item.cover,
                           width: boxConstraints.maxWidth,
                           height: boxConstraints.maxHeight,
                         ),
-                        if (category != null)
+                        if (item.category case final category?)
                           PBadge(
                             right: 6,
                             top: 6,
                             text: category,
                           ),
-                        if (duration != null)
+                        if (item.duration case final duration?)
                           PBadge(
                             right: 6,
                             bottom: 6,
@@ -103,14 +72,14 @@ class ReplySearchItem extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (upNickname != null)
+                    if (item.author case final author?)
                       Text(
-                        'UP: $upNickname',
+                        'UP: $author',
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(context).colorScheme.outline,

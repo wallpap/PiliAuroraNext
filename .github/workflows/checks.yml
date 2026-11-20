@@ -40,8 +40,14 @@ jobs:
       - name: Check dependency sources and versions
         run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart
 
-      - name: Analyze playback, danmaku, tests and tools
-        run: flutter analyze --no-pub lib/plugin/pl_player lib/pages/danmaku test tool
+      - name: Analyze application, tests and tools
+        run: flutter analyze --no-pub lib test tool
+
+      - name: Verify generated protocol and analyze it separately
+        shell: pwsh
+        run: |
+          tool/generate-protocol.ps1 -DartTool path
+          tool/analyze-protocol.ps1 -DartTool path
 
       - name: Run Linux host CI tests
         shell: pwsh
@@ -86,9 +92,6 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path -PlatformOnly
 
-      - name: Test Windows page retention
-        run: flutter test --no-pub test/common/widgets/inactive_sliver_cache_test.dart test/common/widgets/inactive_sliver_semantics_test.dart test/common/widgets/pipeline_owner_semantics_test.dart
-
       - name: Test Windows WebView environment lifecycle
         run: flutter test --no-pub third_party/flutter_inappwebview_windows/test/webview_environment_channel_test.dart
 
@@ -107,4 +110,5 @@ jobs:
           python -m unittest discover -s tool/probes/windows -p image_region_probe_test.py -v
 
       - name: Test native image pixels and lifecycle
-        run: flutter test --no-pub test/common/widgets/image --concurrency 2
+        shell: pwsh
+        run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path -NativeImages -Concurrency 2

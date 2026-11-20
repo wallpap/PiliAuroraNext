@@ -4,12 +4,10 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/features/playback/application/cdn_speed_probe.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
 import 'package:pili_aurora_next/pages/setting/decoder_test.dart';
@@ -32,8 +30,6 @@ class DecoderTestDialog extends StatefulWidget {
 }
 
 class _DecoderTestDialogState extends State<DecoderTestDialog> {
-  static const _sampleBvid = 'BV1fK4y1t7hj';
-  static const _sampleCid = 196018899;
   static const _sampleTimeout = Duration(seconds: 15);
 
   final Map<String, DecoderTestResult> _results = {};
@@ -159,17 +155,7 @@ class _DecoderTestDialogState extends State<DecoderTestDialog> {
     }
   }
 
-  Future<List<VideoItem>> _fetchSample() async {
-    final result = await VideoHttp.videoUrl(
-      cid: _sampleCid,
-      bvid: _sampleBvid,
-      qn: VideoQuality.high1080.code,
-      tryLook: false,
-      videoType: VideoType.ugc,
-    );
-    if (!result.isSuccess) throw result;
-    return result.dataOrNull?.dash?.video ?? const <VideoItem>[];
-  }
+  Future<List<VideoItem>> _fetchSample() => CdnSpeedProbe.samples();
 
   String _codecName(VideoItem item) => switch (item.codecid) {
     7 => 'AVC',

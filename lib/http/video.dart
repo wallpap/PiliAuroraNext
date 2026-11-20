@@ -1,65 +1,58 @@
 import 'dart:convert';
 
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/browser_ua.dart';
-import 'package:pili_aurora_next/http/constants.dart';
+import 'package:pili_aurora_next/services/web_user_agent.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/login.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/models/pgc_lcf.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_precious/data.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_list/list.dart';
-import 'package:pili_aurora_next/models/remote/popular/popular_series_one/data.dart';
-import 'package:pili_aurora_next/models/remote/triple/pgc_triple.dart';
-import 'package:pili_aurora_next/models/remote/triple/ugc_triple.dart';
-import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_note_list/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_play_info/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_relation/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_shot/data.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommendation/result.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_interaction.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/rank/pgc_rank_item_model.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_precious/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_list/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/popular/popular_series_one/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/triple/pgc_triple.dart';
+import 'package:pili_aurora_next/features/playback/domain/triple/ugc_triple.dart';
+import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/play_info/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_relation/data.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_sign.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/recommend_filter.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/subtitle_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:pili_aurora_next/services/blocked_authors.dart';
-import 'package:pili_aurora_next/utils/wbi_sign.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/app_sign.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/video_filter_preferences.dart';
+import 'package:pili_aurora_next/features/community/data/comments/reply_json.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/http/client_fingerprint.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
+import 'package:pili_aurora_next/http/wbi_sign.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show compute;
 import 'package:protobuf/protobuf.dart';
 
 /// view层根据 status 判断渲染逻辑
 abstract final class VideoHttp {
-  static RegExp zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
-  static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
-
   // 首页推荐视频
   static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
     required int ps,
     required int freshIdx,
     CancelToken? cancelToken,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.recommendListWeb,
@@ -76,12 +69,13 @@ abstract final class VideoHttp {
         options: Options(extra: {'account': account}),
         kind: ApiCallKind.query,
         decode: (body) {
+          final filter = VideoFilterPreferences.read();
           List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
           for (final i in body['data']['item']) {
             // 过滤非视频卡片；作者屏蔽由发现列表统一处理，以保留补位所需数量。
             if (i['goto'] == 'av' && i['owner'] != null) {
               RcmdVideoItemModel videoItem = RcmdVideoItemModel.fromJson(i);
-              if (!RecommendFilter.filter(videoItem)) {
+              if (!filter.blocksRecommendation(videoItem)) {
                 list.add(videoItem);
               }
             }
@@ -98,8 +92,9 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp({
     required int freshIdx,
     CancelToken? cancelToken,
+    Account? account,
   }) async {
-    final account = Accounts.get(AccountType.recommend);
+    account ??= Accounts.get(AccountType.recommend);
 
     final params = {
       'build': 8430300,
@@ -152,6 +147,7 @@ abstract final class VideoHttp {
       ),
       kind: ApiCallKind.query,
       decode: (body) {
+        final filter = VideoFilterPreferences.read();
         final list = <RcmdVideoItemAppModel>[];
         for (final i in body['data']['items']) {
           // 屏蔽推广卡片。
@@ -160,13 +156,11 @@ abstract final class VideoHttp {
               i['ad_info'] == null &&
               i['can_play'] == 1 &&
               i['args'] != null) {
-            if (enableFilter &&
-                i['args']?['tname'] != null &&
-                zoneRegExp.hasMatch(i['args']['tname'])) {
+            if (filter.blocksZone(i['args']['tname'])) {
               continue;
             }
             RcmdVideoItemAppModel videoItem = RcmdVideoItemAppModel.fromJson(i);
-            if (!RecommendFilter.filter(videoItem)) {
+            if (!filter.blocksRecommendation(videoItem)) {
               list.add(videoItem);
             }
           }
@@ -180,8 +174,9 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<HotVideoItemModel>>> hotVideoList({
     required int pn,
     required int ps,
+    Account? account,
   }) async {
-    final account = Accounts.get(AccountType.recommend);
+    account ??= Accounts.get(AccountType.recommend);
 
     return await Request().requestApi(
       Api.hotList,
@@ -189,18 +184,15 @@ abstract final class VideoHttp {
       options: Options(extra: {'account': account}),
       kind: ApiCallKind.query,
       decode: (body) {
+        final filter = VideoFilterPreferences.read();
         List<HotVideoItemModel> list = <HotVideoItemModel>[];
         for (final i in body['data']['list']) {
-          if (!RecommendFilter.filterTitle(i['title']) &&
-              !RecommendFilter.filterLikeRatio(
+          if (!filter.blocksTitleOrEngagement(
+                i['title'],
                 i['stat']['like'],
                 i['stat']['view'],
-              )) {
-            if (enableFilter &&
-                i['tname'] != null &&
-                zoneRegExp.hasMatch(i['tname'])) {
-              continue;
-            }
+              ) &&
+              !filter.blocksZone(i['tname'])) {
             list.add(HotVideoItemModel.fromJson(i));
           }
         }
@@ -231,8 +223,8 @@ abstract final class VideoHttp {
       return Error('请求已取消', cause: error, stackTrace: error?.stackTrace);
     }
     try {
-      final dmImgStr = Utils.base64EncodeRandomString(16, 64);
-      final dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
+      final dmImgStr = randomFingerprint(16, 64);
+      final dmCoverImgStr = randomFingerprint(32, 128);
       final params = await WbiSign.makSign({
         'avid': ?avid,
         'bvid': ?bvid,
@@ -258,7 +250,11 @@ abstract final class VideoHttp {
       });
 
       final result = await Request().requestApi<PlayUrlModel>(
-        videoType.api,
+        switch (videoType) {
+          VideoType.ugc => Api.ugcUrl,
+          VideoType.pgc => Api.pgcUrl,
+          VideoType.pugv => Api.pugvUrl,
+        },
         kind: ApiCallKind.query,
         options: Options(extra: {'account': account}),
         queryParameters: params,
@@ -350,29 +346,6 @@ abstract final class VideoHttp {
       decode: (body) => VideoRelation.fromJson(body['data']),
       options: Options(extra: {'account': account ?? Accounts.main}),
       queryParameters: {'aid': aid, 'bvid': bvid},
-    );
-  }
-
-  // 相关视频
-  static Future<LoadingState<List<HotVideoItemModel>?>> relatedVideoList({
-    required String bvid,
-  }) async {
-    final account = Accounts.get(AccountType.recommend);
-
-    return await Request().requestApi(
-      Api.relatedList,
-      queryParameters: {'bvid': bvid},
-      options: Options(extra: {'account': account}),
-      kind: ApiCallKind.query,
-      decode: (body) {
-        final items = (body['data'] as List?)?.map(
-          (i) => HotVideoItemModel.fromJson(i),
-        );
-        final list = RecommendFilter.applyFilterToRelatedVideos
-            ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()
-            : items?.toList();
-        return list;
-      },
     );
   }
 
@@ -668,7 +641,7 @@ abstract final class VideoHttp {
         try {
           final reply = body['data']?['reply'];
           if (reply == null) return null;
-          final info = RequestUtils.replyCast(reply);
+          final info = decodeWebReply(reply);
           if (info.id <= 0 || info.oid != oid || info.type != type) {
             throw const FormatException('评论回显与目标不符');
           }
@@ -965,8 +938,9 @@ abstract final class VideoHttp {
     int? aid,
     String? bvid,
     required int cid,
+    Account? account,
   }) async {
-    final account = Accounts.heartbeat;
+    account ??= Accounts.heartbeat;
 
     assert(aid != null || bvid != null);
     return await Request().requestApi(
@@ -984,9 +958,10 @@ abstract final class VideoHttp {
     required String bvid,
     required int cid,
     int? upMid,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.heartbeat;
+      account ??= Accounts.heartbeat;
       final result = await Request().requestApi<Map<String, dynamic>>(
         Api.aiConclusion,
         kind: ApiCallKind.query,
@@ -1010,6 +985,7 @@ abstract final class VideoHttp {
   }
 
   static Future<LoadingState<PlayInfoData>> playInfo({
+    Account? account,
     String? aid,
     String? bvid,
     required int cid,
@@ -1017,7 +993,7 @@ abstract final class VideoHttp {
     dynamic epId,
   }) async {
     try {
-      final account = Accounts.main;
+      final requestAccount = account ?? Accounts.main;
 
       assert(aid != null || bvid != null);
       return await Request().requestApi(
@@ -1029,7 +1005,7 @@ abstract final class VideoHttp {
           'season_id': ?seasonId,
           'ep_id': ?epId,
         }),
-        options: Options(extra: {'account': account}),
+        options: Options(extra: {'account': requestAccount}),
         kind: ApiCallKind.query,
         decode: (body) {
           return PlayInfoData.fromJson(body['data']);
@@ -1040,67 +1016,13 @@ abstract final class VideoHttp {
     }
   }
 
-  static Future<LoadingState<String>> getSubtitles(
-    String subtitleUrl, {
-    SubtitleFormat format = .vtt,
-  }) async {
-    final url = subtitleUrl.startsWith('//')
-        ? 'https:$subtitleUrl'
-        : subtitleUrl;
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        !['http', 'https'].contains(uri.scheme) ||
-        uri.host.isEmpty) {
-      return const Error('字幕地址无效，请重新选择');
-    }
-    Request();
-    try {
-      final response = await Request.dio.get<dynamic>(
-        url,
-        options: Options(extra: {'account': const NoAccount()}),
-      );
-      final data = response.data;
-      final body = data is Map<String, dynamic> ? data['body'] : null;
-      if (body is! List) throw const FormatException('字幕响应缺少正文列表');
-      final subtitle = switch (format) {
-        .json => jsonEncode(data),
-        .vtt => await compute<List, String>(SubtitleUtils.json2Vtt, body),
-        .srt => await compute<List, String>(SubtitleUtils.json2Srt, body),
-      };
-      return Success(subtitle);
-    } on DioException catch (error, stackTrace) {
-      return await decodeApiException(
-        error,
-        stackTrace,
-        kind: ApiCallKind.query,
-      );
-    } catch (error, stackTrace) {
-      return Error.fromException(error, stackTrace);
-    }
-  }
-
-  static bool _canAddRank(Map i) {
-    if (!RecommendFilter.filterTitle(i['title']) &&
-        !RecommendFilter.filterLikeRatio(
-          i['stat']['like'],
-          i['stat']['view'],
-        )) {
-      if (enableFilter &&
-          i['tname'] != null &&
-          zoneRegExp.hasMatch(i['tname'])) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }
-
   // 视频排行
   static Future<LoadingState<List<HotVideoItemModel>>> getRankVideoList(
-    int rid,
-  ) async {
+    int rid, {
+    Account? account,
+  }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.getRankApi,
@@ -1108,9 +1030,15 @@ abstract final class VideoHttp {
         options: Options(extra: {'account': account}),
         kind: ApiCallKind.query,
         decode: (body) {
-          List<HotVideoItemModel> list = <HotVideoItemModel>[];
+          final filter = VideoFilterPreferences.read();
+          final list = <HotVideoItemModel>[];
           for (final i in body['data']['list']) {
-            if (_canAddRank(i)) {
+            if (!filter.blocksTitleOrEngagement(
+                  i['title'],
+                  i['stat']['like'],
+                  i['stat']['view'],
+                ) &&
+                !filter.blocksZone(i['tname'])) {
               list.add(HotVideoItemModel.fromJson(i));
             }
           }
@@ -1126,9 +1054,10 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<PgcRankItemModel>?>> pgcRankList({
     int day = 3,
     required int seasonType,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.pgcRank,
@@ -1153,9 +1082,10 @@ abstract final class VideoHttp {
   static Future<LoadingState<List<PgcRankItemModel>?>> pgcSeasonRankList({
     int day = 3,
     required int seasonType,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.pgcSeasonRank,
@@ -1176,35 +1106,11 @@ abstract final class VideoHttp {
     }
   }
 
-  static Future<LoadingState<VideoNoteData>> getVideoNoteList({
-    dynamic oid,
-    dynamic uperMid,
-    required int page,
+  static Future<LoadingState<List<PopularSeriesListItem>?>> popularSeriesList({
+    Account? account,
   }) async {
-    final account = Accounts.main;
-
-    return await Request().requestApi(
-      Api.archiveNoteList,
-      queryParameters: {
-        'csrf': account.csrf,
-        'oid': oid,
-        'oid_type': 0,
-        'pn': page,
-        'ps': 10,
-        'uper_mid': ?uperMid,
-      },
-      options: Options(extra: {'account': account}),
-      kind: ApiCallKind.query,
-      decode: (body) {
-        return VideoNoteData.fromJson(body['data']);
-      },
-    );
-  }
-
-  static Future<LoadingState<List<PopularSeriesListItem>?>>
-  popularSeriesList() async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.popularSeriesList,
@@ -1234,9 +1140,10 @@ abstract final class VideoHttp {
 
   static Future<LoadingState<PopularSeriesOneData>> popularSeriesOne({
     required int number,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.popularSeriesOne,
@@ -1264,9 +1171,10 @@ abstract final class VideoHttp {
 
   static Future<LoadingState<PopularPreciousData>> popularPrecious({
     required int page,
+    Account? account,
   }) async {
     try {
-      final account = Accounts.get(AccountType.recommend);
+      account ??= Accounts.get(AccountType.recommend);
 
       return await Request().requestApi(
         Api.popularPrecious,
@@ -1294,12 +1202,13 @@ abstract final class VideoHttp {
   }
 
   static Future<LoadingState<PlayUrlModel>> tvPlayUrl({
+    Account? account,
     required int cid,
     required int objectId, // aid, epid
     required int playurlType, // ugc 1, pgc 2
     int? qn,
   }) async {
-    final account = Accounts.get(AccountType.video);
+    account ??= Accounts.get(AccountType.video);
 
     final accessKey = account.accessKey;
     final params = {
@@ -1326,32 +1235,5 @@ abstract final class VideoHttp {
         return PlayUrlModel.fromJson(body['data']);
       },
     );
-  }
-
-  static Future<LoadingState<VideoShotData>> videoshot({
-    required String bvid,
-    required int cid,
-  }) async {
-    final result = await Request().requestApi<VideoShotData>(
-      Api.videoshot,
-      kind: ApiCallKind.query,
-      decode: (body) => VideoShotData.fromJson(body['data']),
-      queryParameters: {
-        // 'aid': IdUtils.bv2av(_bvid),
-        'bvid': bvid,
-        'cid': cid,
-        'index': 1,
-      },
-      options: Options(
-        headers: {
-          'user-agent': BrowserUa.pc,
-          'referer': 'https://www.bilibili.com/video/$bvid',
-        },
-      ),
-    );
-    if (result case Success(:final response) when response.index.isEmpty) {
-      return const Error('暂无视频预览');
-    }
-    return result;
   }
 }

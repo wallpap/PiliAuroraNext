@@ -8,9 +8,9 @@ import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
 import 'package:pili_aurora_next/pages/danmaku/cache.dart';
-import 'package:pili_aurora_next/pages/danmaku/file_reader.dart';
+import 'package:pili_aurora_next/features/danmaku/data/danmaku_file_reader.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
 import 'package:pili_aurora_next/pages/danmaku/priority.dart';
 import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
@@ -101,11 +101,11 @@ void main() {
             ))
             .load();
       }
-      final inputs = <String, List<DanmakuElem>>{};
+      final inputs = <String, List<DanmakuElement>>{};
       final files =
           Platform.environment['DANMAKU_REAL_FILES']?.split('|') ?? [];
       for (var i = 0; i < files.length; i++) {
-        final items = <DanmakuElem>[];
+        final items = <DanmakuElement>[];
         await for (final batch in readDanmakuFile(File(files[i]))) {
           items.addAll(batch.where((e) => e.mode >= 1 && e.mode <= 6));
         }
@@ -113,7 +113,7 @@ void main() {
       }
       inputs['synthetic'] = [
         for (var i = 0; i < 16000; i++)
-          DanmakuElem(
+          DanmakuElement(
             progress: i ~/ 40 * 100 + i % 40 * 2,
             content: '合成弹幕$i：高密度轨道验证',
             color: 0xffffff,
@@ -127,7 +127,7 @@ void main() {
           for (var step = 0; step < 300; step++)
             for (var group = 0; group < 5; group++)
               for (var i = 0; i < [10, 12, 7, 2, 2][group]; i++)
-                DanmakuElem(
+                DanmakuElement(
                   progress: step * 100,
                   content: '相对排序${step}_${group}_$i',
                   color: 0xffffff,
@@ -140,7 +140,7 @@ void main() {
         for (var step = 0; step < 4; step++)
           for (var group = 0; group < 5; group++)
             for (var i = 0; i < [10, 12, 7, 2, 2][group]; i++)
-              DanmakuElem(
+              DanmakuElement(
                 progress: step * 8000,
                 content: '权重${[0, 3, 5, 7, 10][group]}：${step}_$i',
                 color: 0xffffff,
@@ -154,7 +154,7 @@ void main() {
           continue;
         }
         final slots = input.key == 'relative_slots';
-        final buckets = <int, List<DanmakuElem>>{};
+        final buckets = <int, List<DanmakuElement>>{};
         for (final e in input.value) {
           (buckets[e.progress ~/ 100] ??= []).add(e);
         }
@@ -253,7 +253,10 @@ void main() {
                     : e.mode == 4
                     ? DanmakuItemType.bottom
                     : DanmakuItemType.scroll,
-                extra: (weight: e.weight, sourceMs: e.progress),
+                extra: (
+                  weight: e.weight,
+                  sourceMs: e.positionUs ~/ Duration.microsecondsPerMillisecond,
+                ),
               ),
             );
             final metrics = DanmakuDensityMetrics(

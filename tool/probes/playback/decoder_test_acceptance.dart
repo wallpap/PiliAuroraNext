@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/pages/setting/decoder_test.dart';
 import 'package:pili_aurora_next/pages/setting/decoder_test_process.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/hwdec_type.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 以本地样片验收设置页使用的实际测试会话，不读取账号或现用设置。

@@ -8,7 +8,7 @@
 
 `Messaging.instance.session` 提供当前主账号的 `MessagingSession`，其标识包含账号 mid 和递增的 generation。`Accounts` 在主账号变化时通知 `Messaging`：先释放旧 Session，再发布新 Session。请求捕获发起时的账号，执行前和返回后都检查 Session 有效性。
 
-应用根 Widget 提供 `ProviderScope`。`messagingSessionProvider` 跟随 Session 变化，依赖它的 provider 重建状态。关闭页面时释放页面订阅；账号共享资源由 Session 管理，聊天通过租约保留使用中的缓存项。
+应用根 Widget 提供 `ProviderScope`。`messagingSessionProvider` 跟随 Session 变化，依赖它的 provider 重建状态。关闭页面时释放页面订阅；账号共享资源由 Session 管理，聊天通过租约保留使用中的缓存项。应用卸载时释放当前 Session 及其订阅，迟到的消息请求返回失效结果。
 
 | 状态 | 所有者与释放时机 | 实现入口 |
 | --- | --- | --- |
@@ -16,7 +16,7 @@
 | 会话实体与各文件夹列表 | Session 共享，各列表保留自己的分页和快照 | [`sessions.dart`](sessions.dart)、[`session_providers.dart`](session_providers.dart) |
 | 聊天时间线 | Session 持有缓存；页面 provider 和分享操作获取租约，结束时释放租约 | [`conversation.dart`](conversation.dart)、[`conversation_providers.dart`](conversation_providers.dart) |
 | 分类消息列表 | 页面 Notifier 创建句柄；订阅释放或账号切换时销毁 | [`feed.dart`](feed.dart)、[`feed_notifier.dart`](feed_notifier.dart) |
-| 接收、屏蔽和联系设置 | 页面 provider 创建句柄并登记释放 | [`settings.dart`](settings.dart)及对应 `whisper*` 页面 controller |
+| 接收、屏蔽和联系设置 | 页面 provider 创建句柄并登记释放 | [`settings.dart`](settings.dart)、[`settings_providers.dart`](settings_providers.dart)及对应 `whisper*` 页面入口 |
 | 私信分享 | Session 绑定最近收件人查询，发送时借用同一聊天缓存 | [`sharing.dart`](sharing.dart)、[`sharing_adapter.dart`](sharing_adapter.dart) |
 
 会话、时间线与未读快照保存在内存中。聊天缓存达到容量时回收空闲会话；仍有租约的会话继续保留，释放后再参与回收。`providers.dart` 将 `ValueListenable` 快照桥接成同步订阅，聊天时间线通过 `conversationSnapshotProvider` 订阅快照流。
@@ -27,6 +27,7 @@
 
 - [`session_models.dart`](session_models.dart) 定义稳定的 `SessionKey`、文件夹、会话目标和列表快照。会话目标区分私信、群、折叠入口、系统及客服等类型，操作是否可用由目标类型决定。
 - [`message_models.dart`](message_models.dart) 定义聊天目标、消息内容、分页结果和操作结果。结构化内容复制并冻结嵌套集合，避免调用方后续修改影响发送内容。
+- `models/` 保存消息通知、收件设置和未读接口使用的数据结构，按通知和查询类型组织。
 - `session_adapter.dart`、`conversation_adapter.dart`、`feed_adapters.dart` 和 `sharing_adapter.dart` 调用 `lib/http/msg.dart`、`lib/grpc/im.dart`，转换协议响应并显式传入账号。
 
 新增消息行为时，先确定状态由 Session 还是页面持有，再接入对应句柄和 provider。协议字段转换放在适配器，页面使用业务模型和操作结果。
@@ -37,7 +38,11 @@
 
 点赞列表保留 latest 与 total 分组，刷新重新开放分页。聊天历史和最新页的表情映射按文本合并，同文本采用最近响应的映射。
 
-接收设置写入前复制 protobuf 对象。同一设置项的写入按顺序提交，不同项可以并发；界面立即显示最新选择，最后一次写入失败时恢复最后确认的值。刷新会等待在途写入，再读取服务器状态。账号切换或句柄释放后不再发送排队写入。
+接收设置由 `settings_adapter.dart` 保留协议记录并投影为只读选项。组件提交开关或选项意图，写入只改选中字段，保留服务端字段。子页确认后只合并同一账号会话的摘要。同一设置项的写入按顺序提交，不同项可以并发。界面立即显示最新选择，最后一次写入失败时恢复最后确认的值。刷新等待在途写入后读取服务器状态。账号切换或句柄释放后不再发送排队写入。
+
+回复、@ 和点赞的提醒弹窗只读取提醒选项快照；选项绑定读取时的设置句柄，换凭据后旧弹窗不能向新账号写入。
+
+消息屏蔽词由 `blocked_keywords.dart` 按账号会话持有，适配器只返回词条和服务端限制。同一词条的一次写入确认后才更新列表，删除确认和添加弹层绑定打开时的句柄。
 
 未读概览合并重复刷新，查询失败保留已有数值，缺失分类保持未知。分类阅读成功后立即清除对应分类的本地未读数，使在途旧查询失效，不立即重查以免远端旧值重新点亮角标；后续正常刷新仍可读取新消息。主页与消息入口订阅同一份结果。
 
@@ -63,16 +68,18 @@ gRPC 调用必须声明 `GrpcCallKind`。查询的传输和解码失败返回可
 fvm flutter test --no-pub test/services/messaging/
 ```
 
-以下测试已接入 `tool/run-ci-tests.ps1`：
+`tool/run-ci-tests.ps1` 会运行本目录的共享测试。
 
 | 文件 | 覆盖范围 |
 | --- | --- |
-| `messaging_test.dart` | 账号切换、订阅释放、共享会话、旧响应失效、分页、发送锁、撤回、缓存租约与 ACK 水位 |
+| `messaging_test.dart` | 切换账号后丢弃旧响应；状态桥接释放后取消监听；共享会话列表、按分类分页和未读角标 |
+| `conversation_test.dart` | 聊天分页和撤回、发送期间防重、缓存租约释放和 ACK 水位 |
 | `sharing_test.dart` | 卡片与附言账号绑定、聊天共享锁、切换账号中止、未知结果和部分成功 |
 | `protocol_test.dart` | 发送关闭重试、分享卡片协议字段、系统通知展示与 ACK 超时重试 |
 | `preferences_test.dart` | 本地入口偏好的即时更新与订阅释放 |
+| `settings_test.dart` | 同一项接收设置串行写入；写入失败回滚，刷新等待写入，切换账号后丢弃旧结果 |
 
-`settings_test.dart` 覆盖接收设置的同项串行写入、失败回滚、刷新等待和账号失效；该文件通过上面的目录测试运行，尚未列入 CI 脚本。
+提醒弹窗的回归在 `test/pages/whisper_settings/reminder_dialog_test.dart`，覆盖换凭据、取消选择及协议选项。
 
 测试使用模拟响应。涉及页面或协议改动时，还需登录后在 Android、Windows 检查实际服务与界面：
 

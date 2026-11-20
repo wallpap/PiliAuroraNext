@@ -16,49 +16,47 @@ import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
 import 'package:pili_aurora_next/common/widgets/text_ellipsis/text_ellipsis.dart';
 import 'package:pili_aurora_next/common/widgets/text_more/text_more.dart';
 import 'package:pili_aurora_next/common/widgets/translucent_row.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo, ReplyControl, Content, Url, ReplyControl_VoteOption, Emote;
-import 'package:pili_aurora_next/grpc/reply.dart';
+import 'package:pili_aurora_next/features/community/application/comment_filter_settings.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
+import 'package:pili_aurora_next/features/community/application/comments/saved_replies.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/reply.dart';
-import 'package:pili_aurora_next/http/video.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/vote.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/pages/save_panel/view.dart';
-import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/zan_grpc.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/bili_utils.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';
-import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/feed_back.dart';
-import 'package:pili_aurora_next/utils/global_data.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
-import 'package:pili_aurora_next/utils/url_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/common/widgets/svg/level_icon.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/selectable_region_ext.dart';
+import 'package:pili_aurora_next/core/text/string_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/services/feedback/feed_back.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/router/url_utils.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:protobuf/protobuf.dart';
 
 part 'package:pili_aurora_next/common/widgets/context_menu/reply_menu_helper.dart';
 
@@ -73,32 +71,32 @@ class ReplyItemGrpc extends StatelessWidget {
     this.onDelete,
     this.upMid,
     this.showDialogue,
-    this.getTag,
+    this.videoTools,
     this.onViewImage,
     this.onCheckReply,
     this.onToggleTop,
     this.jumpToDialogue,
     this.onUpdate,
+    this.musicShare,
   });
-  final ReplyInfo replyItem;
+  final CommentReply replyItem;
   final int replyLevel;
-  final Function(ReplyInfo replyItem, int? rpid)? replyReply;
+  final Function(CommentReply replyItem, int? rpid)? replyReply;
   final bool needDivider;
-  final ValueChanged<ReplyInfo>? onReply;
-  final Function(ReplyInfo replyItem, int? subIndex)? onDelete;
+  final ValueChanged<CommentReply>? onReply;
+  final Function(CommentReply replyItem, int? subIndex)? onDelete;
   final Int64? upMid;
   final VoidCallback? showDialogue;
-  final Function? getTag;
+  final CommentVideoTools? videoTools;
   final VoidCallback? onViewImage;
-  final ValueChanged<ReplyInfo>? onCheckReply;
-  final ValueChanged<ReplyInfo>? onToggleTop;
+  final ValueChanged<CommentReply>? onCheckReply;
+  final ValueChanged<CommentReply>? onToggleTop;
   final VoidCallback? jumpToDialogue;
   final VoidCallback? onUpdate;
+  final CommentShareOrigin? musicShare;
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
-  static bool enableWordRe = Pref.enableWordRe;
-  static int? replyLengthLimit = Pref.replyLengthLimit;
 
   @override
   Widget build(BuildContext context) {
@@ -165,11 +163,9 @@ class ReplyItemGrpc extends StatelessWidget {
             member.face,
             size: 34,
             badgeSize: 14,
-            vipStatus: member.vipStatus.toInt(),
-            officialType: member.officialVerifyType.toInt(),
-            pendantImage: member.hasGarbPendantImage()
-                ? member.garbPendantImage
-                : null,
+            vipStatus: member.vipStatus,
+            officialType: member.officialVerifyType,
+            pendantImage: member.pendantImage,
           ),
           Flexible(
             child: Column(
@@ -193,9 +189,9 @@ class ReplyItemGrpc extends StatelessWidget {
                         ),
                       ),
                     ),
-                    BiliUtils.levelPicture(
-                      member.level.toInt(),
-                      isSeniorMember: member.isSeniorMember == 1,
+                    memberLevelPicture(
+                      member.level,
+                      isSeniorMember: member.isSeniorMember,
                       height: 11,
                     ),
                     if (replyItem.mid == upMid)
@@ -205,16 +201,16 @@ class ReplyItemGrpc extends StatelessWidget {
                         isStack: false,
                         fontSize: 9,
                       )
-                    else if (GlobalData().showMedal &&
-                        member.hasFansMedalLevel())
+                    else if (DisplayPreferences.showFanMedals &&
+                        member.medalLevel != null)
                       MedalWidget(
-                        medalName: member.fansMedalName,
-                        level: member.fansMedalLevel.toInt(),
-                        backgroundColor: DmUtils.decimalToColor(
-                          member.fansMedalColor.toInt(),
+                        medalName: member.medalName,
+                        level: member.medalLevel!,
+                        backgroundColor: ColourUtils.opaqueRgb(
+                          member.medalColor,
                         ),
-                        nameColor: DmUtils.decimalToColor(
-                          member.fansMedalColorName.toInt(),
+                        nameColor: ColourUtils.opaqueRgb(
+                          member.medalNameColor,
                         ),
                         padding: const .symmetric(horizontal: 6, vertical: 1.5),
                       ),
@@ -235,7 +231,7 @@ class ReplyItemGrpc extends StatelessWidget {
                         color: colorScheme.outline,
                       ),
                     ),
-                    if (replyItem.replyControl.hasLocation())
+                    if (replyItem.replyControl.location != null)
                       Text(
                         ' • ${replyItem.replyControl.location}',
                         style: TextStyle(
@@ -252,8 +248,8 @@ class ReplyItemGrpc extends StatelessWidget {
       ),
     );
     if (PendantAvatar.showDecorate) {
-      final garb = replyItem.memberV2.garb;
-      if (garb.hasCardImage()) {
+      final garb = replyItem.garb;
+      if (garb.cardImage != null) {
         const double height = 38.0;
         return Stack(
           clipBehavior: .none,
@@ -265,11 +261,11 @@ class ReplyItemGrpc extends StatelessWidget {
               child: CachedImage(
                 height: height,
                 memCacheHeight: height.cacheSize(context),
-                imageUrl: ImageUtils.safeThumbnailUrl(garb.cardImage),
+                imageUrl: ImageUtils.safeThumbnailUrl(garb.cardImage!),
                 placeholder: (_, _) => const SizedBox.shrink(),
               ),
             ),
-            if (garb.hasCardNumber())
+            if (garb.cardNumber != null)
               Positioned(
                 top: 0,
                 right: 0,
@@ -298,17 +294,17 @@ class ReplyItemGrpc extends StatelessWidget {
 
   Widget _buildVoteOption(
     ColorScheme colorScheme,
-    ReplyControl_VoteOption voteOption,
+    CommentVoteOption voteOption,
   ) {
     return Text.rich(
       TextSpan(
         children: [
-          switch (voteOption.labelKind) {
-            .RED => TextSpan(
+          switch (voteOption.side) {
+            .red => TextSpan(
               text: '红方  ',
               style: TextStyle(color: colorScheme.vipColor),
             ),
-            .BLUE => TextSpan(
+            .blue => TextSpan(
               text: '蓝方  ',
               style: TextStyle(color: colorScheme.blue),
             ),
@@ -337,17 +333,17 @@ class ReplyItemGrpc extends StatelessWidget {
       children: [
         _buildHeader(context, colorScheme),
         const SizedBox(height: 10),
-        if (replyControl.hasVoteOption())
+        if (replyControl.voteOption case final voteOption?)
           Padding(
             padding: padding,
-            child: _buildVoteOption(colorScheme, replyControl.voteOption),
+            child: _buildVoteOption(colorScheme, voteOption),
           ),
         Padding(
           padding: padding,
           child: TextMore.rich(
             primary: colorScheme.primary,
             style: const TextStyle(height: 1.75, fontSize: 14),
-            maxLines: replyLevel == 1 ? replyLengthLimit : null,
+            maxLines: replyLevel == 1 ? CommentPreferences.lineLimit : null,
             TextSpan(
               children: [
                 if (replyControl.isUpTop) ...[
@@ -368,7 +364,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   context,
                   colorScheme,
                   replyControl.showTranslation
-                      ? replyItem.translatedContent
+                      ? replyItem.translatedContent ?? emptyCommentContent
                       : replyItem.content,
                   replyControl,
                 ),
@@ -411,7 +407,7 @@ class ReplyItemGrpc extends StatelessWidget {
   Widget _buildTranslateBtn(
     BuildContext context,
     ColorScheme colorScheme,
-    ReplyControl replyControl,
+    CommentControl replyControl,
     TextStyle textStyle,
     ButtonStyle buttonStyle,
   ) {
@@ -431,31 +427,26 @@ class ReplyItemGrpc extends StatelessWidget {
             if (isProcessing) {
               return;
             }
-            if (replyItem.hasTranslatedContent()) {
+            if (replyItem.translatedContent != null) {
               replyControl.showTranslation = true;
               (context as Element).markNeedsBuild();
               return;
             }
             isProcessing = true;
-            final account = Accounts.main;
+            final identity = AccountScope.capture();
+            final account = identity.account;
             final owner = context.widget;
-            final res = await ReplyGrpc.translateReply(
-              account: account,
-              type: replyItem.type,
-              oid: replyItem.oid,
-              rpid: replyItem.id,
-            );
+            final res = await commentActions.translate(account, replyItem);
             isProcessing = false;
             if (!context.mounted ||
-                !identical(account, Accounts.main) ||
+                !identity.isCurrent ||
                 !identical(owner, context.widget)) {
               return;
             }
             if (res case Success(:final response)) {
-              final item = response.translatedReplies[replyItem.id];
-              if (item != null && item.hasTranslatedContent()) {
+              if (response != null) {
                 replyControl.showTranslation = true;
-                replyItem.translatedContent = item.translatedContent;
+                replyItem.translatedContent = response;
                 if (context.mounted) {
                   (context as Element).markNeedsBuild();
                 }
@@ -485,7 +476,7 @@ class ReplyItemGrpc extends StatelessWidget {
   Widget buttonAction(
     BuildContext context,
     ColorScheme colorScheme,
-    ReplyControl replyControl,
+    CommentControl replyControl,
   ) {
     final textStyle = TextStyle(
       height: 1,
@@ -545,8 +536,7 @@ class ReplyItemGrpc extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 2),
-        if (replyControl.translationSwitch ==
-            .TRANSLATION_SWITCH_SHOW_TRANSLATION) ...[
+        if (replyControl.canTranslate) ...[
           _buildTranslateBtn(
             context,
             colorScheme,
@@ -560,10 +550,8 @@ class ReplyItemGrpc extends StatelessWidget {
             fit: FlexFit.tight,
             child: Text(
               dialogBtn != null
-                  ? replyControl.cardLabels.first.textContent
-                  : replyControl.cardLabels
-                        .map((e) => e.textContent)
-                        .join('  '),
+                  ? replyControl.cardLabels.first
+                  : replyControl.cardLabels.join('  '),
               style: textStyle.copyWith(color: colorScheme.secondary),
               maxLines: 1,
               overflow: .ellipsis,
@@ -582,7 +570,7 @@ class ReplyItemGrpc extends StatelessWidget {
   Widget replyItemRow(
     BuildContext context,
     ColorScheme colorScheme,
-    List<ReplyInfo> replies,
+    List<CommentReply> replies,
   ) {
     final extraRow = replies.length < replyItem.count.toInt();
     final length = replies.length + (extraRow ? 1 : 0);
@@ -741,8 +729,8 @@ class ReplyItemGrpc extends StatelessWidget {
   InlineSpan _buildMessage(
     BuildContext context,
     ColorScheme colorScheme,
-    Content content,
-    ReplyControl replyControl,
+    CommentContent content,
+    CommentControl replyControl,
   ) {
     final List<InlineSpan> spanChildren = <InlineSpan>[];
     bool hasNote = false;
@@ -751,7 +739,7 @@ class ReplyItemGrpc extends StatelessWidget {
     // 构建正则表达式
     final List<String> specialTokens = [
       ...content.emotes.keys,
-      ...content.topics.keys.map((e) => '#$e#'),
+      ...content.topics.map((e) => '#$e#'),
       ...content.atNameToMid.keys.map((e) => '@$e'),
       ...urlKeys,
     ];
@@ -769,25 +757,25 @@ class ReplyItemGrpc extends StatelessWidget {
       spanChildren.add(TextSpan(text: str));
     }
 
-    void addUrl(String matchStr, Url url, {bool addPlainText = false}) {
-      if (url.extra.isWordSearch && !enableWordRe) {
+    void addUrl(String matchStr, CommentUrl url, {bool addPlainText = false}) {
+      if (url.isWordSearch && !CommentPreferences.openSearchLinks) {
         if (addPlainText) {
           addPlainTextSpan(matchStr);
         }
         return;
       }
-      final isCv = url.clickReport.startsWith('{"cvid');
+      final isCv = url.isNote;
       if (isCv) {
         hasNote = true;
       }
       final children = [
-        if (!isCv && url.hasPrefixIcon())
+        if (!isCv && url.prefixIcon != null)
           WidgetSpan(
             child: CachedImage(
               height: 19,
               memCacheHeight: 19.cacheSize(context),
               color: colorScheme.primary,
-              imageUrl: ImageUtils.thumbnailUrl(url.prefixIcon),
+              imageUrl: ImageUtils.thumbnailUrl(url.prefixIcon!),
               placeholder: (_, _) => const SizedBox.shrink(),
             ),
           ),
@@ -822,7 +810,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   PageUtils.handleWebview(matchStr);
                 }
               } else {
-                if (url.extra.isWordSearch) {
+                if (url.isWordSearch) {
                   Get.toNamed(
                     '/searchResult',
                     parameters: {'keyword': url.title},
@@ -851,19 +839,15 @@ class ReplyItemGrpc extends StatelessWidget {
         if (content.emotes.containsKey(matchStr)) {
           // 处理表情
           final emote = content.emotes[matchStr]!;
-          final size = emote.size.toInt() * 20.0;
-          final url = emote.hasWebpUrl()
-              ? emote.webpUrl
-              : emote.hasGifUrl()
-              ? emote.gifUrl
-              : emote.url;
+          final size = emote.size * 20.0;
+          final url = emote.webpUrl ?? emote.gifUrl ?? emote.url;
           spanChildren.add(
             WidgetSpan(
               child: emoteTooltipBuilder(
                 url: url,
                 emote: matchStr,
                 triggerMode: .tap,
-                jumpUrl: emote.hasJumpUrl() ? emote.jumpUrl : null,
+                jumpUrl: emote.jumpUrl,
                 colorScheme: colorScheme,
                 child: NetworkImgLayer(
                   src: url,
@@ -898,24 +882,8 @@ class ReplyItemGrpc extends StatelessWidget {
           );
         } else if (_timeRegExp.hasMatch(matchStr)) {
           matchStr = matchStr.replaceAll('：', ':');
-          final args = Get.arguments;
-          final tagValue =
-              getTag?.call() ?? (args is Map ? args['heroTag'] : null);
-          final tag = tagValue is String ? tagValue : null;
-          VideoDetailController? controller;
-          int? timeLength;
-          if (tag != null &&
-              Get.isRegistered<VideoDetailController>(tag: tag)) {
-            controller = Get.find<VideoDetailController>(tag: tag);
-            if (!controller.isClosed) {
-              try {
-                // 地址尚未解析时 data 仍未初始化。
-                timeLength = controller.data.timeLength;
-              } catch (_) {
-                timeLength = null;
-              }
-            }
-          }
+          final tools = videoTools;
+          final timeLength = tools?.durationMilliseconds();
           var secondsValue = BigInt.zero;
           for (final part in matchStr.split(':')) {
             final value = BigInt.tryParse(part);
@@ -926,13 +894,11 @@ class ReplyItemGrpc extends StatelessWidget {
             secondsValue = secondsValue * BigInt.from(60) + value;
           }
           final isValid =
-              controller != null &&
-              !controller.isClosed &&
+              tools != null &&
               timeLength != null &&
               timeLength > 0 &&
               secondsValue >= BigInt.zero &&
               secondsValue <= BigInt.from(timeLength ~/ 1000);
-          final target = controller;
           spanChildren.add(
             TextSpan(
               text: isValid ? ' $matchStr ' : matchStr,
@@ -940,22 +906,13 @@ class ReplyItemGrpc extends StatelessWidget {
               recognizer: isValid
                   ? (NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
-                        if (target == null ||
-                            target.isClosed ||
-                            !Get.isRegistered<VideoDetailController>(
-                              tag: tag,
-                            ) ||
-                            !identical(
-                              Get.find<VideoDetailController>(tag: tag),
-                              target,
-                            )) {
-                          return;
+                        final target = Duration(seconds: secondsValue.toInt());
+                        final duration = tools.durationMilliseconds();
+                        if (duration != null &&
+                            target.inMilliseconds <= duration &&
+                            tools.seek(target)) {
+                          SmartDialog.showToast('跳转至：$matchStr');
                         }
-                        SmartDialog.showToast('跳转至：$matchStr');
-                        target.plPlayerController.seekTo(
-                          Duration(seconds: secondsValue.toInt()),
-                          isSeek: false,
-                        );
                       })
                   : null,
             ),
@@ -966,7 +923,7 @@ class ReplyItemGrpc extends StatelessWidget {
             addUrl(matchStr, url, addPlainText: true);
             // 只显示一次
             matchedUrls.add(matchStr);
-          } else if (matchStr.length > 1 && content.topics[topic] != null) {
+          } else if (matchStr.length > 1 && content.topics.contains(topic)) {
             spanChildren.add(
               TextSpan(
                 text: matchStr,
@@ -1005,16 +962,16 @@ class ReplyItemGrpc extends StatelessWidget {
       final Color color;
       NoDeadlineTapGestureRecognizer? recognizer;
 
-      final hasClickUrl = content.richText.note.hasClickUrl();
-      if (hasClickUrl || content.richText.opus.hasOpusId()) {
+      final noteUrl = content.noteUrl;
+      if (noteUrl != null || content.opusId != null) {
         color = colorScheme.primary;
         recognizer = NoDeadlineTapGestureRecognizer()
-          ..onTap = () => hasClickUrl
-              ? PiliScheme.routePushFromUrl(content.richText.note.clickUrl)
+          ..onTap = () => noteUrl != null
+              ? PiliScheme.routePushFromUrl(noteUrl)
               : Get.toNamed(
                   '/articlePage',
                   parameters: {
-                    'id': content.richText.opus.opusId.toString(),
+                    'id': content.opusId.toString(),
                     'type': 'opus',
                   },
                 );
@@ -1036,19 +993,20 @@ class ReplyItemGrpc extends StatelessWidget {
 
   Widget morePanel({
     required BuildContext context,
-    required ReplyInfo item,
+    required CommentReply item,
     required VoidCallback onDelete,
     required bool isSubReply,
   }) {
     late String message = item.content.message;
-    final account = Accounts.main;
+    final identity = AccountScope.capture();
+    final account = identity.account;
     final owner = context.widget;
     final oid = item.oid;
     final rpid = item.id;
     bool isCurrent() =>
         context.mounted &&
         identical(owner, context.widget) &&
-        identical(account, Accounts.main) &&
+        identity.isCurrent &&
         item.oid == oid &&
         item.id == rpid;
     final ownerMid = Int64(account.mid);
@@ -1081,18 +1039,11 @@ class ReplyItemGrpc extends StatelessWidget {
               ),
             ),
           ),
-          if (kDebugMode && GStorage.reply != null) ...[
+          if (kDebugMode && commentArchiveAvailable) ...[
             ListTile(
               onTap: () {
                 Get.back();
-                GStorage.reply!.put(
-                  item.id.toString(),
-                  (item.deepCopy()
-                        ..unknownFields.clear()
-                        ..replies.clear()
-                        ..clearTrackInfo())
-                      .writeToBuffer(),
-                );
+                saveDebugComment(item);
               },
               title: Text(
                 'save to local',
@@ -1103,7 +1054,7 @@ class ReplyItemGrpc extends StatelessWidget {
               onTap: () {
                 Get.back();
                 onDelete();
-                GStorage.reply!.delete(item.id.toString());
+                deleteDebugComment(item);
               },
               title: Text(
                 'remove from local',
@@ -1113,16 +1064,7 @@ class ReplyItemGrpc extends StatelessWidget {
             ListTile(
               onTap: () {
                 Get.back();
-                final oid = item.oid.toInt();
-                final data =
-                    (item.deepCopy()
-                          ..unknownFields.clear()
-                          ..replies.clear()
-                          ..clearTrackInfo())
-                        .writeToBuffer();
-                GStorage.reply!.putAll({
-                  for (var i = oid; i < oid + 1000; i++) i.toString(): data,
-                });
+                saveDebugComment(item, batch: true);
               },
               title: Text(
                 'save to local (x1000)',
@@ -1167,13 +1109,12 @@ class ReplyItemGrpc extends StatelessWidget {
                     if (!isCurrent()) {
                       return const Error('评论已变化，请重新打开举报页面');
                     }
-                    final res = await ReplyHttp.report(
-                      account: account,
-                      rpid: rpid,
-                      oid: oid,
-                      reasonType: reasonType,
-                      reasonDesc: reasonDesc,
-                      banUid: banUid,
+                    final res = await CommentActions.report(
+                      account,
+                      item,
+                      reason: reasonType,
+                      description: reasonDesc,
+                      block: banUid,
                     );
                     if (res.isSuccess && isCurrent()) {
                       try {
@@ -1209,12 +1150,8 @@ class ReplyItemGrpc extends StatelessWidget {
                   ),
                 );
                 if (!confirmed || !isCurrent()) return;
-                final res = await VideoHttp.relationMod(
-                  account: account,
-                  mid: item.member.mid.toInt(),
-                  act: 5,
-                  reSrc: 11,
-                );
+                final res = await MemberModeration.capture(account)
+                    .block(item.member.mid.toInt());
                 if (!isCurrent()) return;
                 if (res.isSuccess) {
                   SmartDialog.showToast('拉黑成功');
@@ -1246,7 +1183,7 @@ class ReplyItemGrpc extends StatelessWidget {
           ListTile(
             onTap: () {
               Get.back();
-              Utils.copyText(message);
+              copyText(message);
             },
             minLeadingWidth: 0,
             leading: const Icon(Icons.copy_all_outlined, size: 19),
@@ -1264,7 +1201,12 @@ class ReplyItemGrpc extends StatelessWidget {
           ListTile(
             onTap: () {
               Get.back();
-              SavePanel.toSavePanel(upMid: upMid, item: item);
+              SavePanel.toSavePanel(
+                upMid: upMid,
+                item: item,
+                musicShare: musicShare,
+                videoShare: videoTools?.share(item),
+              );
             },
             minLeadingWidth: 0,
             leading: const Icon(Icons.save_alt, size: 19),

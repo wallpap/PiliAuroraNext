@@ -9,14 +9,13 @@ import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
-import 'package:pili_aurora_next/models/remote/follow/list.dart';
-import 'package:pili_aurora_next/pages/follow/controller.dart';
+import 'package:pili_aurora_next/features/following/domain/list/list.dart';
+import 'package:pili_aurora_next/features/following/application/following.dart';
 import 'package:pili_aurora_next/pages/follow/widgets/follow_item.dart';
-import 'package:pili_aurora_next/pages/follow_type/controller.dart';
+import 'package:pili_aurora_next/features/following/application/follow_relations.dart';
 import 'package:pili_aurora_next/pages/follow_type/view.dart';
 import 'package:pili_aurora_next/pages/share/view.dart' show UserModel;
-import 'package:pili_aurora_next/services/account_providers.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 
 class FollowChildPage extends ConsumerStatefulWidget {
   const FollowChildPage({
@@ -156,7 +155,10 @@ class FollowChildPageState extends ConsumerState<FollowChildPage>
                                   ? null
                                   : (user) {
                                       final latest = ref.read(provider);
-                                      if (identical(account, Accounts.main) &&
+                                      if (identical(
+                                            account,
+                                            ref.read(mainAccountProvider),
+                                          ) &&
                                           !latest.isLoading &&
                                           !latest.hasError &&
                                           identical(
@@ -168,7 +170,10 @@ class FollowChildPageState extends ConsumerState<FollowChildPage>
                                     },
                               afterMod: (_) {
                                 if (!mounted ||
-                                    !identical(account, Accounts.main)) {
+                                    !identical(
+                                      account,
+                                      ref.read(mainAccountProvider),
+                                    )) {
                                   return;
                                 }
                                 ref.invalidate(followingProvider);

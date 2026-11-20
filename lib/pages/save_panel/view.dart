@@ -9,22 +9,19 @@ import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/custom_toast.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/publish/publish_route.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
-import 'package:pili_aurora_next/pages/music/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
-import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
+import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
+import 'package:pili_aurora_next/features/community/presentation/comment_video_tools.dart';
 import 'package:pili_aurora_next/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -38,20 +35,34 @@ class SavePanel extends StatefulWidget {
     required this.item,
     // reply
     this.upMid,
+    this.musicShare,
+    this.videoShare,
     super.key,
   });
 
   final dynamic upMid;
   final dynamic item;
+  final CommentShareOrigin? musicShare;
+  final CommentVideoShare? videoShare;
 
   @override
   State<SavePanel> createState() => _SavePanelState();
 
-  static void toSavePanel({dynamic upMid, dynamic item}) {
+  static void toSavePanel({
+    dynamic upMid,
+    dynamic item,
+    CommentShareOrigin? musicShare,
+    CommentVideoShare? videoShare,
+  }) {
     Get.key.currentState!.push(
       PublishRoute(
         pageBuilder: (context, animation, secondaryAnimation) {
-          return SavePanel(upMid: upMid, item: item);
+          return SavePanel(
+            upMid: upMid,
+            item: item,
+            musicShare: musicShare,
+            videoShare: videoShare,
+          );
         },
         transitionDuration: const Duration(milliseconds: 255),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -90,7 +101,7 @@ class _SavePanelState extends State<SavePanel> {
   @override
   void initState() {
     super.initState();
-    if (_item case final ReplyInfo i) {
+    if (_item case final CommentReply i) {
       _parseReply(i);
     } else if (_item case final DynamicItemModel i) {
       uri = _parseDyn(i);
@@ -98,53 +109,22 @@ class _SavePanelState extends State<SavePanel> {
     }
   }
 
-  void _parseReply(ReplyInfo reply) {
+  void _parseReply(CommentReply reply) {
     itemType = '评论';
     final currentRoute = Get.currentRoute;
-    late final hasRoot = reply.hasRoot();
+    late final hasRoot = reply.rootId != null;
 
-    if (currentRoute == '/videoV') {
+    if (widget.videoShare case final video?) {
+      uri = video.url;
+      cover = video.cover;
+      title = video.title;
+      pubdate = video.published;
+      uname = video.author;
+    } else if (currentRoute == '/videoV') {
       final rootId = hasRoot ? reply.root : reply.id;
 
       uri =
           'https://www.bilibili.com/video/av${reply.oid}?comment_on=1&comment_root_id=$rootId${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
-      try {
-        final heroTag = Get.arguments['heroTag'];
-        final videoType = Get.arguments['videoType'];
-        if (videoType == VideoType.pgc || videoType == VideoType.pugv) {
-          final ctr = Get.find<PgcIntroController>(tag: heroTag);
-          final pgcItem = ctr.pgcItem;
-          final cid = ctr.cid.value;
-          final episode = pgcItem.episodes!.firstWhere(
-            (e) => e.cid == cid,
-          );
-          cover = episode.cover;
-          title =
-              episode.shareCopy ??
-              '${pgcItem.title} ${episode.showTitle ?? episode.longTitle ?? ''}';
-          pubdate = episode.pubTime;
-          uname = pgcItem.upInfo?.uname;
-
-          final oid = reply.oid;
-          final type = reply.type.toInt();
-          final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
-          uri =
-              'bilibili://comment/detail/$type/$oid/$rootId/?${anchor}enterUri=bilibili://pgc/season/ep/${ctr.epId}';
-        } else {
-          final ctr = Get.find<UgcIntroController>(tag: heroTag);
-          final videoDetail = ctr.videoDetail.value;
-          cover = videoDetail.pic;
-          title = videoDetail.title;
-          pubdate = videoDetail.pubdate;
-          uname = videoDetail.owner?.name;
-
-          final cid = ctr.cid.value;
-          final part =
-              ctr.videoDetail.value.pages?.indexWhere((i) => i.cid == cid) ??
-              -1;
-          if (part > 0) uri += '&p=${part + 1}';
-        }
-      } catch (_) {}
     } else if (currentRoute.startsWith('/dynamicDetail')) {
       DynamicItemModel? dynItem;
       try {
@@ -201,19 +181,15 @@ class _SavePanelState extends State<SavePanel> {
       final rootId = hasRoot ? reply.root : reply.id;
       final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
       String enterUri = '';
-      try {
-        final ctr = Get.find<MusicDetailController>(
-          tag: Get.parameters['musicId'],
-        );
-        enterUri = 'enterUri=${Uri.encodeComponent(ctr.shareUrl)}'; // official client cannot parse it
-        final data = ctr.infoState.value.dataOrNull;
-        if (data != null) {
+      if (widget.musicShare case final music?) {
+        enterUri = 'enterUri=${Uri.encodeComponent(music.url)}';
+        if (music.cover != null || music.title != null) {
           coverType = _CoverType.square;
-          cover = data.mvCover;
-          title = data.musicTitle;
-          if (data.musicPublish != null) {
+          cover = music.cover;
+          title = music.title;
+          if (music.published case final published?) {
             final time = DateTime.tryParse(
-              data.musicPublish!,
+              published,
             )?.millisecondsSinceEpoch;
             if (time != null) {
               pubdate = time ~/ 1000;
@@ -221,7 +197,7 @@ class _SavePanelState extends State<SavePanel> {
             }
           }
         }
-      } catch (_) {}
+      }
       uri = 'bilibili://comment/detail/$type/$oid/$rootId/?$anchor$enterUri';
     }
 
@@ -422,7 +398,7 @@ class _SavePanelState extends State<SavePanel> {
                     children: [
                       IgnorePointer(
                         child: switch (_item) {
-                          ReplyInfo reply => ReplyItemGrpc(
+                          CommentReply reply => ReplyItemGrpc(
                             replyItem: reply,
                             replyLevel: 0,
                             needDivider: false,
@@ -530,7 +506,7 @@ class _SavePanelState extends State<SavePanel> {
                                           ),
                                         ),
                                         GestureDetector(
-                                          onTap: () => Utils.copyText(uri),
+                                          onTap: () => copyText(uri),
                                           child: Container(
                                             width: 88,
                                             height: 88,

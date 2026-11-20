@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/remote/download/bili_download_entry_info.dart';
-import 'package:pili_aurora_next/services/download/download_manager.dart';
-import 'package:pili_aurora_next/services/download/response_adapter.dart';
+import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
+import 'package:pili_aurora_next/features/download/data/download_manager.dart';
+import 'package:pili_aurora_next/features/download/data/response_adapter.dart';
 
 void main() {
   late Directory directory;

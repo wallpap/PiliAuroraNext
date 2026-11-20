@@ -1,16 +1,19 @@
 import 'dart:collection';
 
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
-import 'package:pili_aurora_next/pages/danmaku/element_size.dart';
+import 'package:pili_aurora_next/features/danmaku/domain/danmaku_element.dart';
+import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 
 /// 100 ms 的优先候选额度；真实素材与密集合成素材共同验证的折中值。
 const danmakuCandidatesPerBucket = 12;
 
 /// 负数表示先显示；自己发送的弹幕先于服务端权重，同权重保持来源次序。
-int compareDanmakuPriority(DanmakuElem a, DanmakuElem b) {
-  final self = (b.isSelf ? 1 : 0).compareTo(a.isSelf ? 1 : 0);
-  return self != 0 ? self : b.weight.compareTo(a.weight);
-}
+int compareDanmakuPriority(DanmakuElement first, DanmakuElement second) =>
+    compareDanmakuRank(
+      first.isSelf,
+      first.weight,
+      second.isSelf,
+      second.weight,
+    );
 
 /// 有界 top-k；返回来源次序，调用方继续遵守媒体时间顺序。
 List<T> selectDanmakuPriority<T>(
@@ -38,9 +41,9 @@ List<T> selectDanmakuPriority<T>(
 
 class _RetainedElement {
   _RetainedElement(this.index, this.element)
-    : bytes = estimateDanmakuElementBytes(element) + 64;
+    : bytes = element.storageBytes + 64;
   final int index;
-  final DanmakuElem element;
+  final DanmakuElement element;
   final int bytes;
   int get bucket => element.progress ~/ 100;
 }
@@ -72,7 +75,7 @@ class DanmakuPriorityRetention {
     return priority != 0 ? priority : b.index.compareTo(a.index);
   }
 
-  void add(int index, DanmakuElem element) {
+  void add(int index, DanmakuElement element) {
     final entry = _RetainedElement(index, element);
     final bucket = _buckets[entry.bucket];
     final victims = <_RetainedElement>{};
@@ -108,7 +111,7 @@ class DanmakuPriorityRetention {
     estimatedBytes += entry.bytes;
   }
 
-  void promote(int index, DanmakuElem element) {
+  void promote(int index, DanmakuElement element) {
     final previous = _byIndex[index];
     if (previous != null) _remove(previous);
     add(index, element);
@@ -128,7 +131,7 @@ class DanmakuPriorityRetention {
     }
   }
 
-  Map<int, List<DanmakuElem>> get buckets => {
+  Map<int, List<DanmakuElement>> get buckets => {
     for (final entry in _buckets.entries)
       entry.key: [
         for (final item

@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/services/account_providers.dart';
+import 'package:pili_aurora_next/features/account/application/account_roles.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../support/memory_box.dart';
 
@@ -74,6 +79,37 @@ void main() {
     Messaging.instance.session;
   });
 
+  test('应用卸载关闭消息订阅并拒绝迟到请求，新会话可独立建立', () async {
+    final oldOwner = Messaging.instance;
+    final oldSession = oldOwner.session;
+    final response = Completer<LoadingState<int>>();
+    final request = oldSession.run((_) => response.future);
+    final closed = oldSession.changes.drain<void>();
+
+    Messaging.closeApplicationSession();
+    response.complete(const Success(42));
+
+    await closed;
+    expect(await request, isA<Error>());
+    expect(oldOwner.session.isActive, isFalse);
+    final newSession = Messaging.instance.session;
+    expect(newSession.isActive, isTrue);
+    expect(newSession.key, isNot(oldSession.key));
+  });
+
+  test('主账号恢复原凭据后不接收上一会话结果，视频角色独立', () {
+    Accounts.accountMode[AccountType.video.index] = recommendAccount;
+    final mainRequest = AccountScope.capture();
+    final videoRequest = AccountScope.captureVideo();
+
+    Accounts.replaceCredentials(login(100, csrf: 'renewed'));
+    Accounts.replaceCredentials(mainAccount);
+
+    expect(mainRequest.isCurrent, isFalse);
+    expect(AccountScope.capture().isCurrent, isTrue);
+    expect(videoRequest.isCurrent, isTrue);
+  });
+
   test('真实推荐账号切换发布同 mid 的新凭据，不重建主账号及消息 Session', () async {
     final next = login(200, csrf: 'renewed');
     await Accounts.set(AccountType.recommend, next);
@@ -94,6 +130,20 @@ void main() {
       same(AnonymousAccount()),
     ]);
     expect(container.read(recommendAccountProvider).isLogin, isFalse);
+    expectMainUnchanged();
+  });
+
+  test('提交旧角色草稿时使用同 UID 最新保存的凭据', () async {
+    const roles = AccountRoles();
+    final draft = roles.selection();
+    final choices = List.of(draft.roles)..[AccountType.video.index] = 200;
+    final renewed = login(200, csrf: 'renewed');
+    Accounts.replaceCredentials(renewed);
+    await accounts.put('200', renewed);
+
+    expect(await roles.apply(draft, choices), isTrue);
+    expect(Accounts.video, same(renewed));
+    expect(accounts.get('200'), same(renewed));
     expectMainUnchanged();
   });
 

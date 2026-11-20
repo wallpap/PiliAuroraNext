@@ -8,9 +8,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/services/settings/theme/app_icon_style.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/memory_box.dart';
 

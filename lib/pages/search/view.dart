@@ -2,9 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 import 'package:pili_aurora_next/common/widgets/dialog/export_import.dart';
 import 'package:pili_aurora_next/common/widgets/disabled_icon.dart';
@@ -13,12 +12,12 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/sliver_wrap.dart';
 import 'package:pili_aurora_next/common/widgets/view_insets_safe_area.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/search/search_rcmd/data.dart';
-import 'package:pili_aurora_next/pages/search/controller.dart';
+import 'package:pili_aurora_next/features/search/domain/suggestions/search_rcmd/data.dart';
+import 'package:pili_aurora_next/features/search/application/search_home.dart';
 import 'package:pili_aurora_next/pages/search/widgets/hot_keyword.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/em.dart' show Em;
-import 'package:pili_aurora_next/utils/extension/size_ext.dart';
+import 'package:pili_aurora_next/features/search/domain/highlighted_text.dart' show Em;
+import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -94,13 +93,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _submit();
   }
 
-  void _clearHistory() {
+  Future<void> _clearHistory() async {
     final history = ref.read(searchHistoryProvider.notifier);
-    showConfirmDialog(
+    final confirmed = await showConfirmDialog(
       context: context,
       title: const Text('确定清空搜索历史？'),
-      onConfirm: history.clear,
     );
+    if (!confirmed || !context.mounted) return;
+    history.clear();
   }
 
   late ThemeData theme;
@@ -138,8 +138,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     ref.watch(searchProvider(_tag));
-    final trending = Pref.enableTrending ? _buildHotSearch() : null;
-    final rcmd = Pref.enableSearchRcmd
+    final options = readSearchOptions();
+    final trending = options.trending ? _buildHotSearch() : null;
+    final rcmd = options.recommendations
         ? _buildHotSearch(isTrending: false)
         : null;
 
@@ -150,7 +151,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: ViewInsetsSafeArea(
           child: CustomScrollView(
             slivers: [
-              if (Pref.searchSuggestion) _buildSearchSuggest(),
+              if (options.suggestions) _buildSearchSuggest(),
               if (isPortrait) ...[
                 ?trending,
                 _buildHistory,
@@ -276,7 +277,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return SliverPadding(
       padding: .fromLTRB(
         10,
-        !isTrending && (isPortrait || Pref.enableTrending) ? 4 : 25,
+        !isTrending && (isPortrait || readSearchOptions().trending) ? 4 : 25,
         4,
         25,
       ),
@@ -371,7 +372,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         10,
         !isPortrait
             ? 25
-            : Pref.enableTrending
+            : readSearchOptions().trending
             ? 0
             : 6,
         6,

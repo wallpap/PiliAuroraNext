@@ -4,19 +4,17 @@ import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
-import 'package:pili_aurora_next/http/search.dart';
+import 'package:pili_aurora_next/features/playback/application/music_queries.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/music/bgm_recommend_list.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/navigation_request.dart';
+import 'package:pili_aurora_next/common/widgets/badge_type.dart';
+import 'package:pili_aurora_next/common/widgets/stat/stat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/music/bgm_recommend_list.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
+import 'package:pili_aurora_next/router/navigation_request.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MusicVideoCardH extends StatelessWidget {
@@ -29,37 +27,16 @@ class MusicVideoCardH extends StatelessWidget {
 
   Future<void> _openVideo(BuildContext context) async {
     final request = NavigationRequest();
-    final account = Accounts.heartbeat;
-    bool current() =>
-        context.mounted &&
-        request.isCurrent &&
-        identical(account, Accounts.heartbeat);
+    bool current() => context.mounted && request.isCurrent;
     try {
-      final bvid = videoItem.bvid;
-      if (bvid == null || bvid.trim().isEmpty) {
-        SmartDialog.showToast('视频标识缺失，请刷新列表');
-        return;
-      }
-      int? cid = videoItem.cid;
-      Dimension? dimension;
-      if (cid == null || cid <= 0) {
-        final result = await SearchHttp.pageWithDimension(
-          bvid: bvid,
-          account: account,
-        );
-        if (!current()) return;
-        if (result is Error) {
-          result.toast();
-          return;
-        }
-        cid = result.dataOrNull?.cid;
-        dimension = result.dataOrNull?.dimension;
-      }
+      final result = await MusicQueries.openVideo(videoItem, current);
       if (!current()) return;
-      if (cid == null || cid <= 0) {
-        SmartDialog.showToast('该视频暂无可播放分 P');
+      if (result case Error error) {
+        error.toast();
         return;
       }
+      if (!result.isSuccess) return;
+      final (:bvid, :cid, :dimension) = result.data;
       PageUtils.toVideoPage(
         bvid: bvid,
         cid: cid,

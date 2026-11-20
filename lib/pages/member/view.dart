@@ -4,28 +4,32 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
-import 'package:pili_aurora_next/common/widgets/dialog/report_member.dart';
+import 'package:pili_aurora_next/common/widgets/custom_toast.dart' as toast;
+import 'package:pili_aurora_next/features/member_space/presentation/member_report_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
-import 'package:pili_aurora_next/http/live.dart';
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/http/user.dart';
-import 'package:pili_aurora_next/models/remote/live/live_medal_wall/data.dart';
-import 'package:pili_aurora_next/models/remote/space/space/reservation_card_list.dart';
-import 'package:pili_aurora_next/pages/log_table/controller.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/data.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space/reservation_card_list.dart';
+import 'package:pili_aurora_next/features/account/domain/account_log.dart';
 import 'package:pili_aurora_next/pages/log_table/view.dart';
 import 'package:pili_aurora_next/pages/login_devices/view.dart';
-import 'package:pili_aurora_next/pages/member/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_space.dart';
+import 'package:pili_aurora_next/features/following/presentation/follow_actions_dialog.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:pili_aurora_next/pages/member/shortcut_action.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_wall.dart';
 import 'package:pili_aurora_next/pages/member/widget/reserve_button.dart';
 import 'package:pili_aurora_next/pages/member/widget/user_info_card.dart';
 import 'package:pili_aurora_next/pages/member_cheese/view.dart';
-import 'package:pili_aurora_next/pages/member_contribute/controller.dart';
+import 'package:pili_aurora_next/features/member_space/domain/space_tabs.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/nested_scroll_ext.dart';
 import 'package:pili_aurora_next/pages/member_contribute/view.dart';
 import 'package:pili_aurora_next/pages/member_dynamics/view.dart';
 import 'package:pili_aurora_next/pages/member_favorite/view.dart';
@@ -34,30 +38,91 @@ import 'package:pili_aurora_next/pages/member_pgc/view.dart';
 import 'package:pili_aurora_next/pages/member_shop/view.dart';
 import 'package:pili_aurora_next/pages/member_video_web/archive/view.dart';
 import 'package:pili_aurora_next/pages/member_video_web/season_series/view.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/motion/hero_tag.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MemberPage extends StatefulWidget {
+class MemberPage extends ConsumerStatefulWidget {
   const MemberPage({super.key});
 
   @override
-  State<MemberPage> createState() => _MemberPageState();
+  ConsumerState<MemberPage> createState() => _MemberPageState();
 }
 
-class _MemberPageState extends State<MemberPage> {
+class _MemberPageState extends ConsumerState<MemberPage>
+    with TickerProviderStateMixin {
   late final int _mid;
   late final String _heroTag;
-  late final MemberController _userController;
+  late final SpaceQuery _query;
+  MemberSpace get _space => ref.read(spaceProvider(_query).notifier);
+  Future<void> _reload() => _space.refresh();
+  final _scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
+  TabController? _sections;
+  TabController? _contributions;
+  SpaceTabs? _renderedSections;
+  bool _contributionOpened = false;
   PageController? _headerController;
+
+  void _syncTabs(SpaceTabs? sections) {
+    if (identical(sections, _renderedSections)) return;
+    _renderedSections = sections;
+    _cacheFollowTime = null;
+    _cacheMedalData = null;
+    _sections?.dispose();
+    _contributions?.dispose();
+    _contributionOpened = false;
+    _sections = sections == null || sections.tabs.isEmpty
+        ? null
+        : TabController(
+            vsync: this,
+            length: sections.tabs.length,
+            initialIndex: sections.initialIndex,
+          );
+    _sections?.addListener(_trackContribution);
+    final items = sections?.contributions ?? const [];
+    _contributions = items.length < 2
+        ? null
+        : TabController(vsync: this, length: items.length);
+    _trackContribution();
+  }
+
+  void _trackContribution() {
+    final sections = _renderedSections;
+    if (sections != null &&
+        _sections?.index == sections.indexOf('contribute')) {
+      _contributionOpened = true;
+    }
+  }
+
+  bool _openSection(String section, String? contribution) {
+    final sections = _renderedSections;
+    if (sections == null) return false;
+    final index = sections.indexOf(section);
+    if (index < 0) return false;
+    if (section == 'contribute' && contribution != null) {
+      final subIndex = sections.contributions.indexWhere(
+        (item) => item.param == contribution,
+      );
+      if (subIndex >= 0) _contributions?.index = subIndex;
+    }
+    _sections?.animateTo(index);
+    return true;
+  }
+
+  void _onTapTab(int _) {
+    if (_sections?.indexIsChanging == false) {
+      _scrollKey.currentState?.animToTop();
+    }
+  }
+
   PageController getHeaderController() =>
       _headerController ??= PageController();
 
@@ -65,15 +130,18 @@ class _MemberPageState extends State<MemberPage> {
   void initState() {
     super.initState();
     _mid = int.tryParse(Get.parameters['mid']!) ?? -1;
-    _heroTag = Utils.makeHeroTag(_mid);
-    _userController = Get.put(
-      MemberController(mid: _mid),
-      tag: _heroTag,
+    _heroTag = makeHeroTag(_mid);
+    _query = (
+      owner: Object(),
+      mid: _mid,
+      fromViewAid: Get.parameters['from_view_aid'],
     );
   }
 
   @override
   void dispose() {
+    _sections?.dispose();
+    _contributions?.dispose();
     _headerController?.dispose();
     _headerController = null;
     _cacheFollowTime = null;
@@ -85,86 +153,95 @@ class _MemberPageState extends State<MemberPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context).colorScheme;
     final padding = MediaQuery.viewPaddingOf(context);
+    final state = ref.watch(spaceProvider(_query));
+    final space = state.isLoading || state.hasError ? null : state.value;
+    final response = space?.data;
+    _syncTabs(space?.tabs);
     return Material(
       color: theme.surface,
-      child: Obx(
-        () => switch (_userController.loadingState.value) {
-          Loading() => m3eLoading,
-          Success(:final response) => ExtendedNestedScrollView(
-            onlyOneScrollInBody: true,
-            key: _userController.scrollKey,
-            scrollBehavior: const NoOverscrollIndicator(),
-            pinnedHeaderSliverHeightBuilder: () =>
-                kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              if (response != null) {
-                return [
-                  DynamicSliverAppBar.medium(
-                    actions: _actions(theme),
-                    title: Text(_userController.username ?? ''),
-                    flexibleSpace: Obx(
-                      () => UserInfoCard(
-                        isOwner:
-                            _userController.mid == _userController.account.mid,
-                        relation: _userController.relation.value,
-                        card: response.card!,
+      child: space == null
+          ? state.hasError
+                ? scrollErrorWidget(
+                    errMsg: state.error.toString(),
+                    onReload: _reload,
+                  )
+                : m3eLoading
+          : ExtendedNestedScrollView(
+              onlyOneScrollInBody: true,
+              key: _scrollKey,
+              scrollBehavior: const NoOverscrollIndicator(),
+              pinnedHeaderSliverHeightBuilder: () =>
+                  kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                if (response?.card != null && response?.images != null) {
+                  return [
+                    DynamicSliverAppBar.medium(
+                      actions: _actions(theme, space),
+                      title: Text(space.username ?? ''),
+                      flexibleSpace: UserInfoCard(
+                        isOwner: _mid == space.account.mid,
+                        relation: space.relation,
+                        card: response!.card!,
                         images: response.images!,
-                        onFollow: () => _userController.onFollow(context),
-                        live: _userController.live,
-                        silence: _userController.silence,
+                        onFollow: _scoped(_onFollow),
+                        live: response.live,
+                        silence: response.card?.silence,
                         headerControllerBuilder: getHeaderController,
-                        showLiveMedalWall: _showLiveMedalWall,
-                        charges: _userController.charges,
-                        chargeCount: _userController.chargeCount,
-                        guards: _userController.guards,
-                        guardCount: _userController.guardCount,
+                        showLiveMedalWall: _scoped(_showLiveMedalWall),
+                        charges: response.elec?.list,
+                        chargeCount: response.elec?.total,
+                        guards: response.guard?.item,
+                        guardCount: response.guard?.count,
                       ),
+                    ),
+                  ];
+                }
+                return [
+                  SliverAppBar(
+                    pinned: true,
+                    actions: _actions(theme, space),
+                    title: GestureDetector(
+                      onTap: _reload,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(space.username ?? ''),
                     ),
                   ),
                 ];
-              }
-              return [
-                SliverAppBar(
-                  pinned: true,
-                  actions: _actions(theme),
-                  title: GestureDetector(
-                    onTap: _userController.onReload,
-                    behavior: HitTestBehavior.opaque,
-                    child: Text(_userController.username ?? ''),
-                  ),
-                ),
-              ];
-            },
-            body: _userController.tab2?.isNotEmpty == true
-                ? Padding(
-                    padding: .only(left: padding.left, right: padding.right),
-                    child: Column(
-                      children: [
-                        if ((_userController.tab2?.length ?? 0) > 1)
-                          SizedBox(
-                            height: 45,
-                            child: TabBar(
-                              labelPadding: .zero,
-                              controller: _userController.tabController,
-                              tabs: _userController.tabs,
-                              onTap: _userController.onTapTab,
-                              dividerColor: theme.outline.withValues(
-                                alpha: 0.2,
+              },
+              body: _sections != null
+                  ? Padding(
+                      padding: .only(left: padding.left, right: padding.right),
+                      child: Column(
+                        children: [
+                          if ((_sections?.length ?? 0) > 1)
+                            SizedBox(
+                              height: 45,
+                              child: TabBar(
+                                labelPadding: .zero,
+                                controller: _sections,
+                                tabs: space.tabs.tabs
+                                    .map(
+                                      (item) => Tab(
+                                        child: Text(
+                                          item.title ?? '',
+                                          softWrap: false,
+                                          overflow: .fade,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onTap: _onTapTab,
+                                dividerColor: theme.outline.withValues(
+                                  alpha: 0.2,
+                                ),
                               ),
                             ),
-                          ),
-                        Expanded(child: _buildBody),
-                      ],
-                    ),
-                  )
-                : scrollableError,
-          ),
-          Error(:final errMsg) => scrollErrorWidget(
-            errMsg: errMsg,
-            onReload: _userController.onReload,
-          ),
-        },
-      ),
+                          Expanded(child: _buildBody(space)),
+                        ],
+                      ),
+                    )
+                  : scrollableError,
+            ),
     );
   }
 
@@ -181,6 +258,7 @@ class _MemberPageState extends State<MemberPage> {
   }
 
   void _showReserveList(List<ReservationCardItem> list) {
+    final current = _capture();
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
@@ -217,11 +295,11 @@ class _MemberPageState extends State<MemberPage> {
                   builder: (context) {
                     Widget trailing = FilledButton.tonal(
                       onPressed: () async {
+                        final sid = e.sid;
+                        if (sid == null || !current()) return;
                         final isFollow = e.isFollow;
-                        final res = await UserHttp.spaceReserve(
-                          sid: e.sid!,
-                          isFollow: isFollow,
-                        );
+                        final res = await _space.reserve(sid, isFollow);
+                        if (res == null || !current()) return;
                         if (res.isSuccess) {
                           e
                             ..total += isFollow ? -1 : 1
@@ -330,39 +408,36 @@ class _MemberPageState extends State<MemberPage> {
     );
   }
 
-  List<Widget> _actions(ColorScheme theme) => [
-    if (_userController.reserves?.isNotEmpty ?? false)
-      _reserveBtn(_userController.reserves!, theme),
+  List<Widget> _actions(ColorScheme theme, SpaceSnapshot space) => [
+    if (space.data?.reservationCardList?.isNotEmpty ?? false)
+      _reserveBtn(space.data!.reservationCardList!, theme),
     IconButton(
       tooltip: '搜索',
       onPressed: () => Get.toNamed(
-        '/memberSearch?mid=$_mid&uname=${_userController.username}',
+        '/memberSearch?mid=$_mid&uname=${space.username}',
       ),
       icon: const Icon(Icons.search_outlined),
     ),
     PopupMenuButton(
       icon: const Icon(Icons.more_vert),
       itemBuilder: (_) => <PopupMenuEntry>[
-        if (_userController.account.isLogin &&
-            _userController.account.mid != _mid) ...[
+        if (space.account.isLogin && space.account.mid != _mid) ...[
           AppPopupMenuItem(
-            onTap: _userController.scopedAction(
-              () => _userController.blockUser(context),
-            ),
+            onTap: _scoped(_blockUser),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.block, size: 19),
                 const SizedBox(width: 10),
                 Text(
-                  _userController.relation.value != 128 ? '加入黑名单' : '移除黑名单',
+                  space.relation != 128 ? '加入黑名单' : '移除黑名单',
                 ),
               ],
             ),
           ),
-          if (_userController.isFollowed == 1)
+          if (space.isFollowed == 1)
             AppPopupMenuItem(
-              onTap: _userController.scopedAction(_userController.onRemoveFan),
+              onTap: _scoped(_removeFan),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -374,14 +449,14 @@ class _MemberPageState extends State<MemberPage> {
             ),
         ],
         AppPopupMenuItem(
-          onTap: _userController.shareUser,
+          onTap: () => ShareUtils.shareText('https://space.bilibili.com/$_mid'),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.share_outlined, size: 19),
               const SizedBox(width: 10),
               Text(
-                _userController.account.mid != _mid ? '分享UP主' : '分享我的主页',
+                space.account.mid != _mid ? '分享UP主' : '分享我的主页',
               ),
             ],
           ),
@@ -398,7 +473,7 @@ class _MemberPageState extends State<MemberPage> {
               ],
             ),
           ),
-        if (Get.isRegistered<MemberContributeCtr>(tag: _heroTag))
+        if (_contributionOpened)
           AppPopupMenuItem(
             onTap: _toWebArchive,
             child: const Row(
@@ -410,19 +485,11 @@ class _MemberPageState extends State<MemberPage> {
               ],
             ),
           ),
-        if (_userController.account.isLogin)
-          if (_userController.mid == _userController.account.mid) ...[
-            if ((_userController
-                        .loadingState
-                        .value
-                        .dataOrNull
-                        ?.card
-                        ?.vip
-                        ?.status ??
-                    0) >
-                0)
+        if (space.account.isLogin)
+          if (_mid == space.account.mid) ...[
+            if ((space.data?.card?.vip?.status ?? 0) > 0)
               AppPopupMenuItem(
-                onTap: _userController.scopedAction(_userController.vipExpAdd),
+                onTap: _scoped(_claimExperience),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -488,9 +555,9 @@ class _MemberPageState extends State<MemberPage> {
               ),
             ),
           ] else ...[
-            if (_userController.isFollow)
+            if (space.isFollow)
               AppPopupMenuItem(
-                onTap: _showFollowTime,
+                onTap: _scoped(_showFollowTime),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -504,7 +571,7 @@ class _MemberPageState extends State<MemberPage> {
             AppPopupMenuItem(
               onTap: () => showMemberReportDialog(
                 context,
-                name: _userController.username,
+                name: space.username,
                 mid: _mid,
               ),
               child: Row(
@@ -529,18 +596,28 @@ class _MemberPageState extends State<MemberPage> {
     const SizedBox(width: 4),
   ];
 
-  Widget get _buildBody => tabBarView(
+  Widget _buildBody(SpaceSnapshot space) => tabBarView(
     hitTestBehavior: .translucent,
-    controller: _userController.tabController,
-    children: _userController.tab2!.map((item) {
+    controller: _sections,
+    children: space.tabs.tabs.map((item) {
       return switch (item.param!) {
-        'home' => MemberHome(heroTag: _heroTag),
+        'home' => MemberHome(
+          data: space.data,
+          mid: _mid,
+          name: space.username,
+          setting: space.spaceSetting,
+          openSection: _openSection,
+        ),
         'dynamic' => MemberDynamicsPage(mid: _mid),
-        'contribute' => Obx(
-          () => MemberContribute(
-            heroTag: _heroTag,
-            initialIndex: _userController.contributeInitialIndex.value,
-            mid: _mid,
+        'contribute' => MemberContribute(
+          heroTag: _heroTag,
+          items: space.tabs.contributions,
+          controller: _contributions,
+          mid: _mid,
+          navigation: (
+            username: space.username,
+            fromViewAid: _query.fromViewAid,
+            scrollState: () => _scrollKey.currentState,
           ),
         ),
         'bangumi' => MemberBangumi(
@@ -564,14 +641,132 @@ class _MemberPageState extends State<MemberPage> {
     }).toList(),
   );
 
+  bool Function() _capture() {
+    final current = _space.capture();
+    return () => mounted && current();
+  }
+
+  Future<void> Function() _scoped(Future<void> Function() action) {
+    final current = _capture();
+    return () async {
+      if (current()) await action();
+    };
+  }
+
+  Future<void> _runRelation(
+    Future<void> Function(MemberSpace, SpaceSnapshot, bool Function()) action,
+  ) async {
+    final notifier = _space;
+    await notifier.runRelation((space, ownsQuery) async {
+      bool current() => mounted && ownsQuery();
+      if (!current()) return;
+      if (!space.account.isLogin) {
+        SmartDialog.showToast('账号未登录');
+      } else if (space.data == null) {
+        SmartDialog.showToast('请先刷新空间信息');
+      } else {
+        await action(notifier, space, current);
+      }
+    });
+  }
+
+  Future<void> _blockUser() => _runRelation((notifier, space, current) async {
+    if (_mid == space.account.mid) return;
+    final wasBlocked = space.relation == 128;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('提示'),
+        content: Text(wasBlocked ? '从黑名单移除UP主' : '确定拉黑UP主?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('点错了'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && current()) {
+      await _writeRelation(notifier, space, current, wasBlocked ? 6 : 5);
+    }
+  });
+
+  Future<void> _onFollow() => _runRelation((notifier, space, current) async {
+    if (_mid == space.account.mid) {
+      Get.toNamed('/editProfile');
+    } else if (space.relation == 128) {
+      await _writeRelation(notifier, space, current, 6);
+    } else {
+      await showFollowActions(
+        context: context,
+        account: space.account,
+        mid: _mid,
+        isFollow: space.isFollow,
+        isCurrent: current,
+        afterMod: notifier.updateRelation,
+      );
+    }
+  });
+
+  Future<void> _removeFan() => _runRelation((notifier, space, current) async {
+    if (_mid != space.account.mid && space.isFollowed == 1) {
+      await _writeRelation(notifier, space, current, 7);
+    }
+  });
+
+  Future<void> _writeRelation(
+    MemberSpace notifier,
+    SpaceSnapshot space,
+    bool Function() current,
+    int action,
+  ) async {
+    final result = await notifier.writeRelation(space.account, action);
+    if (!current()) return;
+    if (result.isSuccess) {
+      switch (action) {
+        case 5:
+          notifier.updateRelation(128);
+        case 6:
+          notifier.updateRelation(0);
+        case 7:
+          notifier.updateRelation(
+            space.relation == 4 ? 2 : space.relation,
+            removedFan: true,
+          );
+          SmartDialog.showToast('移除成功');
+      }
+    } else {
+      result.toast();
+      if (result is UnknownResult) await notifier.refresh();
+    }
+  }
+
+  Future<void> _claimExperience() async {
+    final current = _capture();
+    final result = await _space.claimExperience();
+    if (!current() || result == null) return;
+    if (result.isSuccess) {
+      SmartDialog.showToast('领取成功');
+    } else {
+      result.toast();
+    }
+  }
+
   String? _cacheFollowTime;
   Future<void> _showFollowTime() async {
+    final space = _space.snapshot;
+    final current = _capture();
+    if (space == null || !current()) return;
     void onShow() {
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(_userController.username ?? ''),
+          title: Text(space.username ?? ''),
           content: Text(_cacheFollowTime!),
           actions: [
             TextButton(
@@ -590,12 +785,13 @@ class _MemberPageState extends State<MemberPage> {
       onShow();
       return;
     }
-    final res = await UserHttp.userRelation(_mid);
+    final res = await _space.followTime(space.account);
+    if (!current()) return;
     if (res case Success(:final response)) {
-      if (response.mtime == null) return;
+      if (response == null) return;
       _cacheFollowTime =
           '关注时间: ${DateFormatUtils.longFormatDs.format(
-            DateTime.fromMillisecondsSinceEpoch(response.mtime! * 1000),
+            DateTime.fromMillisecondsSinceEpoch(response * 1000),
           )}';
       onShow();
     } else {
@@ -604,7 +800,10 @@ class _MemberPageState extends State<MemberPage> {
   }
 
   MedalWallData? _cacheMedalData;
+  bool _loadingMedals = false;
   Future<void> _showLiveMedalWall() async {
+    final current = _capture();
+    if (!current()) return;
     void onShow() {
       if (!mounted) return;
       showDialog(
@@ -617,9 +816,23 @@ class _MemberPageState extends State<MemberPage> {
       onShow();
       return;
     }
-    SmartDialog.showLoading();
-    final res = await LiveHttp.liveMedalWall(mid: _mid);
-    SmartDialog.dismiss();
+    if (_loadingMedals) return;
+    _loadingMedals = true;
+    final tag = 'space-medals-${UniqueKey()}';
+    final space = _space;
+    SmartDialog.show<void>(
+      tag: tag,
+      clickMaskDismiss: false,
+      builder: (_) => const toast.LoadingWidget('加载中…'),
+    );
+    late final LoadingState<MedalWallData> res;
+    try {
+      res = await space.medals();
+    } finally {
+      _loadingMedals = false;
+      await SmartDialog.dismiss(tag: tag);
+    }
+    if (!current()) return;
     if (res case Success(:final response)) {
       _cacheMedalData = response;
       onShow();
@@ -629,28 +842,26 @@ class _MemberPageState extends State<MemberPage> {
   }
 
   void _toWebArchive() {
-    try {
-      final ctr = Get.find<MemberContributeCtr>(tag: _heroTag);
-      final item = ctr.items?[ctr.tabController?.index ?? 0];
-      if (item != null) {
-        final id = item.seasonId ?? item.seriesId;
-        if (id != null) {
-          MemberSSWeb.toMemberSSWeb(
-            type: item.seasonId != null ? .season : .series,
-            id: id,
-            mid: _mid,
-            name: _userController.username ?? '',
-          );
-          return;
-        }
+    final space = _space.snapshot;
+    if (space == null) return;
+    final items = _renderedSections?.contributions;
+    final index = _contributions?.index ?? 0;
+    if (items != null && index < items.length) {
+      final archive = spaceWebArchive(items[index]);
+      if (archive != null) {
+        MemberSSWeb.toMemberSSWeb(
+          type: archive.isSeason ? .season : .series,
+          id: archive.id,
+          mid: _mid,
+          name: space.username ?? '',
+        );
+        return;
       }
-      MemberVideoWeb.toMemberVideoWeb(
-        mid: _mid,
-        name: _userController.username ?? '',
-      );
-    } catch (e) {
-      SmartDialog.showToast(e.toString());
     }
+    MemberVideoWeb.toMemberVideoWeb(
+      mid: _mid,
+      name: space.username ?? '',
+    );
   }
 
   void _createShortcut() {
@@ -663,24 +874,13 @@ class _MemberPageState extends State<MemberPage> {
 
   Future<void> _createShortcutAndroid() {
     final route = ModalRoute.of(context);
-    final source = _userController.loadingState.value;
-    final account = _userController.account;
-    final mid = _userController.mid;
-    final name = _userController.username;
-    final avatar = _userController.userAvatar;
+    final source = _space.snapshot;
+    final current = _capture();
     return _shortcutAction.run(
-      mid: mid,
-      username: name,
-      avatar: avatar,
-      isCurrent: () =>
-          mounted &&
-          (route?.isCurrent ?? true) &&
-          !_userController.isClosed &&
-          identical(source, _userController.loadingState.value) &&
-          identical(account, _userController.account) &&
-          _userController.mid == mid &&
-          _userController.username == name &&
-          _userController.userAvatar == avatar,
+      mid: _mid,
+      username: source?.username,
+      avatar: source?.userAvatar,
+      isCurrent: () => current() && (route?.isCurrent ?? true),
     );
   }
 }

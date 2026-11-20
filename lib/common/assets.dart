@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:pili_aurora_next/models/common/theme/app_icon_style.dart';
+import 'package:pili_aurora_next/services/settings/theme/app_icon_style.dart';
 
 abstract final class Assets {
   static final iconStyle = ValueNotifier(AppIconStyle.chibi);

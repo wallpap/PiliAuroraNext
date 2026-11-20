@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_save.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/remote/space/space_fav/list.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_fav/list.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/motion/hero_tag.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -26,7 +26,7 @@ class MemberFavItem extends StatelessWidget {
             '/favDetail',
             parameters: {
               'mediaId': item.mediaId.toString(),
-              'heroTag': Utils.makeHeroTag(item.mediaId),
+              'heroTag': makeHeroTag(item.mediaId),
             },
           );
         },

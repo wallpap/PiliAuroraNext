@@ -4,24 +4,22 @@ import 'dart:math' as math;
 
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:pili_aurora_next/pages/danmaku/controller.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/danmaku/display_binding.dart';
 import 'package:pili_aurora_next/pages/danmaku/echo_source.dart';
 import 'package:pili_aurora_next/pages/danmaku/frame_rate_setting.dart';
 import 'package:pili_aurora_next/pages/danmaku/merge.dart';
+import 'package:pili_aurora_next/pages/danmaku/timeline_range.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_coordinator.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_screen.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/danmaku_options.dart';
-import 'package:pili_aurora_next/utils/danmaku_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/danmaku/presentation/danmaku_position.dart';
+import 'package:pili_aurora_next/features/danmaku/application/danmaku_preferences.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
 
 /// 装配点播来源、媒体时钟与显示配置。
 class PlDanmaku extends StatefulWidget {
@@ -53,7 +51,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
   DanmakuWindowRenderer<DanmakuExtra>? _renderer;
   DanmakuWindowCoordinator<DanmakuExtra>? _coordinator;
   DanmakuDisplayBinding? _binding;
-  StreamSubscription<BoxEvent>? _settings;
+  StreamSubscription<void>? _settings;
   bool _colorBlocked = DanmakuOptions.blockColorful;
 
   @override
@@ -67,17 +65,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
     _echoes = DanmakuEchoSource(_source);
     player.addDanmakuRuleListener(_refreshRules);
     player.addDanmakuOptionsListener(_optionsChanged);
-    _settings = GStorage.setting.watch().listen((event) {
-      if ({
-        SettingBoxKey.mergeDanmaku,
-        SettingBoxKey.mergeDanmakuScale,
-        SettingBoxKey.mergeDanmakuThreshold,
-        SettingBoxKey.mergeDanmakuLogBase,
-        SettingBoxKey.showVipDanmaku,
-      }.contains(event.key)) {
-        _refreshRules();
-      }
-    });
+    _settings = DanmakuPreferences.filterChanges.listen((_) => _refreshRules());
   }
 
   void _refreshRules() => unawaited(_source.refreshRules());
@@ -131,25 +119,25 @@ class _PlDanmakuState extends State<PlDanmaku> {
     );
   }
 
-  DanmakuContentItem<DanmakuExtra>? _contentOf(DanmakuElem element) {
+  DanmakuContentItem<DanmakuExtra>? _contentOf(DanmakuTimelineEntry element) {
     final echo = _echoes.contentFor(element);
     if (echo != null) return echo;
     if (!element.isSelf && element.weight < DanmakuOptions.danmakuWeight) {
       return null;
     }
     final extra = VideoDanmaku(
-      id: element.id.toInt(),
+      id: element.id,
       mid: element.midHash,
-      like: element.likeCount.toInt(),
+      like: element.likeCount,
     );
     final color = DanmakuOptions.blockColorful
         ? Colors.white
-        : DmUtils.decimalToColor(element.color);
+        : ColourUtils.opaqueRgb(element.color);
     if (element.mode == 7) {
       try {
         return SpecialDanmakuContentItem<DanmakuExtra>.fromList(
           color,
-          element.fontsize.toDouble(),
+          element.fontSize.toDouble(),
           jsonDecode(element.content.replaceAll('\n', r'\n')),
           extra: extra,
         );
@@ -160,17 +148,17 @@ class _PlDanmakuState extends State<PlDanmaku> {
     return DanmakuContentItem<DanmakuExtra>(
       element.content,
       color: color,
-      type: DmUtils.getPosition(element.mode),
+      type: danmakuPosition(element.mode),
       isColorful:
           player.showVipDanmaku &&
           !DanmakuOptions.blockColorful &&
-          element.colorful == DmColorfulType.VipGradualColor,
+          element.vipGradient,
       count: element.count > 1 ? element.count : null,
       fontSizeScale: mergedDanmakuFontScale(
         element.count,
-        enabled: player.mergeDanmaku && Pref.mergeDanmakuScale,
-        threshold: Pref.mergeDanmakuThreshold,
-        logBase: Pref.mergeDanmakuLogBase,
+        enabled: player.mergeDanmaku && DanmakuPreferences.scaleRepeats,
+        threshold: DanmakuPreferences.repeatThreshold,
+        logBase: DanmakuPreferences.repeatLogBase,
       ),
       selfSend: element.isSelf,
       extra: extra,

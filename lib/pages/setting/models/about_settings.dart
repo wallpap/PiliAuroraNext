@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/update.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/update/update.dart';
 
 List<SettingsModel> get aboutSettings => [
   SwitchModel(

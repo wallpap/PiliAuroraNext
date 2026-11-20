@@ -4,16 +4,16 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
 import 'package:pili_aurora_next/services/audio_handler.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 
 import '../../support/memory_box.dart';
 
@@ -107,14 +107,7 @@ void main() {
   late AudioController controller;
   var closed = false;
 
-  AudioController createController() {
-    final result = AudioController();
-    result.animController = AnimationController(
-      vsync: result,
-      duration: const Duration(milliseconds: 200),
-    );
-    return result;
-  }
+  AudioController createController() => AudioController();
 
   setUpAll(() {
     settings = _Settings();
@@ -130,12 +123,9 @@ void main() {
     controller = createController()..player = player;
   });
   tearDown(() {
-    if (!closed) controller.onClose();
+    if (!closed) controller.dispose();
     videoPlayerServiceHandler = null;
-    shutdownTimerService
-      ..onPause = null
-      ..isPlaying = null
-      ..reset();
+    shutdownTimerService.reset();
   });
 
   _check('speed waits for native success and failure permits retry', (
@@ -159,7 +149,7 @@ void main() {
   _check('volume confirms and persists only successful native changes', (
     tester,
   ) async {
-    controller.desktopVolume.value = 0.8;
+    expect(await controller.setVolume(0.8), isTrue);
     player.commandError = StateError('synthetic volume failure');
     controller.previewVolume(0.3);
     await tester.pump();
@@ -276,26 +266,28 @@ void main() {
       ..onPlay = newer.onPlay
       ..onPause = newer.onPause
       ..onSeek = newer.onSeek;
-    shutdownTimerService
-      ..onPause = newer.onPause
-      ..isPlaying = newer.isPlaying
-      ..reset(5);
+    final timerBinding = shutdownTimerService.bindPlayer(
+      pause: newer.onPause,
+      isPlaying: () => false,
+      independentAudio: true,
+    );
+    shutdownTimerService.startShutdownTimer(5);
     player.disposeError = StateError('https://private?token=secret');
     try {
-      controller.onClose();
+      controller.dispose();
       closed = true;
       await tester.pump();
       expect(player.disposeCount, 1);
       expect(handler.onPlay, newer.onPlay);
       expect(handler.onPause, newer.onPause);
       expect(handler.onSeek, newer.onSeek);
-      expect(shutdownTimerService.onPause, newer.onPause);
-      expect(shutdownTimerService.isPlaying, newer.isPlaying);
+      expect(shutdownTimerService.isActive, isTrue);
       expect(shutdownTimerService.durationInMinutes, 5);
       expect(tester.takeException(), isNull);
       expect(find.textContaining('secret'), findsNothing);
     } finally {
-      newer.onClose();
+      timerBinding.dispose();
+      newer.dispose();
       handler.clear();
     }
   });

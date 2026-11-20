@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
 
 void main() {
   test('parseNum handles units and malformed input without exceptions', () {

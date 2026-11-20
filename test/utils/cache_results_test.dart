@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/pages/setting/widgets/normal_item.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-import 'package:pili_aurora_next/utils/cache_manager.dart';
+import 'package:pili_aurora_next/services/cache/image_cache.dart';
 
 class _Cache extends Fake implements cache.DefaultCacheManager {
   @override

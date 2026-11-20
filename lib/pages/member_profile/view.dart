@@ -4,17 +4,16 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/member/profile_type.dart';
-import 'package:pili_aurora_next/models/remote/account_myinfo/data.dart';
-import 'package:pili_aurora_next/pages/member_profile/controller.dart';
+import 'package:pili_aurora_next/features/account/application/profile_editor.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_details.dart';
+import 'package:pili_aurora_next/features/account/domain/profile_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/file_ext.dart';
-import 'package:pili_aurora_next/utils/extension/theme_ext.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/io/file_ext.dart';
+import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -31,7 +30,7 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final _controller = MemberProfileController();
+  final _controller = ProfileEditor();
   final _imagePicker = ImagePicker();
   bool _picking = false;
 
@@ -193,7 +192,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             title: 'UID',
             needIcon: false,
             text: response.mid.toString(),
-            onTap: () => Utils.copyText(response.mid.toString()),
+            onTap: () => copyText(response.mid.toString()),
           ),
           divider1,
           _item(
@@ -305,7 +304,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 onPressed: saving
                     ? null
                     : () async {
-                        if (!mounted || !identical(owner, Accounts.main)) {
+                        if (!mounted || !_controller.ownsAccount(owner)) {
                           return;
                         }
                         if (_controller.needsVerification) {
@@ -313,7 +312,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           await _getInfo();
                           if (!mounted ||
                               !dialogContext.mounted ||
-                              !identical(owner, Accounts.main)) {
+                              !_controller.ownsAccount(owner)) {
                             return;
                           }
                           source = _controller.state.dataOrNull;

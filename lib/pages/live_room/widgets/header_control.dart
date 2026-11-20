@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/marquee.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
+import 'package:pili_aurora_next/pages/live_room/widgets/info_label.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/live_stream_panel.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -11,12 +12,11 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_window_controls.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/common_btn.dart';
-import 'package:pili_aurora_next/services/shutdown_timer_service.dart'
-    show shutdownTimerService;
+import 'package:pili_aurora_next/features/playback/presentation/shutdown_timer_dialog.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/utils/android/bindings.g.dart';
-import 'package:pili_aurora_next/utils/extension/context_ext.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
+import 'package:pili_aurora_next/platform/android/bindings.g.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/context_ext.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -69,10 +69,11 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
     Widget child;
-    child = Obx(
+    child = ValueListenableBuilder(
       key: titleKey,
-      () => MarqueeText(
-        liveController.title.value,
+      valueListenable: liveController.title,
+      builder: (context, title, child) => MarqueeText(
+        title,
         spacing: 30,
         velocity: 30,
         strutStyle: const StrutStyle(fontSize: 15, leading: 0),
@@ -97,9 +98,9 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                     color: Colors.white,
                   ),
                 ),
-              liveController.watchedWidget,
+              LiveInfoLabel(text: liveController.watchedShow),
               widget.onlineWidget,
-              liveController.timeWidget,
+              LiveInfoLabel(text: liveController.liveDuration),
             ],
           ),
         ],
@@ -236,9 +237,8 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               ComBtn(
                 height: btnHeight,
                 tooltip: '定时关闭',
-                onTap: () => shutdownTimerService.showScheduleExitDialog(
+                onTap: () => showScheduleExitDialog(
                   context,
-                  isFullScreen: isFullScreen,
                   isLive: true,
                 ),
                 icon: const Icon(

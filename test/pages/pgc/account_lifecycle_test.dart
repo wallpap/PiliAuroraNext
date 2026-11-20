@@ -4,14 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/user/info.dart';
-import 'package:pili_aurora_next/pages/pgc/controller.dart';
-import 'package:pili_aurora_next/services/account_service.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/account/domain/info.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/pgc_feed.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_http_adapter.dart';
 
@@ -44,7 +43,6 @@ void main() {
   setUp(() {
     adapter = ControlledHttpAdapter();
     Request.dio.httpClientAdapter = adapter;
-    Get.put(AccountService()).isLogin.value = true;
   });
   tearDown(() {
     adapter.close();
@@ -61,7 +59,7 @@ void main() {
     }
   }
 
-  Account account(int mid) => LoginAccount(
+  LoginAccount account(int mid) => LoginAccount(
     BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': 'synthetic'}),
     null,
     null,
@@ -69,13 +67,13 @@ void main() {
 
   test('PGC follows do not retain an old account response', () async {
     Accounts.accountMode[AccountType.main.index] = account(123);
-    final controller = PgcController(tabType: HomeTabType.bangumi);
-    addTearDown(controller.onClose);
-    final first = controller.queryPgcFollow();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final provider = pgcFollowsProvider((owner: Object(), cinema: false));
+    container.listen(provider, (_, _) {});
     await flush();
     expect(adapter.pending, hasLength(1));
-    Accounts.accountMode[AccountType.main.index] = account(456);
-    controller.onChangeAccount(true);
+    Accounts.replaceCredentials(account(123));
     await flush();
     adapter.json(0, {
       'code': 0,
@@ -86,10 +84,9 @@ void main() {
         ],
       },
     });
-    await first;
     await flush();
     expect(adapter.pending, hasLength(2));
-    expect(controller.followLoading, isTrue);
+    expect(container.read(provider).loadingMore, isTrue);
     adapter.json(1, {
       'code': 0,
       'data': {
@@ -100,11 +97,15 @@ void main() {
       },
     });
     await flush();
-    expect(controller.followLoading, isFalse);
-    expect(controller.followState.value.dataOrNull?.single.seasonId, 456);
+    expect(container.read(provider).loadingMore, isFalse);
+    expect(container.read(provider).loading.dataOrNull?.single.seasonId, 456);
     // 旧请求不能成为账号 B 的当前订阅快照。
     expect(
-      controller.followState.value.dataOrNull?.any((e) => e.seasonId == 123) ??
+      container
+              .read(provider)
+              .loading
+              .dataOrNull
+              ?.any((e) => e.seasonId == 123) ??
           false,
       isFalse,
     );

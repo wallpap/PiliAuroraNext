@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
-import 'package:pili_aurora_next/utils/grid.dart' as grid;
+import 'package:pili_aurora_next/common/layout/grid.dart' as grid;
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 class _Feed extends StatefulWidget {

@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/reorder_mixin.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/pages/follow/controller.dart';
+import 'package:pili_aurora_next/features/following/application/following.dart';
 
 class FollowTagSortPage extends ConsumerStatefulWidget {
   const FollowTagSortPage({super.key, required this.initial});

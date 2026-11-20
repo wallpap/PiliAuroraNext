@@ -4,13 +4,15 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/subtitle_utils.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/features/playback/data/seek_preview_repository.dart';
+import 'package:pili_aurora_next/features/playback/data/subtitle_repository.dart';
+import 'package:pili_aurora_next/features/playback/domain/subtitle_format.dart';
 
 import '../support/memory_box.dart';
 
@@ -147,20 +149,20 @@ void main() {
       ],
     };
     expect(
-      (await VideoHttp.getSubtitles('//fixture.test/a')).data,
+      (await SubtitleRepository.fetch('//fixture.test/a')).data,
       contains('WEBVTT'),
     );
     expect(requests.last.uri.toString(), 'https://fixture.test/a');
     expect(requests.last.extra['account'], isA<NoAccount>());
     expect(
-      (await VideoHttp.getSubtitles(
+      (await SubtitleRepository.fetch(
         'https://fixture.test/a',
         format: SubtitleFormat.srt,
       )).data,
       contains('00:00:00,000'),
     );
     expect(
-      (await VideoHttp.getSubtitles(
+      (await SubtitleRepository.fetch(
         'https://fixture.test/a',
         format: SubtitleFormat.json,
       )).data,
@@ -168,12 +170,12 @@ void main() {
     );
     body = {'body': <Object>[]};
     expect(
-      (await VideoHttp.getSubtitles('https://fixture.test/a')).data,
+      (await SubtitleRepository.fetch('https://fixture.test/a')).data,
       'WEBVTT\n\n',
     );
   });
   test('字幕失败不再等同无数据，非法地址不发送、转换异常和断连可诊断', () async {
-    final invalid = await VideoHttp.getSubtitles('file:///private-file');
+    final invalid = await SubtitleRepository.fetch('file:///private-file');
     expect(invalid, isA<Error>());
     expect(requests, isEmpty);
     for (final data in [
@@ -186,13 +188,13 @@ void main() {
     ]) {
       body = data;
       final result =
-          await VideoHttp.getSubtitles('https://fixture.test/a') as Error;
+          await SubtitleRepository.fetch('https://fixture.test/a') as Error;
       expect(result.cause, isNotNull);
       expect(result.stackTrace, isNotNull);
     }
     fail = true;
     final failed =
-        await VideoHttp.getSubtitles('https://fixture.test/a') as Error;
+        await SubtitleRepository.fetch('https://fixture.test/a') as Error;
     expect(failed.cause, same(lastError));
   });
   test('AI 总结保留内外业务状态，预览无数据与坏响应均有明确结果', () async {
@@ -210,7 +212,10 @@ void main() {
       -403,
     );
     expect(
-      (await VideoHttp.videoshot(bvid: 'BV-test', cid: 1) as Error).code,
+      (await SeekPreviewRepository.fetch((
+        bvid: 'BV-test',
+        cid: 1,
+      )) as Error).code,
       -403,
     );
     body = {
@@ -233,13 +238,38 @@ void main() {
       },
     };
     expect(
-      (await VideoHttp.videoshot(bvid: 'BV-test', cid: 1)).toString(),
+      (await SeekPreviewRepository.fetch((bvid: 'BV-test', cid: 1))).toString(),
       '暂无视频预览',
     );
     body = {'code': 0, 'data': <String, dynamic>{}};
     expect(
-      (await VideoHttp.videoshot(bvid: 'BV-test', cid: 1) as Error).cause,
+      (await SeekPreviewRepository.fetch((
+        bvid: 'BV-test',
+        cid: 1,
+      )) as Error).cause,
       isNotNull,
     );
+    body = {
+      'code': 0,
+      'data': {
+        'img_x_len': 1,
+        'img_y_len': 1,
+        'image': ['//fixture.test/sprite.jpg'],
+        'index': [0, 10],
+      },
+    };
+    final result = await SeekPreviewRepository.fetch((
+      bvid: 'BV-preview',
+      cid: 2,
+    ));
+    expect(
+      result.dataOrNull?.frameAt(10)?.url,
+      'https://fixture.test/sprite.jpg',
+    );
+    expect(requests.last.queryParameters, {
+      'bvid': 'BV-preview',
+      'cid': 2,
+      'index': 1,
+    });
   });
 }

@@ -7,63 +7,67 @@ import 'package:pili_aurora_next/common/widgets/flutter/dyn_tab_bar.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/flutter/text_field/controller.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/common/widgets/refresh_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
-    show ReloadScrollPhysics, platformAlwaysClampingPhysics;
+    show ReloadMixin, ReloadScrollPhysics, platformAlwaysClampingPhysics;
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:pili_aurora_next/common/widgets/tap_region_surface.dart';
-import 'package:pili_aurora_next/http/constants.dart';
-import 'package:pili_aurora_next/http/dynamics.dart';
+import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/reply/reply_option_type.dart';
-import 'package:pili_aurora_next/models/dynamics/result.dart';
+import 'package:pili_aurora_next/features/community/domain/comments/reply_option_type.dart';
+import 'package:pili_aurora_next/features/community/domain/dynamics/result.dart';
 import 'package:pili_aurora_next/pages/common/dyn/common_dyn_page.dart';
-import 'package:pili_aurora_next/pages/common/dyn/like_list/controller.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_activity.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_details.dart';
+import 'package:pili_aurora_next/features/community/presentation/dynamic_like_action.dart';
+import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/pages/common/dyn/like_list/view.dart';
-import 'package:pili_aurora_next/pages/common/dyn/repost_list/controller.dart';
 import 'package:pili_aurora_next/pages/common/dyn/repost_list/view.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/author_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:pili_aurora_next/pages/dynamics_create/view.dart';
-import 'package:pili_aurora_next/pages/dynamics_detail/controller.dart';
+import 'package:pili_aurora_next/features/community/application/dynamic_page_detail.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/extension/get_ext.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:pili_aurora_next/utils/num_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/request_utils.dart';
-import 'package:pili_aurora_next/utils/share_utils.dart';
+import 'package:pili_aurora_next/features/account/application/account_scope.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:pili_aurora_next/core/text/number_format.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/platform/sharing/share_actions.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
 
 const Set<TargetPlatform> _kDesktopPlatforms = <TargetPlatform>{
   TargetPlatform.windows,
 };
 
-class DynamicDetailPage extends StatefulWidget {
+class DynamicDetailPage extends ConsumerStatefulWidget {
   const DynamicDetailPage({super.key});
 
   @override
-  State<DynamicDetailPage> createState() => _DynamicDetailPageState();
+  ConsumerState<DynamicDetailPage> createState() => _DynamicDetailPageState();
 }
 
-class _DynamicDetailPageState
-    extends CommonDynPageMultiState<DynamicDetailPage> {
+class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
+    with ReloadMixin {
   @override
   late final DynamicDetailController controller;
-  late final DynRepostController _repostController;
-  late final DynLikeController _likeController;
+  final _activityOwner = Object();
+  final _openingOwner = AccountScope.capture();
+  DynamicActivityQuery get _activityQuery =>
+      (owner: _activityOwner, id: controller.dynItem.idStr.toString());
 
-  late final RxBool _isRefreshing = false.obs;
+  final _isRefreshing = ValueNotifier(false);
 
   void _stopRefresh() {
     if (!mounted) return;
@@ -83,35 +87,35 @@ class _DynamicDetailPageState
     super.initState();
     final args = Get.arguments;
     final item = args['item'] as DynamicItemModel;
-    final id = item.idStr.toString();
     if (args['viewComment'] ?? false) {
       WidgetsBinding.instance.addPostFrameCallback(_jumpToComment);
     }
     final stat = item.modules.moduleStat;
-    controller = Get.putOrFind<DynamicDetailController>(
-      () => DynamicDetailController(count: stat?.comment?.count ?? -1),
-      tag: id,
-    );
-    _repostController = Get.putOrFind<DynRepostController>(
-      () => DynRepostController(id, count: stat?.forward?.count ?? -1),
-      tag: id,
-    );
-    _likeController = Get.putOrFind<DynLikeController>(
-      () => DynLikeController(id, count: stat?.like?.count ?? -1),
-      tag: id,
-    );
+    controller = DynamicDetailController(
+      ref.read(dynamicDetailsProvider),
+      count: stat?.comment?.count ?? -1,
+      onFeedback: SmartDialog.showToast,
+      onScrollReset: () => reload = true,
+    )..dynItem = item;
+    controller.open();
   }
 
   ScrollableState? _scrollable;
+  Timer? _editRefresh;
 
   @override
   void dispose() {
+    controller.refreshComments = null;
+    controller.close();
+    _isRefreshing.dispose();
+    _editRefresh?.cancel();
     _scrollable = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    controller.refreshComments = () => refreshComments(clear: true);
     return SelectionTapRegionSurface(
       /// apply `lib/scripts/scrollable.patch`
       isScrolling: () => _scrollable?.shouldIgnorePointer ?? false,
@@ -229,16 +233,16 @@ class _DynamicDetailPageState
       }
     }
     ReplyOptionType? replyOption;
-    if (controller.loadingState.value case Error(:final code)) {
+    if (commentSnapshot?.loading case Error(:final code)) {
       if (code == 12061 || code == 12002) {
         replyOption = .close;
       }
     }
-    final account = Accounts.main;
+    final owner = AccountScope.capture();
     bool isCurrent() =>
         mounted &&
         !controller.isClosed &&
-        identical(account, Accounts.main) &&
+        owner.isCurrent &&
         identical(item, controller.dynItem);
     CreateDynPanel.onCreateDyn(
       context,
@@ -253,14 +257,15 @@ class _DynamicDetailPageState
         repostDynId: item.orig?.idStr,
       ),
       onSuccess: () {
-        Timer(
+        if (!isCurrent()) return;
+        _editRefresh?.cancel();
+        _editRefresh = Timer(
           const Duration(milliseconds: 500),
           () async {
             if (!isCurrent()) return;
-            final res = await DynamicsHttp.dynamicDetail(
-              id: item.idStr,
-              account: account,
-            );
+            final res = await ref
+                .read(dynamicDetailsProvider)
+                .load(owner.account, item.idStr);
             if (res case Success(:final response)) {
               if (isCurrent()) {
                 controller.dynItem = response;
@@ -276,8 +281,9 @@ class _DynamicDetailPageState
   PreferredSizeWidget _buildAppBar() => AppBar(
     title: Padding(
       padding: const EdgeInsets.only(right: 12),
-      child: Obx(
-        () {
+      child: ListenableBuilder(
+        listenable: controller.showTitle,
+        builder: (context, _) {
           final showTitle = controller.showTitle.value;
           return AnimatedOpacity(
             opacity: showTitle ? 1 : 0,
@@ -302,71 +308,106 @@ class _DynamicDetailPageState
   );
 
   Widget _buildTabBar() {
-    return SizedBox(
-      height: 40,
-      child: DynTabBar(
-        padding: .zero,
-        // isScrollable: true,
-        indicatorSize: .tab,
-        tabAlignment: .start,
-        controller: tabController,
-        labelPadding: const .symmetric(horizontal: 12),
-        dividerColor: theme.colorScheme.outline.withValues(alpha: 0.1),
-        onTap: (value) {
-          if (!tabController.indexIsChanging) {
-            final positions = PrimaryScrollController.of(context).positions;
-            if (positions.length == 1) {
-              final postion = positions.single;
-              if (postion.pixels >= postion.maxScrollExtent) {
-                postion.jumpTo(postion.pixels);
+    return Consumer(
+      builder: (context, ref, _) {
+        final query = _activityQuery;
+        ref.watch(mainAccountProvider);
+        final sameAccount = _openingOwner.isCurrent;
+        final stat = controller.dynItem.modules.moduleStat;
+        final repostCount =
+            ref.watch(dynamicRepostsProvider(query)).metadata?.total ??
+            (sameAccount ? stat?.forward?.count ?? -1 : -1);
+        final likeCount =
+            ref.watch(dynamicLikesProvider(query)).metadata?.total ??
+            (sameAccount ? stat?.like?.count ?? -1 : -1);
+        Widget label(DynType type, int count) => Text(
+          '${type.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
+        );
+        return SizedBox(
+          height: 40,
+          child: DynTabBar(
+            padding: .zero,
+            // isScrollable: true,
+            indicatorSize: .tab,
+            tabAlignment: .start,
+            controller: tabController,
+            labelPadding: const .symmetric(horizontal: 12),
+            dividerColor: theme.colorScheme.outline.withValues(alpha: 0.1),
+            onTap: (value) {
+              if (!tabController.indexIsChanging) {
+                final positions = PrimaryScrollController.of(context).positions;
+                if (positions.length == 1) {
+                  final postion = positions.single;
+                  if (postion.pixels >= postion.maxScrollExtent) {
+                    postion.jumpTo(postion.pixels);
+                  }
+                  switch (value) {
+                    case 0:
+                      _onRefresh(
+                        ref
+                            .read(dynamicRepostsProvider(query).notifier)
+                            .onRefresh(),
+                      );
+                    case 1:
+                      _onRefresh(refreshDynamicComments());
+                    case 2:
+                      _onRefresh(
+                        ref
+                            .read(dynamicLikesProvider(query).notifier)
+                            .onRefresh(),
+                      );
+                  }
+                } else if (positions.length > 1) {
+                  positions.elementAt(1).jumpTo(0);
+                }
               }
-              switch (value) {
-                case 0:
-                  _onRefresh(_repostController.onRefresh());
-                case 1:
-                  _onRefresh(controller.onRefresh());
-                case 2:
-                  _onRefresh(_likeController.onRefresh());
-              }
-            } else if (positions.length > 1) {
-              positions.elementAt(1).jumpTo(0);
-            }
-          }
-        },
-        tabs: DynType.values
-            .map(
-              (e) => Tab(
-                child: Obx(() {
-                  final count = switch (e) {
-                    .repost => _repostController.count.value,
-                    .reply => controller.count.value,
-                    .like => _likeController.count.value,
-                  };
-                  return Text(
-                    '${e.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
-                  );
-                }),
-              ),
-            )
-            .toList(),
-      ),
+            },
+            tabs: DynType.values
+                .map(
+                  (e) => Tab(
+                    child: e == DynType.reply
+                        ? commentBuilder(
+                            (_, snapshot) => label(
+                              e,
+                              (snapshot?.count ?? -1) >= 0
+                                  ? snapshot!.count
+                                  : controller.count,
+                            ),
+                          )
+                        : label(
+                            e,
+                            e == DynType.repost ? repostCount : likeCount,
+                          ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
     );
   }
 
+  Future<void> refreshDynamicComments() =>
+      controller.commentSource.value.dataOrNull == null
+      ? controller.onReload()
+      : refreshComments();
+
   Widget _buildTabBody([bool isPortrait = true]) {
-    Widget reply = CustomScrollView(
-      key: const PageStorageKey(DynType.reply),
-      physics: ReloadScrollPhysics(
-        controller: controller,
-        parent: isPortrait ? platformAlwaysClampingPhysics : null,
+    Widget reply = commentPagination(
+      CustomScrollView(
+        key: const PageStorageKey(DynType.reply),
+        physics: ReloadScrollPhysics(
+          controller: this,
+          parent: isPortrait ? platformAlwaysClampingPhysics : null,
+        ),
+        slivers: [
+          buildReplyHeader(isPortrait),
+          replyList(),
+        ],
       ),
-      slivers: [
-        buildReplyHeader(isPortrait),
-        Obx(() => replyList(controller.loadingState.value)),
-      ],
     );
     if (!isPortrait) {
-      reply = refreshIndicator(onRefresh: controller.onRefresh, child: reply);
+      reply = refreshIndicator(onRefresh: refreshDynamicComments, child: reply);
     }
 
     final child = TabBarView(
@@ -380,14 +421,12 @@ class _DynamicDetailPageState
             (e) => switch (e) {
               .repost => DynRepostPage(
                 isPortrait: isPortrait,
-                id: controller.dynItem.idStr,
-                controller: _repostController,
+                query: _activityQuery,
               ),
               .reply => reply,
               .like => DynLikePage(
                 isPortrait: isPortrait,
-                id: controller.dynItem.idStr,
-                controller: _likeController,
+                query: _activityQuery,
               ),
             },
           )
@@ -402,8 +441,10 @@ class _DynamicDetailPageState
             left: 0,
             right: 0,
             top: displacement,
-            child: Obx(
-              () => RefreshIndicator_(isRefreshing: _isRefreshing.value),
+            child: ValueListenableBuilder(
+              valueListenable: _isRefreshing,
+              builder: (_, refreshing, _) =>
+                  RefreshIndicator_(isRefreshing: refreshing),
             ),
           ),
         ],
@@ -415,7 +456,7 @@ class _DynamicDetailPageState
   Widget _buildDynPanel() {
     return SliverToBoxWithOffsetAdapter(
       offset: 55,
-      onVisibilityChanged: controller.showTitle.call,
+      onVisibilityChanged: controller.setShowTitle,
       child: Builder(
         builder: (context) {
           _scrollable = Scrollable.maybeOf(context);
@@ -622,20 +663,21 @@ class _DynamicDetailPageState
                 Expanded(
                   child: Builder(
                     builder: (context) {
+                      final displayedStatus = moduleStat?.like?.status ?? false;
                       return textIconButton(
                         icon: FontAwesomeIcons.thumbsUp.data,
                         activatedIcon: FontAwesomeIcons.solidThumbsUp.data,
                         text: '点赞',
                         stat: moduleStat?.like,
-                        onPressed: (iconColor) => RequestUtils.onLikeDynamic(
+                        onPressed: (_) => onLikeDynamic(
+                          context,
                           controller.dynItem,
-                          iconColor == primary,
+                          displayedStatus,
                           () {
                             if (context.mounted) {
                               (context as Element).markNeedsBuild();
                             }
                           },
-                          context: context,
                         ),
                       );
                     },
@@ -654,26 +696,26 @@ class _DynamicDetailPageState
     final secondary = theme.colorScheme.secondary;
     final child = Padding(
       padding: const .fromLTRB(12, 2.5, 6, 2.5),
-      child: Obx(
-        () {
-          final sortType = controller.sortType.value;
-          return Row(
-            mainAxisAlignment: .spaceBetween,
-            children: [
-              Text(sortType.desc),
-              TextButton.icon(
-                style: Style.buttonStyle,
-                onPressed: controller.queryBySort,
-                icon: Icon(Icons.sort, size: 16, color: secondary),
-                label: Text(
-                  sortType.descShort,
-                  style: TextStyle(fontSize: 13, color: secondary),
-                ),
+      child: commentBuilder((comments, snapshot) {
+        final sortType = snapshot?.sort ?? CommentPreferences.defaultSort;
+        return Row(
+          mainAxisAlignment: .spaceBetween,
+          children: [
+            Text(sortType.desc),
+            TextButton.icon(
+              style: Style.buttonStyle,
+              onPressed: comments == null || snapshot == null
+                  ? null
+                  : () => toggleCommentSort(comments, snapshot),
+              icon: Icon(Icons.sort, size: 16, color: secondary),
+              label: Text(
+                sortType.descShort,
+                style: TextStyle(fontSize: 13, color: secondary),
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      }),
     );
     return SliverFloatingHeaderWidget(
       backgroundColor: theme.colorScheme.surface,
@@ -682,10 +724,12 @@ class _DynamicDetailPageState
   }
 
   void _jumpToComment([_]) {
-    if (!isPortrait) return;
-    try {
-      final position = PrimaryScrollController.of(context).position;
+    if (!mounted || !isPortrait) return;
+    final positions = PrimaryScrollController.maybeOf(context)?.positions;
+    if (positions == null || positions.length != 1) return;
+    final position = positions.single;
+    if (position.hasContentDimensions) {
       position.jumpTo(position.maxScrollExtent);
-    } catch (_) {}
+    }
   }
 }

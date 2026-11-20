@@ -6,16 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/pages/danmaku/danmaku_model.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/danmaku_msg.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart' show LiveRoomPage;
 import 'package:pili_aurora_next/pages/live_room/widgets/bottom_control.dart';
 import 'package:pili_aurora_next/pages/live_room/widgets/header_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_status.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/utils/theme_utils.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
 
 import '../../support/memory_box.dart';
 
@@ -79,7 +79,6 @@ void main() {
     await tester.pump();
     expect(find.text('加载失败，点击重试'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
-    controller.onDelete();
     Get.reset();
     await tester.pump(const Duration(milliseconds: 1));
   });
@@ -121,7 +120,7 @@ void main() {
       ..addDm(_message(2001))
       ..refreshMsgIfNeeded();
     await tester.pump(const Duration(seconds: 1));
-    expect(controller.messages.value, isEmpty);
+    expect(controller.chatHistory.value.messages, isEmpty);
     expect(tester.takeException(), isNull);
   });
 }

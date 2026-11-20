@@ -12,7 +12,7 @@ import 'package:pili_aurora_next/pages/whisper/widgets/item.dart';
 import 'package:pili_aurora_next/pages/whisper_secondary/controller.dart';
 import 'package:pili_aurora_next/services/messaging/session_models.dart';
 import 'package:pili_aurora_next/services/messaging/session_providers.dart';
-import 'package:pili_aurora_next/utils/extension/three_dot_ext.dart';
+import 'package:pili_aurora_next/pages/common/messaging_session_menu.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';

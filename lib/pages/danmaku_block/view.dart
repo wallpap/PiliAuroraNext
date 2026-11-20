@@ -1,17 +1,18 @@
+import 'dart:async';
+
 import 'package:pili_aurora_next/common/widgets/button/icon_button.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
+    show tabBarView;
+import 'package:pili_aurora_next/features/playback/application/danmaku_block.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_rule.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_block_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/danmaku_rule.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/dm_block_type.dart';
-import 'package:pili_aurora_next/models/user/danmaku_block.dart';
-import 'package:pili_aurora_next/models/user/danmaku_rule.dart';
-import 'package:pili_aurora_next/pages/danmaku_block/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -44,7 +45,7 @@ class _DanmakuBlockPageState extends ConsumerState<DanmakuBlockPage>
         if (next case Success(:final response)) {
           final ruleFilter = RuleFilter.fromRuleTypeEntries(response);
           plPlayerController.filters = ruleFilter;
-          GStorage.localCache.put(LocalCacheKey.danmakuFilterRules, ruleFilter);
+          unawaited(cacheDanmakuBlockRules(ruleFilter));
         }
       },
       fireImmediately: true,
@@ -156,27 +157,26 @@ class _DanmakuBlockPageState extends ConsumerState<DanmakuBlockPage>
           icon: const Icon(Icons.delete_outlined),
           onPressed: isSaving
               ? null
-              : () {
+              : () async {
                   final rules = ref.read(danmakuBlockProvider).rules.dataOrNull;
-                  showConfirmDialog(
+                  final confirmed = await showConfirmDialog(
                     context: context,
                     title: const Text('确定删除该规则？'),
-                    onConfirm: () async {
-                      if (!_hasCurrentRules(rules)) return;
-                      final result = await ref
-                          .read(danmakuBlockProvider.notifier)
-                          .remove(
-                            DmBlockType.values[tabIndex],
-                            item.id,
-                          );
-                      if (!mounted) return;
-                      if (result.isSuccess) {
-                        SmartDialog.showToast('删除成功');
-                      } else {
-                        result.toast();
-                      }
-                    },
                   );
+                  if (!confirmed || !context.mounted) return;
+                  if (!_hasCurrentRules(rules)) return;
+                  final result = await ref
+                      .read(danmakuBlockProvider.notifier)
+                      .remove(
+                        DmBlockType.values[tabIndex],
+                        item.id,
+                      );
+                  if (!mounted) return;
+                  if (result.isSuccess) {
+                    SmartDialog.showToast('删除成功');
+                  } else {
+                    result.toast();
+                  }
                 },
         );
         return ListTile(

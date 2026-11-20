@@ -1,11 +1,11 @@
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/common/widgets/pair.dart';
+import 'package:pili_aurora_next/core/types/pair.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
+import 'package:pili_aurora_next/services/settings/application_settings.dart';
 import 'package:pili_aurora_next/services/settings/webdav_client.dart';
+import 'package:pili_aurora_next/services/settings/webdav_preferences.dart';
 import 'package:pili_aurora_next/services/settings/webdav_sync.dart';
-import 'package:pili_aurora_next/utils/device_utils.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/dialog.dart';
 import 'package:get/get.dart';
@@ -16,10 +16,8 @@ class WebDav {
 
   Future<WebDavSettingsSync> _sync() async {
     // 同一次操作使用固定配置；下一次操作重新读取，避免旧凭据被缓存。
-    final endpoint = Uri.parse(Pref.webdavUri);
-    final username = Pref.webdavUsername;
-    final password = Pref.webdavPassword;
-    final directory = Pref.webdavDirectory;
+    final (:uri, :username, :password, :directory) = WebDavPreferences.read();
+    final endpoint = Uri.parse(uri);
     var allowInsecureLoopback = false;
     if (WebDavSettingsClient.isLoopbackHttp(endpoint)) {
       final context = Get.context;
@@ -61,7 +59,7 @@ class WebDav {
 
   Future<void> backup() async {
     try {
-      await (await _sync()).backup(GStorage.settingsBackup);
+      await (await _sync()).backup(ApplicationSettings.backup);
       SmartDialog.showToast('备份成功');
     } catch (error) {
       SmartDialog.showToast('备份失败: ${DiagnosticRedactor.text(error)}');
@@ -70,7 +68,7 @@ class WebDav {
 
   Future<void> restore() async {
     try {
-      await (await _sync()).restore(GStorage.settingsBackup);
+      await (await _sync()).restore(ApplicationSettings.backup);
       SmartDialog.showToast('恢复成功');
     } catch (error) {
       SmartDialog.showToast('恢复失败: ${DiagnosticRedactor.text(error)}');

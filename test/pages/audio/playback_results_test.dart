@@ -5,21 +5,23 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:media_kit/media_kit.dart' hide AudioTrack;
+import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
-import 'package:pili_aurora_next/grpc/bilibili/app/listener/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/app/listener/v1.pb.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/pages/audio/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
+import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/audio_handler.dart';
 import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_http_adapter.dart';
 import '../../support/memory_box.dart';
@@ -170,6 +172,8 @@ void main() {
   late _Adapter adapter;
   late _Player player;
   late AudioController controller;
+  late AppExit appExit;
+  var terminated = false;
   var creations = 0;
   var failCreation = false;
   Object? creationFailure;
@@ -193,31 +197,34 @@ void main() {
     creationFailure = null;
     pendingCreation = null;
     closed = false;
-    controller =
-        AudioController(
-            createPlayer: (_) async {
-              creations++;
-              if (creationFailure case final error?) throw error;
-              if (failCreation) {
-                throw StateError('https://private?token=secret');
-              }
-              return pendingCreation?.future ?? player;
-            },
-          )
-          ..cacheAudioQa = 30280
-          ..playlist = [
-            for (var id = 1; id <= 3; id++)
-              DetailItem(
-                item: PlayItem(oid: Int64(id), subId: [Int64(id)], itemType: 2),
-              ),
-          ];
-    controller.animController = AnimationController(
-      vsync: controller,
-      duration: const Duration(milliseconds: 200),
+    terminated = false;
+    appExit = AppExit.application = AppExit(
+      terminate: () {
+        terminated = true;
+      },
     );
+    controller = AudioController(
+      createPlayer: (_) async {
+        creations++;
+        if (creationFailure case final error?) throw error;
+        if (failCreation) {
+          throw StateError('https://private?token=secret');
+        }
+        return pendingCreation?.future ?? player;
+      },
+      initialPlaylist: [
+        for (var id = 1; id <= 3; id++)
+          AudioTrack(
+            AudioTrackInfo(
+              target: (oid: Int64(id), type: 2, parts: [Int64(id)]),
+            ),
+          ),
+      ],
+    )..cacheAudioQa = 30280;
   });
   tearDown(() {
-    if (!closed) controller.onClose();
+    if (!closed) controller.dispose();
+    AppExit.application = null;
     adapter.close();
   });
   tearDownAll(() => Request.dio.close(force: true));
@@ -227,6 +234,41 @@ void main() {
       MaterialApp(builder: FlutterSmartDialog.init(), home: const SizedBox()),
     );
   }
+
+  _check('app exit waits for audio open and native disposal', (tester) async {
+    await host(tester);
+    player
+      ..opening = Completer<void>()
+      ..disposing = Completer<void>();
+    final playback = controller.playIndex(0);
+    await _until(tester, () => adapter.requests.length == 1);
+    adapter.reply(0, _source());
+    await _until(tester, () => player.opened.length == 1);
+
+    final exit = appExit.close();
+    await tester.pump();
+    expect(terminated, isFalse);
+    expect(player.disposals, 0);
+    void listener() {}
+    controller.playlistState
+      ..addListener(listener)
+      ..removeListener(listener);
+    controller.segmentChanges
+      ..addListener(listener)
+      ..removeListener(listener);
+
+    player.opening!.complete();
+    await _until(tester, () => player.disposals == 1);
+    controller.dispose();
+    closed = true;
+    await tester.pump();
+    expect(terminated, isFalse);
+    player.disposing!.complete();
+    await _complete(tester, playback);
+    await _complete(tester, exit);
+    expect(terminated, isTrue);
+    expect(player.disposals, 1);
+  });
 
   _check('empty playback data is consumed and does not select the item', (
     tester,
@@ -273,7 +315,7 @@ void main() {
     await tester.pump();
     await _complete(tester, first);
     expect(player.opened, ['https://media.example/new']);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
 
   _check(
@@ -301,7 +343,7 @@ void main() {
       await tester.pump();
       await _complete(tester, second);
       expect(creations, 2);
-      expect(controller.audioItem.value!.item.oid, Int64(1));
+      expect(controller.audioItem.value!.info.target.oid, Int64(1));
     },
   );
   _check('account replacement discards a pending playback URL', (
@@ -345,7 +387,7 @@ void main() {
       'https://media.example/old',
       'https://media.example/new',
     ]);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
   _check('open failure is consumed before confirming the selected item', (
     tester,
@@ -406,7 +448,7 @@ void main() {
     player.seeking!.complete();
     await seek;
     expect(controller.position.value, 2);
-    expect(controller.audioItem.value!.item.oid, Int64(2));
+    expect(controller.audioItem.value!.info.target.oid, Int64(2));
   });
 
   _check('pause during media opening preserves the paused intent', (
@@ -426,7 +468,7 @@ void main() {
     await _complete(tester, operation);
     expect(player.playing, isNotEmpty);
     expect(player.playing, everyElement(isFalse));
-    expect(controller.audioItem.value!.item.oid, Int64.ONE);
+    expect(controller.audioItem.value!.info.target.oid, Int64.ONE);
   });
 
   _check('new audio page waits for closing media open and actual destruction', (
@@ -443,16 +485,13 @@ void main() {
     await _until(tester, () => adapter.requests.length == 1);
     adapter.reply(0, _source());
     await _until(tester, () => player.opened.isNotEmpty);
-    controller.onClose();
+    controller.dispose();
     closed = true;
     final secondPlayer = _Player();
-    final second = AudioController(createPlayer: (_) async => secondPlayer)
-      ..cacheAudioQa = 30280
-      ..playlist = controller.playlist;
-    second.animController = AnimationController(
-      vsync: second,
-      duration: const Duration(milliseconds: 200),
-    );
+    final second = AudioController(
+      createPlayer: (_) async => secondPlayer,
+      initialPlaylist: controller.playlist,
+    )..cacheAudioQa = 30280;
     try {
       expect(_actions(controller), [
         'audio.initialize.begin',
@@ -493,7 +532,7 @@ void main() {
     } finally {
       if (!player.opening!.isCompleted) player.opening!.complete();
       if (!player.disposing!.isCompleted) player.disposing!.complete();
-      second.onClose();
+      second.dispose();
     }
   });
 
@@ -510,7 +549,7 @@ void main() {
     await _until(tester, () => adapter.requests.length == 1);
     adapter.reply(0, _source());
     await _until(tester, () => creations == 1);
-    controller.onClose();
+    controller.dispose();
     closed = true;
     final cause = StateError('synthetic late disposal failure');
     player.disposeError = cause;
@@ -562,7 +601,7 @@ void main() {
       await handler.skipToNext();
       expect(adapter.requests, hasLength(3));
       Accounts.accountMode[AccountType.main.index] = originalAccount;
-      controller.onClose();
+      controller.dispose();
       closed = true;
       await handler.skipToNext();
       expect(adapter.requests, hasLength(3));
@@ -587,7 +626,7 @@ void main() {
       await _until(tester, () => adapter.requests.length == 1);
       adapter.reply(0, _source());
       await _complete(tester, operation);
-      expect(controller.audioItem.value!.item.oid, Int64.ONE);
+      expect(controller.audioItem.value!.info.target.oid, Int64.ONE);
       expect(handler.mediaItem.value?.title, 'new owner');
     } finally {
       videoPlayerServiceHandler = null;
@@ -646,25 +685,19 @@ void main() {
     );
     final secondPlayer = _Player();
     var secondCreations = 0;
-    final second =
-        AudioController(
-            createPlayer: (_) async {
-              secondCreations++;
-              return secondPlayer;
-            },
-          )
-          ..cacheAudioQa = 30280
-          ..playlist = controller.playlist;
-    second.animController = AnimationController(
-      vsync: second,
-      duration: const Duration(milliseconds: 200),
-    );
+    final second = AudioController(
+      createPlayer: (_) async {
+        secondCreations++;
+        return secondPlayer;
+      },
+      initialPlaylist: controller.playlist,
+    )..cacheAudioQa = 30280;
     try {
       final first = controller.playIndex(0);
       await _until(tester, () => adapter.requests.length == 1);
       adapter.reply(0, _source());
       await _complete(tester, first);
-      controller.onClose();
+      controller.dispose();
       closed = true;
       await tester.pump();
       expect(_actions(controller), isNot(contains('audio.shutdown.released')));
@@ -681,7 +714,7 @@ void main() {
       expect(_actions(controller), contains('audio.shutdown.released'));
     } finally {
       if (!cleanup.isCompleted) cleanup.complete();
-      second.onClose();
+      second.dispose();
     }
   });
 }

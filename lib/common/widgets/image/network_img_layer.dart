@@ -1,10 +1,10 @@
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/style.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
-import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/utils/extension/num_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/common/widgets/image/image_type.dart';
+import 'package:pili_aurora_next/common/layout/num_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart'
     show BaseCacheManager;
@@ -43,7 +43,7 @@ class NetworkImgLayer extends StatelessWidget {
   final Size? sourceSize;
   final BaseCacheManager? cacheManager;
 
-  static Color? reduceLuxColor = Pref.reduceLuxColor;
+  static Color? reduceLuxColor = DisplayPreferences.dimOverlayColor;
   static bool reduce = false;
 
   @override

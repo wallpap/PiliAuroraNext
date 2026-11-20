@@ -1,15 +1,15 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
-import 'package:pili_aurora_next/http/black.dart';
-import 'package:pili_aurora_next/http/danmaku_block.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/blocked_author_repository.dart';
+import 'package:pili_aurora_next/features/playback/data/danmaku_block_repository.dart';
 import 'package:pili_aurora_next/http/fan.dart';
 import 'package:pili_aurora_next/http/follow.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../support/memory_box.dart';
 
@@ -61,8 +61,8 @@ void main() {
   final queries = <String, Future<LoadingState<Object?>> Function()>{
     '关注': () => FollowHttp.followings(account: account, vmid: 1, pn: 1),
     '粉丝': () => FanHttp.fans(account: account, vmid: 1, pn: 1),
-    '黑名单': () => BlackHttp.blackList(account: account, pn: 1),
-    '屏蔽规则': () => DanmakuFilterHttp.danmakuFilter(account: account),
+    '黑名单': () => const BlockedAuthorRepository().load(account, 1),
+    '屏蔽规则': () => DanmakuBlockRepository.danmakuFilter(account: account),
   };
   for (final entry in queries.entries) {
     test('${entry.key}查询把损坏数据交付为可诊断错误，账号绑定不变', () async {
@@ -99,7 +99,7 @@ void main() {
       'data': {'rule': 'invalid'},
     };
     final query =
-        await DanmakuFilterHttp.danmakuFilter(account: account) as Error;
+        await DanmakuBlockRepository.danmakuFilter(account: account) as Error;
     expect(query.cause, isA<FormatException>());
     for (final rule in [
       {'id': 0, 'type': 0, 'filter': 'sample'},
@@ -107,7 +107,7 @@ void main() {
     ]) {
       body = {'code': 0, 'data': rule};
       expect(
-        await DanmakuFilterHttp.danmakuFilterAdd(
+        await DanmakuBlockRepository.danmakuFilterAdd(
           filter: 'sample',
           type: 0,
           account: account,
@@ -122,7 +122,7 @@ void main() {
       'code': 0,
       'data': {'id': 42, 'type': 0, 'filter': 'sample'},
     };
-    final rule = await DanmakuFilterHttp.danmakuFilterAdd(
+    final rule = await DanmakuBlockRepository.danmakuFilterAdd(
       filter: 'sample',
       type: 0,
       account: account,
@@ -131,7 +131,7 @@ void main() {
     expect((requests.last.data as Map)['csrf'], 'synthetic-csrf');
     body = {'code': 0};
     expect(
-      await DanmakuFilterHttp.danmakuFilterDel(ids: 42, account: account),
+      await DanmakuBlockRepository.danmakuFilterDel(ids: 42, account: account),
       isA<Success<void>>(),
     );
     expect(
@@ -197,7 +197,7 @@ void main() {
   test('新增规则成功码后的损坏结果保持待确认，业务拒绝保留错误码', () async {
     body = {'code': 0, 'data': {}};
     expect(
-      await DanmakuFilterHttp.danmakuFilterAdd(
+      await DanmakuBlockRepository.danmakuFilterAdd(
         filter: 'sample',
         type: 0,
         account: account,
@@ -205,7 +205,7 @@ void main() {
       isA<UnknownResult>(),
     );
     body = {'code': -400, 'msg': 'invalid rule'};
-    final result = await DanmakuFilterHttp.danmakuFilterAdd(
+    final result = await DanmakuBlockRepository.danmakuFilterAdd(
       filter: 'sample',
       type: 0,
       account: account,

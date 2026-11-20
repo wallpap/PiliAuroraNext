@@ -1,17 +1,14 @@
-import 'package:pili_aurora_next/utils/accounts/account.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/pgc_review_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_condition/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_review/data.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/pgc_timeline.dart';
-import 'package:pili_aurora_next/models/remote/pgc/season_follow_status.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_condition/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/data.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/index_result/list.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/pgc_timeline.dart';
+import 'package:pili_aurora_next/features/playback/domain/season_follow_status.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/pgc/timeline/result.dart';
 import 'package:dio/dio.dart';
 
 abstract final class PgcHttp {
@@ -112,160 +109,6 @@ abstract final class PgcHttp {
         'before': before,
         'after': after,
       },
-    );
-  }
-
-  static Future<LoadingState<PgcReviewData>> pgcReview({
-    required PgcReviewType type,
-    required Object? mediaId,
-    int sort = 0,
-    String? next,
-    Account? account,
-  }) async {
-    if (!_validId(mediaId)) return const Error('番剧标识无效，请重新打开页面');
-    return await Request().requestApi(
-      type.api,
-      kind: ApiCallKind.query,
-      decode: (body) => PgcReviewData.fromJson(body['data']),
-      options: Options(extra: {'account': account}),
-      queryParameters: {
-        'media_id': mediaId,
-        'ps': 20,
-        'sort': sort,
-        'cursor': ?next,
-        'web_location': 666.19,
-      },
-    );
-  }
-
-  static Future<LoadingState<void>> pgcReviewLike({
-    required Object? mediaId,
-    required Object? reviewId,
-    Account? account,
-  }) async {
-    if (!_validId(mediaId)) return const Error('番剧标识无效，请重新打开页面');
-    if (!_validId(reviewId)) return const Error('点评标识无效，请刷新后重试');
-    account ??= Accounts.main;
-    return await Request().requestApi<void>(
-      Api.pgcReviewLike,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      data: {
-        'media_id': mediaId,
-        'review_type': 2,
-        'review_id': reviewId,
-        'csrf': account.csrf,
-      },
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': account},
-      ),
-    );
-  }
-
-  static Future<LoadingState<void>> pgcReviewDislike({
-    required Object? mediaId,
-    required Object? reviewId,
-    Account? account,
-  }) async {
-    if (!_validId(mediaId)) return const Error('番剧标识无效，请重新打开页面');
-    if (!_validId(reviewId)) return const Error('点评标识无效，请刷新后重试');
-    account ??= Accounts.main;
-    return await Request().requestApi<void>(
-      Api.pgcReviewDislike,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      data: {
-        'media_id': mediaId,
-        'review_type': 2,
-        'review_id': reviewId,
-        'csrf': account.csrf,
-      },
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': account},
-      ),
-    );
-  }
-
-  static Future<LoadingState<void>> pgcReviewPost({
-    required Object? mediaId,
-    required int score,
-    required String content,
-    bool shareFeed = false,
-    Account? account,
-  }) async {
-    if (!_validId(mediaId)) return const Error('番剧标识无效，请重新打开页面');
-    if (score < 2 || score > 10 || score.isOdd) return const Error('请选择有效评分');
-    account ??= Accounts.main;
-    return await Request().requestApi<void>(
-      Api.pgcReviewPost,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      data: {
-        'media_id': mediaId,
-        'score': score,
-        'content': content,
-        if (shareFeed) 'share_feed': 1,
-        'csrf': account.csrf,
-      },
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': account},
-      ),
-    );
-  }
-
-  static Future<LoadingState<void>> pgcReviewMod({
-    required Object? mediaId,
-    required int score,
-    required String content,
-    required Object? reviewId,
-    Account? account,
-  }) async {
-    if (!_validId(mediaId)) return const Error('番剧标识无效，请重新打开页面');
-    if (score < 2 || score > 10 || score.isOdd) return const Error('请选择有效评分');
-    if (!_validId(reviewId)) return const Error('点评标识无效，请刷新后重试');
-    account ??= Accounts.main;
-    return await Request().requestApi<void>(
-      Api.pgcReviewMod,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      data: {
-        'media_id': mediaId,
-        'score': score,
-        'content': content,
-        'review_id': reviewId,
-        'csrf': account.csrf,
-      },
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': account},
-      ),
-    );
-  }
-
-  static Future<LoadingState<void>> pgcReviewDel({
-    required Object? mediaId,
-    required Object? reviewId,
-    Account? account,
-  }) async {
-    if (!_validId(mediaId)) return const Error('番剧标识无效，请重新打开页面');
-    if (!_validId(reviewId)) return const Error('点评标识无效，请刷新后重试');
-    account ??= Accounts.main;
-    return await Request().requestApi<void>(
-      Api.pgcReviewDel,
-      kind: ApiCallKind.mutation,
-      decode: (_) {},
-      data: {
-        'media_id': mediaId,
-        'review_id': reviewId,
-        'csrf': account.csrf,
-      },
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': account},
-      ),
     );
   }
 

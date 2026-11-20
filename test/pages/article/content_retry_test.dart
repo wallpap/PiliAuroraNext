@@ -1,14 +1,16 @@
 import 'dart:typed_data';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/features/community/application/dynamics_actions.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/pages/article/controller.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/community/application/article_detail.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_http_adapter.dart';
 
@@ -55,18 +57,24 @@ void main() {
     ),
   );
 
-  testWidgets('article content failure can be retried', (tester) async {
-    await mount(tester);
-    final controller = ArticleController()
+  ArticleController article() {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    return ArticleController(container.read(dynamicsActionsProvider))
       ..type = 'opus'
       ..id = '1';
-    addTearDown(controller.onClose);
+  }
+
+  testWidgets('article content failure can be retried', (tester) async {
+    await mount(tester);
+    final controller = article();
+    addTearDown(controller.close);
     controller.init();
     await flush(tester);
     expect(adapter.pending, hasLength(1));
     adapter.json(0, {'code': -1, 'message': 'synthetic temporary error'});
     await flush(tester);
-    expect(controller.loadingState.value, isA<Error>());
+    expect(controller.commentSource.value, isA<Error>());
     final retry = controller.onReload();
     await flush(tester);
     expect(adapter.pending, hasLength(2));
@@ -76,10 +84,8 @@ void main() {
   });
   testWidgets('opus 回退文章后仍请求正文并允许重试', (tester) async {
     await mount(tester);
-    final controller = ArticleController()
-      ..type = 'opus'
-      ..id = '1';
-    addTearDown(controller.onClose);
+    final controller = article();
+    addTearDown(controller.close);
     controller.init();
     await flush(tester);
     adapter.json(0, {

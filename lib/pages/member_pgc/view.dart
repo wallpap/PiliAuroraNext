@@ -4,14 +4,15 @@ import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/loading_widget.dart'
     show m3eLoading;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
-import 'package:pili_aurora_next/pages/member_pgc/controller.dart';
+import 'package:pili_aurora_next/features/member_space/domain/profiles/space_archive/item.dart';
+import 'package:pili_aurora_next/features/member_space/application/space_listings.dart';
 import 'package:pili_aurora_next/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
-import 'package:pili_aurora_next/utils/grid.dart';
-import 'package:get/get.dart';
+import 'package:pili_aurora_next/common/layout/grid.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MemberBangumi extends StatefulWidget {
+class MemberBangumi extends ConsumerStatefulWidget {
   const MemberBangumi({
     super.key,
     required this.heroTag,
@@ -22,70 +23,53 @@ class MemberBangumi extends StatefulWidget {
   final int mid;
 
   @override
-  State<MemberBangumi> createState() => _MemberBangumiState();
+  ConsumerState<MemberBangumi> createState() => _MemberBangumiState();
 }
 
-class _MemberBangumiState extends State<MemberBangumi>
+class _MemberBangumiState extends ConsumerState<MemberBangumi>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  late MemberBangumiCtr _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = MemberBangumiCtr(heroTag: widget.heroTag, mid: widget.mid)
-      ..onStart();
-  }
-
-  @override
-  void didUpdateWidget(MemberBangumi oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.mid != widget.mid || oldWidget.heroTag != widget.heroTag) {
-      _controller.onDelete();
-      _controller = MemberBangumiCtr(heroTag: widget.heroTag, mid: widget.mid)
-        ..onStart();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.onDelete();
-    super.dispose();
-  }
+  final _owner = Object();
+  SpaceListQuery get _query => (owner: _owner, mid: widget.mid);
+  SpaceBangumi get _controller =>
+      ref.read(spaceBangumiProvider(_query).notifier);
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return refreshIndicator(
-      isClampingScrollPhysics: true,
-      onRefresh: _controller.onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(
-              left: Style.safeSpace,
-              right: Style.safeSpace,
-              top: Style.safeSpace,
-              bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
-            ),
-            sliver: Obx(
-              () => _buildBody(_controller.loadingState.value),
-            ),
-          ),
-          Obx(() {
-            final error = _controller.paginationError.value;
-            if (error == null) return const SliverToBoxAdapter();
-            return SliverToBoxAdapter(
-              child: TextButton(
-                onPressed: _controller.onLoadMore,
-                child: Text('$error，点击重试'),
+    final state = ref.watch(spaceBangumiProvider(_query));
+    return FeedPagination.notifications(
+      dataSource: state.source,
+      dataRevision: state,
+      canLoadMore: () => state.canLoadMore,
+      onLoadMore: _controller.onLoadMore,
+      child: refreshIndicator(
+        isClampingScrollPhysics: true,
+        onRefresh: _controller.onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: Style.safeSpace,
+                right: Style.safeSpace,
+                top: Style.safeSpace,
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
               ),
-            );
-          }),
-        ],
+              sliver: _buildBody(state.loading),
+            ),
+            if ((state.loading is Success ? state.error : null)
+                case final error?)
+              SliverToBoxAdapter(
+                child: TextButton(
+                  onPressed: _controller.retry,
+                  child: Text('$error，点击重试'),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -108,10 +92,6 @@ class _MemberBangumiState extends State<MemberBangumi>
             ? SliverGrid.builder(
                 gridDelegate: gridDelegate,
                 itemBuilder: (context, index) {
-                  if (index == response.length - 1 &&
-                      _controller.paginationError.value == null) {
-                    _controller.onLoadMore();
-                  }
                   return PgcCardVMemberPgc(
                     item: response[index],
                   );

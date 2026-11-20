@@ -1,22 +1,15 @@
 import 'package:pili_aurora_next/common/constants.dart';
-import 'package:pili_aurora_next/grpc/bilibili/main/community/reply/v1.pb.dart';
-import 'package:pili_aurora_next/grpc/bilibili/pagination.pb.dart';
+import 'package:pili_aurora_next/features/community/data/content_filter_preferences.dart';
+import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/generated/bilibili/pagination.pb.dart';
 import 'package:pili_aurora_next/grpc/grpc_req.dart';
 import 'package:pili_aurora_next/grpc/url.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage_pref.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:fixnum/fixnum.dart';
 
 abstract final class ReplyGrpc {
-  static bool antiGoodsReply = Pref.antiGoodsReply;
-  static RegExp replyRegExp = RegExp(
-    Pref.banWordForReply,
-    caseSensitive: false,
-  );
-  static bool enableFilter = replyRegExp.pattern.isNotEmpty;
-
   // static Future replyInfo({required int rpid}) {
   //   return _request(
   //     GrpcUrl.replyInfo,
@@ -27,7 +20,7 @@ abstract final class ReplyGrpc {
   // }
 
   // ref BiliRoamingX
-  static bool needRemoveGoodGrpc(ReplyInfo reply) {
+  static bool _hasGoods(ReplyInfo reply) {
     return (reply.content.urls.isNotEmpty &&
             reply.content.urls.values.any((url) {
               return url.hasExtra() &&
@@ -38,9 +31,11 @@ abstract final class ReplyGrpc {
         reply.content.message.contains(Constants.goodsUrlPrefix);
   }
 
-  static bool needRemoveGrpc(ReplyInfo reply) {
-    return (enableFilter && replyRegExp.hasMatch(reply.content.message)) ||
-        (antiGoodsReply && needRemoveGoodGrpc(reply));
+  static bool Function(ReplyInfo) _commentFilter() {
+    final (:keywords, :hideGoods) = ContentFilterPreferences.comments();
+    return (reply) =>
+        keywords?.hasMatch(reply.content.message) == true ||
+        (hideGoods && _hasGoods(reply));
   }
 
   static Future<LoadingState<MainListReply>> mainList({
@@ -69,6 +64,7 @@ abstract final class ReplyGrpc {
       account: account ?? Accounts.main,
     );
     if (res case Success(:final response)) {
+      final needRemoveGrpc = _commentFilter();
       // keyword filter
       if (response.hasUpTop()) {
         if (needRemoveGrpc(response.upTop)) {
@@ -115,7 +111,7 @@ abstract final class ReplyGrpc {
       kind: .query,
       account: account ?? Accounts.main,
     );
-    return res..dataOrNull?.root.replies.removeWhere(needRemoveGrpc);
+    return res..dataOrNull?.root.replies.removeWhere(_commentFilter());
   }
 
   static Future<LoadingState<DialogListReply>> dialogList({
@@ -139,7 +135,7 @@ abstract final class ReplyGrpc {
       kind: .query,
       account: account ?? Accounts.main,
     );
-    return res..dataOrNull?.replies.removeWhere(needRemoveGrpc);
+    return res..dataOrNull?.replies.removeWhere(_commentFilter());
   }
 
   static Future<LoadingState<SearchItemReply>> searchItem({

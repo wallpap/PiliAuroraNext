@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
-import 'package:pili_aurora_next/models/common/search/search_type.dart';
+import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
 import 'package:pili_aurora_next/pages/search_panel/all/view.dart';
 import 'package:pili_aurora_next/pages/search_panel/article/view.dart';
 import 'package:pili_aurora_next/pages/search_panel/live/view.dart';

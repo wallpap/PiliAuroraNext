@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/utils/duration_utils.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 
 class PlayerLoadingIndicator extends StatelessWidget {
   const PlayerLoadingIndicator({

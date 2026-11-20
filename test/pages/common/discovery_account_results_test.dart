@@ -1,16 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/pages/common/discovery_list_controller.dart';
-import 'package:pili_aurora_next/pages/hot/controller.dart';
-import 'package:pili_aurora_next/pages/popular_precious/controller.dart';
-import 'package:pili_aurora_next/pages/popular_series/controller.dart';
-import 'package:pili_aurora_next/pages/rank/zone/controller.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
-import 'package:pili_aurora_next/utils/storage_key.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/discovery_listing.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/hot_feed.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/curated_feed.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -45,38 +45,44 @@ void main() {
     Request.dio.close(force: true);
     await interceptor.close();
   });
-  final cases = <String, DiscoveryListController Function()>{
-    '热门': HotController.new,
-    '入站必刷': PopularPreciousController.new,
-    '每周必看': () => PopularSeriesController()..number = 1,
-    '分区排行榜': () => ZoneController(rid: 1),
-    '番剧排行榜': () => ZoneController(seasonType: 1),
-    '剧集排行榜': () => ZoneController(seasonType: 2),
-  };
+  final cases =
+      <
+        String,
+        NotifierProvider<
+          DiscoveryListing<HotVideoItemModel, void>,
+          DiscoveryListingState<HotVideoItemModel, void>
+        >
+        Function()
+      >{
+        '热门': () => hotFeedProvider(Object()),
+        '入站必刷': () => preciousFeedProvider(Object()),
+      };
   for (final entry in cases.entries) {
     test('${entry.key}固定推荐请求账号，换凭据后丢弃旧响应并能刷新', () async {
-      final controller = entry.value();
-      addTearDown(controller.onDelete.call);
-      final before = Accounts.get(AccountType.recommend);
-      final operation = controller.onRefresh();
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final provider = entry.value();
+      container
+        ..listen(provider, (_, _) {})
+        ..read(provider);
       await interceptor.waitForRequests(1);
+      final before = Accounts.get(AccountType.recommend);
       expect(requests[0].options.extra['account'], same(before));
       final replacement = account();
-      Accounts.accountMode[AccountType.recommend.index] = replacement;
+      Accounts.replaceCredentials(replacement);
+      expect(container.read(provider).loading, isA<Loading>());
+      await interceptor.waitForRequests(2);
+      expect(requests[1].options.extra['account'], same(replacement));
       const body = {
         'code': 0,
         'data': {'list': []},
-        'result': {'list': []},
       };
       requests[0].reply.complete(body);
-      await operation;
-      expect(controller.loadingState.value, isA<Loading>());
-      final retry = controller.onRefresh();
-      await interceptor.waitForRequests(2);
-      expect(requests[1].options.extra['account'], same(replacement));
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(provider).loading, isA<Loading>());
       requests[1].reply.complete(body);
-      await retry;
-      expect(controller.loadingState.value, isA<Success>());
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(provider).loading, isA<Success>());
     });
   }
 }

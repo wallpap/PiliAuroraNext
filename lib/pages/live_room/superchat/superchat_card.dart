@@ -8,19 +8,21 @@ import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
-import 'package:pili_aurora_next/utils/app_scheme.dart';
-import 'package:pili_aurora_next/utils/color_utils.dart';
-import 'package:pili_aurora_next/utils/date_utils.dart';
-import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
-import 'package:pili_aurora_next/utils/extension/selectable_region_ext.dart';
-import 'package:pili_aurora_next/utils/image_utils.dart';
-import 'package:pili_aurora_next/utils/page_utils.dart';
-import 'package:pili_aurora_next/utils/platform_utils.dart';
-import 'package:pili_aurora_next/utils/screenshot.dart';
-import 'package:pili_aurora_next/utils/utils.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:pili_aurora_next/router/app_scheme.dart';
+import 'package:pili_aurora_next/common/appearance/color_utils.dart';
+import 'package:pili_aurora_next/core/time/date_format.dart';
+import 'package:pili_aurora_next/core/collections/iterable_ext.dart';
+import 'package:pili_aurora_next/common/widgets/extensions/selectable_region_ext.dart';
+import 'package:pili_aurora_next/common/media/image_actions.dart';
+import 'package:pili_aurora_next/router/page_utils.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
+import 'package:pili_aurora_next/common/media/screenshot.dart';
+import 'package:pili_aurora_next/common/feedback/clipboard_actions.dart';
+import 'package:pili_aurora_next/core/serialization/pretty_json.dart';
+import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -47,7 +49,7 @@ class SuperChatCard extends StatefulWidget {
 class _SuperChatCardState extends State<SuperChatCard> {
   Timer? _timer;
   bool _savingImage = false;
-  RxInt? _remains;
+  ValueNotifier<int>? _remains;
 
   @override
   void initState() {
@@ -60,7 +62,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final offset = widget.item.endTime - now;
       if (offset > 0) {
-        _remains = offset.obs;
+        _remains = ValueNotifier(offset);
         _startTimer();
       } else {
         _remove();
@@ -102,6 +104,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
   @override
   void dispose() {
     _cancelTimer();
+    _remains?.dispose();
     super.dispose();
   }
 
@@ -124,7 +127,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
         ),
         AppPopupMenuItem(
           height: 38,
-          onTap: () => Utils.copyText(Utils.jsonEncoder.convert(item.toJson())),
+          onTap: () => copyText(prettyJsonEncoder.convert(item.toJson())),
           child: const Text(
             '复制 SC 信息',
             style: TextStyle(fontSize: 13),
@@ -194,7 +197,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
 Widget _build({
   required SuperChatItem item,
   Function(Offset, SuperChatItem)? showMenu,
-  RxInt? remains,
+  ValueListenable<int>? remains,
 }) {
   final bottomColor = ColourUtils.parseColor(item.backgroundBottomColor);
   final border = BorderSide(color: bottomColor);
@@ -221,7 +224,7 @@ Widget _build({
       );
     } catch (e, s) {
       if (kDebugMode) {
-        Utils.reportError(e, s);
+        reportError(e, s);
       }
     }
   }
@@ -229,9 +232,10 @@ Widget _build({
   Widget price = Text("￥${item.price}", style: TextStyle(color: bottomColor));
   Widget? remains_;
   if (remains != null) {
-    remains_ = Obx(
-      () => Text(
-        remains.toString(),
+    remains_ = ValueListenableBuilder(
+      valueListenable: remains,
+      builder: (context, seconds, _) => Text(
+        '$seconds',
         style: const TextStyle(fontSize: 14, color: Colors.grey),
       ),
     );

@@ -3,13 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/dialog/video_feedback.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
 import 'package:pili_aurora_next/http/init.dart';
-import 'package:pili_aurora_next/models/common/account_type.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
+import 'package:pili_aurora_next/features/account/domain/account_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommendation/result.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
-import 'package:pili_aurora_next/utils/accounts.dart';
-import 'package:pili_aurora_next/utils/accounts/account.dart';
-import 'package:pili_aurora_next/utils/storage.dart';
+import 'package:pili_aurora_next/features/account/application/accounts.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
@@ -44,7 +45,6 @@ void main() {
   Future<void> mount(
     WidgetTester tester, {
     VoidCallback? onRemove,
-    bool Function()? isCurrent,
   }) async {
     await tester.pumpWidget(
       GetMaterialApp(
@@ -53,23 +53,26 @@ void main() {
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
+    final item = RcmdVideoItemAppModel.fromJson({
+      'param': '1',
+      'title': '视频',
+      'card_goto': 'av',
+      'three_point_v2': [
+        {
+          'type': 'dislike',
+          'reasons': [
+            {'id': 2, 'name': '减少推荐'},
+          ],
+        },
+      ],
+    });
+    final operation = VideoFeedback.capture(item);
     showDialog<void>(
       context: tester.element(find.text('列表')),
       builder: (_) => VideoFeedbackDialog(
-        item: RcmdVideoItemAppModel.fromJson({
-          'param': '1',
-          'title': '视频',
-          'card_goto': 'av',
-          'three_point_v2': [
-            {
-              'type': 'dislike',
-              'reasons': [
-                {'id': 2, 'name': '减少推荐'},
-              ],
-            },
-          ],
-        }),
-        isCurrent: isCurrent ?? () => true,
+        item: item,
+        operation: operation,
+        isCurrent: () => true,
         onRemove: onRemove,
       ),
     );
@@ -141,20 +144,14 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('切号或来源失效后的迟到成功不移除卡片或关闭新页面', (tester) async {
+  testWidgets('推荐账号同 UID 换凭据后，迟到成功不移除卡片或关闭反馈', (tester) async {
     var removed = 0;
-    var current = true;
-    await mount(tester, onRemove: () => removed++, isCurrent: () => current);
+    await mount(tester, onRemove: () => removed++);
     await submit(tester);
-    current = false;
-    Accounts.accountMode[AccountType.recommend.index] = account(2);
-    Navigator.of(tester.element(find.byType(VideoFeedbackDialog))).pop();
-    await tester.pumpAndSettle();
-    Get.to(() => const Scaffold(body: Text('新页面')));
-    await tester.pumpAndSettle();
+    Accounts.accountMode[AccountType.recommend.index] = account(1);
     await resolve(tester, 0, {'code': 0});
     await tester.pumpAndSettle();
-    expect(find.text('新页面'), findsOneWidget);
+    expect(find.byType(VideoFeedbackDialog), findsOneWidget);
     expect(removed, 0);
     await finish(tester);
   });
