@@ -11,10 +11,12 @@ abstract final class AppWebViewEnvironment {
   static Future<void>? _initializing;
   static Future<void>? _disposing;
   static Future<void>? _closing;
+  static final _closingState = ValueNotifier(false);
   static Completer<void>? _leasesReleased;
   static Timer? _idle;
   static int _users = 0;
   static bool get isConfigured => _userDataPath != null;
+  static ValueListenable<bool> get closing => _closingState;
 
   /// 页面和 Cookie 操作各持有租约，避免关闭一个页面时销毁其他使用者的环境。
   static void Function() retain() {
@@ -83,7 +85,10 @@ abstract final class AppWebViewEnvironment {
 
   static Future<void> close() {
     if (!isConfigured) return Future.value();
-    return _closing ??= _close();
+    if (_closing case final pending?) return pending;
+    final pending = _closing = _close();
+    _closingState.value = true;
+    return pending;
   }
 
   static Future<void> _close() async {

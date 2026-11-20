@@ -123,10 +123,17 @@ void main() {
       final cookieDuringShutdown = AppWebViewEnvironment.using(
         () => lease.future,
       );
-      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WebViewReady(builder: (_) => const Text('web during exit')),
+        ),
+      );
+      await tester.pumpAndSettle();
       expect(environment.creations, 4);
+      expect(find.text('web during exit'), findsOneWidget);
       final closed = AppWebViewEnvironment.close();
       await tester.pump();
+      expect(find.text('web during exit'), findsNothing);
       expect(environment.disposals, 3);
       lease.complete();
       await tester.pump();
