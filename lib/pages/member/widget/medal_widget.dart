@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/style.dart';
-import 'package:pili_aurora_next/models/remote/live/live_medal_wall/uinfo_medal.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/uinfo_medal.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:material_ui/material_ui.dart';
 

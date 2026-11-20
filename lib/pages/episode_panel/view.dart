@@ -14,13 +14,13 @@ import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/features/playback/data/video_metadata_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/episode_panel_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/episode_panel_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart'
     as pgc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart'
     as ugc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/page.dart';
@@ -29,7 +29,7 @@ import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/features/account/application/account_profile.dart';
 import 'package:pili_aurora_next/utils/utils.dart';

@@ -3,8 +3,8 @@ import 'package:pili_aurora_next/features/favorites/application/favorite_library
 import 'package:pili_aurora_next/features/playback/data/video_media_repository.dart';
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/models/remote/media_list/media_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/playlist/media_list.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 

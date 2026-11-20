@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 

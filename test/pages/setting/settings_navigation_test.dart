@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_filter.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
 import 'package:pili_aurora_next/pages/setting/common_setting.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/models/content_settings.dart';

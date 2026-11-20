@@ -23,7 +23,7 @@ import 'package:pili_aurora_next/pages/audio/controller.dart';
 import 'package:pili_aurora_next/pages/audio/volume_button.dart';
 import 'package:pili_aurora_next/pages/setting/models/play_settings.dart'
     show showVolumeDialog;
-import 'package:pili_aurora_next/models/video/play/url.dart' show Volume;
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart' show Volume;
 import 'package:pili_aurora_next/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:pili_aurora_next/pages/video/widgets/header_control.dart'
     show HeaderControlState;

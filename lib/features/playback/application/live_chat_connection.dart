@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_connection/data.dart';
 import 'package:pili_aurora_next/services/live_stream/live.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 

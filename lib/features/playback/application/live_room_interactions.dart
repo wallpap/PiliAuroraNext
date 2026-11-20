@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:pili_aurora_next/http/live.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/features/playback/domain/danmaku_metadata.dart'
     show LiveDanmaku;
 import 'package:pili_aurora_next/features/account/application/accounts.dart';

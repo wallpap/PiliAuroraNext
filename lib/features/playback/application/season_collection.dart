@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/pgc.dart';
 import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/remote/pgc/season_follow_status.dart';
+import 'package:pili_aurora_next/features/playback/domain/season_follow_status.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 

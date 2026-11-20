@@ -7,8 +7,8 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/view_sliver_safe_area.dart';
 import 'package:pili_aurora_next/features/playback/application/live_room_rankings.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/live/live_contribution_rank_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_contribution_rank/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/contribution_rank/item.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/utils/color_utils.dart';
 import 'package:pili_aurora_next/utils/extension/scroll_controller_ext.dart';

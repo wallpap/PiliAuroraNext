@@ -1,10 +1,28 @@
+import 'dart:convert' show ascii, base64;
+
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show Digest;
+import 'package:pili_aurora_next/utils/random_id.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';
 import 'package:pili_aurora_next/utils/utils.dart';
 
 abstract final class ClientIdentity {
   static final buvid = Pref.buvid;
+
+  static String generateBuvid3() {
+    final suffix = Utils.random.nextInt(100000).toString().padLeft(5, '0');
+    return '${newUuidV4().toUpperCase()}${suffix}infoc';
+  }
+
+  static String auroraEid(int uid) {
+    if (uid == 0) return '';
+    final bytes = ascii.encode(uid.toString());
+    const key = 'ad1va46a7lza';
+    for (var index = 0; index < bytes.length; index++) {
+      bytes[index] ^= key.codeUnitAt(index % key.length);
+    }
+    return base64.encode(bytes).replaceAll('=', '');
+  }
 
   static String generateBuvid() {
     final md5Str = Digest(

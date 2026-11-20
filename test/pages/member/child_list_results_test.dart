@@ -1,13 +1,13 @@
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
 import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/models/common/member/contribute_type.dart';
 import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_archive.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_web.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';

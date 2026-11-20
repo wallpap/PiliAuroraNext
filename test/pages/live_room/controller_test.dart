@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_info/host_list.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/user_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/danmaku_msg.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_connection/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_connection/host_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/user_info.dart';
 import 'package:pili_aurora_next/common/widgets/keep_alive_wrapper.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart';
 import 'package:pili_aurora_next/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';

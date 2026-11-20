@@ -1,8 +1,8 @@
-import 'package:pili_aurora_next/models/model_owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/bangumi.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/rights.dart';
 import 'package:pili_aurora_next/features/watch_later/domain/stat.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/dimension.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/dimension.dart';
 
 class LaterItemModel {
   int? aid;

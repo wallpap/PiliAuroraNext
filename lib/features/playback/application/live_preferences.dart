@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';

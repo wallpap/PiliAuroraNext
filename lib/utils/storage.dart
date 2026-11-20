@@ -1,7 +1,7 @@
 import 'dart:io' show File;
 import 'dart:typed_data';
 
-import 'package:pili_aurora_next/models/model_owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/playback/data/danmaku_rule_adapter.dart';
 import 'package:pili_aurora_next/features/account/domain/info.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';

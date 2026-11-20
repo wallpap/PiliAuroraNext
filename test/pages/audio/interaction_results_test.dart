@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';

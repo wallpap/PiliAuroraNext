@@ -18,8 +18,8 @@ import 'package:pili_aurora_next/features/playback/domain/audio_track.dart';
 import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/audio_normalization.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart'
+import 'package:pili_aurora_next/features/playback/application/audio_normalization.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart'
     as http_model
     show Volume;
 import 'package:pili_aurora_next/pages/audio/segment_adapter.dart';
@@ -41,7 +41,7 @@ import 'package:pili_aurora_next/services/shutdown_timer_service.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
 import 'package:pili_aurora_next/utils/android/android_helper.dart';
 import 'package:pili_aurora_next/utils/connectivity_utils.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';
 import 'package:pili_aurora_next/utils/share_utils.dart';

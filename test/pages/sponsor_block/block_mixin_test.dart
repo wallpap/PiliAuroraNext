@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_model.dart';
+import 'package:pili_aurora_next/features/sponsor_block/application/segment_model.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
 import 'package:pili_aurora_next/pages/sponsor_block/block_mixin.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 

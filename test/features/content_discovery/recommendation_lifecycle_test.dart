@@ -16,9 +16,9 @@ import 'package:pili_aurora_next/features/content_discovery/data/recommendation_
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/model_owner.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

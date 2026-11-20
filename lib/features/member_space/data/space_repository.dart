@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart
 import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
 import 'package:pili_aurora_next/models/remote/member/search_archive/data.dart';
 import 'package:pili_aurora_next/models/remote/member/season_web/data.dart';
-import 'package:pili_aurora_next/models/remote/pagelist/page_item.dart';
+import 'package:pili_aurora_next/features/playback/domain/parts/page_item.dart';
 import 'package:pili_aurora_next/http/fav.dart';
 import 'package:pili_aurora_next/http/member_favorites.dart';
 import 'package:pili_aurora_next/models/remote/space/space_fav/data.dart';
@@ -25,7 +25,7 @@ import 'package:pili_aurora_next/http/member.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/remote/space/space/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_medal_wall/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/data.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final spaceRepositoryProvider = Provider((ref) => const SpaceRepository());

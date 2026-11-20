@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 class RecommendationRepository {

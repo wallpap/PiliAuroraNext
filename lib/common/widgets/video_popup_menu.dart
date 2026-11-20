@@ -2,7 +2,7 @@ import 'package:pili_aurora_next/features/watch_later/presentation/watch_later_a
 import 'package:pili_aurora_next/common/widgets/app_popup_menu_item.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/item.dart';
 import 'package:pili_aurora_next/features/account/application/account_preferences.dart';
 import 'package:pili_aurora_next/features/account/presentation/incognito_action.dart';

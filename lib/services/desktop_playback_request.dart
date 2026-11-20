@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 
 /// 窗口间传递内容标识，播放地址仍由现有页面按账号和画质获取。

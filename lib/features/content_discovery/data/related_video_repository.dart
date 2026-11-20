@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/api_response.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class RelatedVideoRepository {

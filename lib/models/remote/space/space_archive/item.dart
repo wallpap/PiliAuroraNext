@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/model_owner.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/badge.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/history.dart';
 import 'package:pili_aurora_next/models/remote/space/space_archive/season.dart';

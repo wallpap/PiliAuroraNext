@@ -19,7 +19,7 @@ import 'package:pili_aurora_next/features/content_discovery/presentation/discove
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/models/common/home_tab_type.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_index_result/list.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_timeline/result.dart';
 import 'package:pili_aurora_next/models/remote/popular/popular_series_one/config.dart';

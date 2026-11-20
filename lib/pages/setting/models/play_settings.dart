@@ -8,9 +8,9 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/playback_preferences.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
-import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/subtitle_pref_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/model.dart';
 import 'package:pili_aurora_next/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';

@@ -1,11 +1,11 @@
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/horizontal_wheel_scroll.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/new_ep.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/season.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/section.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/new_ep.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/season.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/section.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart'
     hide EpisodeItem;
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';

@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/member/archive_order_type_web.dart';
 import 'package:pili_aurora_next/models/common/member/archive_sort_type_app.dart';
 import 'package:pili_aurora_next/models/common/member/web_ss_type.dart';
-import 'package:pili_aurora_next/models/horizontal_video_model.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
 import 'package:pili_aurora_next/models/remote/member/search_archive/slist.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

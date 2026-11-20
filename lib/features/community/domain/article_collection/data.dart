@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/community/domain/article_collection/article.dart';
 import 'package:pili_aurora_next/features/community/domain/article_collection/list.dart';
-import 'package:pili_aurora_next/models/model_owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 
 class ArticleCollection {
   final ArticleListInfo? list;

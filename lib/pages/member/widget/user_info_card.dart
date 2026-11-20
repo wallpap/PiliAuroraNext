@@ -10,7 +10,7 @@ import 'package:pili_aurora_next/common/widgets/selection_text.dart';
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/common/member/user_info_type.dart';
-import 'package:pili_aurora_next/models/model_owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/models/remote/space/space/card.dart';
 import 'package:pili_aurora_next/models/remote/space/space/elec.dart';
 import 'package:pili_aurora_next/models/remote/space/space/followings_followed_upper.dart';

@@ -11,28 +11,28 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/login.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
-import 'package:pili_aurora_next/models/pgc_lcf.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommendation/result.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_interaction.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/models/remote/pgc/pgc_rank/pgc_rank_item_model.dart';
 import 'package:pili_aurora_next/models/remote/popular/popular_precious/data.dart';
 import 'package:pili_aurora_next/models/remote/popular/popular_series_list/list.dart';
 import 'package:pili_aurora_next/models/remote/popular/popular_series_one/data.dart';
-import 'package:pili_aurora_next/models/remote/triple/pgc_triple.dart';
-import 'package:pili_aurora_next/models/remote/triple/ugc_triple.dart';
-import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_play_info/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_relation/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/triple/pgc_triple.dart';
+import 'package:pili_aurora_next/features/playback/domain/triple/ugc_triple.dart';
+import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/play_info/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_relation/data.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/app_sign.dart';
 import 'package:pili_aurora_next/utils/extension/string_ext.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/video_filter_preferences.dart';
 import 'package:pili_aurora_next/features/community/data/comments/reply_json.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
@@ -250,7 +250,11 @@ abstract final class VideoHttp {
       });
 
       final result = await Request().requestApi<PlayUrlModel>(
-        videoType.api,
+        switch (videoType) {
+          VideoType.ugc => Api.ugcUrl,
+          VideoType.pgc => Api.pgcUrl,
+          VideoType.pugv => Api.pugvUrl,
+        },
         kind: ApiCallKind.query,
         options: Options(extra: {'account': account}),
         queryParameters: params,

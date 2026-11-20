@@ -9,7 +9,7 @@ import 'package:pili_aurora_next/features/search/data/search_repository.dart';
 import 'package:pili_aurora_next/features/search/data/search_verification_failure.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/search/search_type.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:pili_aurora_next/models/search/result.dart';
 import 'package:pili_aurora_next/models/search/search_esports.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';

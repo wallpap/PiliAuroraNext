@@ -14,7 +14,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
-import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
 import 'package:pili_aurora_next/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';

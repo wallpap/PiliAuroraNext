@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
-import 'package:pili_aurora_next/models/common/super_chat_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/super_chat_type.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/common/widgets/debounced_state.dart';

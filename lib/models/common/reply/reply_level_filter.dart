@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
 
 enum ReplyLevelFilter implements EnumWithLabel {
   off('不屏蔽'),

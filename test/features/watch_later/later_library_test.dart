@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/features/content_library/application/library_preferences.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/watch_later/presentation/later_page.dart';
-import 'package:pili_aurora_next/models/model_owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 
 import '../../support/memory_box.dart';
 

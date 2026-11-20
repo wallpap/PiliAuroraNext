@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:pili_aurora_next/features/content_discovery/data/cooperative_author_repository.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 typedef _AuthorCacheEntry = ({Set<int>? mids, DateTime expiresAt});
 

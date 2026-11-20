@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/models/dynamics/up.dart';
-import 'package:pili_aurora_next/models/model_avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/utils/parse_int.dart';
 
 class FollowItemModel extends UpItem {

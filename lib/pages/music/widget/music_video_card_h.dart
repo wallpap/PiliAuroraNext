@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/features/playback/application/music_queries.dar
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
 import 'package:pili_aurora_next/models/common/stat_type.dart';
-import 'package:pili_aurora_next/models/remote/music/bgm_recommend_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/music/bgm_recommend_list.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/navigation_request.dart';
 import 'package:pili_aurora_next/services/logger.dart';

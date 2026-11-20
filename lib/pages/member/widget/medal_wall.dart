@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/assets.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/pendant_avatar.dart';
-import 'package:pili_aurora_next/models/remote/live/live_medal_wall/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/medals/data.dart';
 import 'package:pili_aurora_next/pages/member/widget/medal_widget.dart';
 import 'package:pili_aurora_next/utils/app_scheme.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';

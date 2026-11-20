@@ -4,8 +4,8 @@ import 'dart:ui' show Color;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:pili_aurora_next/common/service_urls.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
@@ -99,7 +99,7 @@ abstract final class SponsorBlockPreferences {
       final color = value is String && value.length == 6
           ? int.tryParse('FF$value', radix: 16)
           : null;
-      return color != null ? Color(color) : category.color;
+      return color != null ? Color(color) : Color(category.colorValue);
     }).toList();
   }
 

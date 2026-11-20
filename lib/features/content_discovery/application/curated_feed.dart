@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/features/content_discovery/data/curated_reposit
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/weekly_catalog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 typedef WeeklyQuery = ({Object owner, int? number});

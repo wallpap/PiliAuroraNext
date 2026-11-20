@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/http/request_failure_policy.dart';
 import 'package:pili_aurora_next/http/retry_interceptor.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/utils/storage.dart';

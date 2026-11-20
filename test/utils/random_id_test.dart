@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:pili_aurora_next/utils/random_id.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/sponsor_block/application/sponsor_block.dart';
 import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_preferences.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/user_info.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/user_info.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 
 final sponsorBlockSettingsProvider =
@@ -192,7 +192,7 @@ class SponsorBlockSettingsNotifier extends Notifier<SponsorBlockSettings> {
   Future<LoadingState<void>?> saveColor(SegmentType category, Color? color) {
     final colors = List<Color>.unmodifiable([
       for (final entry in SegmentType.values)
-        entry == category ? color ?? category.color : state.colors[entry.index],
+        entry == category ? color ?? Color(category.colorValue) : state.colors[entry.index],
     ]);
     return _save(
       SponsorBlockPreference.colors,

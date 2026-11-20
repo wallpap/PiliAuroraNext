@@ -1,8 +1,8 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommendation/result.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 

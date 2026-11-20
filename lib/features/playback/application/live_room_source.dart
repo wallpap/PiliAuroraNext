@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/stream.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/codec.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/stream.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';

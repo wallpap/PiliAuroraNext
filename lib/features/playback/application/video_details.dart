@@ -5,15 +5,15 @@ import 'package:pili_aurora_next/http/search.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/video.dart';
 import 'package:pili_aurora_next/models/remote/member_card_info/data.dart';
-import 'package:pili_aurora_next/models/remote/pagelist/page_item.dart';
+import 'package:pili_aurora_next/features/playback/domain/parts/page_item.dart';
 import 'package:pili_aurora_next/models/remote/relation/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/model_result.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/staff.dart';
-import 'package:pili_aurora_next/models/remote/video/video_tag/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/model_result.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/staff.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_tag/data.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
 enum _Read { introduction, author, relation, online, tags }
 

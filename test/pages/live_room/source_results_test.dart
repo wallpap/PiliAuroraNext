@@ -6,11 +6,11 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/format.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/stream.dart'
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/codec.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/format.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/stream.dart'
     as live;
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/url_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/url_info.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';

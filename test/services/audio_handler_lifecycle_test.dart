@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart'
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart'
     show Part;
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';

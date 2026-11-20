@@ -8,7 +8,7 @@ import 'package:pili_aurora_next/models/common/image_preview_type.dart';
 import 'package:pili_aurora_next/models/dynamics/article_content_model.dart'
     show ArticleContentModel;
 import 'package:pili_aurora_next/models/dynamics/result.dart';
-import 'package:pili_aurora_next/models/model_avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/models/remote/article/article_view/data.dart';
 import 'package:pili_aurora_next/features/community/application/content_page_detail.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';

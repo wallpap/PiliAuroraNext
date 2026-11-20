@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/common/assets.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/section.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/section.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/utils/extension/num_ext.dart';

@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/common/widgets/gesture/tap_gesture_recognizer.dart';
-import 'package:pili_aurora_next/models/remote/video/video_ai_conclusion/model_result.dart';
+import 'package:pili_aurora_next/features/playback/domain/ai_conclusion/model_result.dart';
 import 'package:pili_aurora_next/pages/common/slide/common_slide_page.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:material_ui/material_ui.dart';

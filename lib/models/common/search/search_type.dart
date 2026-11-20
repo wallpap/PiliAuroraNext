@@ -1,6 +1,6 @@
 // ignore_for_file: constant_identifier_names
 import 'package:pili_aurora_next/http/api.dart';
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
 
 enum SearchType implements EnumWithLabel {
   all('综合', api: Api.searchAll),

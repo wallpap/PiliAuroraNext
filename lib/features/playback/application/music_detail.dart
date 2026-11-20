@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/community/domain/comment_share_origin.
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/playback/application/music_queries.dart';
-import 'package:pili_aurora_next/models/remote/music/bgm_detail.dart';
+import 'package:pili_aurora_next/features/playback/domain/music/bgm_detail.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 
 class MusicDetailController extends ContentPageDetail {

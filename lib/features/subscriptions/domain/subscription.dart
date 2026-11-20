@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/model_owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_detail/cnt_info.dart';
 
 class SubItemModel {

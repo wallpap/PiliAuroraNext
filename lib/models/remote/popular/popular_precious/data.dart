@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
 
 class PopularPreciousData {
   int? mediaId;

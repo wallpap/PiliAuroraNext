@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/data/grpc_headers.dart';
-import 'package:pili_aurora_next/utils/id_utils.dart';
+import 'package:pili_aurora_next/features/account/data/client_identity.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -68,7 +68,7 @@ class LoginAccount extends Account {
   late final Map<String, String> headers = {
     ...Constants.baseHeaders,
     'x-bili-mid': _midStr,
-    'x-bili-aurora-eid': IdUtils.genAuroraEid(mid),
+    'x-bili-aurora-eid': ClientIdentity.auroraEid(mid),
   };
 
   @override
@@ -206,7 +206,7 @@ extension BiliCookieJar on DefaultCookieJar {
     (domainCookies['bilibili.com'] ??= {
       '/': {},
     })['/']!['buvid3'] ??= SerializableCookie(
-      Cookie('buvid3', IdUtils.genBuvid3())..setBiliDomain(),
+      Cookie('buvid3', ClientIdentity.generateBuvid3())..setBiliDomain(),
     );
   }
 

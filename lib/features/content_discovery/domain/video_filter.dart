@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 
 class VideoFilter {
   const VideoFilter({

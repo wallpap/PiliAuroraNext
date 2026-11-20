@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:pili_aurora_next/common/widgets/stat/stat.dart';
 import 'package:pili_aurora_next/common/widgets/video_popup_menu.dart';
-import 'package:pili_aurora_next/models/horizontal_video_model.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
 import 'package:pili_aurora_next/utils/date_utils.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';

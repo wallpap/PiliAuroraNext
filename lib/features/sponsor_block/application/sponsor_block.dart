@@ -7,10 +7,10 @@ import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_prefe
 import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_transport.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/sponsor_block_api.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/post_segment_model.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/segment_item.dart';
-import 'package:pili_aurora_next/models/remote/sponsor_block/user_info.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/post_segment_model.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/segment_item.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_response/user_info.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 typedef SponsorBlockIdentity = ({String server, String userId});

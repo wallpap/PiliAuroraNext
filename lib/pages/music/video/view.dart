@@ -4,7 +4,7 @@ import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/loading_widget/http_error.dart';
 import 'package:pili_aurora_next/features/playback/application/music_queries.dart';
 import 'package:pili_aurora_next/models/common/image_type.dart';
-import 'package:pili_aurora_next/models/remote/music/bgm_recommend_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/music/bgm_recommend_list.dart';
 import 'package:pili_aurora_next/pages/music/widget/music_video_card_h.dart';
 import 'package:pili_aurora_next/utils/grid.dart';
 import 'package:get/get.dart';

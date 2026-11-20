@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/model_avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/models/remote/live/live_feed_index/watched_show.dart';
 
 class MemberInfoModel {

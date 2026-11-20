@@ -1,8 +1,8 @@
 import 'dart:ui' show Color;
 
 import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_preferences.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
 
 mixin BlockConfigMixin {
   static SkipType get defaultPgcSkipType => SponsorBlockPreferences.pgcSkipType;

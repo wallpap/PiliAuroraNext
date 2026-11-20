@@ -3,7 +3,7 @@ import 'package:pili_aurora_next/features/content_discovery/application/discover
 import 'package:pili_aurora_next/features/content_discovery/data/hot_repository.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/model_hot_video_item.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final hotFeedProvider = NotifierProvider.autoDispose

@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/model_avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/models/remote/space/space/achieve.dart';
 import 'package:pili_aurora_next/models/remote/space/space/followings_followed_upper.dart';
 import 'package:pili_aurora_next/models/remote/space/space/level_info.dart';

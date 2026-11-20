@@ -1,5 +1,5 @@
 import 'package:collection/collection.dart' show IterableExtension;
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
 
 enum SubtitleFormat implements EnumWithLabel {
   json('JSON'),

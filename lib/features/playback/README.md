@@ -1,5 +1,7 @@
 # 播放业务入口
 
+`domain/` 保存点播、音频与直播的媒体描述、选源参数和互动数据。共享的视频卡片、作者摘要与 AV/BV 标识归 `features/media_catalog/domain/`。
+
 - `application/subtitle_sources.dart` 按视频页面持有字幕缓存，导出使用打开对话框时的快照；切集后不提交旧缓存。`data/subtitle_repository.dart` 读取远端字幕并保留原始 JSON 导出。
 - `application/video_metadata.dart` 查询互动节点和弹幕趋势；互动分支只接受当前媒体的最新请求。
 - `application/seek_preview_timeline.dart` 为同一播放来源共用预热和拖动请求。松手隐藏预览，切源取消请求并清空快照。`data/seek_preview_repository.dart` 负责远端协议，展示层消费已定位到裁剪格的帧并持有图片资源。

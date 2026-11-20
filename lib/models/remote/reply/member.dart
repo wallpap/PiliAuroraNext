@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/model_avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/models/remote/reply/level_info.dart';
 import 'package:pili_aurora_next/models/remote/reply/nameplate.dart';
 import 'package:pili_aurora_next/models/remote/reply/senior.dart';

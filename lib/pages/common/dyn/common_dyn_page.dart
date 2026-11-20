@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart
 import 'package:pili_aurora_next/common/widgets/view_safe_area.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
 import 'package:pili_aurora_next/pages/article/widgets/sliver_list.dart';
 import 'package:pili_aurora_next/features/community/domain/comment_share_origin.dart';
 import 'package:pili_aurora_next/pages/common/fab_mixin.dart';

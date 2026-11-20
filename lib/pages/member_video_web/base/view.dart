@@ -8,8 +8,8 @@ import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
 import 'package:pili_aurora_next/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:pili_aurora_next/common/widgets/video_card/video_card_h.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/enum_with_label.dart';
-import 'package:pili_aurora_next/models/horizontal_video_model.dart';
+import 'package:pili_aurora_next/core/types/enum_with_label.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/common/widgets/feed_pagination.dart';
 import 'package:pili_aurora_next/features/member_space/application/space_web.dart';

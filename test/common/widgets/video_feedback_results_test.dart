@@ -6,7 +6,7 @@ import 'package:pili_aurora_next/common/widgets/dialog/video_feedback.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/video_feedback.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/home/rcmd/result.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommendation/result.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

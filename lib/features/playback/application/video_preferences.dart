@@ -1,6 +1,6 @@
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
-import 'package:pili_aurora_next/models/common/video/subtitle_pref_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/subtitle_pref_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';

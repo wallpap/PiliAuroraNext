@@ -11,7 +11,7 @@ export 'package:pili_aurora_next/features/content_discovery/application/discover
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/recommendation_state.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/cooperative_authors.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';

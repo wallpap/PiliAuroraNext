@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/url_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/codec.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/url_info.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 import 'package:pili_aurora_next/utils/storage_pref.dart';

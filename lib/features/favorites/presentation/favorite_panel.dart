@@ -11,7 +11,7 @@ import 'package:pili_aurora_next/features/favorites/presentation/cards/pgc_card.
 import 'package:pili_aurora_next/features/favorites/presentation/cards/video_card.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/transfer_dialog.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/common/video/source_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
 import 'package:pili_aurora_next/pages/member_cheese/widgets/item.dart';
 import 'package:pili_aurora_next/utils/page_utils.dart';
 

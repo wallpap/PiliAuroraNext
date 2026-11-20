@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/result.dart';
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
 import 'package:pili_aurora_next/pages/share/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';

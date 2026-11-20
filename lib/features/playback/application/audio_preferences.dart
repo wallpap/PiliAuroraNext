@@ -1,4 +1,4 @@
-import 'package:pili_aurora_next/models/common/video/audio_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/audio_quality.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';

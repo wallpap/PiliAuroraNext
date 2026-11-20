@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/custom_icon.dart';
 import 'package:pili_aurora_next/common/widgets/extra_hittest_stack.dart';
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/features/playback/domain/live_layout_defaults.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/pages/live_room/superchat/superchat_card.dart';
 import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/utils/platform_utils.dart';

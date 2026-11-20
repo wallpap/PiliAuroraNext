@@ -1,6 +1,6 @@
 import 'package:pili_aurora_next/features/playback/data/video_metadata_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/interactive_video/data.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 
 class VideoMetadata {

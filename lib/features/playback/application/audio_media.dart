@@ -1,7 +1,7 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:pili_aurora_next/features/playback/data/audio_media_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart' show Volume;
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart' show Volume;
 import 'package:pili_aurora_next/features/playback/application/media_source_selection.dart';
 
 abstract final class AudioMedia {

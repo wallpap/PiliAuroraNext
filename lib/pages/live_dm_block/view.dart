@@ -5,7 +5,7 @@ import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/common/widgets/scroll_physics.dart'
     show tabBarView;
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_user_list.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_block/shield_user_list.dart';
 import 'package:pili_aurora_next/features/playback/application/live_block_rules.dart';
 import 'package:pili_aurora_next/pages/search/widgets/search_text.dart';
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';

@@ -1,5 +1,5 @@
-import 'package:pili_aurora_next/models/horizontal_video_model.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 
 class SeasonArchive extends HorizontalVideoModel {
   SeasonArchive.fromJson(Map<String, dynamic> json) {

@@ -1,8 +1,8 @@
 import 'package:pili_aurora_next/common/service_urls.dart';
-import 'package:pili_aurora_next/models/horizontal_video_model.dart';
-import 'package:pili_aurora_next/models/model_avatar.dart';
-import 'package:pili_aurora_next/models/model_owner.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/horizontal_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/owner.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 import 'package:pili_aurora_next/models/search/search_esports.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';
 import 'package:pili_aurora_next/utils/em.dart';

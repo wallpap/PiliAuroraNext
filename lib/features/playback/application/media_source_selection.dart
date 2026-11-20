@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/features/playback/application/video_preferences.dart';
 import 'package:pili_aurora_next/features/playback/application/live_preferences.dart';
-import 'package:pili_aurora_next/models/common/video/cdn_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/cdn_type.dart';
 import 'package:pili_aurora_next/services/logger.dart';
-import 'package:pili_aurora_next/models/common/video/video_decode_type.dart';
-import 'package:pili_aurora_next/models/remote/live/live_room_play_info/codec.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_decode_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/room_source/codec.dart';
 import 'package:pili_aurora_next/utils/extension/iterable_ext.dart';
 
 /// 对外只交付安全文案，原始解析异常留给操作所有者诊断。

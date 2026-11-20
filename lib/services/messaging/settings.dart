@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/msg.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/model_avatar.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/avatar.dart';
 import 'package:pili_aurora_next/models/remote/msg/im_user_infos/datum.dart';
 import 'package:pili_aurora_next/models/remote/msg/msg_dnd/uid_setting.dart';
 import 'package:pili_aurora_next/models/remote/msg/session_ss/data.dart';

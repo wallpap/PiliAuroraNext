@@ -1,5 +1,5 @@
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/model_rec_video_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 
 /// 列表结构与调度快照；单张卡片揭示通过独立订阅交付。
 class RecommendationState {

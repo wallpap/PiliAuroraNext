@@ -2,11 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/user.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
-import 'package:pili_aurora_next/models/common/video/video_type.dart';
-import 'package:pili_aurora_next/models/remote/media_list/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_play_info/data.dart';
-import 'package:pili_aurora_next/models/video/play/url.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/playlist/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/play_info/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/url.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 final class VideoMediaQuery {

@@ -1,7 +1,7 @@
 import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/media_author_filter.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/author_filter_preferences.dart';
-import 'package:pili_aurora_next/models/model_video.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/video_summary.dart';
 
 /// 推荐与历史发现页共用作者规则；缓存仅保存作者身份，不缓存屏蔽结论。
 class DiscoveryFilter {

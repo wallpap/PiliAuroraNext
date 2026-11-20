@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pili_aurora_next/models/common/super_resolution_type.dart';
+import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 

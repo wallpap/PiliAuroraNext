@@ -1,9 +1,9 @@
 import 'package:pili_aurora_next/features/playback/data/live_chat_repository.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
-import 'package:pili_aurora_next/models/remote/live/live_danmaku/danmaku_msg.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_block/shield_info.dart';
-import 'package:pili_aurora_next/models/remote/live/live_dm_info/data.dart';
-import 'package:pili_aurora_next/models/remote/live/live_superchat/item.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat/danmaku_msg.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_block/shield_info.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/chat_connection/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/live/superchat/item.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class LiveChatQueries {

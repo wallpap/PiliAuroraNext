@@ -7,7 +7,7 @@ import 'package:pili_aurora_next/common/widgets/badge.dart';
 import 'package:pili_aurora_next/common/widgets/image/network_img_layer.dart';
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/models/common/badge_type.dart';
-import 'package:pili_aurora_next/models/common/video/video_quality.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/video_quality.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';
 import 'package:pili_aurora_next/utils/duration_utils.dart';

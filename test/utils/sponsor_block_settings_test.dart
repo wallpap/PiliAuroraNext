@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/sponsor_block/data/sponsor_block_preferences.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/segment_type.dart';
-import 'package:pili_aurora_next/models/common/sponsor_block/skip_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/segment_type.dart';
+import 'package:pili_aurora_next/features/sponsor_block/domain/skip_type.dart';
 import 'package:pili_aurora_next/utils/storage.dart';
 import 'package:pili_aurora_next/utils/storage_key.dart';
 
@@ -40,7 +40,7 @@ void main() {
     );
     expect(
       SponsorBlockPreferences.colors[music.index],
-      const Color(0xff10101a),
+      const 0xff10101a,
     );
   });
 
@@ -66,11 +66,11 @@ void main() {
     expect(settings['intro'], SkipType.skipOnce);
     expect(
       SponsorBlockPreferences.colors[SegmentType.sponsor.index],
-      const Color(0xff123456),
+      const 0xff123456,
     );
     expect(
       SponsorBlockPreferences.colors[SegmentType.intro.index],
-      SegmentType.intro.color,
+      Color(SegmentType.intro.colorValue),
     );
   });
 

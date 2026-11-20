@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
-import 'package:pili_aurora_next/models/remote/pgc/pgc_info_model/episode.dart'
+import 'package:pili_aurora_next/features/playback/domain/pgc_detail/episode.dart'
     as pgc;
-import 'package:pili_aurora_next/models/remote/video/video_detail/episode.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/page.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/section.dart';
-import 'package:pili_aurora_next/models/remote/video/video_detail/ugc_season.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/episode.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/section.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/ugc_season.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/controller.dart';

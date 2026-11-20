@@ -5,8 +5,8 @@ import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/http/video.dart';
-import 'package:pili_aurora_next/models/remote/video/video_pbp/data.dart';
-import 'package:pili_aurora_next/models/remote/video/video_stein_edgeinfo/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/segment_trend/data.dart';
+import 'package:pili_aurora_next/features/playback/domain/interactive_video/data.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 
 abstract final class VideoMetadataRepository {
