@@ -25,6 +25,7 @@ mixin BlockMixin {
   int? _lastBlockPos;
   int _blockGeneration = 0;
   bool _blockClosed = false;
+  bool _blockDisposed = false;
   bool _blockMuted = false;
   final _activeMuteSegments = <SegmentModel>{};
   final _manualVisits = <SegmentModel>{};
@@ -582,7 +583,7 @@ mixin BlockMixin {
     return null;
   }
 
-  void disposeBlock() {
+  void closeBlock() {
     if (_blockClosed) return;
     _blockClosed = true;
     _stopSkipTimer();
@@ -591,6 +592,12 @@ mixin BlockMixin {
     } else {
       cancelBlockListener();
     }
+  }
+
+  void disposeBlock() {
+    if (_blockDisposed) return;
+    _blockDisposed = true;
+    closeBlock();
     _segments.dispose();
   }
 }

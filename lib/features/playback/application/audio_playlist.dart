@@ -247,11 +247,16 @@ class AudioPlaylist {
     _publish();
   }
 
-  void dispose() {
+  void close() {
+    if (_closed) return;
     _closed = true;
     if (_account != null) {
       Accounts.mainChanges.removeListener(_onAccountChanged);
     }
+  }
+
+  void dispose() {
+    close();
     _state.dispose();
   }
 }

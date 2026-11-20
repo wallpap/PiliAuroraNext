@@ -31,6 +31,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart'
     show CommandOutcome;
+import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
 import 'package:pili_aurora_next/services/audio_handler.dart'
     show MediaNavigation;
@@ -85,7 +86,12 @@ class AudioController with AudioNormalizationMixin {
   }) : _createPlayer =
            createPlayer ??
            ((configuration) => Player.create(configuration: configuration)),
-       _favorites = favorites ?? FavoriteLibrary.legacy;
+       _favorites = favorites ?? FavoriteLibrary.legacy {
+    _unregisterExit = AppExit.application?.beforeCleanup(
+      'independent audio',
+      () => close().timeout(const Duration(seconds: 3)),
+    );
+  }
 
   final Future<Player> Function(PlayerConfiguration) _createPlayer;
   final List<AudioTrack>? _initialPlaylist;
@@ -143,6 +149,9 @@ class AudioController with AudioNormalizationMixin {
   NativePlayerCreationFailure? _unreleasedCreation;
   Future<bool>? _mediaOpening;
   bool _audioClosed = false;
+  bool _disposed = false;
+  Future<void>? _closing;
+  void Function()? _unregisterExit;
   int _speedRevision = 0;
   int _volumeRevision = 0;
   int _seekRevision = 0;
@@ -397,12 +406,6 @@ class AudioController with AudioNormalizationMixin {
   }
 
   void start(AudioPageArguments args) {
-    _ensureAudioLease();
-    _shutdownBinding ??= shutdownTimerService.bindPlayer(
-      pause: onPause,
-      isPlaying: () => player?.state.playing ?? false,
-      independentAudio: true,
-    );
     oid = Int64(args.oid);
     final id = args.id;
     this.id = id != null ? Int64(id) : oid;
@@ -415,6 +418,14 @@ class AudioController with AudioNormalizationMixin {
       this.extraId = Int64(extraId);
     }
     _updateVideoPosition = args.onPosition;
+    if (AppExit.application?.isClosing == true) return;
+
+    _ensureAudioLease();
+    _shutdownBinding ??= shutdownTimerService.bindPlayer(
+      pause: onPause,
+      isPlaying: () => player?.state.playing ?? false,
+      independentAudio: true,
+    );
 
     reloadPlaylist();
 
@@ -1131,7 +1142,11 @@ class AudioController with AudioNormalizationMixin {
 
   Future<void> playIndex(int index, {List<Int64>? subId}) async {
     final items = playlist;
-    if (_audioClosed || items == null || index < 0 || index >= items.length) {
+    if (_audioClosed ||
+        AppExit.application?.isClosing == true ||
+        items == null ||
+        index < 0 ||
+        index >= items.length) {
       return;
     }
     final audioItem = items[index];
@@ -1185,12 +1200,13 @@ class AudioController with AudioNormalizationMixin {
     );
   }
 
-  void dispose() {
-    if (_audioClosed) return;
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
     _audioClosed = true;
-    _segments.disposeBlock();
+    _segments.closeBlock();
     _audioEvent('audio.shutdown.requested', target: player ?? _closingPlayer);
-    _playlist.dispose();
+    _playlist.close();
     _playGeneration++;
     _stopStatusTimer();
     _shutdownBinding?.dispose();
@@ -1216,45 +1232,53 @@ class AudioController with AudioNormalizationMixin {
     player = null;
     final lease = _audioLease;
     _audioLease = null;
-    _releaseAudioResource(() {
-      Future<void> release() async {
-        // 等初始化和不可撤销的 open 真正退出后再销毁，最后交还视频抑制。
-        try {
-          await _playerInitialization;
-        } catch (_) {
-          // 创建失败已交付；可能已分配的原生句柄仍须单独等待清理。
-        }
-        await _mediaOpening;
-        if (_unreleasedCreation case final failure?) {
-          _audioEvent('audio.shutdown.waitingForCreation');
-          try {
-            await failure.released;
-          } catch (error) {
-            _audioEvent('audio.shutdown.failed', error: error);
-            rethrow;
-          }
-        }
-        final releasing = target ?? _closingPlayer;
-        if (releasing != null) {
-          _audioEvent('audio.shutdown.disposing', target: releasing);
-          try {
-            await releasing.dispose();
-          } catch (error) {
-            _audioEvent(
-              'audio.shutdown.failed',
-              target: releasing,
-              error: error,
-            );
-            rethrow;
-          }
-        }
-        _audioEvent('audio.shutdown.released', target: releasing);
-        _closingPlayer = null;
+    Future<void> release() async {
+      // 等初始化和不可撤销的 open 真正退出后再销毁，最后交还视频抑制。
+      try {
+        await _playerInitialization;
+      } catch (_) {
+        // 创建失败已交付；可能已分配的原生句柄仍须单独等待清理。
       }
+      await _mediaOpening;
+      if (_unreleasedCreation case final failure?) {
+        _audioEvent('audio.shutdown.waitingForCreation');
+        try {
+          await failure.released;
+        } catch (error) {
+          _audioEvent('audio.shutdown.failed', error: error);
+          rethrow;
+        }
+      }
+      final releasing = target ?? _closingPlayer;
+      if (releasing != null) {
+        _audioEvent('audio.shutdown.disposing', target: releasing);
+        try {
+          await releasing.dispose();
+        } catch (error) {
+          _audioEvent(
+            'audio.shutdown.failed',
+            target: releasing,
+            error: error,
+          );
+          rethrow;
+        }
+      }
+      _audioEvent('audio.shutdown.released', target: releasing);
+      _closingPlayer = null;
+    }
 
-      // 立即登记关闭，后续音频接管必须等待上述真实释放屏障。
-      return lease?.close(release) ?? release();
-    });
+    // 立即登记关闭，后续音频接管必须等待上述真实释放屏障。
+    await (lease?.close(release) ?? release());
+    _unregisterExit?.call();
+    _unregisterExit = null;
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _releaseAudioResource(close);
+    _segments.disposeBlock();
+    _playlist.dispose();
     audioItem.dispose();
     _hasPlayer.dispose();
     _playing.dispose();

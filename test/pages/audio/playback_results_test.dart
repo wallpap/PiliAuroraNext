@@ -16,6 +16,7 @@ import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart';
+import 'package:pili_aurora_next/services/app_exit.dart';
 import 'package:pili_aurora_next/services/audio_handler.dart';
 import 'package:pili_aurora_next/services/audio_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
@@ -171,6 +172,8 @@ void main() {
   late _Adapter adapter;
   late _Player player;
   late AudioController controller;
+  late AppExit appExit;
+  var terminated = false;
   var creations = 0;
   var failCreation = false;
   Object? creationFailure;
@@ -194,6 +197,12 @@ void main() {
     creationFailure = null;
     pendingCreation = null;
     closed = false;
+    terminated = false;
+    appExit = AppExit.application = AppExit(
+      terminate: () {
+        terminated = true;
+      },
+    );
     controller = AudioController(
       createPlayer: (_) async {
         creations++;
@@ -215,6 +224,7 @@ void main() {
   });
   tearDown(() {
     if (!closed) controller.dispose();
+    AppExit.application = null;
     adapter.close();
   });
   tearDownAll(() => Request.dio.close(force: true));
@@ -224,6 +234,41 @@ void main() {
       MaterialApp(builder: FlutterSmartDialog.init(), home: const SizedBox()),
     );
   }
+
+  _check('app exit waits for audio open and native disposal', (tester) async {
+    await host(tester);
+    player
+      ..opening = Completer<void>()
+      ..disposing = Completer<void>();
+    final playback = controller.playIndex(0);
+    await _until(tester, () => adapter.requests.length == 1);
+    adapter.reply(0, _source());
+    await _until(tester, () => player.opened.length == 1);
+
+    final exit = appExit.close();
+    await tester.pump();
+    expect(terminated, isFalse);
+    expect(player.disposals, 0);
+    void listener() {}
+    controller.playlistState
+      ..addListener(listener)
+      ..removeListener(listener);
+    controller.segmentChanges
+      ..addListener(listener)
+      ..removeListener(listener);
+
+    player.opening!.complete();
+    await _until(tester, () => player.disposals == 1);
+    controller.dispose();
+    closed = true;
+    await tester.pump();
+    expect(terminated, isFalse);
+    player.disposing!.complete();
+    await _complete(tester, playback);
+    await _complete(tester, exit);
+    expect(terminated, isTrue);
+    expect(player.disposals, 1);
+  });
 
   _check('empty playback data is consumed and does not select the item', (
     tester,
