@@ -74,6 +74,7 @@ dependencies:
   image_picker: 1.2.3
   intl: 0.20.3
   jni: 1.1.0
+  markdown: 7.3.1
   material_color_utilities: 0.13.0
   material_design_icons_flutter: 7.0.7447+piliauroranext.1
   material_new_shapes: 1.0.0

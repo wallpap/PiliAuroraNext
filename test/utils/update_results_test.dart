@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -37,14 +39,14 @@ void main() {
   });
   tearDown(Get.reset);
 
-  Future<void> mount(WidgetTester tester) async {
+  Future<void> mount(WidgetTester tester, {AppRelease? update}) async {
     await tester.pumpWidget(
       GetMaterialApp(
         builder: FlutterSmartDialog.init(),
         home: const Scaffold(),
       ),
     );
-    Update.showUpdate(release, isAuto: true);
+    Update.showUpdate(update ?? release, isAuto: true);
     await tester.pumpAndSettle();
   }
 
@@ -56,6 +58,79 @@ void main() {
     await toast;
     await tester.pumpWidget(const SizedBox());
   }
+
+  AppRelease withNotes(String notes) => AppRelease.latestStable([
+    {'tag_name': release.tag, 'body': notes},
+  ])!;
+
+  testWidgets('以富文本显示更新说明，不解释原始 HTML 或加载远程图片', (tester) async {
+    await mount(
+      tester,
+      update: withNotes('''
+## 更新内容
+
+- **离线下载**：改进任务列表。
+- 使用 `便携版`。
+
+[完整说明](https://example.com/release) 与 [不安全链接](file:///update.exe)。
+![版本截图](https://example.com/release.png)
+
+<style>body{display:none}</style>
+'''),
+    );
+    final document = tester.widget<Html>(find.byType(Html)).documentElement!;
+    expect(document.querySelector('h2')?.text, '更新内容');
+    expect(document.querySelector('ul li strong')?.text, '离线下载');
+    expect(document.querySelector('code')?.text, '便携版');
+    expect(
+      document.querySelectorAll('a').single.attributes['href'],
+      'https://example.com/release',
+    );
+    expect(document.querySelectorAll('img, style'), isEmpty);
+    for (final text in ['更新内容', '离线下载', '完整说明', '不安全链接', '版本截图']) {
+      expect(find.textContaining(text, findRichText: true), findsWidgets);
+    }
+    expect(find.textContaining('## 更新内容', findRichText: true), findsNothing);
+    expect(tester.takeException(), isNull);
+    await cleanup(tester);
+  });
+
+  testWidgets('空白更新说明显示占位文案', (tester) async {
+    await mount(tester, update: withNotes(' \n '));
+    expect(find.text('本次发布未提供更新说明。'), findsOneWidget);
+    await cleanup(tester);
+  });
+
+  testWidgets('窄窗口的长说明可滚动，操作按钮始终可见', (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(360, 480);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await mount(
+      tester,
+      update: withNotes(
+        List.generate(20, (index) => '- **更新 ${index + 1}**：优化功能。').join('\n'),
+      ),
+    );
+    final scroll = find.byType(SingleChildScrollView);
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable))
+        .position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    await tester.drag(scroll, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+    for (final label in [
+      '稍后',
+      '此版本不再提醒',
+      if (Platform.isWindows) ...['便携版 ZIP', '安装版 EXE'] else '下载更新',
+    ]) {
+      expect(find.text(label).hitTestable(), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    await cleanup(tester);
+  });
 
   testWidgets('忽略版本等待保存回执，重复点击只保存一次，成功后关闭', (tester) async {
     settings.pending = Completer<void>();

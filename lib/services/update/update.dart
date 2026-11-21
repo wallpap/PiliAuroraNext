@@ -8,6 +8,7 @@ import 'package:pili_aurora_next/services/web_user_agent.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/services/update/app_release.dart';
+import 'package:pili_aurora_next/services/update/release_notes.dart';
 import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/storage_key.dart';
@@ -56,6 +57,7 @@ abstract final class Update {
 
   /// 展示已确认的新版本，弹窗持有忽略偏好的保存与重试。
   static void showUpdate(AppRelease release, {required bool isAuto}) {
+    final notes = ReleaseNotes(release.notes);
     var active = true;
     var saving = false;
     SmartDialog.show(
@@ -138,38 +140,32 @@ abstract final class Update {
           }
 
           return AlertDialog(
+            insetPadding: const EdgeInsets.all(24),
             title: Text('发现新版本 ${release.tag}'),
             content: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640, maxHeight: 420),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '当前版本：${BuildConfig.versionName}+${BuildConfig.versionCode}',
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      release.notes.isEmpty ? '本次发布未提供更新说明。' : release.notes,
-                    ),
-                  ],
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: SizedBox(
+                width: 552,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '当前版本：${BuildConfig.versionName}+${BuildConfig.versionCode}',
+                      ),
+                      const SizedBox(height: 12),
+                      notes,
+                    ],
+                  ),
                 ),
               ),
             ),
             actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
             actions: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final action in actions)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: action,
-                      ),
-                  ],
-                ),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                children: actions,
               ),
             ],
           );
