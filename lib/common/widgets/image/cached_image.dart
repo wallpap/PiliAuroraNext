@@ -11,6 +11,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/common/widgets/image/image_resources.dart';
+import 'package:pili_aurora_next/common/widgets/image/src/animation_frames.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/image_sampling.dart';
 
 export 'src/image_sampling.dart' show ImageDecodeTarget;
@@ -448,23 +449,106 @@ Future<ui.Image?> loadNetworkImageFrame(
   Object? owner,
   bool Function()? isCurrent,
 }) async {
-  final file = await CachedImageProvider(
+  final provider = CachedImageProvider(
     url,
     cacheManager: cacheManager,
-  )._getFile();
+  );
+  final file = await provider._getFile();
   if (isCurrent?.call() == false) return null;
-  try {
-    return await loadImageFrame(
-      file,
-      decode: decode,
-      width: width,
-      height: height,
-      maxDecodePixels: maxDecodePixels,
-      owner: owner,
-      isCurrent: isCurrent,
-    ).result;
-  } on _ImageDecodeCancelled {
-    return null;
+  final resources = ImageResources.shared;
+  final key = (
+    resources,
+    provider,
+    file.path,
+    (width, height, maxDecodePixels),
+    decode,
+  );
+  final batch = _pendingNetworkFrames.putIfAbsent(key, _NetworkFrameBatch.new);
+  void detach() {
+    if (identical(_pendingNetworkFrames[key], batch)) {
+      _pendingNetworkFrames.remove(key);
+    }
+  }
+
+  return batch.join(isCurrent, () async {
+    try {
+      return await loadImageFrame(
+        file,
+        decode: decode,
+        width: width,
+        height: height,
+        maxDecodePixels: maxDecodePixels,
+        resources: resources,
+        owner: owner,
+        isCurrent: () {
+          if (batch.hasDemand()) return true;
+          detach();
+          return false;
+        },
+      ).result;
+    } on _ImageDecodeCancelled {
+      return null;
+    } finally {
+      detach();
+    }
+  });
+}
+
+typedef _NetworkFrameKey = (
+  ImageResources,
+  CachedImageProvider,
+  String,
+  (int?, int?, int?),
+  ImageDecoderCallback?,
+);
+final _pendingNetworkFrames = <_NetworkFrameKey, _NetworkFrameBatch>{};
+
+class _NetworkFrameBatch {
+  final _waiting = <Completer<ui.Image?>, bool Function()?>{};
+
+  bool _current(MapEntry<Completer<ui.Image?>, bool Function()?> entry) {
+    if (entry.key.isCompleted) return false;
+    try {
+      if (entry.value?.call() != false) return true;
+      entry.key.complete(null);
+    } catch (error, stack) {
+      entry.key.completeError(error, stack);
+    }
+    return false;
+  }
+
+  bool hasDemand() => _waiting.entries.any(_current);
+
+  Future<ui.Image?> join(
+    bool Function()? current,
+    Future<ui.Image?> Function() load,
+  ) {
+    final result = Completer<ui.Image?>();
+    _waiting[result] = current;
+    if (_waiting.length == 1) unawaited(_deliver(load));
+    return result.future;
+  }
+
+  Future<void> _deliver(Future<ui.Image?> Function() load) async {
+    ui.Image? image;
+    try {
+      image = await load();
+      Completer<ui.Image?>? last;
+      for (final entry in _waiting.entries.where(_current)) {
+        last?.complete(image?.clone());
+        last = entry.key;
+      }
+      if (last != null) {
+        last.complete(image);
+        image = null;
+      }
+    } catch (error, stack) {
+      for (final entry in _waiting.entries.where(_current)) {
+        entry.key.completeError(error, stack);
+      }
+    } finally {
+      image?.dispose();
+    }
   }
 }
 
@@ -586,14 +670,13 @@ class _ImageCompleter extends ImageStreamCompleter
     try {
       setImage(
         ImageInfo(
-          image: frame.image.clone(),
+          image: frame.image,
           scale: scale,
           debugLabel: debugLabel,
         ),
       );
     } finally {
       _emitting = false;
-      frame.image.dispose();
     }
     final codec = _codec;
     if (codec != null &&
@@ -745,12 +828,13 @@ class _ThrottledCodec implements ui.Codec {
   bool _decoding = false;
   _FrameAdmission? _admission;
   _DecodeAdmission? _decodeAdmission;
+  AnimationFrameSequence? _replay;
 
   @override
-  int get frameCount => _codec.frameCount;
+  late final int frameCount = _codec.frameCount;
 
   @override
-  int get repetitionCount => _codec.repetitionCount;
+  late final int repetitionCount = _codec.repetitionCount;
 
   void releaseIdleAdmission() {
     if (_decoding) return;
@@ -760,6 +844,12 @@ class _ThrottledCodec implements ui.Codec {
 
   @override
   Future<ui.FrameInfo> getNextFrame() async {
+    if (_disposed) throw const _ImageDecodeCancelled();
+    if (_replay?.next() case final frame?) {
+      _disposeNativeCodec();
+      return frame;
+    }
+    if (_nativeDisposed) throw const _ImageDecodeCancelled();
     _decoding = true;
     final admission = _decodeAdmission ??= _DecodeAdmission(_resources.admit());
     TraceOperation? operation;
@@ -778,7 +868,8 @@ class _ThrottledCodec implements ui.Codec {
           'rgbaBytes': frame.image.width * frame.image.height * 4,
         },
       );
-      if (_firstFrame && !_disposed) {
+      final first = _firstFrame;
+      if (first && !_disposed) {
         _firstFrame = false;
         // 按解码字节数分批交付首帧，避免图片更新集中到同一个绘制周期。
         final admission = _admission = _FrameBudget.admit(
@@ -792,11 +883,19 @@ class _ThrottledCodec implements ui.Codec {
         if (admission.cancelled) dispose();
         throw const _ImageDecodeCancelled();
       }
-      return frameCount > 1 &&
-              frame.duration < const Duration(milliseconds: 100)
-          ? _SlowFrame(frame.image)
+      if (frameCount == 1) return frame;
+      const minimum = Duration(milliseconds: 100);
+      final timed = frame.duration < minimum
+          ? TimedImageFrame(frame.image, minimum)
           : frame;
+      if (first && repetitionCount != 0) {
+        _replay = _resources.animationFrames.reserve(frameCount, frame.image);
+      }
+      _replay?.remember(timed);
+      return timed;
     } catch (error) {
+      _replay?.dispose();
+      _replay = null;
       operation?.finish(error: error);
       rethrow;
     } finally {
@@ -812,6 +911,8 @@ class _ThrottledCodec implements ui.Codec {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _replay?.dispose();
+    _replay = null;
     if (_decoding) {
       _decodeAdmission?.cancel();
     } else {
@@ -829,16 +930,6 @@ class _ThrottledCodec implements ui.Codec {
     Diagnostics.instance.gauge('imageCodecs', --_activeCodecs);
     _codec.dispose();
   }
-}
-
-class _SlowFrame implements ui.FrameInfo {
-  _SlowFrame(this.image);
-
-  @override
-  final ui.Image image;
-
-  @override
-  Duration get duration => const Duration(milliseconds: 100);
 }
 
 /// 图片首次可用时淡入一次；淡入结束后只返回图片本身，不再保留过渡层。

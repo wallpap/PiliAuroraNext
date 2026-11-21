@@ -24,6 +24,7 @@ fvm flutter test tool/experiments/
 
 | 文件 | 内容 |
 | --- | --- |
+| `images/decode_work_test.dart` | 从本地文件读取同一张 PNG，对照单请求和四次并发请求，再分别播放 GIF、WebP 各四轮。使用真实 decoder，测试时钟跳过帧间等待。每项预热两次，输出七次测量的耗时中位数和原生取帧数。 |
 | `danmaku/raster_cache_capacity_test.dart` | 对照 16/24/32 MiB 缓存容量在唯一内容、重复内容和预热扫描中的命中、光栅化与淘汰；检查预算和预期命中关系。 |
 | `danmaku/file_order_reuse_test.dart` | 用真实 protobuf 临时文件对照每次范围重建外部排序、来源排序产物冷构建和复用读取；核对相同范围内容、稳定次序、解码扫描量、产物复用及清理，输出宿主 CPU/磁盘耗时。 |
 | `danmaku/density_metrics.dart`、`density_metrics_test.dart` | 共享视口裁剪、逐权重显示及拥挤统计，验证不可见项、曝光积分、相对Top-N对照。 |

@@ -199,7 +199,7 @@ int wmain(int argc, wchar_t **argv) {
       ComPtr<IWICBitmap> webpBitmap;
       IWICBitmapSource *output = nullptr;
       std::vector<uint8_t> coarse;
-      bool globalWebp = false;
+      bool needsScaledCrop = false;
       if (webp) {
         WebPDecoderConfig config{};
         if (!WebPInitDecoderConfig(&config))
@@ -207,8 +207,11 @@ int wmain(int argc, wchar_t **argv) {
         if (level) {
           if (uint64_t(sw) * sh * 4 > (40u << 20))
             throw E_NOTIMPL;
-          coarse.resize(static_cast<size_t>(sw) * sh * 4);
-          globalWebp = true;
+          needsScaledCrop =
+              static_cast<UINT>(w) != sw || static_cast<UINT>(h) != sh;
+          if (needsScaledCrop)
+            coarse.resize(static_cast<size_t>(sw) * sh * 4);
+          config.options.use_threads = uint64_t(width) * height >= (1u << 20);
           config.options.use_scaling = 1;
           config.options.scaled_width = sw;
           config.options.scaled_height = sh;
@@ -221,21 +224,21 @@ int wmain(int argc, wchar_t **argv) {
         }
         config.output.colorspace = MODE_rgbA;
         config.output.is_external_memory = 1;
-        config.output.u.RGBA.rgba = globalWebp ? coarse.data() : pixels;
-        config.output.u.RGBA.stride = globalWebp ? sw * 4 : w * 4;
+        config.output.u.RGBA.rgba = needsScaledCrop ? coarse.data() : pixels;
+        config.output.u.RGBA.stride = needsScaledCrop ? sw * 4 : w * 4;
         config.output.u.RGBA.size =
-            globalWebp ? coarse.size() : static_cast<size_t>(bytes);
+            needsScaledCrop ? coarse.size() : static_cast<size_t>(bytes);
         const auto status =
             WebPDecode(encoded, static_cast<size_t>(length.QuadPart), &config);
         WebPFreeDecBuffer(&config.output);
         if (status != VP8_STATUS_OK)
           throw E_FAIL;
-        if (hasICC || globalWebp) {
+        if (hasICC || needsScaledCrop) {
           Check(factory->CreateBitmapFromMemory(
-              globalWebp ? sw : w, globalWebp ? sh : h,
-              GUID_WICPixelFormat32bppPRGBA, globalWebp ? sw * 4 : w * 4,
-              static_cast<UINT>(globalWebp ? coarse.size() : bytes),
-              globalWebp ? coarse.data() : pixels, &webpBitmap));
+              needsScaledCrop ? sw : w, needsScaledCrop ? sh : h,
+              GUID_WICPixelFormat32bppPRGBA, needsScaledCrop ? sw * 4 : w * 4,
+              static_cast<UINT>(needsScaledCrop ? coarse.size() : bytes),
+              needsScaledCrop ? coarse.data() : pixels, &webpBitmap));
           output = webpBitmap.Get();
         }
       } else {
@@ -259,8 +262,8 @@ int wmain(int argc, wchar_t **argv) {
         output = transform.Get();
       }
       if (output) {
-        const WICRect rect{webp && !globalWebp ? 0 : x,
-                           webp && !globalWebp ? 0 : y, w, h};
+        const WICRect rect{webp && !needsScaledCrop ? 0 : x,
+                           webp && !needsScaledCrop ? 0 : y, w, h};
         Check(
             output->CopyPixels(&rect, w * 4, static_cast<UINT>(bytes), pixels));
       }

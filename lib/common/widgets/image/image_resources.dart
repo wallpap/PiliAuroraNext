@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:pili_aurora_next/common/widgets/image/src/animation_frames.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
 enum ImageWorkPriority { visible, prefetch }
@@ -23,6 +24,7 @@ class ImageResources {
 
   final int maximumConcurrentDecodes;
   final int maximumRegionBytes;
+  final animationFrames = AnimationFrameCache();
   final _memoryChanges = _ImageMemoryChanges();
   int _regionBytes = 0;
   int get regionBytes => _regionBytes;
@@ -137,6 +139,7 @@ class ImageResources {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    animationFrames.dispose();
     for (final work in [..._pending, ..._running]) {
       work.cancel();
     }

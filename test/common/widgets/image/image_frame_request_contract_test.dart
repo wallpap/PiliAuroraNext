@@ -177,18 +177,23 @@ void main() {
     },
   );
 
-  test('simultaneous one-shot consumers merge encoded loading and each own frame zero', () async {
+  test('simultaneous one-shot consumers decode once and own frame zero independently', () async {
     final cache = _FileCache(file)..gate = Completer<void>();
     final codecs = <_Codec>[];
+    Future<ui.Codec> decode(
+      ui.ImmutableBuffer buffer, {
+      ui.TargetImageSizeCallback? getTargetSize,
+    }) async {
+      buffer.dispose();
+      final codec = _Codec(source);
+      codecs.add(codec);
+      return codec;
+    }
+
     Future<ui.Image?> request() => loadNetworkImageFrame(
       'https://example.test/shared-frame',
       cacheManager: cache,
-      decode: (buffer, {getTargetSize}) async {
-        buffer.dispose();
-        final codec = _Codec(source);
-        codecs.add(codec);
-        return codec;
-      },
+      decode: decode,
     );
     final first = request();
     final second = request();
@@ -196,16 +201,96 @@ void main() {
     cache.gate!.complete();
     final images = await Future.wait([first, second]);
     expect(cache.loads, 1);
-    expect(codecs, hasLength(2));
+    expect(codecs, hasLength(1));
     expect(
       codecs.every((codec) => codec.requests == 1 && codec.disposals == 1),
       isTrue,
     );
     expect(images[0]!.isCloneOf(images[1]!), isTrue);
-    for (final image in images) {
-      image!.dispose();
-    }
+    images.first!.dispose();
+    expect(images.last!.debugDisposed, isFalse);
+    images.last!.dispose();
+    expect(codecs.single.output!.debugDisposed, isTrue);
   });
+
+  test(
+    'a later viewer can share an active first frame when its first viewer expires',
+    () async {
+      final cache = _FileCache(file);
+      final codec = _Codec(source)..gate = Completer<void>();
+      var creations = 0;
+      Future<ui.Codec> decode(
+        ui.ImmutableBuffer buffer, {
+        ui.TargetImageSizeCallback? getTargetSize,
+      }) async {
+        buffer.dispose();
+        creations++;
+        return codec;
+      }
+
+      var current = true;
+      final joined = Completer<void>();
+      Future<ui.Image?> request(bool Function() active) =>
+          loadNetworkImageFrame(
+            'https://example.test/deadlines',
+            cacheManager: cache,
+            decode: decode,
+            isCurrent: active,
+          );
+      final first = request(() => current);
+      await codec.started.future;
+      final second = request(() {
+        if (!joined.isCompleted) joined.complete();
+        return true;
+      });
+      await joined.future;
+      current = false;
+      codec.gate!.complete();
+      expect(await first, isNull);
+      final image = await second;
+      expect(image, isNotNull);
+      expect(creations, 1);
+      expect(codec.disposals, 1);
+      image!.dispose();
+    },
+  );
+
+  test(
+    'first-frame batches isolate sampling, propagate errors and allow retry',
+    () async {
+      final cache = _FileCache(file);
+      final sizes = <int>[];
+      final cause = StateError('first decode failed');
+      var fail = true;
+      Future<ui.Codec> decode(
+        ui.ImmutableBuffer buffer, {
+        ui.TargetImageSizeCallback? getTargetSize,
+      }) async {
+        buffer.dispose();
+        sizes.add(getTargetSize!(320, 160).width!);
+        if (fail) throw cause;
+        return _Codec(source);
+      }
+
+      Future<ui.Image?> request(int width) => loadNetworkImageFrame(
+        'https://example.test/retry-frame',
+        cacheManager: cache,
+        width: width,
+        decode: decode,
+      );
+      await Future.wait([
+        expectLater(request(64), throwsA(same(cause))),
+        expectLater(request(64), throwsA(same(cause))),
+      ]);
+      expect(sizes, [64]);
+      fail = false;
+      final images = await Future.wait([request(32), request(64)]);
+      expect(sizes.skip(1), unorderedEquals([32, 64]));
+      for (final image in images) {
+        image!.dispose();
+      }
+    },
+  );
 
   test(
     'one-shot animation decoding returns only frame zero and closes codec',

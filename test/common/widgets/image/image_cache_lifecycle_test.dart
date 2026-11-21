@@ -94,12 +94,17 @@ class _NativeCodec implements ui.Codec {
   _NativeCodec(this.delegate);
   final ui.Codec delegate;
   int disposals = 0;
+  int requests = 0;
   @override
   int get frameCount => delegate.frameCount;
   @override
   int get repetitionCount => delegate.repetitionCount;
   @override
-  Future<ui.FrameInfo> getNextFrame() => delegate.getNextFrame();
+  Future<ui.FrameInfo> getNextFrame() {
+    requests++;
+    return delegate.getNextFrame();
+  }
+
   @override
   void dispose() {
     disposals++;
@@ -125,20 +130,24 @@ class _NativeProvider extends CachedImageProvider {
   });
 }
 
-Future<void> _tick(WidgetTester tester) async {
+Future<void> _tick(
+  WidgetTester tester, [
+  Duration step = const Duration(milliseconds: 16),
+]) async {
   await tester.runAsync(
     () => Future<void>.delayed(const Duration(milliseconds: 5)),
   );
   tester.binding.scheduleFrame();
-  await tester.pump(const Duration(milliseconds: 16));
+  await tester.pump(step);
 }
 
 Future<void> _until(
   WidgetTester tester,
-  bool Function() done,
-) async {
+  bool Function() done, {
+  Duration step = const Duration(milliseconds: 16),
+}) async {
   for (var i = 0; i < 100 && !done(); i++) {
-    await _tick(tester);
+    await _tick(tester, step);
   }
   expect(done(), isTrue);
 }
@@ -259,6 +268,38 @@ void main() {
       cache
         ..clear()
         ..clearLiveImages();
+      await _tick(tester);
+    }
+  });
+
+  testWidgets('short animations replay the exact first-loop frames', (
+    tester,
+  ) async {
+    final provider = _NativeProvider(
+      _FileCache(File('assets/images/loading.webp').absolute),
+    );
+    final frames = <ImageInfo>[];
+    final listener = ImageStreamListener((info, _) => frames.add(info));
+    final stream = provider.resolve(ImageConfiguration.empty)
+      ..addListener(listener);
+    try {
+      await _until(
+        tester,
+        () => frames.length >= 48,
+        step: const Duration(milliseconds: 150),
+      );
+      final codec = provider.codecs.single;
+      expect(codec.requests, 24);
+      expect(codec.disposals, 1);
+      expect(frames[0].image.isCloneOf(frames[1].image), isFalse);
+      for (var index = 0; index < 24; index++) {
+        expect(frames[index + 24].image.isCloneOf(frames[index].image), isTrue);
+      }
+    } finally {
+      stream.removeListener(listener);
+      for (final info in frames) {
+        info.dispose();
+      }
       await _tick(tester);
     }
   });

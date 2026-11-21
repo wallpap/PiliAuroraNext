@@ -27,15 +27,32 @@ class RegionWorkerTest(unittest.TestCase):
         for stream in [process.stdin, process.stdout, process.stderr]:
             stream.close()
 
-    def decode(self, process, rect, index=1):
+    def decode(self, process, rect, index=1, level=0):
         x, y, width, height = rect
-        process.stdin.write(f'0 {x} {y} {width} {height} {index}\n'.encode())
+        process.stdin.write(f'{level} {x} {y} {width} {height} {index}\n'.encode())
         process.stdin.flush()
         response = json.loads(process.stdout.readline())
+        self.assertTrue(response['guards'])
         self.assertEqual(response['bytes'], width * height * 4)
         pixels = process.stdout.read(response['bytes'])
         self.assertEqual(len(pixels), response['bytes'])
         return pixels
+
+    def test_scaled_webp_base_matches_global_crop(self):
+        for name, level in [('webp-alpha.webp', 1), ('icc-webp.webp', 1),
+                            ('lossless.webp', 1), ('huge-webp.webp', 2)]:
+            with self.subTest(source=name):
+                process, metadata = self.open(name)
+                factor = 1 << level
+                width = (metadata['width'] + factor - 1) // factor
+                height = (metadata['height'] + factor - 1) // factor
+                base = self.decode(process, (0, 0, width, height), level=level)
+                left, top, columns, rows = 13, 7, width - 31, height - 19
+                crop = self.decode(process, (left, top, columns, rows), index=2, level=level)
+                for row in range(rows):
+                    offset = ((row + top) * width + left) * 4
+                    self.assertEqual(crop[row*columns*4:(row+1)*columns*4],
+                                     base[offset:offset+columns*4])
 
     def test_lossy_alpha_crop_preserves_nonzero_origin(self):
         process, metadata = self.open('webp-alpha.webp')
