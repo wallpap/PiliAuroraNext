@@ -46,6 +46,22 @@ void main() {
     expect(store.statistics['leases'], 0);
   });
   nativeTest(
+    'native shutdown drains successfully after stdin has closed',
+    () async {
+      final lease = await store.acquire(fixture('wide'));
+      final decoder = await NativeWorkerDecoder.open(lease);
+      await lease.dispose();
+      try {
+        await decoder.process.stdin.close();
+      } finally {
+        decoder.dispose();
+        await decoder.drained;
+      }
+      expect(await decoder.process.exitCode, 0);
+      expect(store.statistics['leases'], 0);
+    },
+  );
+  nativeTest(
     'oversized global WebP scale reports capability fallback before decoding',
     () async {
       final lease = await store.acquire(fixture('huge-webp'));

@@ -334,7 +334,6 @@ class NativeWorkerDecoder implements DrainingRegionImageDecoder {
     Object? failure;
     StackTrace? failureStack;
     try {
-      process.stdin.writeln('close');
       await process.stdin.close();
       final exit = await process.exitCode.timeout(
         const Duration(seconds: 5),
