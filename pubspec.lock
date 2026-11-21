@@ -21,10 +21,10 @@ packages:
     dependency: transitive
     description:
       name: android_file_picker
-      sha256: "14ab27769b54c48d5a8a71aa9858372b7a3ae77572ea0a8aee744643c5d8c53d"
+      sha256: ec3cf2a2c7a9b2bd56747e85f80efdd994e563049dfb0981a23903acfdd58cb5
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0"
+    version: "2.2.0"
   ansicolor:
     dependency: transitive
     description:
@@ -37,18 +37,18 @@ packages:
     dependency: "direct main"
     description:
       name: app_links
-      sha256: f8db46d2ea9ff6f3a37191a7fd5b7813da1253ace8c32c1b9eadace41d1188ea
+      sha256: "08ba88bf19d9edea33130cb71c8ced2cb982b4e00b82efef4a434d1357bc69c3"
       url: "https://pub.dev"
     source: hosted
-    version: "7.2.1"
+    version: "7.2.2"
   app_links_linux:
     dependency: transitive
     description:
       name: app_links_linux
-      sha256: f5f7173a78609f3dfd4c2ff2c95bd559ab43c80a87dc6a095921d96c05688c81
+      sha256: "734aa57a2f65d1b35c3643384ccfbe668730157a08479bfa488e10a9da847853"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.3"
+    version: "1.0.5"
   app_links_platform_interface:
     dependency: transitive
     description:
@@ -61,10 +61,10 @@ packages:
     dependency: transitive
     description:
       name: app_links_web
-      sha256: af060ed76183f9e2b87510a9480e56a5352b6c249778d07bd2c95fc35632a555
+      sha256: "382d32c6f486f15b1d7f5d6a37a70a481a4fc08382eef419d373169921a3e765"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.4"
+    version: "1.0.5"
   archive:
     dependency: "direct main"
     description:
@@ -132,10 +132,10 @@ packages:
     dependency: "direct main"
     description:
       name: battery_plus
-      sha256: "3853aa1e18ea1d15493dd1d3edac05770b4b95c1e691fb85934c5fd3b1ac0fcc"
+      sha256: "49f75523cd5461a44202d67c5e1c73b790f16a822475b6f116d50714cd64a0ab"
       url: "https://pub.dev"
     source: hosted
-    version: "7.1.1"
+    version: "7.1.2"
   battery_plus_platform_interface:
     dependency: transitive
     description:
@@ -343,10 +343,10 @@ packages:
     dependency: "direct main"
     description:
       name: crypto
-      sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
+      sha256: e3626ae6270383c9e3a549f34c9e4cd26c09ae6a9adaab2bf4737a00340efdc4
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.7"
+    version: "3.0.8"
   csslib:
     dependency: transitive
     description:
@@ -359,10 +359,10 @@ packages:
     dependency: "direct main"
     description:
       name: cupertino_ui
-      sha256: c23816577a1280cff409e989541767887011f8f1d8c1863a794ed308af46f2a9
+      sha256: c3eaf7f5bdfee36deb0b14a4cbf7602f1b6b8d8b8576b81f38fc08c25881c94c
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.1"
+    version: "1.1.7"
   dart_style:
     dependency: transitive
     description:
@@ -383,10 +383,10 @@ packages:
     dependency: "direct main"
     description:
       name: device_info_plus
-      sha256: "0891702f96b2e465fe567b7ec448380e6b1c14f60af552a8536d9f583b6b8442"
+      sha256: ade1c36f8355d6284c98e4a47992ea263887ed3d1acb281e37635dd45f04c4aa
       url: "https://pub.dev"
     source: hosted
-    version: "13.2.0"
+    version: "13.3.0"
   device_info_plus_platform_interface:
     dependency: transitive
     description:
@@ -502,42 +502,42 @@ packages:
     dependency: "direct main"
     description:
       name: file_picker
-      sha256: "98c0b156b6380ba55bc767a14e2e6b3feb246e713ad40092424596fa79005bea"
+      sha256: "079dc46b753abbddb7f77cd87e6ed9ecc62902580707514568321bdf8e050a86"
       url: "https://pub.dev"
     source: hosted
-    version: "13.1.0"
+    version: "13.3.3"
   file_picker_darwin:
     dependency: transitive
     description:
       name: file_picker_darwin
-      sha256: "51aef9f4c80449c736e7cc02198675fda73689f0bd45a84da642cfeab0250d46"
+      sha256: b7d3a6bd26a18c503d29070fc2d7b26fbfe918d08a6bcd984b6e806ff5ad923f
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.2"
+    version: "2.5.1"
   file_picker_linux:
     dependency: transitive
     description:
       name: file_picker_linux
-      sha256: e7db600f50672ce5ebbe422ac0906e0f3d2a476188cc93e7126afee12bf08063
+      sha256: "9215ee8c672508cdd9a325202669f849e1baac883658626b3abed5d7777e6a4b"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0"
+    version: "2.0.4"
   file_picker_platform_interface:
     dependency: transitive
     description:
       name: file_picker_platform_interface
-      sha256: bbdc085a6f168e63f147e9ce8988f79fa0800a58e7f25a48f762c60837107ba5
+      sha256: a2ef71c4628f92a4471d424576e3bf7042b40a2683c9f9a0e3033a7fc7f7763c
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "4.3.0"
   file_picker_web:
     dependency: transitive
     description:
       name: file_picker_web
-      sha256: b3004268da0c1b52baa18df430e7ec4438194de855a807d26b447cbf07ef3496
+      sha256: "50749a6da2984fc29609e102ad4d80fd1d07e6895150f8e4922086167d9d45d8"
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "4.2.1"
   file_selector_linux:
     dependency: transitive
     description:
@@ -582,10 +582,10 @@ packages:
     dependency: "direct main"
     description:
       name: fl_chart
-      sha256: b938f77d042cbcd822936a7a359a7235bad8bd72070de1f827efc2cc297ac888
+      sha256: "9f11b0b87a6b1843f5ca666ade4a62c08da1a6b7f9efeb91bb2c6f3fa6e31a9a"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.0"
+    version: "1.3.1"
   flex_seed_scheme:
     dependency: "direct main"
     description:
@@ -725,10 +725,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_smart_dialog
-      sha256: "2f50b6b120da18ceb59df42ee057e2f608a1776267203359b832e469c45a406b"
+      sha256: f397a3795797e29d64e1e61f05a779473d3d8f092cde0c24bbf56410e0d55d7f
       url: "https://pub.dev"
     source: hosted
-    version: "5.3.0"
+    version: "5.3.1"
   flutter_sortable_wrap:
     dependency: "direct main"
     description:
@@ -740,10 +740,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_svg
-      sha256: "35882981abcbfb8c15b286f0cd690ff25bac12d95eff3e25ee207f37d4c42e7f"
+      sha256: "4565a66f0a968f2e1ab4197854686990258aadab9572eb80a7655053a01dc302"
       url: "https://pub.dev"
     source: hosted
-    version: "2.3.0"
+    version: "2.5.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -793,14 +793,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
-  gtk:
-    dependency: transitive
-    description:
-      name: gtk
-      sha256: "4ff85b2a16724029dd9e5bbb5a94b6918f9973f74ba571c949d2002801879cf5"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
   hive_ce:
     dependency: "direct main"
     description:
@@ -1551,10 +1543,10 @@ packages:
     dependency: "direct main"
     description:
       name: share_plus
-      sha256: "34f00f9becd2743c1fb05363d624f9f70d37f7ccdcdda47450bc0b8c9d327b8c"
+      sha256: db40767f130189d53f3ae8a6393c217ff4a492da1baff718a9873679c0c00224
       url: "https://pub.dev"
     source: hosted
-    version: "13.3.0"
+    version: "13.3.1"
   share_plus_platform_interface:
     dependency: transitive
     description:
@@ -1843,10 +1835,10 @@ packages:
     dependency: transitive
     description:
       name: vector_graphics_compiler
-      sha256: "4dca4feb77dc3ec7f6e27e49c53241eb8217f55e4f9b12599a27f8903bca5682"
+      sha256: "4c9d2e7121eea8b4f160e6e435900a0ae7214cfc97c2d6cf84c25532b789b50d"
       url: "https://pub.dev"
     source: hosted
-    version: "1.3.0"
+    version: "1.3.4"
   vector_math:
     dependency: "direct main"
     description:
@@ -1947,10 +1939,10 @@ packages:
     dependency: transitive
     description:
       name: windows_file_picker
-      sha256: "9f3aa833068b09e380fdc59560ad260a4a14e9397173abb533699f967443602e"
+      sha256: cd1be37ada0abcfaa55bddb7410e8515844e35cd77669c35d9a28a15722299d8
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.0"
+    version: "2.0.2"
   xdg_directories:
     dependency: transitive
     description:

@@ -305,7 +305,6 @@ class HeaderControlState extends State<HeaderControl>
                   await saveExport(
                     name: name,
                     bytes: result.data,
-                    allowedExtensions: [format.name],
                   );
                 } catch (e, s) {
                   Error.fromException(e, s);

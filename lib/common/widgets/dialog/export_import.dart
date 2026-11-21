@@ -38,21 +38,15 @@ void exportToLocalFile({
         '${Constants.dartPackageName}_${localFileName()}_'
         '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
     bytes: res,
-    allowedExtensions: const ['json'],
   );
 }
 
 Future<void> saveExport({
   required String name,
   required Uint8List bytes,
-  required List<String> allowedExtensions,
 }) async {
   try {
-    final saved = await exportFile(
-      name: name,
-      bytes: bytes,
-      allowedExtensions: allowedExtensions,
-    );
+    final saved = await exportFile(name: name, bytes: bytes);
     SmartDialog.showToast(saved ? '已保存' : '取消保存');
   } catch (error, stackTrace) {
     logger.w('保存失败', error: error.runtimeType, stackTrace: stackTrace);

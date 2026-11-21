@@ -146,7 +146,6 @@ abstract final class ImageUtils {
       final saved = await saveFileImg(
         filePath: videoPath,
         fileName: videoName,
-        type: FileType.video,
         needToast: true,
       );
       return saved?.isSuccess == true;
@@ -370,7 +369,6 @@ abstract final class ImageUtils {
       }
     } else {
       final savePath = await FilePicker.saveFile(
-        type: FileType.image,
         fileName: fileName,
         bytes: bytes,
       );
@@ -388,7 +386,6 @@ abstract final class ImageUtils {
   static Future<SaveResult?> saveFileImg({
     required String filePath,
     required String fileName,
-    FileType type = FileType.image,
     bool needToast = false,
   }) async {
     final file = File(filePath);
@@ -406,7 +403,6 @@ abstract final class ImageUtils {
       );
     } else {
       final savePath = await FilePicker.saveFile(
-        type: type,
         fileName: fileName,
         bytes: await file.readAsBytes(),
       );

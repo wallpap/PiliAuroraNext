@@ -94,8 +94,6 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
           bytes: Uint8List(0),
           fileName:
               'PiliAuroraNext-diagnostics-${DateTime.now().millisecondsSinceEpoch}.zip',
-          type: FileType.custom,
-          allowedExtensions: const ['zip'],
         );
         if (destination != null) {
           await exported.file.copy(destination.toFilePath());

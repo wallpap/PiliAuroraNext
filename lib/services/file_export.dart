@@ -7,12 +7,8 @@ import 'package:pili_aurora_next/platform/platform_info.dart';
 Future<bool> exportFile({
   required String name,
   required Uint8List bytes,
-  required List<String> allowedExtensions,
-  FileType type = FileType.custom,
 }) async {
   final path = await FilePicker.saveFile(
-    allowedExtensions: allowedExtensions,
-    type: type,
     fileName: name,
     bytes: PlatformUtils.isDesktop ? Uint8List(0) : bytes,
   );
