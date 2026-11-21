@@ -8,7 +8,7 @@ dependencies = []
 [dependency-groups]
 dev = [
     "pillow==13.0.0",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
 ]
 
 [tool.uv]
@@ -20,7 +20,7 @@ url = "https://pypi.org/simple"
 default = true
 
 [tool.ruff]
-required-version = "==0.17.5"
+required-version = "==0.17.6"
 target-version = "py314"
 
 [tool.ruff.lint]
