@@ -15,6 +15,8 @@
 
 Provider 的图像由 ImageStream/ImageInfo 管理，消费者释放自己的 ImageInfo。ContentImage 在绘制结束后释放替换的旧帧，动画和无监听缓存交接由同一私有 completer 管理。ImageLoadingScope 与 TickerMode 独立，允许静态导出；Gallery 邻页可加载，只有当前页播放动画。正文滚动时计算祖先裁剪交集，静态头像不做全局逐帧扫描。
 
+`CachedImage` 同步命中内存缓存时直接显示图像。异步加载仅在等待首帧或占位淡出期间构建占位，动图后续帧复用已完成的过渡状态。
+
 sourceSize 仅作布局提示，实际 decoder 原始尺寸优先；ResizeImage 的缩小帧不作为原始元信息。cover 在 decoder callback 内按真实比例采样，不新增预探测 codec。未知比例的 CDN 请求保留来源，可能下载更多编码字节。
 
 雪碧图保留原坐标和 3 项/24MiB 缓存，弹幕保留期限与任务/字节配额及文本降级。图片表情使用惰性网格并播放动画，文字和混合历史保留 Wrap。通知封面由音频插件单独配置为 512×512，不占 Dart 解码队列。

@@ -11,6 +11,7 @@ Widget _imageFrame({
   bool synchronouslyLoaded = false,
   Duration fadeIn = const Duration(milliseconds: 120),
   Duration fadeOut = const Duration(milliseconds: 120),
+  VoidCallback? onPlaceholder,
 }) => Directionality(
   textDirection: TextDirection.ltr,
   child: Center(
@@ -27,10 +28,13 @@ Widget _imageFrame({
               height: 80,
               fadeInDuration: fadeIn,
               fadeOutDuration: fadeOut,
-              placeholder: (_, _) => const ColoredBox(
-                color: Color(0xffff0000),
-                key: ValueKey('placeholder'),
-              ),
+              placeholder: (_, _) {
+                onPlaceholder?.call();
+                return const ColoredBox(
+                  color: Color(0xffff0000),
+                  key: ValueKey('placeholder'),
+                );
+              },
             ).build(context) as Image;
             return image.frameBuilder!(
               context,
@@ -64,6 +68,33 @@ Future<int> _placeholderAlpha(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('缓存命中和淡入完成后的动图帧按需构建占位', (tester) async {
+    var calls = 0;
+    void count() => calls++;
+    await tester.pumpWidget(
+      _imageFrame(synchronouslyLoaded: true, onPlaceholder: count),
+    );
+    final cacheHitCalls = calls;
+    calls = 0;
+
+    await tester.pumpWidget(
+      _imageFrame(url: 'next', frame: null, onPlaceholder: count),
+    );
+    expect(find.byKey(const ValueKey('placeholder')), findsOneWidget);
+    expect(calls, greaterThan(0));
+    await tester.pumpWidget(_imageFrame(url: 'next', onPlaceholder: count));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('placeholder')), findsNothing);
+
+    calls = 0;
+    for (var frame = 1; frame <= 8; frame++) {
+      await tester.pumpWidget(
+        _imageFrame(url: 'next', frame: frame, onPlaceholder: count),
+      );
+    }
+    expect([cacheHitCalls, calls], [0, 0]);
+  });
+
   for (final (name, url, synchronous, duration) in [
     (
       'cached replacement',

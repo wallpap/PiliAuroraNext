@@ -256,11 +256,10 @@ class RecommendationFeed extends Notifier<RecommendationState> {
 
   void _publish(_RecommendationQuery query) {
     if (!_current(query)) return;
-    final data = List<BaseRcmdVideoItemModel>.of(query.items);
     _historyStart = enableSaveLastData && savedRcmdTip && query.saved.isNotEmpty
         ? query.historyStart
         : null;
-    _emit(Success(List.unmodifiable(data)));
+    _emit(Success(List.unmodifiable(query.items)));
     _finishReadyTraces(query);
   }
 

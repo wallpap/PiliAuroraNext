@@ -259,20 +259,27 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage>
     int? historyStart,
   ) {
     const historyKey = ValueKey('recommendation-history');
-    // 仅在列表结构发布时建立索引；卡片揭示不进入这里。
-    final indices = HashMap<Object, int>.identity();
-    for (var i = 0; i < items.length; i++) {
-      indices[items[i]] =
-          i + (historyStart != null && i >= historyStart ? 1 : 0);
+    late final movedIndices = HashMap<Object, int>.identity()
+      ..addEntries(
+        items.indexed.map((entry) => MapEntry(entry.$2, entry.$1)),
+      );
+
+    int? findIndex(Key key) {
+      if (key == historyKey) return historyStart;
+      if (key is! _RecommendationKey) return null;
+      final previous = key.index;
+      final index =
+          previous < items.length && identical(items[previous], key.value)
+          ? previous
+          : movedIndices[key.value];
+      if (index == null) return null;
+      return historyStart != null && index >= historyStart ? index + 1 : index;
     }
+
     return InactiveFeedSliver(
       sliver: SliverGrid.builder(
         gridDelegate: gridDelegate,
-        findChildIndexCallback: (key) => key == historyKey
-            ? historyStart
-            : key is ObjectKey
-            ? indices[key.value]
-            : null,
+        findChildIndexCallback: findIndex,
         itemCount: items.length + (historyStart != null ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == historyStart) {
@@ -298,11 +305,7 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage>
           final actualIndex = historyStart != null && index > historyStart
               ? index - 1
               : index;
-          final item = items[actualIndex];
-          return _RecommendationCard(
-            key: ObjectKey(item),
-            item: item,
-          );
+          return _RecommendationCard(items[actualIndex], actualIndex);
         },
       ),
     );
@@ -320,17 +323,37 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage>
   );
 }
 
-class _RecommendationCard extends ConsumerWidget {
-  const _RecommendationCard({super.key, required this.item});
+class _RecommendationKey extends ObjectKey {
+  const _RecommendationKey(super.value, this.index);
+  final int index;
+}
+
+class _RecommendationCard extends ConsumerStatefulWidget {
+  _RecommendationCard(this.item, int index)
+    : super(key: _RecommendationKey(item, index));
   final BaseRcmdVideoItemModel item;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      ref.watch(recommendationCardPendingProvider(item))
-      ? const VideoCardVSkeleton()
-      : VideoCardV(
-          videoItem: item,
-          onRemove: () => ref
-              .read(recommendationFeedProvider.notifier)
-              .removeRecommendation(item),
-        );
+  ConsumerState<_RecommendationCard> createState() =>
+      _RecommendationCardState();
+}
+
+class _RecommendationCardState extends ConsumerState<_RecommendationCard> {
+  late final _video = VideoCardV(
+    videoItem: widget.item,
+    onRemove: () => ref
+        .read(recommendationFeedProvider.notifier)
+        .removeRecommendation(widget.item),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    if (!ref.read(recommendationFeedProvider.notifier).isPending(item)) {
+      return _video;
+    }
+    return ref.watch(recommendationCardPendingProvider(item))
+        ? const VideoCardVSkeleton()
+        : _video;
+  }
 }

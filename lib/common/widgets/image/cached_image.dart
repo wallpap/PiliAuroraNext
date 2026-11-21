@@ -849,18 +849,17 @@ class _ImageFadeIn extends StatefulWidget {
   const _ImageFadeIn({
     super.key,
     required this.child,
-    required this.placeholder,
+    required this.placeholderBuilder,
     required this.duration,
     required this.fadeOutDuration,
     required this.ready,
-    required this.animate,
   });
 
   /// 已解码的图片子树（`Image.frameBuilder` 的 child）。
   final Widget child;
 
   /// 图片尚未可用时显示的内容。
-  final Widget placeholder;
+  final WidgetBuilder placeholderBuilder;
 
   /// 淡入时长；[Duration.zero] 表示直接显示。
   final Duration duration;
@@ -869,16 +868,12 @@ class _ImageFadeIn extends StatefulWidget {
   /// 图片是否已经可用。
   final bool ready;
 
-  /// 是否播放淡入；同步命中缓存时为 false。
-  final bool animate;
-
   @override
   State<_ImageFadeIn> createState() => _ImageFadeInState();
 }
 
 class _ImageFadeInState extends State<_ImageFadeIn>
     with SingleTickerProviderStateMixin {
-  /// 惰性创建：同步命中缓存的图片不淡入，就不该为它建控制器。
   AnimationController? _fade;
 
   AnimationController get _controller =>
@@ -913,7 +908,7 @@ class _ImageFadeInState extends State<_ImageFadeIn>
       _done = false;
       return;
     }
-    if (!widget.animate || _transitionDuration == Duration.zero) {
+    if (_transitionDuration == Duration.zero) {
       _fade?.stop();
       _done = true;
       return;
@@ -931,7 +926,7 @@ class _ImageFadeInState extends State<_ImageFadeIn>
   void _startIfReady() {
     if (!widget.ready) return;
     // didUpdateWidget 之后紧接着就会 build，无需 setState。
-    if (!widget.animate || _transitionDuration == Duration.zero) {
+    if (_transitionDuration == Duration.zero) {
       _fade?.stop();
       _done = true;
       return;
@@ -976,7 +971,7 @@ class _ImageFadeInState extends State<_ImageFadeIn>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.ready) return widget.placeholder;
+    if (!widget.ready) return widget.placeholderBuilder(context);
     if (_done) return widget.child;
     return Stack(
       alignment: Alignment.center,
@@ -984,7 +979,7 @@ class _ImageFadeInState extends State<_ImageFadeIn>
         if (widget.fadeOutDuration != Duration.zero)
           FadeTransition(
             opacity: _placeholderOpacity,
-            child: widget.placeholder,
+            child: widget.placeholderBuilder(context),
           ),
         if (widget.duration == Duration.zero)
           widget.child
@@ -1058,17 +1053,17 @@ class CachedImage extends StatelessWidget {
       color: color,
       colorBlendMode: colorBlendMode,
       errorBuilder: errorBuilder ?? (context, _, _) => _placeholder(context),
-      frameBuilder: (context, child, frame, synchronouslyLoaded) =>
-          _ImageFadeIn(
-            key: ValueKey(imageUrl),
-            ready: frame != null,
-            // 同步命中缓存时直接显示，与原来 `if (synchronouslyLoaded) return child;` 一致。
-            animate: !synchronouslyLoaded,
-            duration: fadeInDuration,
-            fadeOutDuration: fadeOutDuration,
-            placeholder: _placeholder(context),
-            child: child,
-          ),
+      frameBuilder: (context, child, frame, synchronouslyLoaded) {
+        if (synchronouslyLoaded && frame != null) return child;
+        return _ImageFadeIn(
+          key: ValueKey(imageUrl),
+          ready: frame != null,
+          duration: fadeInDuration,
+          fadeOutDuration: fadeOutDuration,
+          placeholderBuilder: _placeholder,
+          child: child,
+        );
+      },
     );
   }
 

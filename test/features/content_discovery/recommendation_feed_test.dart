@@ -78,6 +78,13 @@ class _Feed extends RecommendationFeed {
   final indices = <int>[];
   final sizes = <int>[];
   final tokens = <CancelToken>[];
+  var cardSubscriptions = 0;
+  @override
+  VoidCallback listenToCard(Object item, VoidCallback listener) {
+    cardSubscriptions++;
+    return super.listenToCard(item, listener);
+  }
+
   @override
   Object get queryContext => account;
   @override
@@ -742,6 +749,49 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets('等待和追加下一页时复用屏内已显示的视频卡片', (tester) async {
+    Get.testMode = true;
+    addTearDown(Get.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: RecommendationPage())),
+      ),
+    );
+    feed.requests.single.complete(
+      Success(List.generate(40, (index) => _Video(index + 1))),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('视频 1'), findsOneWidget);
+    final initialSubscriptions = feed.cardSubscriptions;
+
+    var builds = 0;
+    final previous = debugOnRebuildDirtyWidget;
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    debugOnRebuildDirtyWidget = (element, _) {
+      if (element.widget is VideoCardV) builds++;
+    };
+    final more = feed.onLoadMore();
+    await tester.pump();
+    final waitingBuilds = builds;
+    builds = 0;
+    feed.requests.last.complete(
+      Success(List.generate(40, (index) => _Video(index + 41))),
+    );
+    await tester.pump();
+    await more;
+    await tester.pump();
+    final appendedBuilds = builds;
+    expect(feed.loadingState.data.last.aid, 80);
+
+    await tester.scrollUntilVisible(find.text('视频 80'), 500);
+    expect(find.text('视频 80'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect([waitingBuilds, appendedBuilds], [0, 0]);
+    expect(initialSubscriptions, 0);
+  });
 
   testWidgets('卸载卡片取消局部揭示订阅', (tester) async {
     final authors = Completer<Set<int>?>();
