@@ -92,10 +92,8 @@ extension CorePalettesExt on CorePalettes {
 // ignore: deprecated_member_use
 /// [CorePalette._getPartition]
 // Returns a partition from a list.
-//
 // For example, given a list with 2 partitions of size 3.
 // range = [1, 2, 3, 4, 5, 6];
-//
 // range.getPartition(0, 3) // [1, 2, 3]
 // range.getPartition(1, 3) // [4, 5, 6]
 List<int> _getPartition(

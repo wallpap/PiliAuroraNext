@@ -75,13 +75,10 @@ class Routes {
     GetPage(name: '/hot', page: () => const HotPage()),
     // 视频详情
     GetPage(name: '/videoV', page: () => const VideoDetailPageV()),
-    //
     GetPage(name: '/webview', page: () => const WebviewPage()),
     // 设置
     GetPage(name: '/setting', page: () => const SettingPage()),
-    //
     GetPage(name: '/fav', page: () => const FavoritesPage()),
-    //
     GetPage(name: '/favDetail', page: () => const FavoriteDetailPage()),
     // 稍后再看
     GetPage(name: '/later', page: () => const LaterPage()),
@@ -110,13 +107,11 @@ class Routes {
     // 用户中心
     GetPage(name: '/member', page: () => const MemberPage()),
     GetPage(name: '/memberSearch', page: () => const MemberSearchPage()),
-    //
     GetPage(name: '/blackListPage', page: () => const BlackListPage()),
     GetPage(name: '/colorSetting', page: () => const ColorSelectPage()),
     GetPage(name: '/fontSetting', page: () => const FontSettingPage()),
     // 屏幕帧率
     GetPage(name: '/displayModeSetting', page: () => const SetDisplayMode()),
-    //
     GetPage(name: '/articlePage', page: () => const ArticlePage()),
 
     // 历史记录搜索

@@ -394,12 +394,6 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     super.update(newWidget);
     final multiChildRenderObjectWidget = widget as ImageGridBuilder;
     assert(widget == newWidget);
-    // _children = updateChildren(
-    //   _children,
-    //   multiChildRenderObjectWidget.children,
-    //   forgottenChildren: _forgottenChildren,
-    // );
-    // _forgottenChildren.clear();
     renderObject._updateCallback(_rebuildWithConstraints);
     if (newWidget.updateShouldRebuild(multiChildRenderObjectWidget)) {
       _needsBuild = true;

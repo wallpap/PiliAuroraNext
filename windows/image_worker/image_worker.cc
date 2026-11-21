@@ -1,5 +1,3 @@
-// Windows 区域解码：WIC/libwebp 直接读取有界区域；持续 worker 保留源，退出释放
-// decoder 工作区。
 #define NOMINMAX
 #include <windows.h>
 
@@ -105,7 +103,7 @@ int wmain(int argc, wchar_t **argv) {
         if (bytes > static_cast<size_t>(length.QuadPart) - pos - 8)
           throw E_INVALIDARG;
         if (!memcmp(encoded + pos, "EXIF", 4))
-          orientation = -1; // 不静默忽略未验证的方向。
+          orientation = -1;
         if (!memcmp(encoded + pos, "ICCP", 4)) {
           Check(factory->CreateColorContext(&inputColor));
           Check(inputColor->InitializeFromMemory(
@@ -123,7 +121,6 @@ int wmain(int argc, wchar_t **argv) {
         const bool pngHeader = length.QuadPart >= 8 &&
                                !memcmp(encoded, "\x89PNG\r\n\x1a\n", 8);
         if (!jpegHeader && !pngHeader) {
-          // 系统没有此格式的 WIC codec；交还 Flutter，不把能力缺失当作解码损坏。
           std::cout << "{\"unsupported\":true}" << std::endl;
           return 0;
         }
@@ -208,7 +205,6 @@ int wmain(int argc, wchar_t **argv) {
         if (!WebPInitDecoderConfig(&config))
           throw E_FAIL;
         if (level) {
-          // 同一全局层缩放一次，避免各区域独立缩放的相位差；粗层临时像素有单独上限。
           if (uint64_t(sw) * sh * 4 > (40u << 20))
             throw E_NOTIMPL;
           coarse.resize(static_cast<size_t>(sw) * sh * 4);
@@ -298,7 +294,6 @@ int wmain(int argc, wchar_t **argv) {
     }
   } catch (HRESULT hr) {
     if (hr == HRESULT_FROM_WIN32(ERROR_INVALID_PROFILE)) {
-      // WIC 拒绝的 ICC 仍可能被 Flutter 正常解码，先排空再交还完整帧。
       std::cout << "{\"unsupported\":true,\"reason\":\"colorProfile\",\"error\":"
                 << static_cast<int64_t>(hr) << "}" << std::endl;
       std::string close;

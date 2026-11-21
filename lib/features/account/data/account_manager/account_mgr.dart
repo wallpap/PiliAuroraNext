@@ -73,7 +73,6 @@ class AccountManager extends Interceptor {
 
     // app端不需要管理cookie
     if (isApp) {
-      // if (kDebugMode) debugPrint('is app: ${options.path}');
       final dataPtr = (options.method == 'POST' && options.data is Map
           ? (options.data as Map).cast<String, dynamic>()
           : options.queryParameters);
@@ -82,7 +81,6 @@ class AccountManager extends Interceptor {
           dataPtr['access_key'] = account.accessKey!;
         }
         AppSign.appSign(dataPtr..remove('sign'));
-        // if (kDebugMode) debugPrint(dataPtr.toString());
       }
       return handler.next(options);
     } else {

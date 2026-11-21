@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 账号、缓存和本地设置不进入云备份或设备迁移，与旧版本禁用备份的策略一致。 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="root" path="." />

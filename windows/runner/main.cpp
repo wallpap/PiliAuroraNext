@@ -8,7 +8,6 @@
 #include "utils.h"
 
 namespace {
-// 必须晚于窗口和插件析构；S_FALSE 也需要配对一次 CoUninitialize。
 class ScopedCOM {
  public:
   ScopedCOM() : result_(::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)) {}
@@ -22,7 +21,7 @@ class ScopedCOM {
  private:
   const HRESULT result_;
 };
-}  // namespace
+}
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t* command_line, _In_ int show_command) {
@@ -35,24 +34,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     return EXIT_SUCCESS;
   }
   if (decoder_test) {
-    // 测试驱动崩溃由父进程报告，不能被系统错误对话框阻塞。
     ::SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
   }
 
-  // Attach to console when present (e.g., 'flutter run') or create a
-  // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
     CreateAndAttachConsole();
   }
 
-  // Initialize COM, so that it is available for use in the library and/or
-  // plugins.
   const ScopedCOM com;
   if (!com.initialized()) {
     return EXIT_FAILURE;
   }
 
-  // 主窗口和播放子进程共用任务栏应用标识；任务管理器分组由系统决定。
   if (FAILED(::SetCurrentProcessExplicitAppUserModelID(L"PiliAuroraNext.Desktop"))) {
     return EXIT_FAILURE;
   }

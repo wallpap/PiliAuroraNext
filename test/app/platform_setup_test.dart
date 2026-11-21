@@ -110,7 +110,6 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     }
-    // 预算失败会触发诊断通知的节流定时器。
     await tester.pump(const Duration(milliseconds: 250));
   }, skip: !Platform.isWindows);
 }

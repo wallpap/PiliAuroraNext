@@ -46,7 +46,6 @@ class MainActivity : AudioServiceActivity() {
                 else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         }
         if (states.all { (component, state) -> packageManager.getComponentEnabledSetting(component) == state }) return
-        // 先启用目标入口；旧系统逐项更新时也始终保留可启动入口。
         if (Build.VERSION.SDK_INT >= 33) {
             packageManager.setComponentEnabledSettings(states.map { (component, state) ->
                 PackageManager.ComponentEnabledSetting(component, state, PackageManager.DONT_KILL_APP)

@@ -329,7 +329,6 @@ enum DownloadStatus {
   audioDownloading('正在下载音频'),
   getDanmaku('获取弹幕'),
   getPlayUrl('获取播放地址'),
-  //
   completed('下载完成'),
   failDownload('下载失败'),
   failDownloadAudio('音频下载失败'),

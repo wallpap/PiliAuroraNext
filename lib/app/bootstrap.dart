@@ -49,7 +49,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 
-/// 初始化本地资源和平台服务，配置异常捕获后挂载应用根 Widget。
 Future<StartupResult> bootstrapApplication([
   List<String> arguments = const [],
 ]) async {
@@ -242,7 +241,6 @@ Future<void> _bootstrapApplication(
     logger.w('已显式禁用 TLS 证书验证，仅应用于受控调试；请在调试结束后恢复验证');
   }
 
-  // Windows 只登记网页数据目录，首次进入网页时再同步当前账号 Cookie。
   progress.phase = StartupPhase.platformServices;
   if (!playerWindow) await initializePlatformServices();
 
@@ -289,7 +287,6 @@ Future<void> _bootstrapApplication(
     await ThemeUtils.initPlatformState();
   }
 
-  // 始终安装异常捕获，日志等级可即时切换。
   final customParameters = {
     'Build Time': DateFormatUtils.format(
       BuildConfig.buildTime,
@@ -372,9 +369,6 @@ class _CustomHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
-    // ..maxConnectionsPerHost = 32
-    /// The default value is 15 seconds.
-    //   ..idleTimeout = const Duration(seconds: 15);
     if (Pref.badCertificateCallback) {
       client.badCertificateCallback = (cert, host, port) => true;
     }

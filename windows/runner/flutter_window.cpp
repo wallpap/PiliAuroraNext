@@ -19,11 +19,8 @@ bool FlutterWindow::OnCreate() {
 
   RECT frame = GetClientArea();
 
-  // The size here must match the window dimensions to avoid unnecessary surface
-  // creation / destruction in the startup path.
   flutter_controller_ = std::make_unique<flutter::FlutterViewController>(
       frame.right - frame.left, frame.bottom - frame.top, project_);
-  // Ensure that basic setup of the controller was successful.
   if (!flutter_controller_->engine() || !flutter_controller_->view()) {
     return false;
   }
@@ -52,20 +49,13 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  // flutter_controller_->engine()->SetNextFrameCallback([&]() {
-  //   this->Show();
-  // });
 
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
   return true;
 }
 
 void FlutterWindow::OnDestroy() {
-  // 先摘除成员指针，避免销毁视图/插件时的重入消息访问半析构控制器。
   if (background_channel_) {
     background_channel_->SetMethodCallHandler(nullptr);
     background_channel_.reset();
@@ -82,7 +72,6 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
-  // 更新退出先通知 Dart 保存进度和释放播放器，绕过普通关闭的托盘设置。
   if ((lparam & ENDSESSION_CLOSEAPP) != 0) {
     if (message == WM_QUERYENDSESSION) {
       return TRUE;
@@ -96,7 +85,6 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     }
   }
 
-  // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,

@@ -145,7 +145,6 @@ abstract final class PiliAndroidHelper {
         jUrl = url.toJString();
         final jStr = AndroidHelper.openUrl(jUrl);
         if (jStr != null) {
-          // 原生返回值可能包含 Intent 与地址，不向用户交付异常正文。
           jStr.release();
           SmartDialog.showToast('无法打开链接，请检查可用的浏览器或应用');
         }

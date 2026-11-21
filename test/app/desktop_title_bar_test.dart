@@ -55,7 +55,6 @@ void main() {
       image.dispose();
       return pixel;
     });
-    // 直接检查绘制结果，避免提示存在于树中却被页面覆盖时误报通过。
     expect(tooltipPixel, isNot(0xFF00FFFF));
     await mouse.removePointer();
     await tester.pumpWidget(const SizedBox());
@@ -106,7 +105,6 @@ void main() {
     expect(calls.last, 'maximize');
     await _windowEvent(tester, 'maximize');
     await tester.pump();
-    // 初始化查询迟到不能覆盖已收到的最大化状态。
     initialMaximized.complete(false);
     await tester.pump();
     expect(find.byTooltip('还原'), findsOneWidget);

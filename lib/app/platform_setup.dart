@@ -24,7 +24,6 @@ import 'package:path/path.dart' as path;
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:window_manager/window_manager.dart' hide calcWindowPosition;
 
-/// 初始化平台能力；Windows 网页环境按首次使用创建。
 Future<void> initializePlatformServices() async {
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
@@ -39,7 +38,6 @@ Future<void> initializePlatformServices() async {
   }
 }
 
-/// 配置移动端系统 UI，或创建并显示桌面应用窗口。
 Future<void> initializePlatformWindow() async {
   if (PlatformUtils.isMobile) {
     await SystemChrome.setEnabledSystemUIMode(.edgeToEdge);
@@ -67,7 +65,6 @@ Future<void> initializePlatformWindow() async {
           displayMode ?? DisplayMode.auto,
         );
       } catch (error, stackTrace) {
-        // 刷新率选择是可选能力，失败时保留系统模式并继续启动。
         logger.w('设置显示模式失败', error: error.runtimeType, stackTrace: stackTrace);
       }
     } else {
@@ -76,13 +73,11 @@ Future<void> initializePlatformWindow() async {
   } else if (PlatformUtils.isDesktop) {
     if (Platform.isWindows) {
       try {
-        // 限制 raster scratch 的高水位；图片/IO 纹理与视频输出另有所有者。
         await SystemChannels.skia.invokeMethod<void>(
           'Skia.setResourceCacheMaxBytes',
           64 << 20,
         );
       } catch (error, stackTrace) {
-        // 缓存预算是优化项，通道不可用时沿用引擎预算并继续创建窗口。
         logger.w(
           '设置绘制资源缓存预算失败',
           error: error.runtimeType,

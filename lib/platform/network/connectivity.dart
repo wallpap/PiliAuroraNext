@@ -5,7 +5,6 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 
 abstract final class ConnectivityUtils {
-  /// 初始化可保守降级；保存按网络区分的偏好须消费 [queryWiFi] 的明确结果。
   static Future<bool> get isWiFi async =>
       (await queryWiFi()).dataOrNull ?? false;
 

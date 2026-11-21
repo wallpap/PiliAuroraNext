@@ -18,7 +18,6 @@ abstract final class AssetUtils {
     return null;
   }
 
-  /// 所有资源准备完成后返回目录；复制失败保留原始异常，允许调用方重试。
   static Future<String> getOrCopy(
     String src,
     Iterable<String> files,

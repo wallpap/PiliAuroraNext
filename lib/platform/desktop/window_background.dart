@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// 合成背景与 GDI 擦除共用同一颜色，串行提交主题和全屏状态变化。
 abstract final class DesktopWindowBackground {
   static const channel = MethodChannel('piliauroranext/window_background');
   static Color _themeColor = const Color(0xFF000000);

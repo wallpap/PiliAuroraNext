@@ -10,7 +10,6 @@ import 'package:pili_aurora_next/services/windows_update_exit.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// 不读取设置或账号；存储尚未就绪时也能显示错误并明确结束失败的进程。
 Future<void> showStartupFailure(StartupFailure failure) async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(StartupFailureApp(failure: failure, onClose: () => exit(1)));
@@ -28,7 +27,6 @@ Future<void> showStartupFailure(StartupFailure failure) async {
         title: Constants.appName,
       ),
     );
-    // waitUntilReadyToShow 的 callback 为 void，不会等待其中的异步工作。
     await windowManager.show();
     await windowManager.focus();
   }

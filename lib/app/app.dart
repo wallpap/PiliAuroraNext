@@ -32,7 +32,6 @@ import 'package:get/get.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 提供应用主题、本地化、路由、全局对话框和导航观察器。
 class PiliAuroraNextApp extends StatefulWidget {
   const PiliAuroraNextApp({
     super.key,

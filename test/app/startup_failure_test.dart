@@ -82,7 +82,6 @@ void main() {
     await tester.tap(find.text('复制错误摘要'));
     await tester.pump();
     expect(find.text('复制失败，请重试'), findsOneWidget);
-    // 诊断变更通知有 250ms 合并窗口。
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('复制错误摘要'));
     await tester.pump();

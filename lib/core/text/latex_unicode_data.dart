@@ -1,7 +1,4 @@
-/// Unicode glyph tables backing [LatexToUnicode] (see that file's
-/// header for the architecture and sources).
 abstract final class LatexData {
-  /// Macro name to Unicode symbol (Greek, operators, relations...).
   static const Map<String, String> sym = {
     'alpha': 'α',
     'beta': 'β',
@@ -82,8 +79,6 @@ abstract final class LatexData {
     'leftrightarrow': '↔',
     'Leftrightarrow': '⇔',
     'Longleftrightarrow': '⟺',
-    // \Alpha is non-standard LaTeX (MathJax extension only); approximate as
-    // plain capital A since the glyph family matches.
     'Alpha': 'A',
     'wedge': '∧',
     'vee': '∨',
@@ -162,7 +157,6 @@ abstract final class LatexData {
     'odot': '⊙',
   };
 
-  /// ASCII char to superscript glyph; missing glyphs degrade to `^(..)`.
   static const Map<String, String> supMap = {
     '0': '⁰',
     '1': '¹',
@@ -205,7 +199,6 @@ abstract final class LatexData {
     'T': 'ᵀ',
   };
 
-  /// ASCII char to subscript glyph; missing glyphs degrade to `_(..)`.
   static const Map<String, String> subMap = {
     '0': '₀',
     '1': '₁',
@@ -237,7 +230,6 @@ abstract final class LatexData {
     'v': 'ᵥ',
   };
 
-  /// Decorative macros producing empty or whitespace text.
   static const Map<String, String> voidCmds = {
     'left': '',
     'right': '',
@@ -254,7 +246,6 @@ abstract final class LatexData {
     'limits': '',
     'quad': ' ',
     'qquad': ' ',
-    // Space commands (single-char commands like \, \; \! \:)
     ',': ' ',
     ';': ' ',
     ':': ' ',
@@ -265,7 +256,6 @@ abstract final class LatexData {
     'textstyle': '',
   };
 
-  /// Style name to (upper, lower) offsets in U+1D400.
   static const Map<String, (int, int)> styleOffsets = {
     'bold': (0x1D400, 0x1D41A),
     'italic': (0x1D434, 0x1D44E),
@@ -282,7 +272,6 @@ abstract final class LatexData {
     'monospace': (0x1D670, 0x1D68A),
   };
 
-  /// U+1D400 holes: chars already occupied by an earlier style.
   static const Map<String, Map<String, int>> styleExceptions = {
     'italic': {'h': 0x210e},
     'script': {
@@ -316,7 +305,6 @@ abstract final class LatexData {
     },
   };
 
-  /// Digit styles (only 5 of 13 have math digit glyphs).
   static const Map<String, int> digitOffsets = {
     'bold': 0x1D7CE,
     'doublestruck': 0x1D7D8,
@@ -325,7 +313,6 @@ abstract final class LatexData {
     'monospace': 0x1D7F6,
   };
 
-  /// Style-swap macros to styleOffsets names.
   static const Map<String, String> styleCmds = {
     'mathbb': 'doublestruck',
     'Bbb': 'doublestruck',
@@ -340,7 +327,6 @@ abstract final class LatexData {
     'mathtt': 'monospace',
   };
 
-  /// Accent macros to combining characters.
   static const Map<String, String> accents = {
     'vec': '\u20d7',
     'overrightarrow': '\u20d7',
@@ -352,7 +338,6 @@ abstract final class LatexData {
     'dot': '\u0307',
   };
 
-  /// Plain-text macros that drop styling.
   static const Set<String> plainCmds = {
     'text',
     'mathrm',
@@ -362,10 +347,8 @@ abstract final class LatexData {
     'mathnormal',
   };
 
-  /// Macros accepting an optional `[...]` argument.
   static const Set<String> optCmds = {'sqrt'};
 
-  /// Environment names rendered as matrices.
   static const Set<String> matrixEnvs = {
     'pmatrix',
     'matrix',
@@ -375,10 +358,7 @@ abstract final class LatexData {
     'smallmatrix',
   };
 
-  /// Literal chars produced by backslash escapes (`{`, `%` ...).
   static const String literalChars = '{}&%#_\$[]~ ';
 
-  /// FIGURE SPACE: half-width monospace that survives bilibili's whitespace
-  /// flattening; pads matrix cells inside the box frame.
   static const String padChar = '\u2007';
 }

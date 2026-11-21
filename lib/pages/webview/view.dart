@@ -385,12 +385,6 @@ document.styleSheets[0].insertRule('#app__display-area > div.control-panel {disp
                   ''',
                         );
                       }
-                      // _webViewController?.evaluateJavascript(
-                      //   source: '''
-                      //     document.querySelector('#internationalHeader').remove();
-                      //     document.querySelector('#message-navbar').remove();
-                      //   ''',
-                      // );
                     },
                   ),
                   onDownloadStartRequest: Platform.isAndroid
@@ -519,7 +513,6 @@ document.styleSheets[0].insertRule('#app__display-area > div.control-panel {disp
                               off: _off,
                             );
                             if (!current()) return .CANCEL;
-                            // if (kDebugMode) debugPrint('webview: [$url], [$hasMatch]');
                             if (hasMatch) {
                               _progress.value = 1;
                               return .CANCEL;

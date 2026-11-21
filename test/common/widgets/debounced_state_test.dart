@@ -59,7 +59,6 @@ void main() {
       await tester.pump();
       harness.ctr!.add('old queued');
       harness.subInit();
-      // 先经过一个完整静默期，避免新输入恰好取消旧计时器而掩盖订阅泄漏。
       await tester.pump();
       await tester.pump(harness.duration);
       expect(harness.values, isEmpty);

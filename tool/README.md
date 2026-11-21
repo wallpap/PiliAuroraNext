@@ -12,6 +12,7 @@
 | `run-native-probes.ps1` | 使用项目固定 Flutter 源码执行 Android 主机 Java 探针。 |
 | `check-tooling.ps1` | Python 语法与 Ruff、PowerShell 语法与 PSScriptAnalyzer 扫描。 |
 | `check_dependencies.dart` | 依赖版本、来源和许可证验收。 |
+| `check_comments.dart`、`check_native_comments.py` | 第一方源码与配置的注释棘轮、逐条盘点与可删行估算。 |
 | `analyze-protocol.ps1` | 单独分析 Bilibili 生成协议快照。 |
 | `export_shortcut_icons.py` | 从 Android mdpi 源图生成快捷方式图标的其他密度，保留日夜配置。 |
 | `verify_libmpv.py` | 校验 Windows libmpv 下载归档、合并通知及原文哈希。 |
@@ -123,6 +124,27 @@ fvm flutter test --no-pub test/architecture/dependency_policy_test.dart
 该工具只读工作区，检查 Git 来源、path 范围、来源 SHA、许可证、版本登记与锁文件，并核对合并依赖的目录和许可证信息。可用位置参数指定工作区。普通依赖更新和定制包维护流程见 `third_party/README.md`。本地构建和 CI 会在依赖解析后执行检查，依赖解析使用 `--enforce-lockfile`。更新版本时先修改精确约束，再运行 `fvm flutter pub get` 并核对锁文件差异。
 
 ## 工具静态检查
+
+### 注释棘轮
+
+```powershell
+fvm dart run tool/check_comments.dart
+fvm dart run tool/check_comments.dart --stats
+fvm dart run tool/check_comments.dart --inventory lib/app
+uv run --locked --with-requirements tool/comment-lint-requirements.txt python tool/check_native_comments.py
+uv run --locked --with-requirements tool/comment-lint-requirements.txt python tool/check_native_comments.py --stats
+uv run --locked --with-requirements tool/comment-lint-requirements.txt python tool/check_native_comments.py --inventory windows
+```
+
+本地默认以 `HEAD` 检查未提交改动，包括尚未 `git add` 的文件；检查整条分支时，两条命令均支持 `--check origin/main` 或指定提交。PR CI 对比目标分支的基线提交，手动 CI 对比所选提交的第一父提交。缺失基线时检查失败。
+
+Dart 检查覆盖 `lib/`、`test/`、`tool/` 等目录和 `.dart.in` 模板；生成文件列入盘点，不直接编辑。另一入口覆盖原生代码、构建脚本、配置、着色器等，由文件类型选择词法规则。补丁只盘点 hunk 中完全由新增行组成的注释，不改写上游上下文。两者排除已登记的上游副本；完整类型和例外见脚本。
+
+两条规则都按文件比较注释原文及数量：可删旧注释、改代码或在原文件保留原文，不得新增、改写、增加重复副本或移入其他文件。行号和换行格式不影响比较。保留存量的工具指令、授权和来源声明；必须新增时评审显式例外。
+
+`--inventory` 输出注释 token 的 JSON 行；`--stats` 报告纯注释物理行的可删上限，不将行尾注释算作一行。两者都可指定目录或文件。清理流程见 [delete-comment](../.agents/skills/delete-comment/SKILL.md)。
+
+### Python 与 PowerShell
 
 ```powershell
 pwsh -NoProfile -File tool/check-tooling.ps1

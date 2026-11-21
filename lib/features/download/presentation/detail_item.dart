@@ -39,7 +39,6 @@ class DetailItem extends ConsumerWidget {
     this.onDelete,
     required this.showTitle,
     this.currentTask,
-    //
     this.enableMultiSelect = false,
     this.checked,
     this.onSelect,
@@ -53,7 +52,6 @@ class DetailItem extends ConsumerWidget {
   final VoidCallback? onDelete;
   final bool showTitle;
   final DownloadTask? currentTask;
-  //
   final bool enableMultiSelect;
   final bool? checked;
   final ValueChanged<BiliDownloadEntryInfo>? onSelect;

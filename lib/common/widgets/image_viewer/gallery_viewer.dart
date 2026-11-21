@@ -220,12 +220,6 @@ class _GalleryViewerState extends State<GalleryViewer>
   Matrix4 _onTransform(double val) {
     final scale = val.lerp(1.0, 0.25);
 
-    // Matrix4.identity()
-    //   ..translateByDouble(size.width / 2, size.height / 2, 0, 1)
-    //   ..translateByDouble(size.width * val * dx, size.height * val * dy, 0, 1)
-    //   ..scaleByDouble(scale, scale, scale, 1)
-    //   ..translateByDouble(-size.width / 2, -size.height / 2, 0, 1);
-
     final tmp = (1.0 - scale) / 2.0;
     return Matrix4.diagonal3Values(scale, scale, scale)..setTranslationRaw(
       _containerSize.width * (val * dx + tmp),

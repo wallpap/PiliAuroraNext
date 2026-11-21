@@ -140,5 +140,5 @@ TEST_F(ExternalTextureD3dTest, ReusesLiveTextureWithoutReleasingItsGLName) {
   EXPECT_EQ(release_count_, 11);
 }
 
-}  // namespace
-}  // namespace flutter::testing
+}
+}

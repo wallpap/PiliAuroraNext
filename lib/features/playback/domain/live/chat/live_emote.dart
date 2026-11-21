@@ -20,13 +20,6 @@ class BaseEmote {
   };
 }
 
-// class Emote extends BaseEmote {
-//   late int count;
-//   late String descript;
-//   late String emoji;
-//   late int emoticonId;
-// }
-
 /*
 {
   "bulge_display": 1,
@@ -49,8 +42,3 @@ class BaseEmote {
 }
 
 */
-// class Uemote extends BaseEmote {
-//   late int bulgeDisplay;
-//   late int inPlayerArea;
-//   late int isDynamic;
-// }

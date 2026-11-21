@@ -228,7 +228,6 @@ class PlPlayerController
 
   Box setting = GStorage.setting;
 
-  // final Durations durations;
 
   String get bvid => _bvid!;
 
@@ -2095,7 +2094,6 @@ class PlPlayerController
           if (!kDebugMode) {
             reportError('$event\n${player.state.playlist}');
           }
-          // SmartDialog.showToast('视频加载错误, $event');
         }
       }),
     ];
@@ -2443,7 +2441,6 @@ class PlPlayerController
         );
       }
     } else {
-      // if (kDebugMode) debugPrint('$playbackSpeed');
       longPressStatus.value = val;
       await setPlaybackSpeed(lastPlaybackSpeed);
     }

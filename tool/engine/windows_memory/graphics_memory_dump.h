@@ -196,5 +196,5 @@ inline rapidjson::Document CaptureGraphicsMemory(GrDirectContext* context,
   return result;
 }
 
-}  // namespace flutter
+}
 #endif  // FLUTTER_SHELL_COMMON_GRAPHICS_MEMORY_DUMP_H_

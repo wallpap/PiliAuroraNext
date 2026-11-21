@@ -203,7 +203,6 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
         if (controller.isLoaded.value) {
           final Widget content;
           if (controller.opus != null) {
-            // if (kDebugMode) debugPrint('json page');
             content = OpusContent(
               opus: controller.opus!,
               images: controller.images,
@@ -212,7 +211,6 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             );
           } else if (controller.opusData?.modules.moduleBlocked
               case final moduleBlocked?) {
-            // if (kDebugMode) debugPrint('moduleBlocked');
             content = SliverToBoxAdapter(
               child: moduleBlockedItem(context, theme, moduleBlocked),
             );
@@ -224,7 +222,6 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 maxWidth: maxWidth,
               );
             }
-            // if (kDebugMode) debugPrint('html page');
             final res = parser.parse(controller.articleData!.content!);
             if (res.body!.children.isEmpty) {
               content = SliverToBoxAdapter(

@@ -37,7 +37,7 @@ const MemoryMetrics::Allocation* FindChanged(const MemoryMetrics::Snapshot& snap
   }
   return nullptr;
 }
-}  // namespace
+}
 
 int main() {
   MemoryMetrics::Options options;

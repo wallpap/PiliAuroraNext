@@ -23,12 +23,12 @@ extension StringExt on String {
     loop:
     for (int index = length - 1; index >= 0; index--) {
       switch (codeUnitAt(index)) {
-        case 0x5F || 0x7C: // `_`, `|`
+        case 0x5F || 0x7C:
           start = index + 1;
           break loop;
-        case 0x5B: // `[`
+        case 0x5B:
           start = index + 1;
-        case 0x5D: // `]`
+        case 0x5D:
           end = index;
       }
     }

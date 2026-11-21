@@ -43,5 +43,5 @@ inline std::shared_ptr<IdleGpuTrim> CreateWindowsIdleGpuTrim(ID3D11Device* devic
       });
 }
 
-}  // namespace flutter
+}
 #endif  // FLUTTER_SHELL_PLATFORM_WINDOWS_IDLE_GPU_TRIM_WINDOWS_H_

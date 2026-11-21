@@ -19,7 +19,6 @@ Widget htmlRender({
   List<String>? imgList,
   required double maxWidth,
 }) {
-  // if (kDebugMode) debugPrint('htmlRender');
   final extensions = [
     TagExtension(
       tagsToExtend: <String>{'img'},

@@ -103,8 +103,6 @@ public final class AndroidHelper {
         cookiesList.add(cookie);
         intent.putStringArrayListExtra("cookies", cookiesList);
         Context context = getContext();
-        // Android 的包可见性过滤可能令 resolveActivity 返回空，即使目标可以启动。
-        // 直接尝试启动并处理可选扩展缺失，不新增包查询权限，也不静默吞掉失败。
         try {
             context.startActivity(intent);
         } catch (ActivityNotFoundException | SecurityException _) {
@@ -177,8 +175,6 @@ public final class AndroidHelper {
             assert activity != null;
             PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder()
                     .setAspectRatio(new Rational(width, height));
-            // JNI 入口没有播放器在窗口内的坐标，使用当前可见内容区域作为过渡边界。
-            // 后台或尚未布局时不设置空矩形，保留系统默认动画。
             View content = activity.findViewById(android.R.id.content);
             Rect sourceRect = new Rect();
             if (content != null && content.getGlobalVisibleRect(sourceRect) && !sourceRect.isEmpty()) {

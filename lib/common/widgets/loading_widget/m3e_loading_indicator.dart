@@ -37,7 +37,6 @@ class M3ELoadingIndicator extends StatefulWidget {
 
   final Color? color;
   final Size size;
-  // final Key? childKey;
 
   @override
   State<M3ELoadingIndicator> createState() => _M3ELoadingIndicatorState();

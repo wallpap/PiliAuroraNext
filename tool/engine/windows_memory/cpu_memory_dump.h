@@ -64,5 +64,5 @@ inline rapidjson::Value CpuMemoryCounters(
   return result;
 }
 
-}  // namespace flutter
+}
 #endif  // FLUTTER_SHELL_COMMON_CPU_MEMORY_DUMP_H_

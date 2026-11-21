@@ -42,7 +42,6 @@ final class StartupFailure extends StartupResult implements Exception {
       ? '无法读取本地配置或账号数据。请关闭应用后重新打开；若问题持续，请保留现有数据并附上错误摘要反馈。'
       : '${phase.label}未能完成初始化。请关闭应用后重新打开；若问题持续，请附上错误摘要反馈。';
 
-  /// 只导出定位所需信息；原始异常正文可能包含账号、路径或 IPC 凭证。
   String get diagnosticSummary => [
     'PiliAuroraNext ${BuildConfig.versionName}+${BuildConfig.versionCode}',
     'Commit: ${BuildConfig.commitHash}',
@@ -58,7 +57,6 @@ final class StartupFailure extends StartupResult implements Exception {
   String toString() => 'StartupFailure(${phase.name}, ${cause.runtimeType})';
 }
 
-/// 启动装配逐步更新阶段，失败保留同一次初始化的原始原因和堆栈。
 class StartupProgress {
   StartupPhase phase = StartupPhase.engine;
 

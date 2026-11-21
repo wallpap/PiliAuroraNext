@@ -952,14 +952,12 @@ class LiveRoomController {
         ? obj.receivedAtUs
         : liveDanmakuNowUs();
     try {
-      // logger.i(' 原始弹幕消息 ======> ${jsonEncode(obj)}');
       switch (obj['cmd']) {
         case 'DANMU_MSG':
           final info = obj['info'];
           final first = info[0];
           final content = first[15];
           final user = content['user'];
-          // final midHash = first[7];
           final uid = user['uid'];
           final msg = info[1];
           if (isBlocked(msg, uid)) {

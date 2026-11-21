@@ -76,7 +76,7 @@ bool Larger(const Allocation& a, const Allocation& b) {
   }
   return a.bytes.allocated_bytes() > b.bytes.allocated_bytes();
 }
-}  // namespace
+}
 
 bool MemoryMetrics::Counters::operator==(const Counters& other) const {
   return std::tie(committed_bytes, reserved_bytes, free_bytes,
@@ -185,7 +185,6 @@ MemoryMetrics::Snapshot MemoryMetrics::Scan(uint64_t previous_tick) {
     if (tracked_.find(current.base) != tracked_.end()) {
       existing.emplace(current.base, a);
     } else if (a.above_threshold) {
-      // 固定大小候选集合；既有身份优先，新候选保留最大块。
       if (candidates.size() < options_.max_allocations) {
         candidates.push_back(current);
       } else {
@@ -246,7 +245,6 @@ MemoryMetrics::Snapshot MemoryMetrics::Scan(uint64_t previous_tick) {
     cursor = next;
   }
   finish_allocation();
-  // 扫描中途失败不得把尚未遍历的旧项误报为 released。
   if (out.complete) ApplyObservation(out, existing, candidates);
   out.scan_duration_us = static_cast<uint64_t>(
       std::chrono::duration_cast<std::chrono::microseconds>(

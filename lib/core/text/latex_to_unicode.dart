@@ -1,11 +1,3 @@
-/// Converts TeX math source into Unicode text.
-///
-/// Known boundaries (by design):
-/// - Unknown macros render verbatim and are registered in the warnings list;
-/// - Malformed input (unclosed `{`) throws [ParseError] and the issue goes
-///   to warnings;
-/// - Fragments without a Unicode glyph stay in source.
-///
 /// Reference: pylatexenc (https://github.com/phfaist/pylatexenc, MIT).
 library;
 
@@ -45,7 +37,6 @@ final class GroupNode extends TexNode {
   final List<TexNode> items;
 }
 
-/// Command with an optional `[...]` and required `{...}` arguments.
 final class CommandNode extends TexNode {
   const CommandNode(this.name, this.optional, this.args);
 
@@ -54,7 +45,6 @@ final class CommandNode extends TexNode {
   final List<GroupNode> args;
 }
 
-/// Base with scripts; chained scripts wrap.
 final class ScriptNode extends TexNode {
   const ScriptNode(this.base, {this.sup, this.sub});
 
@@ -63,7 +53,6 @@ final class ScriptNode extends TexNode {
   final TexNode? sub;
 }
 
-/// An environment (`\begin{...}...\end{...}`); matrix envs render as rows.
 final class EnvironmentNode extends TexNode {
   const EnvironmentNode(this.name, this.items);
 
@@ -78,9 +67,6 @@ abstract final class LatexToUnicode {
     return (rendered, renderer.warnings);
   }
 
-  /// Scans [text] for `$...$` / `$$...$$` spans and converts each one.
-  /// Malformed spans are left in source form and reported through warnings;
-  /// this is the editor-facing entry point and never throws.
   static (List<({int start, int end, String converted})>, List<String>)
   convertSpans(String text) {
     final spans = <({int start, int end, String converted})>[];
@@ -133,13 +119,9 @@ abstract final class LatexToUnicode {
     return -1;
   }
 
-  /// String to AST; throws [ParseError] on structural errors.
   static List<TexNode> parse(String source) =>
       Parser(Lexer(source).run()).parse();
 
-  /// Whole text styled with a math font.
-  ///
-  /// A style name must exist in [LatexData.styleOffsets].
   static String fmtMathText(String text, String style) {
     return String.fromCharCodes(
       text.runes.map((r) => _styleCharCode(r, style)),
@@ -148,8 +130,6 @@ abstract final class LatexToUnicode {
 
   static String _superscript(String value) {
     if (value.runes.length == 1) {
-      // Letters/digits without a glyph degrade visibly `^(q)`; plain symbols
-      // (∞, ∑...) stay bare so ∫₀∞ reads naturally.
       final char =
           LatexData.supMap[value] ?? LatexData.supMap[_styleCharToAscii(value)];
       if (char != null) return char;
@@ -226,7 +206,6 @@ class Lexer {
     }
     final char = source[pos];
     if (char == '\\') {
-      // Line break request: double backslash literal.
       pos++;
       return const Token(TokenKind.text, '\\');
     }
@@ -235,7 +214,6 @@ class Lexer {
       return Token(TokenKind.text, char);
     }
     if (char == '\n' || char == '\r') {
-      // TeX line continuation: backslash + newline concatenates nearby lines.
       pos++;
       return const Token(TokenKind.text, ' ');
     }
@@ -245,8 +223,6 @@ class Lexer {
         pos++;
       } while (pos < source.length && _alphaRegex.hasMatch(source[pos]));
       final name = source.substring(start, pos);
-      // The first space after a command name is a TeX separator, swallowed
-      // for alphabetic names; symbol macros keep it for readability (∩ ∈).
       if (pos < source.length &&
           source[pos] == ' ' &&
           !LatexData.sym.containsKey(name)) {
@@ -279,8 +255,6 @@ final class Parser {
         return items;
       }
       if (endToken != null && token.value == endToken) {
-        // Only raw paired braces/brackets count; escaped literals like \{ are
-        // text tokens and must not close a group.
         if (token.kind == .brace || token.kind == .brack) {
           pos++;
           return items;
@@ -291,9 +265,6 @@ final class Parser {
     }
   }
 
-  /// Binds trailing `^` / `_` to the previous atom (supports `x_i^2` chain).
-  /// [prev] is the previous sequence item; the leading space is stripped only
-  /// after a script node (∫₀¹x), operator spaces are kept (x^2 + 2x).
   TexNode _attachScripts(TexNode item, TexNode? prev) {
     while (true) {
       final token = _peek();
@@ -316,7 +287,6 @@ final class Parser {
     return item;
   }
 
-  /// `^`/`_` binding: `{group}` or a single atom; null when nothing follows.
   TexNode? _scriptArg() {
     final token = _peek();
     if (token == null) return null;
@@ -333,7 +303,6 @@ final class Parser {
       if (token.kind == TokenKind.text &&
           item is TextNode &&
           item.content.runes.length > 1) {
-        // TeX semantics: ^/_ bind one atom only; remaining chars roll back.
         final first = item.content.substring(0, item.content[0].length);
         tokens.insert(
           pos,
@@ -360,10 +329,8 @@ final class Parser {
       case TokenKind.brace:
         return GroupNode(_sequence(endToken: _pairs[token.value]));
       case TokenKind.brack:
-        // Bare brackets outside optional-arg context are literals.
         return TextNode(token.value);
       case TokenKind.script:
-        // Scripts are bound at the sequence level; nothing binds here.
         return TextNode(token.value);
       case TokenKind.amp:
         return const TextNode('&');
@@ -392,7 +359,6 @@ final class Parser {
     return CommandNode(name, optional, args);
   }
 
-  /// Bracketless argument (`\sqrt 5` -> 5), skipping layout-only spaces.
   TexNode? _parseBareArg() {
     var token = _peek();
     if (token == null) return null;
@@ -428,7 +394,6 @@ final class Parser {
     return null;
   }
 
-  /// Consecutive `{..}` required args (bare groups of arg-less macros too).
   List<GroupNode> _parseRequiredArgs() {
     final List<GroupNode> args = [];
     while (true) {
@@ -510,7 +475,6 @@ int _styleCharCode(int code, String style) {
   return code;
 }
 
-/// Math-font char back to ASCII letter (for script-glyph fallback).
 String _styleCharToAscii(String char) {
   final code = char.runes.first;
   for (final (up, lo) in LatexData.styleOffsets.values) {
@@ -531,7 +495,6 @@ String _styleCharToAscii(String char) {
 
 final _parenReg = RegExp(r'[+\-= /]');
 bool _needsParen(String value) {
-  // Top-level un-paired composite like n(n+1) gets one extra paren layer.
   return value.runes.length > 1 &&
       _parenReg.hasMatch(value) &&
       !_isParenWrapped(value);
@@ -539,7 +502,6 @@ bool _needsParen(String value) {
 
 String _wrap(String value) => _needsParen(value) ? '($value)' : value;
 
-/// Whether parens open at char 0 and close exactly at the end.
 bool _isParenWrapped(String value) {
   if (!value.startsWith('(') || !value.endsWith(')')) return false;
   var depth = 0;
@@ -578,7 +540,6 @@ class Renderer {
     }
   }
 
-  /// First-written script renders first (x_i^2 -> xᵢ², x^2_1 -> x²₁).
   String _emitScript(TexNode base, TexNode? sup, TexNode? sub) {
     final sb = StringBuffer(_emit(base));
     if (sub != null) sb.write(LatexToUnicode._subscript(_flat(sub)));
@@ -641,7 +602,6 @@ class Renderer {
     return _unknownMacro(name, argText);
   }
 
-  /// Unknown macro keeps all args verbatim; trailing space prevents gluing.
   String _unknownMacro(String name, List<String> argText) {
     warnings.add('未知宏：\\$name');
     if (argText.isEmpty) {
@@ -654,7 +614,6 @@ class Renderer {
     return buffer.toString();
   }
 
-  /// Root: `\sqrt{x}` -> √x, `\sqrt[3]{x}` -> ³√x.
   String _sqrt(GroupNode? optional, String body) {
     final isDigit =
         body.isNotEmpty && body.codeUnits.every((c) => c >= 0x30 && c <= 0x39);
@@ -665,21 +624,18 @@ class Renderer {
     return '$degree√$core';
   }
 
-  /// Fraction: numerator/denominator, parenthesized when needed.
   String _frac(List<String> argText) {
     final numerator = argText.isEmpty ? '' : argText.first;
     final denominator = argText.length > 1 ? argText[1] : '';
     return '${_wrap(numerator)}/${_wrap(denominator)}';
   }
 
-  /// Stack: base(annotation) (`\overset{a}{b}` -> b(a)).
   String _stack(List<String> argText) {
     final first = argText.isEmpty ? '' : argText.first;
     final base = argText.length > 1 ? argText[1] : '';
     return '$base($first)';
   }
 
-  /// Matrix envs output `[ row ; row ]`; others render their sequence.
   String _emitEnvironment(String name, List<TexNode> items) {
     if (!LatexData.matrixEnvs.contains(name)) {
       return render(items);
@@ -711,7 +667,6 @@ class Renderer {
     final kept = rows.where((r) => r.any((c) => c.trim().isNotEmpty)).toList();
     if (kept.isEmpty) return '';
     if (kept.length == 1) {
-      // A single row keeps the compact inline form (font-agnostic).
       return '[ ${kept.first.join(' ')} ]';
     }
     return _frameMatrix(kept);
@@ -726,9 +681,6 @@ class Renderer {
   }
 }
 
-/// Box frame around a multi-row matrix, cells centered on [LatexData.padChar]
-/// (figure space: half-width monospace, flattening-proof). Column width is
-/// measured on the rendered cells, so nested formulas align too.
 String _frameMatrix(List<List<String>> sourceRows, {int pad = 2}) {
   int cols = 0;
   for (final row in sourceRows) {
