@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/platform/desktop/window_background.dart';
 import 'package:pili_aurora_next/platform/desktop/window_visibility.dart';
 import 'package:window_manager/window_manager.dart';
 
+/// 根节点同步窗口外观，主窗口和独立播放窗口共用。
 class DesktopWindowTheme extends StatefulWidget {
   const DesktopWindowTheme({
     super.key,
@@ -74,6 +75,8 @@ class _DesktopWindowThemeState extends State<DesktopWindowTheme>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused) {
+      // SchedulerBinding 会在这些状态下禁止普通 frame；强制提交一次
+      // TickerMode 更新，让子树及时释放视觉订阅和显示资源。
       SchedulerBinding.instance.scheduleForcedFrame();
     }
   }
@@ -85,6 +88,7 @@ class _DesktopWindowThemeState extends State<DesktopWindowTheme>
     final brightness = Theme.of(context).brightness;
     if (_brightness == brightness) return;
     _brightness = brightness;
+    // Windows 使用 Flutter 自绘标题栏，无需再同步系统标题栏亮暗。
     if (!Platform.isWindows) {
       unawaited(windowManager.setBrightness(brightness));
     }
@@ -115,6 +119,7 @@ class _DesktopWindowThemeState extends State<DesktopWindowTheme>
 
   @override
   Widget build(BuildContext context) => TickerMode(
+    // inactive 只表示失焦，其他播放窗口仍可能可见，不能停止其视觉更新。
     enabled: !Platform.isWindows || _windowVisible,
     child: widget.child,
   );

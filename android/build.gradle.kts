@@ -29,6 +29,7 @@ subprojects {
                 androidExtension.namespace = project.group.toString()
             }
 
+            // 应用与 Flutter 插件源码统一使用 JDK 25，Java/Kotlin 字节码目标保持一致。
             androidExtension.compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_25
                 targetCompatibility = JavaVersion.VERSION_25

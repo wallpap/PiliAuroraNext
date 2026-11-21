@@ -9,6 +9,11 @@ abstract final class AppSign {
     String appkey = Constants.appKey,
     String appsec = Constants.appSec,
   }) {
+    // retry error
+    // assert(
+    //   params['appkey'] == null,
+    //   'appkey-appsec should be provided in appSign',
+    // );
     params['appkey'] = appkey;
     params['ts'] = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
     final sorted = params.entries.toList()

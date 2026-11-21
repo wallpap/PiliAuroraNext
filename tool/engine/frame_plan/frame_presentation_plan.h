@@ -126,5 +126,5 @@ inline std::optional<FramePresentationPlan> SelectFramePresentationPlan(
                                now_ns, period_ns, feedback};
 }
 
-}
+}  // namespace flutter
 #endif  // FLUTTER_FLOW_FRAME_PRESENTATION_PLAN_H_

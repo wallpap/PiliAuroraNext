@@ -45,6 +45,7 @@ jobs:
         name: Release Android
         runs-on: ubuntu-latest
         env:
+            # CI 不复用目录监听状态，避免 Linux runner 重复注册同一路径。
             GRADLE_OPTS: "--enable-native-access=ALL-UNNAMED -Dorg.gradle.vfs.watch=false -Dorg.gradle.caching=true"
         permissions:
             contents: write
@@ -124,6 +125,7 @@ jobs:
                   RELEASE_VERSION: ${{ inputs.tag }}
               run: lib/scripts/build.ps1 -Version $env:RELEASE_VERSION
 
+            # 插件将原生 JAR 下载到项目 build 目录，不在 Gradle 用户缓存内。
             - name: Cache Android libmpv archives
               uses: actions/cache@v5
               with:

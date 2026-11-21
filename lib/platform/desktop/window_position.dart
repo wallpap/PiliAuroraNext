@@ -5,6 +5,7 @@ import 'package:pili_aurora_next/services/settings/window_preferences.dart';
 import 'package:flutter/rendering.dart' show Offset, Size, Rect;
 import 'package:screen_retriever/screen_retriever.dart';
 
+/// 窗口恢复属于可选平台能力，失败时返回默认起点。
 Future<Offset> calcWindowPosition(Size windowSize) async {
   var displays = <Display>[];
   Offset? cursor;

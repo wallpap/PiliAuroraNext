@@ -22,7 +22,7 @@ void InitializeUploadFeatures(UINT vendor, UINT device, angle::FeaturesD3D* feat
   adapter.DeviceId = device;
   rx::d3d11::InitializeFeatures(caps, adapter, features);
 }
-}
+}  // namespace
 
 TEST(WindowsImageUploadTest, AMDUsesStagingByDefault) {
   angle::FeaturesD3D features;
@@ -93,4 +93,4 @@ TEST(WindowsImageUploadHardwareTest, EffectiveFeatureMatchesRequestedMode) {
   }
   EXPECT_TRUE(found);
 }
-}
+}  // namespace flutter::testing

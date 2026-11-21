@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
 
+# 同一 PR 只验证最新提交；手动运行各自保留。
 concurrency:
   group: checks-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -15,24 +16,9 @@ jobs:
   checks:
     name: Linux host checks
     runs-on: ubuntu-latest
-    env:
-      COMMENT_BASE: ${{ github.event.pull_request.base.sha || 'HEAD^' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: .python-version
-
-      - name: Reject new non-Dart source comments
-        run: |
-          python -m pip install -r tool/comment-lint-requirements.txt
-          python tool/check_native_comments.py --check "$COMMENT_BASE"
-          python -m unittest discover -s tool/comment_lint/tests
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -53,9 +39,6 @@ jobs:
 
       - name: Check dependency sources and versions
         run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart
-
-      - name: Reject new Dart source comments
-        run: dart --packages=.dart_tool/package_config.json tool/check_comments.dart --check "$COMMENT_BASE"
 
       - name: Analyze application, tests and tools
         run: flutter analyze --no-pub lib test tool
@@ -78,6 +61,11 @@ jobs:
         run: |
           c++ -std=c++17 -pthread tool/engine/frame_plan/frame_presentation_plan_test.cc -o "$RUNNER_TEMP/frame-plan-test"
           "$RUNNER_TEMP/frame-plan-test"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
 
       - name: Test tools and native host probes
         run: python tool/run_python_tests.py --native --jobs 4

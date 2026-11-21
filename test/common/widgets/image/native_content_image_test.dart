@@ -328,6 +328,7 @@ void main() {
           expect(tester.widget<RawImage>(pixels).image!.width, 720);
           expect(imageErrors, isEmpty);
         } else {
+          // Flutter 的格式能力随引擎而定，回退结果须与独立完整帧参照一致。
           expect(imageErrors, [referenceError.toString()]);
           imageErrors.clear();
         }
@@ -335,6 +336,7 @@ void main() {
         await close(tester);
         viewport.dispose();
       }
+      // 同一测试内复用来源队列，避免 Future 绑定到已结束的 FakeAsync 区域。
       nativeWorkerEvents.clear();
       final viewport = ValueNotifier<ContentViewport?>(
         const ContentViewport(Rect.fromLTWH(0, 0, 8192, 3972), .15),

@@ -62,6 +62,8 @@ class EpisodePanel extends CommonSlidePage {
 
   final UgcIntroController? ugcIntroController;
   final EpisodeType type;
+  // final int count;
+  // final String name;
   final int? aid;
   final String bvid;
   final int cid;
@@ -489,6 +491,7 @@ class _EpisodePanelState extends State<EpisodePanel>
                   AccountScope.mainUsesVideoCredentials &&
                   vipStatus != 1) {
                 SmartDialog.showToast('需要大会员');
+                // return;
               }
               SmartDialog.showToast('切换到：$title');
               widget.onClose?.call();

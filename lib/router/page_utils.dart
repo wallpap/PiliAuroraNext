@@ -297,6 +297,7 @@ abstract final class PageUtils {
       return;
     }
 
+    // if (kDebugMode) debugPrint('pushDynDetail: ${item.type}');
 
     switch (item.type) {
       case 'DYNAMIC_TYPE_AV':
@@ -372,6 +373,7 @@ abstract final class PageUtils {
         break;
 
       case 'DYNAMIC_TYPE_PGC':
+        // if (kDebugMode) debugPrint('番剧');
         SmartDialog.showToast('暂未支持的类型，请联系开发者');
         break;
 
@@ -425,6 +427,7 @@ abstract final class PageUtils {
 
       /// 番剧查看
       case 'DYNAMIC_TYPE_PGC_UNION':
+        // if (kDebugMode) debugPrint('DYNAMIC_TYPE_PGC_UNION 番剧');
         final pgc = item.modules.moduleDynamic!.major!.pgc!;
         if (pgc.epid != null) {
           viewPgc(epId: pgc.epid);

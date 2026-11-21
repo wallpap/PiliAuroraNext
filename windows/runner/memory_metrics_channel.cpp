@@ -75,7 +75,7 @@ EncodableMap Encode(const MemoryMetrics::Snapshot& s) {
       {V("changes"), V(changes)},
   };
 }
-}
+}  // namespace
 
 MemoryMetricsChannel::MemoryMetricsChannel(flutter::FlutterEngine* engine) {
   channel_ = std::make_unique<flutter::MethodChannel<V>>(
@@ -95,6 +95,7 @@ MemoryMetricsChannel::MemoryMetricsChannel(flutter::FlutterEngine* engine) {
         const auto found = args->find(V("afterSampleId"));
         if (found != args->end()) {
           const auto* previous = std::get_if<int64_t>(&found->second);
+          // StandardMessageCodec 使用 int32 编码小整数。
           const auto* previous32 = std::get_if<int32_t>(&found->second);
           if ((previous && *previous == static_cast<int64_t>(snapshot.sample_id)) ||
               (previous32 && *previous32 == static_cast<int64_t>(snapshot.sample_id))) {

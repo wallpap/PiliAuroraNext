@@ -148,6 +148,7 @@ abstract final class PiliScheme {
     int? businessId,
     int? oid,
   }) async {
+    // if (kDebugMode) debugPrint('onAppLink: $uri');
 
     final String scheme = uri.scheme;
     final String host = uri.host;
@@ -290,6 +291,9 @@ abstract final class PiliScheme {
               final type = int.parse(pathSegments[1]); // business_id
               final oid = int.parse(pathSegments[2]); // subject_id
               final rootId = int.parse(pathSegments[3]); // root_id // target_id
+              // int subType = int.parse(queryParameters['subType'] ?? '0');
+              // int extraIntentId =
+              // int.parse(queryParameters['extraIntentId'] ?? '0');
               final enterUri = queryParameters['enterUri'];
               VideoReplyReplyPanel.toReply(
                 oid: oid,
@@ -682,6 +686,7 @@ abstract final class PiliScheme {
     final String? area = const ['mobile', 'h5', 'v'].contains(first)
         ? pathSegments.elementAtOrNull(1)
         : first;
+    // if (kDebugMode) debugPrint('area: $area');
     switch (area) {
       case 'note' || 'note-app':
         String? id = uri.queryParameters['cvid'];
@@ -752,6 +757,7 @@ abstract final class PiliScheme {
         return false;
       case 'bangumi':
         // www.bilibili.com/bangumi/play/ep{eid}?start_progress={offset}&thumb_up_dm_id={dmid}
+        // if (kDebugMode) debugPrint('番剧');
         bool hasMatch = PageUtils.viewPgcFromUri(
           path,
           progress: _videoProgress(uri.queryParameters),
@@ -762,6 +768,7 @@ abstract final class PiliScheme {
         launchURL();
         return false;
       case 'video':
+        // if (kDebugMode) debugPrint('投稿');
         final res = IdUtils.matchAvorBv(input: path);
         if (res.isNotEmpty) {
           final queryParameters = uri.queryParameters;
@@ -805,6 +812,7 @@ abstract final class PiliScheme {
           launchURL();
           return false;
         }
+        // if (kDebugMode) debugPrint('专栏');
         String? id = RegExp(
           r'cv(\d+)',
           caseSensitive: false,
@@ -823,6 +831,7 @@ abstract final class PiliScheme {
         launchURL();
         return false;
       case 'space':
+        // if (kDebugMode) debugPrint('个人空间');
         String? mid = uriDigitRegExp.firstMatch(path)?.group(1);
         if (mid != null) {
           PageUtils.toDupNamed(

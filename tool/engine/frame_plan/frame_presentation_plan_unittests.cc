@@ -21,7 +21,7 @@ class ContentTexture final : public Texture {
     dirty = false;
   }
 };
-}
+}  // namespace
 
 TEST(FramePresentationPlanTest, InvalidTimelineFallsBackWithoutOscillation) {
   constexpr int64_t period = 8'000'000;
@@ -155,4 +155,4 @@ TEST(FramePresentationPlanTest, ContentDamageInitializesPreviouslyUntrackedTree)
   EXPECT_FALSE(damage.GetFrameDamage()->IsEmpty());
 }
 
-}
+}  // namespace flutter

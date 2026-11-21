@@ -246,6 +246,9 @@ class LiveMessageStream {
         return _failure ?? const LiveMessageConnectionResult.closed();
       }
       _channel = channel;
+      // logger
+      //   ..d('$logTag ===> TCP连接建立')
+      //   ..d('$logTag ===> 发送认证包');
       _socketSubscription = channel.stream
           .map((data) => (data, Timeline.now))
           .asyncMap((event) => onData(event.$1, receivedAtUs: event.$2))

@@ -53,6 +53,7 @@ mixin TripleMixin {
     final availableCoins = CoinBalance.instance.amount;
     if (availableCoins != null && availableCoins < 1) {
       SmartDialog.showToast('硬币不足');
+      // return;
     }
 
     PayCoinsPage.toPayCoinsPage(

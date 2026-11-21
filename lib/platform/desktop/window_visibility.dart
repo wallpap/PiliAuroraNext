@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
+/// 将插件的窗口状态事件收敛为可见性，供视觉更新与播放策略共用。
+/// Windows 从最小化恢复到最大化时只发送 maximize，不发送 restore。
 mixin DesktopWindowVisibilityListener
     on WindowListener, WidgetsBindingObserver {
   bool _minimized = false;

@@ -34,4 +34,8 @@ abstract final class Morphs {
   //   MaterialShapes.cookie12Sided,
   // ]);
 
+  // static final manualMorph = Morph(
+  //   MaterialShapes.circle,
+  //   MaterialShapes.softBurst,
+  // );
 }

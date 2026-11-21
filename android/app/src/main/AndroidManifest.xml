@@ -2,6 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.wallpap.piliauroranext">
 
+    <!-- 文件选择通过系统选择器，图片保存使用 MediaStore，无需媒体库读取权限。 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -24,6 +25,7 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="http" />
         </intent>
+        <!-- If your app opens https URLs -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
@@ -38,6 +40,7 @@
     </queries>
 
     <queries>
+        <!-- If your app checks for http support -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
@@ -50,6 +53,7 @@
         </intent>
     </queries>
 
+    <!-- Android 13 起保留旧返回键分发；旧系统会忽略该属性。 -->
     <application
         android:name="${applicationName}"
         android:allowBackup="false"
@@ -82,10 +86,15 @@
                 android:name="flutter_deeplinking_enabled"
                 android:value="false" />
 
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
+            <!-- 第三方域名无本站验证权，保留用户手动授权的链接处理。 -->
             <intent-filter android:label="PiliAuroraNext" android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -101,6 +110,16 @@
                 <data android:host="bilibili.cn" />
                 <data android:host="bilibili.tv" />
                 <data android:host="b23.tv" />
+                <!--<data android:host="live.bilibili.com"/>-->
+                <!--<data android:host="www.bilibili.com"/>-->
+                <!--<data android:host="www.bilibili.tv"/>-->
+                <!--<data android:host="www.bilibili.cn"/>-->
+                <!--<data android:host="m.bilibili.cn"/>-->
+                <!--<data android:host="m.bilibili.com"/>-->
+                <!--<data android:host="bilibili.cn"/>-->
+                <!--<data android:host="bilibili.com"/>-->
+                <!--<data android:host="bangumi.bilibili.com"/>-->
+                <!--<data android:host="space.bilibili.com"/>-->
             </intent-filter>
             <intent-filter android:label="PiliAuroraNext">
                 <action android:name="android.intent.action.VIEW" />
@@ -245,6 +264,7 @@
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
+        <!-- MediaBrowserService 必须允许系统、车机和媒体客户端绑定，不能添加应用私有权限。 -->
         <service
             android:name="com.ryanheise.audioservice.AudioService"
             android:exported="true"
@@ -268,6 +288,8 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

@@ -115,7 +115,7 @@ void DeviceLossStopsFurtherRequests() {
   Check(state->Sample().attempts == 1 && state->Sample().issued == 0,
         "failed device check is an attempt, not an issued Trim");
 }
-}
+}  // namespace
 
 int main() {
   ContinuousFramesThenIdleAndResume();

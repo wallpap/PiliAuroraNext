@@ -63,6 +63,7 @@ class _Fixture {
   }
 
   void save() {
+    // JSON 是合法 YAML，fixture 使用同一种编码避免手写缩进导致误测。
     write('pubspec.yaml', jsonEncode(root));
     write(
       'pubspec.lock',
@@ -85,6 +86,7 @@ void main() {
     fixture = _Fixture()..save();
   });
   tearDown(() {
+    // 仅删除本次测试通过 systemTemp 创建并独占的目录。
     fixture.directory.deleteSync(recursive: true);
   });
 

@@ -8,6 +8,7 @@ import 'package:win32/win32.dart' as kernel32;
 abstract final class DeviceUtils {
   static void terminateApp() {
     if (Platform.isWindows) {
+      // WebView2 的退出清理可能阻塞，沿用主窗口的原生退出方式。
       final result = kernel32.TerminateProcess(kernel32.GetCurrentProcess(), 0);
       if (!result.value) throw OSError('结束应用进程失败', result.error);
     } else {

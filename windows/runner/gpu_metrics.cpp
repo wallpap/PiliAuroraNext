@@ -79,6 +79,7 @@ void GpuMetrics::Stop() {
 void GpuMetrics::Run() {
   PDH_HQUERY query = nullptr;
   PDH_HCOUNTER counter = nullptr;
+  // 在PDH端限定本进程，避免为最终会被丢弃的其它进程格式化整个GPU数组。
   const std::wstring counter_path =
       L"\\GPU Engine(pid_" + std::to_wstring(GetCurrentProcessId()) +
       L"_*)\\Utilization Percentage";
@@ -116,6 +117,7 @@ void GpuMetrics::Run() {
             auto end = name.find("_phys_", pos);
             if (end == std::string::npos) continue;
             auto id = name.substr(pos + 5, end - pos - 5);
+            // PDH 的十六进制字母通常大写，统一为 DXGI 标识的格式。
             std::transform(id.begin(), id.end(), id.begin(),
                            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
             auto key = EncodableValue(id);

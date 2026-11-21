@@ -405,6 +405,7 @@ class Volume {
   final num targetI;
   final num targetTp;
 
+  // final MultiSceneArgs? multiSceneArgs;
 
   // FFmpeg loudnorm 滤镜的标准有效范围（https://ffmpeg.org/ffmpeg-filters.html#loudnorm）
   static const double minTpValue = -9.0;

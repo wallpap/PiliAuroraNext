@@ -4,6 +4,7 @@ import 'package:pili_aurora_next/common/constants.dart';
 import 'package:pili_aurora_next/platform/desktop/window_background.dart';
 import 'package:window_manager/window_manager.dart';
 
+/// 标题栏置于路由之外，换页、主题切换和弹窗期间保持统一的窗口入口。
 class DesktopWindowFrame extends StatelessWidget {
   const DesktopWindowFrame({
     super.key,
@@ -18,6 +19,7 @@ class DesktopWindowFrame extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder(
     valueListenable: DesktopWindowBackground.fullscreen,
     child: child,
+    // 浮层覆盖整个窗口，标题栏提示越过栏底时仍在页面内容上方绘制。
     builder: (context, fullscreen, child) => Overlay.wrap(
       child: Column(
         children: [
@@ -124,6 +126,7 @@ class _DesktopTitleBarState extends State<DesktopTitleBar> with WindowListener {
               _maximized ? Icons.filter_none : Icons.crop_square,
               _maximized ? windowManager.unmaximize : windowManager.maximize,
             ),
+            // 发送普通关闭事件，沿用主窗口的托盘驻留与播放器释放逻辑。
             _button('关闭', Icons.close, windowManager.close, close: true),
           ],
         ),

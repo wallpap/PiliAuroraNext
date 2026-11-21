@@ -10,6 +10,15 @@ import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:fixnum/fixnum.dart';
 
 abstract final class ReplyGrpc {
+  // static Future replyInfo({required int rpid}) {
+  //   return _request(
+  //     GrpcUrl.replyInfo,
+  //     ReplyInfoReq(rpid: Int64(rpid)),
+  //     ReplyInfoReply.fromBuffer,
+  //     onSuccess: (response) => response.reply,
+  //   );
+  // }
+
   // ref BiliRoamingX
   static bool _hasGoods(ReplyInfo reply) {
     return (reply.content.urls.isNotEmpty &&
@@ -47,6 +56,8 @@ abstract final class ReplyGrpc {
           mode: mode,
           next: cursorNext,
         ),
+        // mode: mode,
+        // pagination: offset == null ? null : FeedPagination(offset: offset),
       ),
       MainListReply.fromBuffer,
       kind: .query,

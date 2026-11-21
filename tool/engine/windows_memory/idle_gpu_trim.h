@@ -96,5 +96,5 @@ class IdleGpuTrim final : public std::enable_shared_from_this<IdleGpuTrim> {
   std::atomic_int64_t last_present_ms_{-1}, last_trim_ms_{-1}, last_duration_us_{-1};
 };
 
-}
+}  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_WINDOWS_IDLE_GPU_TRIM_H_

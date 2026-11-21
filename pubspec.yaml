@@ -1,12 +1,28 @@
 name: pili_aurora_next
 description: PiliAuroraNext, a Flutter Bilibili client for Android and Windows.
-publish_to: "none"
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+# update when release
 version: 1.0.0
 
 environment:
   sdk: ">=3.13.0"
   flutter: 3.47.5
 
+# 根依赖使用已验收的精确版本；传递解析由 pubspec.lock 和 --enforce-lockfile 固定。
+# 定制源码的版本与来源登记见 third_party/dependencies.json。
+# 仅更新目标包并验证锁文件差异，维护流程见 third_party/README.md。
 dependencies:
   flutter:
     sdk: flutter
@@ -93,6 +109,7 @@ dependencies:
 dependency_overrides:
   cnativeapi:
     path: third_party/cnativeapi
+  # 定制包的来源、版本和保留原因见 third_party/dependencies.json。
   audio_service:
     path: third_party/audio_service
   cached_network_image_ce:
@@ -140,6 +157,7 @@ dev_dependencies:
   flutter_lints: 6.0.0
   flutter_native_splash: 2.4.8
   jnigen: 1.0.1
+  # 本地 super_sliver_list 保留上游 strict 检查规则。
   lint: 2.14.0
   path_provider_platform_interface: 2.1.3
   pub_semver: 2.2.1

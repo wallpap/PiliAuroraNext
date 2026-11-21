@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/common/widgets/image/src/image_source_store.dar
 import 'package:pili_aurora_next/common/widgets/image/src/native_worker_backend.dart';
 import 'package:pili_aurora_next/common/widgets/image/src/region_content_session.dart';
 
+// 将独立的 Flutter 完整解码作为参照，避免只拿区域后端和自身对照。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   observeNativeWorkers();
@@ -71,6 +72,7 @@ void main() {
               w.toDouble(),
               h.toDouble(),
             );
+            // 原始 Image 的字节可仍处于来源 ICC 空间；先经过 Flutter 绘制再比较显示像素。
             final recorder = ui.PictureRecorder();
             ui.Canvas(recorder).drawImageRect(
               reference,

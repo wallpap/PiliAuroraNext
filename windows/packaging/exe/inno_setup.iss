@@ -22,6 +22,7 @@ PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UsePreviousAppDir=yes
+; 旧版本可能拒绝会话结束或仍驻留托盘，由 Restart Manager 强制释放占用。
 CloseApplications=force
 CloseApplicationsFilter=*.exe,*.dll
 RestartApplications=no
@@ -94,6 +95,7 @@ begin
       if not FileExists(Filename) then Continue;
       if FollowsLink(Filename, AppRoot) then Continue;
       try
+        { 旧清单证明文件归属；用户修改过的文件继续保留。 }
         if CompareText(GetSHA256OfFile(Filename), Digest) = 0 then begin
           if DeleteFile(Filename) then
             Log('Removed retired runtime file: ' + RelativePath)
