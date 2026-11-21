@@ -2,6 +2,13 @@
 
 本日志从 PiliAuroraNext 的独立版本序列开始记录。迁移前的版本与提交历史保留在 [PiliAurora 原仓库](https://github.com/wallpap/PiliAurora)，安装包与发布状态见 [PiliAuroraNext Releases](https://github.com/wallpap/PiliAuroraNext/releases)。
 
+## 1.1.1 — 2026-11-21
+
+- 更新弹窗支持显示 Markdown 格式的发布说明。
+- 减少首页推荐列表在加载和分页时的卡片渲染开销。
+- 减少重复图片解码，优化 Windows 大图预览的 WebP 缩放。
+- 修复 Windows 图片解码进程退出时偶发的管道错误。
+
 ## 1.0.0 — 2026-11-16
 
 迁移至 PiliAuroraNext 后的首个版本，建立新仓库的发布基线。
