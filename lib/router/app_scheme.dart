@@ -1,6 +1,7 @@
 // ignore_for_file: constant_identifier_names
 
 import 'dart:async' show unawaited;
+import 'dart:convert' show base64, utf8;
 
 import 'package:pili_aurora_next/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:pili_aurora_next/services/logger.dart';
@@ -86,6 +87,92 @@ abstract final class PiliScheme {
     return null;
   }
 
+  static ({int? aid, String? bvid}) _nativeVideoId(Uri uri) {
+    final id = switch (uri.pathSegments) {
+      [final id] || [final id, ''] => id,
+      _ => '',
+    };
+    final aid = IdUtils.digitOnlyRegExp.hasMatch(id) ? int.tryParse(id) : null;
+    return (
+      aid: aid != null && aid > 0 && aid < IdUtils.MAX_AID ? aid : null,
+      bvid: IdUtils.bvRegexExact.hasMatch(id) ? id : null,
+    );
+  }
+
+  static Uri? _webVideoTarget(String? value) {
+    final uri = Uri.tryParse(value ?? '');
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        !const {
+          'bilibili.com',
+          'www.bilibili.com',
+          'm.bilibili.com',
+        }.contains(uri.host) ||
+        uri.userInfo.isNotEmpty) {
+      return null;
+    }
+    final id = switch (uri.pathSegments) {
+      ['video', final id] || ['video', final id, ''] => id,
+      _ => '',
+    };
+    final aid = int.tryParse(
+      IdUtils.avRegexExact.firstMatch(id)?.group(1) ?? '',
+    );
+    if (IdUtils.bvRegexExact.hasMatch(id) ||
+        (aid != null && aid > 0 && aid < IdUtils.MAX_AID)) {
+      return uri;
+    }
+    return null;
+  }
+
+  static Uri? _h5VideoDestination(Uri uri) {
+    Uri download = uri;
+    String? browserRef;
+    if (uri.scheme == 'bilibili') {
+      if (uri.host == 'root' ||
+          (uri.host == 'video' &&
+              _nativeVideoId(uri) == (aid: null, bvid: null))) {
+        final payload = uri.queryParameters['h5awaken'];
+        if (payload == null) return null;
+        try {
+          final metadata = Uri.splitQueryString(
+            utf8.decode(base64.decode(payload)),
+          );
+          return _webVideoTarget(metadata['open_app_url']);
+        } on FormatException {
+          return null;
+        } on ArgumentError {
+          return null;
+        }
+      }
+      if (uri.host != 'browser') return null;
+      final url = Uri.tryParse(uri.queryParameters['url'] ?? '');
+      if (url == null) return null;
+      download = url;
+      browserRef = uri.queryParameters['bili_ref'];
+    }
+    if ((download.scheme != 'https' && download.scheme != 'http') ||
+        download.host != 'd.bilibili.com' ||
+        download.path != '/download_app.html' ||
+        download.userInfo.isNotEmpty) {
+      return null;
+    }
+    final query = download.queryParameters;
+    for (final value in [browserRef, query['bili_ref'], query['schema']]) {
+      final target = Uri.tryParse(value ?? '');
+      if (target != null &&
+          target.scheme == 'bilibili' &&
+          target.host == 'video' &&
+          target.userInfo.isEmpty &&
+          _nativeVideoId(target) != (aid: null, bvid: null)) {
+        return target;
+      }
+      final web = _webVideoTarget(value);
+      if (web != null) return web;
+    }
+    return _webVideoTarget(query['preUrl']);
+  }
+
   static Future<bool> routePushFromUrl(
     String url, {
     bool selfHandle = false,
@@ -148,8 +235,7 @@ abstract final class PiliScheme {
     int? businessId,
     int? oid,
   }) async {
-    // if (kDebugMode) debugPrint('onAppLink: $uri');
-
+    uri = _h5VideoDestination(uri) ?? uri;
     final String scheme = uri.scheme;
     final String host = uri.host;
     final String path = uri.path;
@@ -210,12 +296,11 @@ abstract final class PiliScheme {
 
             // to video
             // bilibili://video/12345678?page=0&h5awaken=random
-            String? aid = uriDigitRegExp.firstMatch(path)?.group(1);
-            String? bvid = IdUtils.bvRegex.firstMatch(path)?.group(0);
+            var (:aid, :bvid) = _nativeVideoId(uri);
             if (aid != null || bvid != null) {
               final cid = queryParameters['cid'];
               if (cid != null) {
-                bvid ??= IdUtils.av2bv(int.parse(aid!));
+                bvid ??= IdUtils.av2bv(aid!);
                 PageUtils.toVideoPage(
                   bvid: bvid,
                   cid: int.parse(cid),
@@ -223,11 +308,13 @@ abstract final class PiliScheme {
                   off: off,
                 );
               } else {
+                final page = int.tryParse(queryParameters['page'] ?? '');
                 videoPush(
-                  aid != null ? int.parse(aid) : null,
+                  aid,
                   bvid,
                   off: off,
                   progress: _videoProgress(queryParameters),
+                  part: page != null && page >= 0 ? '${page + 1}' : null,
                 );
               }
               return true;

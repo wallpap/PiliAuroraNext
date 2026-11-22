@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -26,6 +28,121 @@ void main() {
     ],
   };
   const failed = {'code': -404, 'message': '迟到错误'};
+
+  final videoScheme = Uri.parse(
+    'bilibili://video/2?page=1&start_progress=3000',
+  );
+  final videoPage = Uri.parse('https://m.bilibili.com/video/av2?p=2&t=3');
+  final downloadPage = Uri.https('d.bilibili.com', '/download_app.html', {
+    'schema': videoScheme.toString(),
+    'preUrl': 'https://m.bilibili.com/video/av3',
+  });
+  String h5awaken(String url) => base64Encode(
+    utf8.encode('open_app_url=${Uri.encodeQueryComponent(url)}'),
+  );
+  for (final (name, link) in [
+    ('网页下载中转', downloadPage),
+    (
+      '网页下载中转回退到视频页面',
+      Uri.https('d.bilibili.com', '/download_app.html', {
+        'schema': 'bilibili://root',
+        'preUrl': videoPage.toString(),
+      }),
+    ),
+    (
+      '浏览器内的下载中转',
+      Uri(
+        scheme: 'bilibili',
+        host: 'browser',
+        queryParameters: {
+          'url': downloadPage.toString(),
+        },
+      ),
+    ),
+    (
+      '主页唤起携带网页视频',
+      Uri(
+        scheme: 'bilibili',
+        host: 'root',
+        queryParameters: {
+          'h5awaken': h5awaken('$videoPage'),
+        },
+      ),
+    ),
+    (
+      '视频唤起缺少稿件号',
+      Uri(
+        scheme: 'bilibili',
+        host: 'video',
+        path: '/0',
+        queryParameters: {
+          'h5awaken': h5awaken('$videoPage'),
+        },
+      ),
+    ),
+    (
+      '直接视频唤起优先于网页来源',
+      videoScheme.replace(
+        queryParameters: {
+          ...videoScheme.queryParameters,
+          'h5awaken': h5awaken('https://m.bilibili.com/video/av3'),
+        },
+      ),
+    ),
+  ]) {
+    testWidgets('$name保留稿件、分 P 和播放进度', (tester) async {
+      await fixture.mount(tester);
+      expect(await PiliScheme.routePush(link, selfHandle: true), isTrue);
+      await fixture.until(tester, () => requests.isNotEmpty);
+      await fixture.complete(tester, Future<void>.value(), 0, {
+        'code': 0,
+        'data': [
+          {'cid': 41},
+          {'cid': 42},
+        ],
+      });
+      expect(openedVideos, hasLength(1));
+      expect(openedVideos.single['aid'], 2);
+      expect(openedVideos.single['cid'], 42);
+      expect(openedVideos.single['progress'], 3000);
+      await fixture.finish(tester);
+    });
+  }
+
+  testWidgets('主页唤起不采用非 B 站视频或损坏的来源', (tester) async {
+    await fixture.mount(tester);
+    for (final value in [
+      null,
+      'invalid!',
+      h5awaken('https://m.bilibili.com.example.org/video/av2'),
+    ]) {
+      Get.toNamed('/other');
+      await tester.pumpAndSettle();
+      final link = Uri(
+        scheme: 'bilibili',
+        host: 'root',
+        queryParameters: value == null ? null : {'h5awaken': value},
+      );
+      expect(await PiliScheme.routePush(link), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('来源页面'), findsOneWidget);
+      expect(requests, isEmpty);
+    }
+    await fixture.finish(tester);
+  });
+
+  testWidgets('下载中转不执行非视频目标', (tester) async {
+    await fixture.mount(tester);
+    final link = Uri.https('d.bilibili.com', '/download_app.html', {
+      'bili_ref': 'bilibili://login',
+      'schema': 'bilibili://root',
+      'preUrl': 'https://m.bilibili.com.example.org/video/av2',
+    });
+    expect(await PiliScheme.routePush(link, selfHandle: true), isFalse);
+    expect(find.text('来源页面'), findsOneWidget);
+    expect(requests, isEmpty);
+    await fixture.finish(tester);
+  });
 
   testWidgets('旧视频查询先失败不提示、不关闭新查询或其他任务的加载', (tester) async {
     await fixture.mount(tester);
