@@ -2,6 +2,12 @@
 
 本日志从 PiliAuroraNext 的独立版本序列开始记录。迁移前的版本与提交历史保留在 [PiliAurora 原仓库](https://github.com/wallpap/PiliAurora)，安装包与发布状态见 [PiliAuroraNext Releases](https://github.com/wallpap/PiliAuroraNext/releases)。
 
+## 1.1.2 — 2026-11-22
+
+- 评论等级过滤会保留 UP 主发布的评论，以及被 UP 主回复过的评论；设置页也补充了这条规则的说明。
+- 修复首次加载视频时未应用默认播放倍速的问题。
+- 修复部分哔哩哔哩移动网页的“打开 App”链接无法进入对应视频的问题，并支持按唤起链接中的分 P 定位。
+
 ## 1.1.1 — 2026-11-21
 
 - 更新弹窗支持显示 Markdown 格式的发布说明。
