@@ -11,6 +11,7 @@ import 'package:pili_aurora_next/plugin/pl_player/utils/playback_load_queue.dart
 class PlaybackSession implements PlaybackMediaClock {
   PlaybackSession({
     required PlaybackRuntimePort runtime,
+    PlaybackConfiguration? initialConfiguration,
     Duration Function()? monotonicNow,
     int Function()? mediaClockNowUs,
     this.configurationForPlan,
@@ -18,6 +19,7 @@ class PlaybackSession implements PlaybackMediaClock {
     this.commandBudget = const Duration(seconds: 5),
     this.shutdownBudget = const Duration(seconds: 10),
   }) : _runtime = runtime,
+       _desiredConfiguration = initialConfiguration ?? PlaybackConfiguration(),
        _now = monotonicNow ?? _defaultClock,
        _mediaClockNowUs = mediaClockNowUs ?? (() => Timeline.now),
        _operations = PlaybackOperationScheduler(
@@ -78,7 +80,7 @@ class PlaybackSession implements PlaybackMediaClock {
   String? _observedDurationContentKey;
   Duration? _observedDuration;
   int? _observedDurationLoadId;
-  PlaybackConfiguration _desiredConfiguration = PlaybackConfiguration();
+  PlaybackConfiguration _desiredConfiguration;
   PlaybackConfiguration _appliedConfiguration = PlaybackConfiguration();
   PlaybackActual _actual = const PlaybackActual();
   PlaybackCapabilities _capabilities = const PlaybackCapabilities();

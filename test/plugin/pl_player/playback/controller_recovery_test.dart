@@ -70,6 +70,27 @@ void main() {
     await dismissed;
   }
 
+  testWidgets('首次点播按已保存的默认倍速加载', (tester) async {
+    final settings = GStorage.video;
+    await tester.runAsync(
+      () => settings.put(VideoBoxKey.playSpeedDefault, 1.75),
+    );
+    final fixture = _Fixture(tester);
+    try {
+      final configuration = fixture.controller.capturePlaybackConfiguration(
+        live: false,
+      );
+      await fixture.load(configuration: configuration);
+      expect(fixture.runtime.loads.single.configuration.playbackSpeed, 1.75);
+      expect(fixture.controller.playbackSpeed, 1.75);
+    } finally {
+      await fixture.dispose();
+      await tester.runAsync(
+        () => settings.delete(VideoBoxKey.playSpeedDefault),
+      );
+    }
+  });
+
   _recoveryTest('缓存条：加载就绪时补发已经完成的预读，不等待下一次缓存事件', (f) async {
     await f.load();
     expect(f.runtime.player.state.buffer, const Duration(seconds: 90));
@@ -1817,6 +1838,7 @@ class _Fixture {
     String key = 'movie',
     bool shaderEligible = false,
     PlaybackMetadataHint? metadata,
+    PlaybackConfiguration? configuration,
     PlaybackStartPolicy start = PlaybackStartPolicy.play,
     bool local = false,
     List<String> videoCandidates = const [],
@@ -1857,7 +1879,9 @@ class _Fixture {
         seekPolicy: PlaybackSeekPolicy.allowed,
         duration: Duration(minutes: 5),
       ),
-      configuration: PlaybackConfiguration(audioOnly: mode == _Mode.audioOnly),
+      configuration:
+          configuration ??
+          PlaybackConfiguration(audioOnly: mode == _Mode.audioOnly),
     );
     final result = await controller.loadPlaybackPlan(
       owner: owner,

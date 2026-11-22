@@ -915,6 +915,7 @@ class PlPlayerController
 
   late final PlaybackSession _session = PlaybackSession(
     runtime: _runtime,
+    initialConfiguration: PlaybackConfiguration(playbackSpeed: playbackSpeed),
     monotonicNow: _monotonicNow,
     configurationForPlan: _configurationForPlaybackPlan,
   );
