@@ -34,7 +34,7 @@ void main() {
         ),
       ),
     ].map(commentFromProtocol).toList();
-    filterRepliesByLevel(replies, 3);
+    filterRepliesByLevel(replies, 3, null);
     expect(replies.map((reply) => reply.id.toInt()), [2, 3, 4, 5, 7]);
   });
 
@@ -46,7 +46,7 @@ void main() {
       ),
     );
     final replies = [root];
-    filterRepliesByLevel(replies, 0);
+    filterRepliesByLevel(replies, 0, null);
     expect(replies.single, same(root));
     expect(root.replies, hasLength(1));
   });
