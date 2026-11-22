@@ -266,6 +266,7 @@ List<SettingsModel> get contentSettings => [
       ),
       PopupModel(
         title: '最低评论用户等级',
+        subtitle: '屏蔽低于所选等级的评论，保留 UP 主发布或回复过的评论。',
         leading: const Icon(Icons.filter_alt_outlined),
         value: () => ReplyLevelFilter.values[Pref.minimumReplyUserLevel],
         items: ReplyLevelFilter.values,

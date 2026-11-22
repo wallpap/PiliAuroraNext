@@ -21,6 +21,7 @@ class PopupListTile<T> extends StatefulWidget {
     this.enabled = true,
     this.leading,
     required this.title,
+    this.subtitle,
     required this.value,
     required this.options,
     required this.onSelected,
@@ -33,6 +34,7 @@ class PopupListTile<T> extends StatefulWidget {
   final bool enabled;
   final Widget? leading;
   final String title;
+  final String? subtitle;
 
   final ValueGetter<(T, String)> value;
   final List<(T, String)> options;
@@ -102,6 +104,7 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
           : null,
       leading: widget.leading,
       title: Text(widget.title),
+      subtitle: widget.subtitle == null ? null : Text(widget.subtitle!),
       titleTextStyle: widget.titleStyle ?? theme.textTheme.titleMedium,
       trailing: AppSelectField<T>(
         controller: _menuController,

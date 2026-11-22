@@ -110,11 +110,26 @@ void main() {
 
   test('楼中楼使用锚点首查，保留根评论、过滤等级和回显位置', () async {
     await GStorage.setting.put(SettingBoxKey.minimumReplyUserLevel, 4);
-    final root = reply(2, children: [reply(4, level: 3), reply(3)])
-      ..count = Int64(2);
+    final upMid = Int64(123);
+    final root = reply(
+      2,
+      level: 1,
+      children: [
+        reply(4, level: 3),
+        reply(3),
+        reply(8, level: 2)..mid = upMid,
+        reply(9, level: 1)..replyControl = ReplyControl(upReply: true),
+      ],
+    )..count = Int64(4);
     final fixture = CommentFixture()
       ..responses.addAll([
-        Success(DetailListReply(root: root, cursor: CursorReply(isEnd: true))),
+        Success(
+          DetailListReply(
+            root: root,
+            subjectControl: SubjectControl(upMid: upMid),
+            cursor: CursorReply(isEnd: true),
+          ),
+        ),
         Success(
           DetailListReply(root: reply(2), cursor: CursorReply(isEnd: true)),
         ),
@@ -129,8 +144,11 @@ void main() {
     expect(fixture.reads.single.anchor, 3);
     final displayedRoot = container.read(provider).root!;
     expect(displayedRoot.id, root.id);
-    expect(displayedRoot.replies.map((item) => item.id.toInt()), [4, 3]);
-    expect(container.read(provider).loading.data.single.id.toInt(), 3);
+    expect(displayedRoot.replies.map((item) => item.id.toInt()), [4, 3, 8, 9]);
+    expect(
+      container.read(provider).loading.data.map((item) => item.id.toInt()),
+      [3, 8, 9],
+    );
     comments
       ..published(
         commentFromProtocol(reply(5)),
@@ -146,19 +164,26 @@ void main() {
       );
     expect(
       container.read(provider).loading.data.map((item) => item.id.toInt()),
-      [6, 3, 5],
+      [6, 3, 5, 8, 9],
     );
     await comments.refresh();
     expect(fixture.reads.last.anchor, isNull);
   });
 
-  test('对话协议的列表也按等级过滤', () async {
+  test('对话列表按等级过滤，同时保留 UP 主评论和被 UP 主回复的评论', () async {
     await GStorage.setting.put(SettingBoxKey.minimumReplyUserLevel, 4);
+    final upMid = Int64(123);
     final fixture = CommentFixture()
       ..responses.add(
         Success(
           DialogListReply(
-            replies: [reply(10, level: 3), reply(20)],
+            subjectControl: SubjectControl(upMid: upMid),
+            replies: [
+              reply(10, level: 3),
+              reply(20),
+              reply(30, level: 2)..mid = upMid,
+              reply(40, level: 1)..replyControl = ReplyControl(upReply: true),
+            ],
             cursor: CursorReply(isEnd: true),
           ),
         ),
@@ -170,6 +195,9 @@ void main() {
     container.listen(provider, (_, _) {});
     await flushComments();
     expect(fixture.reads.single.dialog, 7);
-    expect(container.read(provider).loading.data.single.id.toInt(), 20);
+    expect(
+      container.read(provider).loading.data.map((item) => item.id.toInt()),
+      [20, 30, 40],
+    );
   });
 }

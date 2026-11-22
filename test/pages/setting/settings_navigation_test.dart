@@ -55,6 +55,7 @@ void main() {
         .whereType<PopupModel<ReplyLevelFilter>>()
         .single;
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: item.widget)));
+    expect(find.text('屏蔽低于所选等级的评论，保留 UP 主发布或回复过的评论。'), findsOneWidget);
     expect(Pref.minimumReplyUserLevel, 0);
     await tester.tap(find.text('最低评论用户等级'));
     await tester.pumpAndSettle();

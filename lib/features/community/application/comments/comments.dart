@@ -225,7 +225,12 @@ class Comments extends Notifier<CommentsState> {
           final unique = <Int64>{...seen};
           rows.removeWhere((item) => !unique.add(item.id));
           final incoming = rows.length;
-          filterRepliesByLevel(rows, minLevel);
+          final upMid = page.subject.upMid;
+          filterRepliesByLevel(
+            rows,
+            minLevel,
+            upMid == Int64.ZERO ? subject?.upMid : upMid,
+          );
           seen.addAll(rows.map((item) => item.id));
           items.addAll(rows);
           hasMore =

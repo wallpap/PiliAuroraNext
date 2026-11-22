@@ -73,6 +73,48 @@ void main() {
     expect(!container.read(provider).hasMore, isTrue);
   });
 
+  test('保留低等级 UP 主评论及 UP 主回复过的评论，后续页沿用已知 UID', () async {
+    await GStorage.setting.put(SettingBoxKey.minimumReplyUserLevel, 4);
+    final upMid = Int64(123);
+    final first = page([
+      withLevel(1, 0)..mid = upMid,
+      withLevel(2, 1, [
+        withLevel(3, 1)..mid = upMid,
+        withLevel(4, 2),
+      ])..replyControl = ReplyControl(upReply: true),
+    ]);
+    first.subjectControl.upMid = upMid;
+    first.upTop = withLevel(9, 1)..mid = upMid;
+    final fixture = CommentFixture()
+      ..responses.addAll([
+        Success(first),
+        Success(
+          page([
+            withLevel(5, 0)..mid = upMid,
+            withLevel(6, 2)..replyControl = ReplyControl(upReply: true),
+            withLevel(7, 3),
+          ], end: true),
+        ),
+      ]);
+    final container = commentContainer(fixture);
+    final provider = commentsProvider(commentQuery());
+    container.listen(provider, (_, _) {});
+    await flushComments();
+
+    final replies = container.read(provider).loading.data;
+    expect(fixture.reads, hasLength(1));
+    expect(replies.map((item) => item.id.toInt()), [9, 1, 2]);
+    expect(replies.first.replyControl.isUpTop, isTrue);
+    expect(replies.last.replies.map((item) => item.id.toInt()), [3]);
+
+    await container.read(provider.notifier).loadMore();
+    expect(fixture.reads, hasLength(2));
+    expect(
+      container.read(provider).loading.data.map((item) => item.id.toInt()),
+      [9, 1, 2, 5, 6],
+    );
+  });
+
   test('连续过滤最多请求五页，空列表仍可继续加载下一批', () async {
     await GStorage.setting.put(SettingBoxKey.minimumReplyUserLevel, 6);
     final fixture = CommentFixture()
