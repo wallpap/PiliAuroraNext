@@ -18,7 +18,7 @@
     },
     {
       "name": "cached_network_image_ce",
-      "version": "4.6.4+piliauroranext.1",
+      "version": "4.6.4+piliauroranext.2",
       "upstream_version": "4.6.4",
       "path": "third_party/cached_network_image_ce",
       "source": {

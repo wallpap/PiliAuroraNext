@@ -26,6 +26,8 @@ const _kDefaultStalePeriod = Duration(days: 7);
 
 const _supportedFileNames = {'jpg', 'jpeg', 'png', 'tga', 'cur', 'ico', 'webp'};
 
+typedef _CachedFile = ({FileInfo info, CacheEntryMetadata metadata});
+
 /// Signature for a function that returns the cache base directory.
 ///
 /// Defaults to [getTemporaryDirectory] when not specified.
@@ -200,9 +202,10 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
   }) async* {
     key ??= url;
 
-    FileInfo? cachedFile;
+    _CachedFile? cached;
     try {
-      cachedFile = await getFileFromCache(key);
+      cached = await _getCacheEntry(key);
+      final cachedFile = cached?.info;
       if (cachedFile != null) {
         yield cachedFile;
         withProgress = false;
@@ -214,13 +217,18 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
       );
     }
 
-    if (cachedFile == null || cachedFile.validTill.isBefore(DateTime.now())) {
+    final cachedFile = cached?.info;
+    if (cachedFile == null || !cachedFile.validTill.isAfter(DateTime.now())) {
       try {
-        await for (final response
-            in _downloadFile(url, key, headers, withProgress)) {
-          if (response is DownloadProgress) {
-            if (withProgress) yield response;
-          } else {
+        await for (final response in _downloadFile(
+          url,
+          key,
+          headers,
+          withProgress,
+          cached: cached,
+        )) {
+          if (response is! FileInfo ||
+              response.statusCode != io.HttpStatus.notModified) {
             yield response;
           }
         }
@@ -247,9 +255,9 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
   }) async {
     key ??= url;
 
-    FileInfo? cachedFile;
+    _CachedFile? cached;
     try {
-      cachedFile = await getFileFromCache(key);
+      cached = await _getCacheEntry(key);
     } catch (e) {
       cacheLogger.log(
         'CacheManager: Failed to load cached file for $url with error:\n$e',
@@ -257,11 +265,17 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
       );
     }
 
-    if (cachedFile == null || cachedFile.validTill.isBefore(DateTime.now())) {
+    final cachedFile = cached?.info;
+    if (cachedFile == null || !cachedFile.validTill.isAfter(DateTime.now())) {
       try {
-        return ((await _downloadFile(url, key, headers, false).last)
-                as FileInfo)
-            .file;
+        final response = await _downloadFile(
+          url,
+          key,
+          headers,
+          false,
+          cached: cached,
+        ).last as FileInfo;
+        return response.file;
       } on HttpExceptionWithStatus catch (e) {
         if (cachedFile != null && e.statusCode == 404) {
           await removeFile(key);
@@ -277,8 +291,9 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
     String url,
     String key,
     Map<String, String>? headers,
-    bool withProgress,
-  ) async* {
+    bool withProgress, {
+    _CachedFile? cached,
+  }) async* {
     cacheLogger.log(
       'CacheManager: Downloading $url',
       CacheManagerLogLevel.verbose,
@@ -287,18 +302,66 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
     SharedHttpClientResponse? clientResponse;
     http.StreamedResponse? rawResponse;
     try {
-      clientResponse =
-          await _httpClient.send(uri: Uri.parse(url), headers: headers);
-      final response = clientResponse.response;
+      final uri = Uri.parse(url);
+      final cachedETag = cached?.metadata.eTag;
+      final revalidate = cached != null &&
+          cached.metadata.url == url &&
+          cachedETag != null &&
+          cachedETag.isNotEmpty &&
+          !(headers?.keys.any((name) {
+                final header = name.toLowerCase();
+                return header.startsWith('if-') ||
+                    header == io.HttpHeaders.rangeHeader;
+              }) ??
+              false);
+      clientResponse = await _httpClient.send(
+        uri: uri,
+        headers: revalidate
+            ? {...?headers, io.HttpHeaders.ifNoneMatchHeader: cachedETag}
+            : headers,
+      );
+      var response = clientResponse.response;
       rawResponse = response;
 
-      if (response.statusCode != 200 && response.statusCode != 202) {
-        // Cancel the body stream before throwing, as we won't consume it.
+      if (response.statusCode == io.HttpStatus.notModified && revalidate) {
         await _cancelResponseStream(response);
+        rawResponse = null;
+        final file = cached.info.file;
+        final metadata = cached.metadata;
+        final cacheKey = key.fnvHashStr;
+        if (await file.exists() &&
+            identical(_cacheBox!.get(cacheKey), metadata)) {
+          final validTill = DateTime.now().add(stalePeriod);
+          await _cacheBox!.put(
+            cacheKey,
+            CacheEntryMetadata(
+              url: metadata.url,
+              fileExtension: metadata.fileExtension,
+              validTill: validTill,
+              eTag: response.headers[io.HttpHeaders.etagHeader] ?? cachedETag,
+              length: metadata.length,
+            ),
+          );
+          yield FileInfo(
+            file,
+            FileSource.Cache,
+            validTill,
+            url,
+            statusCode: io.HttpStatus.notModified,
+          );
+          return;
+        }
+        clientResponse.release();
+        clientResponse = await _httpClient.send(uri: uri, headers: headers);
+        response = clientResponse.response;
+        rawResponse = response;
+      }
+
+      if (response.statusCode != 200 && response.statusCode != 202) {
         throw HttpExceptionWithStatus(
           response.statusCode,
           'Invalid statusCode: ${response.statusCode}',
-          uri: Uri.parse(url),
+          uri: uri,
         );
       }
       // After this point rawResponse should not be canceled here;
@@ -421,7 +484,10 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
   Future<FileInfo?> getFileFromCache(
     String key, {
     bool ignoreMemCache = false,
-  }) async {
+  }) async =>
+      (await _getCacheEntry(key))?.info;
+
+  Future<_CachedFile?> _getCacheEntry(String key) async {
     key = key.fnvHashStr;
 
     final metadata = _cacheBox!.get(key);
@@ -436,7 +502,10 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
       return null;
     }
 
-    return FileInfo(file, FileSource.Cache, metadata.validTill, metadata.url);
+    return (
+      info: FileInfo(file, FileSource.Cache, metadata.validTill, metadata.url),
+      metadata: metadata,
+    );
   }
 
   @override

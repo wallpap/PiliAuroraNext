@@ -8,7 +8,7 @@ topics:
   - cache
   - image
   - network-image
-version: 4.6.4+piliauroranext.1
+version: 4.6.4+piliauroranext.2
 
 environment:
   sdk: ^3.0.0
