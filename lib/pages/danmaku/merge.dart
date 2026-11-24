@@ -366,7 +366,6 @@ class DanmakuMergeCursor {
   final _exact = <(int, String), _MergeGroup>{};
   final _lengths = <(int, int), Queue<_MergeGroup>>{};
   final _normalizedTexts = <String, String>{};
-  final _matcher = _DistanceMatcher();
   int _groupBytes = 0;
   int _normalizedBytes = 0;
   int get groupBytes => _groupBytes;
@@ -492,7 +491,7 @@ class DanmakuMergeCursor {
             if (++checked > 64) break search;
             // 数字与否定词保留语义，避免把不同时间、比分或相反观点合并。
             if (meaning == candidate.meaning &&
-                _matcher.withinDistance(runes, candidate.runes, distance)) {
+                _withinDistance(runes, candidate.runes, distance)) {
               match = candidate;
               break search;
             }
@@ -523,65 +522,66 @@ class DanmakuMergeCursor {
   }
 }
 
-class _DistanceMatcher {
-  // 查询长度最多 200，候选可比查询长 2；另留一列存放边界哨兵。
-  final _first = Uint16List(204);
-  final _second = Uint16List(204);
-
-  bool withinDistance(List<int> first, List<int> second, int limit) {
-    var start = 0;
-    var firstEnd = first.length;
-    var secondEnd = second.length;
-    // 去掉相同前后缀后再计算距离，长文本的少量差异无需扫描整段矩阵。
-    while (start < firstEnd &&
-        start < secondEnd &&
-        first[start] == second[start]) {
-      start++;
-    }
-    while (firstEnd > start &&
-        secondEnd > start &&
-        first[firstEnd - 1] == second[secondEnd - 1]) {
-      firstEnd--;
-      secondEnd--;
-    }
-    final firstLength = firstEnd - start;
-    final secondLength = secondEnd - start;
-    if ((firstLength - secondLength).abs() > limit) return false;
-    if (firstLength == 0 || secondLength == 0) return true;
-
-    var previous = _first;
-    var current = _second;
-    final infinity = limit + 1;
-    final initialEnd = math.min(secondLength, limit);
-    for (var j = 0; j <= initialEnd; j++) {
-      previous[j] = j;
-    }
-    previous[initialEnd + 1] = infinity;
-    for (var i = 1; i <= firstLength; i++) {
-      current[0] = i;
-      final lower = math.max(1, i - limit);
-      final upper = math.min(secondLength, i + limit);
-      if (lower > 1) current[lower - 1] = infinity;
-      current[upper + 1] = infinity;
-      var minimum = infinity;
-      for (var j = lower; j <= upper; j++) {
-        current[j] = math.min(
-          previous[j] + 1,
-          math.min(
-            current[j - 1] + 1,
-            previous[j - 1] +
-                (first[start + i - 1] == second[start + j - 1] ? 0 : 1),
-          ),
-        );
-        minimum = math.min(minimum, current[j]);
-      }
-      if (minimum > limit) return false;
-      final swap = previous;
-      previous = current;
-      current = swap;
-    }
-    return previous[secondLength] <= limit;
+bool _withinDistance(Uint32List first, Uint32List second, int limit) {
+  var firstEnd = first.length;
+  var secondEnd = second.length;
+  while (firstEnd > 0 &&
+      secondEnd > 0 &&
+      first[firstEnd - 1] == second[secondEnd - 1]) {
+    firstEnd--;
+    secondEnd--;
   }
+  return _matchEdits(first, second, 0, 0, firstEnd, secondEnd, limit);
+}
+
+bool _matchEdits(
+  Uint32List first,
+  Uint32List second,
+  int firstIndex,
+  int secondIndex,
+  int firstEnd,
+  int secondEnd,
+  int remaining,
+) {
+  final lengthDifference = (firstEnd - firstIndex) - (secondEnd - secondIndex);
+  if (lengthDifference.abs() > remaining) return false;
+  while (firstIndex < firstEnd &&
+      secondIndex < secondEnd &&
+      first[firstIndex] == second[secondIndex]) {
+    firstIndex++;
+    secondIndex++;
+  }
+  if (firstIndex == firstEnd || secondIndex == secondEnd) return true;
+  if (remaining == 0) return false;
+
+  final nextLimit = remaining - 1;
+  return _matchEdits(
+        first,
+        second,
+        firstIndex + 1,
+        secondIndex + 1,
+        firstEnd,
+        secondEnd,
+        nextLimit,
+      ) ||
+      _matchEdits(
+        first,
+        second,
+        firstIndex + 1,
+        secondIndex,
+        firstEnd,
+        secondEnd,
+        nextLimit,
+      ) ||
+      _matchEdits(
+        first,
+        second,
+        firstIndex,
+        secondIndex + 1,
+        firstEnd,
+        secondEnd,
+        nextLimit,
+      );
 }
 
 class _MergeGroup {
@@ -589,7 +589,7 @@ class _MergeGroup {
   final int index;
   final DanmakuElement element;
   final String text;
-  final List<int> runes;
+  final Uint32List runes;
   final String meaning;
   int get bytes =>
       384 +
