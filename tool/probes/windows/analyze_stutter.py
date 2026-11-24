@@ -1,5 +1,6 @@
 """离线汇总 stutter_validation.dart 报告；按帧真实时刻归段，不读取对象正文。"""
 import argparse
+from bisect import bisect_left
 import csv
 import json
 from datetime import datetime
@@ -18,8 +19,78 @@ def utc_us(value):
     return int(datetime.fromisoformat(value).timestamp() * 1e6)
 
 
+def timed_operations(report, records):
+    categories = {
+        "http", "grpcDecode", "imageFile", "imageDecode", "imageFrame",
+        "inactivePaintCleanup",
+    }
+    return sorted(
+        (utc_us(record["time"]), record["category"], record["details"]["durationMs"])
+        for record in records
+        if record.get("category") in categories
+        and record.get("time")
+        and record.get("processId", report.get("pid")) == report.get("pid")
+        and isinstance((record.get("details") or {}).get("durationMs"), (int, float))
+    )
+
+
+def operation_summary(operations, start, end, tracing):
+    if not tracing:
+        return None
+    durations = {}
+    for timestamp, category, duration in operations:
+        if start <= timestamp < end:
+            durations.setdefault(category, []).append(duration)
+    return {
+        category: {"totalMs": round(sum(samples), 3), **distribution(samples)}
+        for category, samples in durations.items()
+    }
+
+
+def navigation_summary(report, operations, window_ms=600):
+    events = sorted(
+        (event["utcUs"], event["name"])
+        for event in report.get("events", ())
+        if event["name"].startswith(("first:", "revisit:", "routes:"))
+    )
+    frames = sorted(report["frames"], key=lambda frame: frame["startUtcUs"])
+    starts = [frame["startUtcUs"] for frame in frames]
+    refresh = report.get("refreshRateHz") or 60
+    budget_ms = 1000 / refresh
+    result = []
+    for index, (start, name) in enumerate(events):
+        end = start + window_ms * 1000
+        if index + 1 < len(events):
+            end = min(end, events[index + 1][0])
+        samples = frames[bisect_left(starts, start):bisect_left(starts, end)]
+        finishes = [
+            frame["rasterFinishUtcUs"] for frame in samples
+            if frame.get("rasterFinishUtcUs") is not None
+        ]
+        stage = next((
+            stage for stage in report["stages"]
+            if stage["startUtcUs"] <= start < stage["endUtcUs"]
+        ), {})
+        result.append({
+            "name": name,
+            "stage": stage.get("name"),
+            "frames": len(samples),
+            "firstRasterFinishMs": (min(finishes) - start) / 1000 if finishes else None,
+            "buildMs": distribution(frame["buildMs"] for frame in samples),
+            "rasterMs": distribution(frame["rasterMs"] for frame in samples),
+            "overDisplayBudget": sum(
+                max(frame["buildMs"], frame["rasterMs"]) > budget_ms for frame in samples
+            ),
+            "operations": operation_summary(
+                operations, start, end, not stage.get("name", "").endswith(":off"),
+            ),
+        })
+    return {"windowMs": window_ms, "frameBudgetMs": budget_ms, "switches": result}
+
+
 def summarize(report, records=()):
     stages = []
+    operations = timed_operations(report, records)
     for stage in report["stages"]:
         start, end = stage["startUtcUs"], stage["endUtcUs"]
         frames = [f for f in report["frames"] if start <= f["startUtcUs"] < end]
@@ -33,12 +104,17 @@ def summarize(report, records=()):
             "over33ms": sum(max(f["buildMs"], f["rasterMs"]) > 33.33 for f in frames),
             "timerGapsMs": distribution(g["gapMs"] for g in report["timerGaps"]
                                         if start <= g["utcUs"] < end),
-            "cleanupMs": distribution(r["details"]["durationMs"] for r in records
-                                      if r.get("category") == "inactivePaintCleanup"
-                                      and start <= utc_us(r["time"]) < end),
+            "cleanupMs": distribution(duration for timestamp, category, duration in operations
+                                      if category == "inactivePaintCleanup" and start <= timestamp < end),
+            "operations": operation_summary(operations, start, end, not stage["name"].endswith(":off")),
+            "process": stage.get("process"),
+            "windowVisible": stage.get("windowVisible"),
         })
     fields = ("bytes", "background", "quotaWaitMs", "parseMs", "consumeMs", "durationMs")
     return {"state": report["state"], "validWorkload": report["validWorkload"],
+            "windowVisible": report.get("windowVisible"), "refreshRateHz": report.get("refreshRateHz"),
+            "visits": report.get("visits", []), "finalProcess": report.get("finalProcess"),
+            "navigation": navigation_summary(report, operations),
             "stages": stages,
             "grpc": [{"time": r["time"], **{k: r["details"][k] for k in fields
                                              if k in r["details"]}}

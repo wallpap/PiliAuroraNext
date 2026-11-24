@@ -30,6 +30,29 @@ class StutterAnalysisTest(unittest.TestCase):
         self.assertEqual(result["displayLatencyMs"]["count"], 0)
         self.assertIsNone(result["displayLatencyMs"]["max"])
 
+    def test_switch_windows_use_engine_budget_and_exclude_next_switch(self):
+        report = {
+            "refreshRateHz": 120,
+            "stages": [{"name": "revisit:0:debug", "startUtcUs": 90, "endUtcUs": 500},
+                       {"name": "revisit:1:off", "startUtcUs": 500, "endUtcUs": 900}],
+            "events": [{"name": "revisit:0:0:hot", "utcUs": 100},
+                       {"name": "revisit:0:0:rank", "utcUs": 300},
+                       {"name": "revisit:1:0:hot", "utcUs": 500}],
+            "frames": [
+                {"startUtcUs": 101, "rasterFinishUtcUs": 140, "buildMs": 9, "rasterMs": 1},
+                {"startUtcUs": 300, "rasterFinishUtcUs": 320, "buildMs": 2, "rasterMs": 1},
+            ],
+        }
+        switches = analysis.navigation_summary(
+            report, [(300, "imageDecode", 1), (510, "http", 2)],
+        )["switches"]
+        self.assertEqual([row["frames"] for row in switches], [1, 1, 0])
+        self.assertEqual(switches[0]["firstRasterFinishMs"], .04)
+        self.assertEqual(switches[0]["overDisplayBudget"], 1)
+        self.assertEqual(switches[0]["operations"], {})
+        self.assertEqual(switches[1]["operations"]["imageDecode"]["count"], 1)
+        self.assertIsNone(switches[2]["operations"])
+
 
 if __name__ == "__main__":
     unittest.main()

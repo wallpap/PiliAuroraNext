@@ -774,6 +774,12 @@ $env:PILIAURORANEXT_STUTTER_OUTPUT = '<本地输出目录>/report.json'
 python tool/probes/windows/analyze_stutter.py --input <report.json> --logs <测试种子/support/diagnostics> --output <summary.json>
 ```
 
+启动探针时传入 `--navigation-only` 可测完首次访问和复访后直接测试搜索、搜索结果分类、
+历史和设置的打开及返回。`navigation` 按切换标记汇总前 600 ms 的框架帧、屏幕周期超预算数
+和已完成的图片、网络及绘制清理操作。`firstRasterFinishMs` 记录切换后首个 Flutter 帧光栅化
+完成的时间差。整段的进程内存样本与操作统计保存在 `stages`。等待目标页面超时时，
+报告的 `routeTimeout` 记录动作、实际路径、搜索结果路由状态和弹层状态。
+
 探针会切页、静音播放及改变隔离设置；不要指向现用账号存储。结束时按内存探针相同方式
 关闭窗口，再恢复正常发布入口。日志、账号种子、快照和实验报告放在本地忽略目录。
 在线列表可变化，先检查 `validWorkload`、各tab的loaded状态和播放进度；首次使用与复访分段解释。

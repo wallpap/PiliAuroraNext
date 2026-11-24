@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
@@ -14,6 +14,7 @@ import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/recommended_video.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
 import 'package:pili_aurora_next/pages/main/view.dart';
+import 'package:pili_aurora_next/pages/search_result/view.dart';
 import 'package:pili_aurora_next/features/content_discovery/presentation/recommendation_page.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -24,6 +25,8 @@ import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 import 'package:pili_aurora_next/router/page_utils.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:material_ui/material_ui.dart' show TabBar, TabController;
+import 'package:window_manager/window_manager.dart';
 
 import 'feed_loading.dart';
 import 'memory_logging.dart' as logging;
@@ -39,9 +42,25 @@ Future<void> _until(bool Function() ready, String stage) async {
   }
 }
 
+TabController? _searchTabs(State<SearchResultPage> page) {
+  TabController? tabs;
+  void visit(Element element) {
+    if (tabs != null) return;
+    if (element.widget case TabBar(:final controller?)) {
+      tabs = controller;
+      return;
+    }
+    element.visitChildren(visit);
+  }
+
+  page.context.visitChildElements(visit);
+  return tabs;
+}
+
 /// 独立种子的真实页面复访与播放对照；仅在最终报告保存后卸载根页面。
 Future<void> main(List<String> arguments) async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
+  final navigationOnly = arguments.contains('--navigation-only');
   final output = File(Platform.environment['PILIAURORANEXT_STUTTER_OUTPUT']!);
   final frames = <Map<String, Object?>>[];
   final stages = <Map<String, Object?>>[];
@@ -55,6 +74,7 @@ Future<void> main(List<String> arguments) async {
     'pid': pid,
     'state': 'running',
     'validWorkload': false,
+    'navigationOnly': navigationOnly,
     'frames': frames,
     'stages': stages,
     'events': events,
@@ -70,6 +90,7 @@ Future<void> main(List<String> arguments) async {
               f.timestampInMicroseconds(FramePhase.buildStart));
       frames.add({
         'startUtcUs': start,
+        'rasterFinishUtcUs': finish,
         'buildMs': f.buildDuration.inMicroseconds / 1000,
         'rasterMs': f.rasterDuration.inMicroseconds / 1000,
         'totalMs': f.totalSpan.inMicroseconds / 1000,
@@ -111,6 +132,9 @@ Future<void> main(List<String> arguments) async {
     } finally {
       row['endUtcUs'] = DateTime.now().toUtc().microsecondsSinceEpoch;
       row['process'] = process.sample();
+      if (navigationOnly && name != 'startup') {
+        row['windowVisible'] = await windowManager.isVisible();
+      }
     }
   }
 
@@ -142,6 +166,19 @@ Future<void> main(List<String> arguments) async {
       'startup',
     );
     final main = findMountedState<MainAppState>()!;
+    if (!main.mounted) throw StateError('main page unmounted');
+    report['refreshRateHz'] = View.of(main.context).display.refreshRate;
+    if (navigationOnly) {
+      if (!await windowManager.isVisible()) await windowManager.show();
+      final visibilityWait = Stopwatch()..start();
+      while (!await windowManager.isVisible()) {
+        if (visibilityWait.elapsed > const Duration(seconds: 5)) {
+          throw TimeoutException('window visible');
+        }
+        await pause(100);
+      }
+      report['windowVisible'] = true;
+    }
     void selectMain(NavigationBarType tab) {
       if (!main.showDestination(tab)) throw StateError('missing main tab');
     }
@@ -216,6 +253,76 @@ Future<void> main(List<String> arguments) async {
         }
         await pause(1200);
       });
+    }
+    if (navigationOnly) {
+      String? currentRoutePath() => Uri.tryParse(Get.currentRoute)?.path;
+
+      Future<void> waitForRoute(String route) async {
+        try {
+          await _until(() => currentRoutePath() == route, route);
+        } on TimeoutException {
+          final results = findMountedState<State<SearchResultPage>>();
+          final resultRoute = results != null && results.mounted
+              ? ModalRoute.of(results.context)
+              : null;
+          report['routeTimeout'] = {
+            'action': events.last['name'],
+            'expectedPath': route,
+            'observedPath': currentRoutePath(),
+            'resultRouteCurrent': resultRoute?.isCurrent,
+            'resultRouteActive': resultRoute?.isActive,
+            'canPop': Get.key.currentState?.canPop(),
+            'smartDialogOpen': SmartDialog.checkExist(),
+          };
+          rethrow;
+        }
+      }
+
+      await mode('debug');
+      for (final round in [0, 1, 2]) {
+        await stage('routes:$round', () async {
+          for (final route in ['/search', '/history', '/setting']) {
+            mark('routes:$round:push:$route');
+            unawaited(Get.toNamed<void>(route));
+            await waitForRoute(route);
+            await pause(1200);
+            if (route == '/search') {
+              mark('routes:$round:push:/searchResult');
+              unawaited(
+                Get.toNamed<void>(
+                  '/searchResult',
+                  parameters: {'keyword': '开源'},
+                  arguments: {'fromSearch': true},
+                ),
+              );
+              await waitForRoute('/searchResult');
+              TabController? tabs;
+              await _until(() {
+                final results = findMountedState<State<SearchResultPage>>();
+                if (results != null) tabs = _searchTabs(results);
+                return tabs != null;
+              }, 'search tabs');
+              await pause(1600);
+              mark('routes:$round:tab:/searchResult');
+              tabs!.animateTo(1);
+              await pause(1600);
+              mark('routes:$round:pop:/searchResult');
+              Get.back<void>();
+              await waitForRoute('/search');
+              await pause(1200);
+            }
+            mark('routes:$round:pop:$route');
+            Get.back<void>();
+            await waitForRoute('/');
+            await pause(1200);
+          }
+        });
+      }
+      report['validWorkload'] =
+          stages.skip(1).every((stage) => stage['windowVisible'] == true) &&
+          visits.every((visit) => visit['loaded'] == true);
+      report['state'] = 'completed';
+      return;
     }
     // 设置只影响隔离种子；播放固定同一条推荐，复测首次/再次起播。
     for (final entry in {
