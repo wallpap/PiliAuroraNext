@@ -45,6 +45,7 @@ class _DanmakuTrendChartState extends State<DanmakuTrendChart> {
         height: 12,
         margin: EdgeInsets.only(bottom: widget.bottom),
         child: LineChart(
+          duration: Duration.zero,
           LineChartData(
             titlesData: const FlTitlesData(show: false),
             lineTouchData: const LineTouchData(enabled: false),
