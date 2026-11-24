@@ -42,6 +42,18 @@ void main() {
     },
   );
 
+  test('Android launcher refresh marker is not a public launcher entry', () {
+    final manifest = _read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest, contains('android:name=".PiliAuroraApplication"'));
+    expect(
+      manifest,
+      matches(
+        r'<receiver\s+android:name="\.LauncherIconRefreshMarker"'
+        r'\s+android:exported="false"\s*/>',
+      ),
+    );
+  });
+
   test('JNI bindings resolve the Java classes in the source package', () {
     for (final language in ['java', 'kotlin']) {
       final directory = Directory(

@@ -55,7 +55,7 @@
 
     <!-- Android 13 起保留旧返回键分发；旧系统会忽略该属性。 -->
     <application
-        android:name="${applicationName}"
+        android:name=".PiliAuroraApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="false"
@@ -279,6 +279,10 @@
             android:name="com.yalantis.ucrop.UCropActivity"
             android:theme="@style/Ucrop.CropTheme"
             tools:ignore="MissingClass" />
+
+        <receiver
+            android:name=".LauncherIconRefreshMarker"
+            android:exported="false" />
 
         <receiver
             android:name="com.ryanheise.audioservice.MediaButtonReceiver"
