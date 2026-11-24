@@ -57,13 +57,22 @@ class DiagnosticRecordStore {
   }
 
   bool add(Map<String, Object?> record) {
-    final bytes = utf8.encode('${jsonEncode(record)}\n');
+    if (_queueAtCapacity) {
+      _drop('queue-full');
+      return false;
+    }
+    return addEncoded(utf8.encode('${jsonEncode(record)}\n'));
+  }
+
+  bool get _queueAtCapacity =>
+      _pending >= maxPending || _pendingBytes >= maxPendingBytes;
+
+  bool addEncoded(List<int> bytes) {
     if (bytes.length > maxBytes || bytes.length > maxRecordBytes) {
       _drop('record-too-large');
       return false;
     }
-    if (_pending >= maxPending ||
-        _pendingBytes + bytes.length > maxPendingBytes) {
+    if (_queueAtCapacity || _pendingBytes + bytes.length > maxPendingBytes) {
       _drop('queue-full');
       return false;
     }

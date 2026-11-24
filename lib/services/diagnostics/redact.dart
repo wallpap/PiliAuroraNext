@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 /// 导出时清洗敏感字段；采集时只复制有界快照，避免正则处理阻塞播放。
 abstract final class DiagnosticRedactor {
   static final _secretKey = RegExp(
@@ -135,8 +137,17 @@ abstract final class DiagnosticRedactor {
     Object? value, {
     int maxCharacters = 8192,
     int maxStringLength = 4096,
-  }) =>
-      _clean(value, _Budget(maxCharacters, maxStringLength, redact: false), 0);
+    bool immutable = false,
+  }) => _clean(
+    value,
+    _Budget(
+      maxCharacters,
+      maxStringLength,
+      redact: false,
+      immutable: immutable,
+    ),
+    0,
+  );
 
   static String boundedText(Object? value, {int maxLength = 4096}) {
     final input = value.toString();
@@ -218,12 +229,9 @@ abstract final class DiagnosticRedactor {
         }) as Map,
       ),
       if (record.containsKey('message'))
-        'message': text(
-          record['message'] is Map || record['message'] is Iterable
-              ? clean(record['message'])
-              : record['message'],
-          maxLength: player ? 65536 : 16384,
-        ),
+        'message': record['message'] is Map || record['message'] is Iterable
+            ? clean(record['message'])
+            : text(record['message'], maxLength: player ? 65536 : 16384),
       if (record.containsKey('stack'))
         'stack': text(record['stack'], maxLength: player ? 65536 : 4096),
       if (record.containsKey('details'))
@@ -254,13 +262,15 @@ abstract final class DiagnosticRedactor {
             ? '<redacted>'
             : _clean(entry.value, budget, depth + 1);
       }
-      return result;
+      return budget.immutable ? UnmodifiableMapView(result) : result;
     }
     if (value is Iterable) {
-      return value
+      final items = value
           .take(64)
-          .map((item) => _clean(item, budget, depth + 1))
-          .toList();
+          .map((item) => _clean(item, budget, depth + 1));
+      return budget.immutable
+          ? List<Object?>.unmodifiable(items)
+          : items.toList();
     }
     final result = (budget.redact ? text : boundedText)(
       value,
@@ -273,8 +283,14 @@ abstract final class DiagnosticRedactor {
 }
 
 class _Budget {
-  _Budget(this.characters, this.maxStringLength, {this.redact = true});
+  _Budget(
+    this.characters,
+    this.maxStringLength, {
+    this.redact = true,
+    this.immutable = false,
+  });
   final bool redact;
+  final bool immutable;
   final int maxStringLength;
   int nodes = 256;
   int characters;

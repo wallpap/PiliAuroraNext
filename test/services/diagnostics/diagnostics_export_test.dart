@@ -73,6 +73,49 @@ void main() {
     },
   );
 
+  test(
+    'export keeps only one mirrored record and preserves local fallback',
+    () async {
+      final child = Diagnostics();
+      addTearDown(child.dispose);
+      final childDirectory = Directory('${directory.path}/window-7');
+      await child.initialize(
+        directory: childDirectory,
+        childProcess: true,
+        windowId: 7,
+      );
+      await (child
+            ..forwardRecord = (record) {
+              diagnostics.receiveRecord(record, windowId: 7);
+              return true;
+            }
+            ..log(DiagnosticLogLevel.error, 'app', {
+              'message': 'mirrored',
+              'token': 'fixture-secret',
+            })
+            ..forwardRecord = null
+            ..log(DiagnosticLogLevel.error, 'app', 'local fallback'))
+          .flushLocal();
+
+      final export = await diagnostics.exportArchive();
+      addTearDown(export.dispose);
+      final zip = ZipDecoder().decodeBytes(await export.file.readAsBytes());
+      String read(String name) => utf8.decode(
+        zip.files.singleWhere((file) => file.name == name).content,
+      );
+      final main = jsonDecode(read('runtime.jsonl')) as Map;
+      expect(main['message'], {'message': 'mirrored', 'token': '<redacted>'});
+      final fallback = jsonDecode(read('window-7-runtime.jsonl')) as Map;
+      expect(fallback['message'], 'local fallback');
+      final manifest = jsonDecode(read('manifest.json')) as Map;
+      expect(manifest['export'], {'skippedRecords': 0, 'duplicateRecords': 1});
+      expect(
+        await File('${childDirectory.path}/runtime.jsonl').readAsLines(),
+        hasLength(2),
+      );
+    },
+  );
+
   test('failed child coordination resumes writes and permits retry', () async {
     var resumes = 0;
     diagnostics

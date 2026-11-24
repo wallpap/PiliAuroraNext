@@ -6,15 +6,17 @@ import 'package:pili_aurora_next/services/diagnostics/redact.dart';
 
 /// [files] 由当前日志到最旧轮转文件排列，结果按时间正序返回。
 Future<List<Map<String, Object?>>> readDiagnosticHistory(
-  List<File> files,
-) async {
+  List<File> files, {
+  bool snapshot = true,
+  int maxTailBytes = 262144,
+}) async {
   final recent = <Map<String, Object?>>[];
   for (final file in files) {
     final records = Queue<Map<String, Object?>>();
     try {
       // 每个轮转文件仅扫描末尾，避免加载完整日志到内存。
       final length = file.lengthSync();
-      final offset = length > 262144 ? length - 262144 : 0;
+      final offset = length > maxTailBytes ? length - maxTailBytes : 0;
       var skipPartialLine = offset > 0;
       var linesSinceYield = 0;
       await for (final line
@@ -32,10 +34,13 @@ Future<List<Map<String, Object?>>> readDiagnosticHistory(
           continue;
         }
         try {
-          final record = Map<String, Object?>.from(
-            DiagnosticRedactor.snapshot(jsonDecode(line)) as Map,
+          final record = jsonDecode(line);
+          if (record is! Map<String, Object?>) continue;
+          records.add(
+            snapshot
+                ? DiagnosticRedactor.snapshot(record) as Map<String, Object?>
+                : record,
           );
-          records.add(record);
           while (records.length > 200) {
             records.removeFirst();
           }

@@ -9,6 +9,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:archive/archive_io.dart';
 import 'package:pili_aurora_next/services/diagnostics/history_reader.dart';
+import 'package:pili_aurora_next/services/diagnostics/log_record.dart';
 import 'package:pili_aurora_next/services/diagnostics/memory_attribution.dart';
 import 'package:pili_aurora_next/services/diagnostics/flutter_graphics_metrics.dart';
 import 'package:pili_aurora_next/services/diagnostics/process_metrics.dart';
@@ -19,21 +20,7 @@ import 'package:pili_aurora_next/services/diagnostics/windows_graphics_memory_me
 import 'package:pili_aurora_next/services/diagnostics/record_store.dart';
 import 'package:pili_aurora_next/services/diagnostics/redact.dart';
 
-enum DiagnosticLogLevel {
-  trace('跟踪', '最详细的事件与耗时'),
-  debug('调试', '请求、缓存与播放过程'),
-  info('信息', '主要状态变化'),
-  warning('警告', '异常情况与错误（默认）'),
-  error('错误', '仅记录失败'),
-  off('关闭', '停止此通道的日志保存');
-
-  const DiagnosticLogLevel(this.label, this.description);
-  final String label;
-  final String description;
-
-  static DiagnosticLogLevel parse(String? value) =>
-      values.where((level) => level.name == value).firstOrNull ?? warning;
-}
+export 'package:pili_aurora_next/services/diagnostics/log_record.dart';
 
 bool shouldWarnAboutDiagnosticRecording({
   required bool tracing,
@@ -46,13 +33,14 @@ bool shouldWarnAboutDiagnosticRecording({
 
 class DiagnosticLogResult {
   const DiagnosticLogResult({
-    required this.record,
+    required this.event,
     required this.queued,
     this.deferred,
   });
   final Future<bool>? deferred;
   Future<bool> get accepted => deferred ?? Future.value(queued);
-  final Map<String, Object?> record;
+  final DiagnosticLogRecord event;
+  Map<String, Object?> get record => event.toJson();
 
   /// 已进入持久化队列；写盘结果需在 flush 后检查存储状态。
   final bool queued;
@@ -129,7 +117,8 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   final _sources = <String, Map<String, Object?> Function()>{};
   final _operations = <String, _OperationStats>{};
   final _gauges = <String, num>{};
-  final _recent = <String, Queue<Map<String, Object?>>>{};
+  final _recent = <DiagnosticLogChannel, Queue<DiagnosticLogRecord>>{};
+  List<DiagnosticLogRecord>? _sortedRecent;
   final _frames = _FrameStats();
   var _memoryAttribution = MemoryAttribution();
   int _attributionSequence = 0;
@@ -217,31 +206,14 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   };
   int get intervalMs => _intervalMs;
   String? get session => _session;
-  static int _compareRecordTimes(
-    Map<String, Object?> a,
-    Map<String, Object?> b,
-  ) {
-    final aText = a['time'] is String ? a['time'] as String : '';
-    final bText = b['time'] is String ? b['time'] as String : '';
-    final aTime = DateTime.tryParse(aText);
-    final bTime = DateTime.tryParse(bText);
-    if (aTime == null) return bTime == null ? aText.compareTo(bText) : -1;
-    if (bTime == null) return 1;
-    return aTime.compareTo(bTime);
-  }
-
-  static int _compareRecords(Map<String, Object?> a, Map<String, Object?> b) {
-    // ISO 时间会省略为零的微秒，按字符串比较可能把较旧记录排在前面。
-    final time = _compareRecordTimes(a, b);
-    if (time != 0) return time;
-    final run = '${a['runId']}'.compareTo('${b['runId']}');
-    if (run != 0) return run;
-    return (a['sequence'] as int? ?? 0).compareTo(b['sequence'] as int? ?? 0);
-  }
+  List<DiagnosticLogRecord> get recentEvents =>
+      _sortedRecent ??= List.unmodifiable(
+        _recent.values.expand((queue) => queue).toList()
+          ..sort((left, right) => DiagnosticLogRecord.compare(right, left)),
+      );
 
   List<Map<String, Object?>> get recentLogs =>
-      _recent.values.expand((queue) => queue).toList()
-        ..sort((a, b) => _compareRecords(b, a));
+      recentEvents.map((event) => event.toJson()).toList();
   int get droppedRecords =>
       _deferredDrops +
       (_logs?.dropped ?? 0) +
@@ -287,49 +259,56 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     _intervalMs = intervals.contains(intervalMs) ? intervalMs : 1000;
     final pending = _recent.values.expand((queue) => queue).toList();
     _recent.clear();
+    _sortedRecent = null;
     await _loadHistory();
-    for (final record in pending) {
-      _remember(record);
-      (record['channel'] == 'player' ? _playerLogs : _logs)?.add(record);
+    for (final event in pending) {
+      _remember(event);
+      (event.channel == DiagnosticLogChannel.player ? _playerLogs : _logs)?.add(
+        event.toJson(),
+      );
     }
     if (tracing) _start();
   }
 
   Future<void> _loadHistory() async {
     try {
-      final records =
-          [
-            ...await readDiagnosticHistory(await _logs!.files()),
-            ...await readDiagnosticHistory(await _playerLogs!.files()),
-            for (final report in await readDiagnosticHistory(
-              await _legacyReports?.files() ?? const [],
-            ))
-              {
-                'time':
-                    DateTime.tryParse('${report['dateTime']}')
-                        ?.toUtc()
-                        .toIso8601String() ??
-                    DateTime.utc(1970).toIso8601String(),
-                'channel': 'runtime',
-                'level': 'error',
-                'category': 'exception',
-                'message': report['error'],
-                'stack': report['stackTrace'],
-                'details': {
-                  'device': report['deviceParameters'],
-                  'application': report['applicationParameters'],
-                  'build': report['customParameters'],
-                },
-              },
-          ]..sort((a, b) {
-            final order = _compareRecordTimes(a, b);
-            if (order != 0) return order;
-            return (a['sequence'] as int? ?? 0).compareTo(
-              b['sequence'] as int? ?? 0,
-            );
-          });
-      for (final record in records) {
-        _remember(record);
+      final records = [
+        for (final record in await readDiagnosticHistory(
+          await _logs!.files(),
+          snapshot: false,
+        ))
+          DiagnosticLogRecord.fromJson(
+            record,
+            channel: DiagnosticLogChannel.runtime,
+          ),
+        for (final record in await readDiagnosticHistory(
+          await _playerLogs!.files(),
+          snapshot: false,
+          maxTailBytes: (1 << 20) + 1,
+        ))
+          DiagnosticLogRecord.fromJson(
+            record,
+            channel: DiagnosticLogChannel.player,
+          ),
+        for (final report in await readDiagnosticHistory(
+          await _legacyReports?.files() ?? const [],
+        ))
+          DiagnosticLogRecord(
+            time: DateTime.tryParse('${report['dateTime']}')?.toUtc(),
+            channel: DiagnosticLogChannel.runtime,
+            level: DiagnosticLogLevel.error,
+            category: 'exception',
+            message: report['error'],
+            stack: report['stackTrace'],
+            details: {
+              'device': report['deviceParameters'],
+              'application': report['applicationParameters'],
+              'build': report['customParameters'],
+            },
+          ),
+      ]..sort(DiagnosticLogRecord.compare);
+      for (final event in records) {
+        _remember(event);
       }
     } catch (_) {
       /* 日志读取失败不影响应用启动。 */
@@ -392,15 +371,15 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
       _playerLevel != DiagnosticLogLevel.off &&
       level.index >= _playerLevel.index;
 
-  void playerLog(
+  DiagnosticLogResult? playerLog(
     DiagnosticLogLevel level,
     String category,
     Object? message, {
     Object? details,
     StackTrace? stack,
   }) {
-    if (!acceptsPlayer(level)) return;
-    _writeLog(
+    if (!acceptsPlayer(level)) return null;
+    return _writeLog(
       _playerLogs,
       level,
       category,
@@ -420,63 +399,65 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     StackTrace? stack,
     bool player = false,
   }) {
-    final record = <String, Object?>{
-      'time': DateTime.now().toUtc().toIso8601String(),
-      'runId': _runId,
-      'processId': pid,
-      if (_windowId != null) 'windowId': _windowId,
-      'route': _route,
-      'sequence': ++_logSequence,
-      'elapsedUs': _clock.elapsedMicroseconds,
-      'channel': player ? 'player' : 'runtime',
-      'level': level.name,
-      'category': category,
-      'message': message is Map || message is Iterable
-          ? DiagnosticRedactor.snapshot(message)
-          : DiagnosticRedactor.boundedText(
-              message,
-              maxLength: player ? 65536 : 16384,
-            ),
-      if (details != null)
-        'details': DiagnosticRedactor.snapshot(
-          details,
-          maxCharacters: player ? 262144 : 8192,
-          maxStringLength: player ? 65536 : 4096,
-        ),
-      if (stack != null)
-        'stack': DiagnosticRedactor.boundedText(
-          stack,
-          maxLength: player ? 65536 : 4096,
-        ),
-      if (_tracing) 'session': _session,
-    };
-    return _persist(store, record, forward: true);
+    final event = DiagnosticLogRecord(
+      time: DateTime.now().toUtc(),
+      runId: _runId,
+      processId: pid,
+      windowId: _windowId,
+      route: _route,
+      sequence: ++_logSequence,
+      elapsedUs: _clock.elapsedMicroseconds,
+      channel: player
+          ? DiagnosticLogChannel.player
+          : DiagnosticLogChannel.runtime,
+      level: level,
+      category: category,
+      message: message,
+      details: details,
+      stack: stack,
+      session: _tracing ? _session : null,
+    );
+    return _persist(store, event, forward: true);
   }
 
   DiagnosticLogResult _persist(
     DiagnosticRecordStore? store,
-    Map<String, Object?> record, {
+    DiagnosticLogRecord event, {
     bool forward = false,
+    List<int>? encoded,
   }) {
+    final sender = forward ? forwardRecord : null;
     if (_writesPaused) {
-      final pending = _enqueue(store, record, forward: forward);
+      final pending = _enqueue(
+        store,
+        event.toJson(),
+        forward: forward,
+        priority: event.level.index,
+      );
       return DiagnosticLogResult(
-        record: record,
+        event: event,
         queued: false,
         deferred: pending?.accepted.future,
       );
     }
-    _remember(record);
-    final accepted = store?.add(record) ?? false;
-    if (forward) {
+    _remember(event);
+    final record = (store != null && encoded == null) || sender != null
+        ? event.toJson()
+        : null;
+    final accepted = store == null
+        ? false
+        : encoded == null
+        ? store.add(record!)
+        : store.addEncoded(encoded);
+    if (sender != null) {
       try {
-        if (forwardRecord?.call(record) == false) forwardingFailures++;
+        if (!sender(record!)) forwardingFailures++;
       } catch (_) {
         forwardingFailures++;
       }
     }
     _notifySoon();
-    return DiagnosticLogResult(record: record, queued: accepted);
+    return DiagnosticLogResult(event: event, queued: accepted);
   }
 
   _DeferredRecord? _enqueue(
@@ -484,11 +465,9 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     Map<String, Object?> record, {
     bool forward = false,
     bool trace = false,
+    int priority = 0,
   }) {
-    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(record)));
-    final priority = trace
-        ? 0
-        : DiagnosticLogLevel.parse(record['level'] as String?).index;
+    final bytes = utf8.encode('${jsonEncode(record)}\n');
     if (bytes.length > maxDeferredBytes) {
       _deferredDrops++;
       return null;
@@ -534,12 +513,19 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     _deferred.clear();
     _deferredBytes = 0;
     for (final entry in pending) {
-      final record = Map<String, Object?>.from(
-        jsonDecode(utf8.decode(entry.bytes)) as Map,
-      );
-      final accepted = entry.trace
-          ? (_trace?.add(record) ?? false)
-          : _persist(entry.store, record, forward: entry.forward).queued;
+      final bool accepted;
+      if (entry.trace) {
+        accepted = entry.store?.addEncoded(entry.bytes) ?? false;
+      } else {
+        final json =
+            jsonDecode(utf8.decode(entry.bytes)) as Map<String, Object?>;
+        accepted = _persist(
+          entry.store,
+          DiagnosticLogRecord.fromJson(json),
+          forward: entry.forward,
+          encoded: entry.bytes,
+        ).queued;
+      }
       entry.accepted.complete(accepted);
     }
     _writesResumed?.complete();
@@ -575,25 +561,24 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     return result;
   }
 
-  void _remember(Map<String, Object?> record) {
-    final channel = record['channel'] as String? ?? 'runtime';
-    final queue = _recent.putIfAbsent(channel, Queue.new)..add(record);
+  void _remember(DiagnosticLogRecord event) {
+    final queue = _recent.putIfAbsent(event.channel, Queue.new)..add(event);
     if (queue.length > 200) queue.removeFirst();
+    _sortedRecent = null;
   }
 
   /// 子进程记录保留其时钟和页面上下文，由主进程统一轮转和导出。
   void receiveRecord(Map<String, Object?> record, {required int windowId}) {
     final player = record['channel'] == 'player';
-    final level = DiagnosticLogLevel.parse(record['level'] as String?);
+    final rawLevel = record['level'];
+    final level = DiagnosticLogLevel.parse(
+      rawLevel is String ? rawLevel : null,
+    );
     if (player ? !acceptsPlayer(level) : !accepts(level)) return;
-    final snapshot = Map<String, Object?>.from(
-      DiagnosticRedactor.snapshot(
-        record,
-        maxCharacters: 524288,
-        maxStringLength: 65536,
-      ) as Map,
-    )..['windowId'] = windowId;
-    _persist(player ? _playerLogs : _logs, snapshot);
+    _persist(
+      player ? _playerLogs : _logs,
+      DiagnosticLogRecord.fromJson(record, windowId: windowId),
+    );
   }
 
   VoidCallback register(String name, Map<String, Object?> Function() reader) {
@@ -631,13 +616,12 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void routeChanged(String? name) {
-    _route = DiagnosticRedactor.boundedText((name ?? '/').split('?').first);
-    log(
-      DiagnosticLogLevel.info,
-      'navigation',
-      '页面切换',
-      details: {'route': _route},
+    final route = DiagnosticRedactor.boundedText(
+      (name ?? '/').split('?').first,
     );
+    if (_route == route) return;
+    _route = route;
+    log(DiagnosticLogLevel.info, 'navigation', '页面切换');
   }
 
   void _writeTrace(Map<String, Object?> record) {
@@ -1071,6 +1055,7 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
     _deferredDrops = 0;
     forwardingFailures = 0;
     _recent.clear();
+    _sortedRecent = null;
     latest = null;
     notifyListeners();
   }
@@ -1141,10 +1126,27 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
   static Future<int> _zip((List<String>, String) args) async {
     final encoder = ZipFileEncoder()..create(args.$2);
     final memoryReport = MemoryAttributionReport();
+    final mainLogName = RegExp(r'^(runtime|player)\.jsonl(?:\.\d+)?$');
+    final childLogName = RegExp(
+      r'^window-(\d+)-(runtime|player)\.jsonl(?:\.\d+)?$',
+    );
+    final childWindows = {
+      for (final path in args.$1)
+        if (childLogName.firstMatch(File(path).uri.pathSegments.last)
+            case final match?)
+          int.parse(match[1]!),
+    };
+    final mirrored = <(int, String, int), Set<int>>{};
     var skippedRecords = 0;
+    var duplicateRecords = 0;
     try {
       for (final path in args.$1) {
         final file = File(path);
+        final name = file.uri.pathSegments.last;
+        final isMainLog = mainLogName.hasMatch(name);
+        final childWindow = int.tryParse(
+          childLogName.firstMatch(name)?[1] ?? '',
+        );
         final sanitized = File('$path.sanitized');
         final sink = sanitized.openWrite();
         // 提前监听异步写盘错误；pipe/close 仍会把实际失败交给导出调用方。
@@ -1165,11 +1167,33 @@ class Diagnostics extends ChangeNotifier with WidgetsBindingObserver {
                   skippedRecords++;
                   return const [];
                 }
-                if (file.uri.pathSegments.last == 'manifest.json' &&
-                    value is Map) {
+                if (value is Map && (isMainLog || childWindow != null)) {
+                  final windowId = value['windowId'];
+                  final runId = value['runId'];
+                  final processId = value['processId'];
+                  final sequence = value['sequence'];
+                  if (windowId is int &&
+                      childWindows.contains(windowId) &&
+                      runId is String &&
+                      processId is int &&
+                      sequence is int) {
+                    final origin = (windowId, runId, processId);
+                    if (isMainLog) {
+                      mirrored.putIfAbsent(origin, () => <int>{}).add(sequence);
+                    } else if (windowId == childWindow &&
+                        (mirrored[origin]?.contains(sequence) ?? false)) {
+                      duplicateRecords++;
+                      return const [];
+                    }
+                  }
+                }
+                if (name == 'manifest.json' && value is Map) {
                   value = {
                     ...value,
-                    'export': {'skippedRecords': skippedRecords},
+                    'export': {
+                      'skippedRecords': skippedRecords,
+                      'duplicateRecords': duplicateRecords,
+                    },
                   };
                 }
                 final cleaned =
@@ -1288,8 +1312,10 @@ class TraceOperation {
       ..totalMs += milliseconds;
     if (milliseconds > _stats.maxMs) _stats.maxMs = milliseconds;
     if (error != null) _stats.errors++;
+    final level = error == null ? DiagnosticLogLevel.debug : errorLevel;
+    if (!_owner.accepts(level)) return;
     _owner.log(
-      error == null ? DiagnosticLogLevel.debug : errorLevel,
+      level,
       _category,
       _action,
       stack: stack,

@@ -9,9 +9,7 @@ void main() {
   );
   tearDownAll(Diagnostics.instance.dispose);
 
-  String? recordedRoute() =>
-      (Diagnostics.instance.recentLogs.first['details'] as Map)['route']
-          as String?;
+  String? recordedRoute() => Diagnostics.instance.recentEvents.first.route;
   Route<void> page(String name) => PageRouteBuilder<void>(
     settings: RouteSettings(name: name),
     pageBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -31,12 +29,14 @@ void main() {
       ..didPush(video, home)
       ..didPush(first, video);
     expect(recordedRoute(), '/videoV');
+    final beforeDialogs = Diagnostics.instance.recentEvents;
     observer.didPush(second, first);
     expect(recordedRoute(), '/videoV');
     observer.didPop(second, first);
     expect(recordedRoute(), '/videoV');
     observer.didPop(first, video);
     expect(recordedRoute(), '/videoV');
+    expect(Diagnostics.instance.recentEvents, same(beforeDialogs));
     observer.didPop(video, home);
     expect(recordedRoute(), '/');
   });
