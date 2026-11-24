@@ -19,24 +19,50 @@ int compareDanmakuPriority(DanmakuElement first, DanmakuElement second) =>
 List<T> selectDanmakuPriority<T>(
   List<T> items,
   int limit,
-  int Function(T, T) compare,
-) {
+  int Function(T, T) compare, {
+  int start = 0,
+  int? end,
+}) {
   if (limit < 0) throw ArgumentError.value(limit, 'limit');
+  final stop = RangeError.checkValidRange(start, end, items.length);
   if (limit == 0) return [];
-  if (items.length <= limit) return items;
-  final selected = SplayTreeSet<int>((a, b) {
-    final priority = compare(items[b], items[a]);
-    return priority != 0 ? priority : b.compareTo(a);
-  });
-  for (var i = 0; i < items.length; i++) {
-    if (selected.length == limit) {
-      if (compare(items[i], items[selected.first]) >= 0) continue;
-      selected.remove(selected.first);
-    }
-    selected.add(i);
+  if (stop - start <= limit) {
+    return start == 0 && stop == items.length
+        ? items
+        : items.sublist(start, stop);
   }
-  final indices = selected.toList()..sort();
-  return [for (final i in indices) items[i]];
+  final indices = List.generate(
+    limit,
+    (index) => start + index,
+    growable: false,
+  );
+  bool ranksAfter(int left, int right) {
+    final order = compare(items[left], items[right]);
+    return order > 0 || (order == 0 && left > right);
+  }
+
+  void siftDown(int position, int index) {
+    while (position < limit ~/ 2) {
+      var child = position * 2 + 1;
+      if (child + 1 < limit && ranksAfter(indices[child + 1], indices[child])) {
+        child++;
+      }
+      final childIndex = indices[child];
+      if (!ranksAfter(childIndex, index)) break;
+      indices[position] = childIndex;
+      position = child;
+    }
+    indices[position] = index;
+  }
+
+  for (var parent = limit ~/ 2 - 1; parent >= 0; parent--) {
+    siftDown(parent, indices[parent]);
+  }
+  for (var index = start + limit; index < stop; index++) {
+    if (compare(items[index], items[indices.first]) < 0) siftDown(0, index);
+  }
+  indices.sort();
+  return [for (final index in indices) items[index]];
 }
 
 class _RetainedElement {
@@ -78,27 +104,33 @@ class DanmakuPriorityRetention {
   void add(int index, DanmakuElement element) {
     final entry = _RetainedElement(index, element);
     final bucket = _buckets[entry.bucket];
-    final victims = <_RetainedElement>{};
+    _RetainedElement? bucketVictim;
     var bytes = estimatedBytes + entry.bytes + (bucket == null ? 128 : 0);
     if (bucket != null && bucket.length >= maxPerBucket) {
       final worst = bucket.first;
       if (_compare(entry, worst) <= 0) return;
-      victims.add(worst);
+      bucketVictim = worst;
       bytes -= worst.bytes;
     }
-    for (final worst in _all) {
-      if (_all.length - victims.length < maxElements && bytes <= maxBytes) {
-        break;
+    var retained = _all.length - (bucketVictim == null ? 0 : 1);
+    List<_RetainedElement>? globalVictims;
+    if (retained >= maxElements || bytes > maxBytes) {
+      for (final worst in _all) {
+        if (identical(worst, bucketVictim)) continue;
+        if (_compare(entry, worst) <= 0) return;
+        (globalVictims ??= []).add(worst);
+        retained--;
+        bytes -= worst.bytes;
+        // 空桶回收的索引字节在提交时核算；预检保守计费。
+        if (retained < maxElements && bytes <= maxBytes) break;
       }
-      if (victims.contains(worst)) continue;
-      if (_compare(entry, worst) <= 0) return;
-      victims.add(worst);
-      bytes -= worst.bytes;
-      // 空桶回收的索引字节在提交时核算；预检保守计费。
     }
-    if (_all.length - victims.length >= maxElements || bytes > maxBytes) return;
-    for (final victim in victims) {
-      _remove(victim);
+    if (retained >= maxElements || bytes > maxBytes) return;
+    if (bucketVictim != null) _remove(bucketVictim);
+    if (globalVictims != null) {
+      for (final victim in globalVictims) {
+        _remove(victim);
+      }
     }
     _buckets
         .putIfAbsent(entry.bucket, () {

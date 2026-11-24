@@ -51,6 +51,35 @@ void main() {
     }
   });
 
+  test('bounded selection keeps source ties inside a partial bucket', () {
+    final input = [
+      _dm(0, weight: 99),
+      _dm(1, weight: 9),
+      _dm(2, weight: 9),
+      _dm(3, weight: 8),
+      _dm(4, self: true),
+      _dm(5, weight: 99, self: true),
+    ];
+    for (final (limit, expected) in [
+      (0, <int>[]),
+      (1, [4]),
+      (2, [1, 4]),
+      (3, [1, 2, 4]),
+      (4, [1, 2, 3, 4]),
+    ]) {
+      expect(
+        selectDanmakuPriority(
+          input,
+          limit,
+          compareDanmakuPriority,
+          start: 1,
+          end: 5,
+        ),
+        [for (final index in expected) input[index]],
+      );
+    }
+  });
+
   test('retention replaces low priority across bucket and global limits', () {
     final retained = DanmakuPriorityRetention(
       maxElements: 3,
@@ -99,6 +128,40 @@ void main() {
     retained.add(3, _dm(3, weight: 9));
     expect(retained.buckets[0]!.single.content, '3');
     expect(retained.estimatedBytes, lessThanOrEqualTo(1400));
+  });
+
+  test('byte pressure stages bucket and global evictions together', () {
+    final bucketEntry = _dm(0, weight: 1);
+    final otherEntry = _dm(1, weight: 8, progress: 100);
+    final retained =
+        DanmakuPriorityRetention(
+            maxElements: 10,
+            maxPerBucket: 1,
+            maxBytes: 1500,
+          )
+          ..add(0, bucketEntry)
+          ..add(1, otherEntry);
+    final initialBytes = retained.estimatedBytes;
+    final rejected = DanmakuElement(
+      content: '2',
+      weight: 5,
+      additionalStorageBytes: 600,
+    );
+    retained.add(2, rejected);
+    expect(retained.buckets[0], [bucketEntry]);
+    expect(retained.buckets[1], [otherEntry]);
+    expect(retained.estimatedBytes, initialBytes);
+
+    final accepted = DanmakuElement(
+      content: '3',
+      weight: 10,
+      additionalStorageBytes: 600,
+    );
+    retained.add(3, accepted);
+    expect(retained.buckets, {
+      0: [accepted],
+    });
+    expect(retained.estimatedBytes, accepted.storageBytes + 64 + 128);
   });
 
   test(
