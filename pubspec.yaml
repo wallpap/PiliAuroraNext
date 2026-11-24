@@ -35,7 +35,7 @@ dependencies:
   audio_session: 0.2.4
   battery_plus: 7.1.2
   brotli: 0.6.0
-  cached_network_image_ce: 4.6.4+piliauroranext.2
+  cached_network_image_ce: 4.6.4+piliauroranext.3
   canvas_danmaku: 0.2.6+piliauroranext.1
   catcher_2: 2.1.9+piliauroranext.1
   characters: 1.4.1

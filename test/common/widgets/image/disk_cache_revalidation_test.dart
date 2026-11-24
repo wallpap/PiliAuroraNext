@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image_ce/cached_network_image.dart';
@@ -82,6 +83,40 @@ void main() {
 
     expect((await manager.getSingleFile(url, key: 'image')).path, file.path);
     expect(validators, ['"v1"']);
+  });
+
+  test('concurrent 304 responses reuse the same cached file', () async {
+    final file = await seed();
+    final firstRefresh = Completer<void>();
+    final firstRequest = Completer<void>();
+    final secondRequest = Completer<void>();
+    respond = (request) async {
+      if (request.headers.value(HttpHeaders.ifNoneMatchHeader) == null) {
+        request.response.add([9]);
+        return;
+      }
+      if (firstRequest.isCompleted) {
+        secondRequest.complete();
+        await firstRefresh.future;
+      } else {
+        firstRequest.complete();
+        await secondRequest.future;
+      }
+      request.response.statusCode = HttpStatus.notModified;
+    };
+
+    final first = manager
+        .getSingleFile(url, key: 'image')
+        .whenComplete(
+          firstRefresh.complete,
+        );
+    await firstRequest.future;
+    final second = manager.getSingleFile(url, key: 'image');
+    final files = await Future.wait([first, second]);
+
+    expect(files.map((result) => result.path), [file.path, file.path]);
+    expect(validators, ['"v1"', '"v1"']);
+    expect(await file.length(), 256 * 1024);
   });
 
   test('a changed response replaces the cached bytes', () async {

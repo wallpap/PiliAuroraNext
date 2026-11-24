@@ -329,19 +329,29 @@ class DefaultCacheManager extends CacheManager with ImageCacheManager {
         final file = cached.info.file;
         final metadata = cached.metadata;
         final cacheKey = key.fnvHashStr;
-        if (await file.exists() &&
-            identical(_cacheBox!.get(cacheKey), metadata)) {
-          final validTill = DateTime.now().add(stalePeriod);
-          await _cacheBox!.put(
-            cacheKey,
-            CacheEntryMetadata(
-              url: metadata.url,
-              fileExtension: metadata.fileExtension,
-              validTill: validTill,
-              eTag: response.headers[io.HttpHeaders.etagHeader] ?? cachedETag,
-              length: metadata.length,
-            ),
-          );
+        final validatedETag =
+            response.headers[io.HttpHeaders.etagHeader] ?? cachedETag;
+        final current = await file.exists() ? _cacheBox!.get(cacheKey) : null;
+        final sameEntry = identical(current, metadata);
+        if (current != null &&
+            (sameEntry ||
+                (current.url == url &&
+                    current.fileExtension == metadata.fileExtension &&
+                    current.eTag == validatedETag))) {
+          final validTill =
+              sameEntry ? DateTime.now().add(stalePeriod) : current.validTill;
+          if (sameEntry) {
+            await _cacheBox!.put(
+              cacheKey,
+              CacheEntryMetadata(
+                url: metadata.url,
+                fileExtension: metadata.fileExtension,
+                validTill: validTill,
+                eTag: validatedETag,
+                length: metadata.length,
+              ),
+            );
+          }
           yield FileInfo(
             file,
             FileSource.Cache,
