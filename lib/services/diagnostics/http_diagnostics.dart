@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pili_aurora_next/http/request_failure_policy.dart';
+import 'package:pili_aurora_next/http/response_transformer.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
 class DiagnosticHttpInterceptor extends Interceptor {
@@ -15,6 +16,10 @@ class DiagnosticHttpInterceptor extends Interceptor {
     (options.extra.remove(_key) as TraceOperation?)?.finish(
       error: 'retry',
       errorLevel: DiagnosticLogLevel.debug,
+    );
+    CompressedResponseTransformer.setDecodeSampling(
+      options,
+      enabled: _diagnostics.accepts(DiagnosticLogLevel.debug),
     );
     options.extra[_key] = _diagnostics.begin(
       'http',
@@ -33,12 +38,16 @@ class DiagnosticHttpInterceptor extends Interceptor {
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
   ) {
+    final decode = CompressedResponseTransformer.takeDecodeSample(
+      response.requestOptions,
+    );
     (response.requestOptions.extra.remove(_key) as TraceOperation?)?.finish(
       details: {
         'status': response.statusCode,
         'declaredResponseBytes': int.tryParse(
           response.headers.value('content-length') ?? '',
         ),
+        ...?decode,
       },
     );
     handler.next(response);
@@ -46,6 +55,7 @@ class DiagnosticHttpInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    CompressedResponseTransformer.takeDecodeSample(err.requestOptions);
     final level = isExpectedHttpFailure(err)
         ? DiagnosticLogLevel.debug
         : DiagnosticLogLevel.error;

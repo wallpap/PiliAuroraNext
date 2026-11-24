@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/http/response_transformer.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/http_diagnostics.dart';
 import 'package:pili_aurora_next/http/request_failure_feedback.dart';
@@ -23,9 +24,47 @@ void main() {
     await directory.delete(recursive: true);
   });
 
+  test(
+    'debug HTTP logs record decoded and buffered sizes with no payload',
+    () async {
+      await diagnostics.configure(level: DiagnosticLogLevel.debug);
+      final dio = Dio()
+        ..httpClientAdapter = _TestHttpAdapter()
+        ..transformer = CompressedResponseTransformer();
+      dio.interceptors.add(DiagnosticHttpInterceptor(diagnostics: diagnostics));
+      addTearDown(() => dio.close(force: true));
+
+      final response = await dio.get<String>('https://example.test/brotli');
+      expect(response.data, 'time');
+      final record = diagnostics.recentLogs.single;
+      final details = record['details'] as Map;
+      expect(details['responseEncoding'], 'br');
+      expect(details['responseBodyBytes'], 8);
+      expect(details['decodedResponseBytes'], 4);
+      expect(details['decodeInBackground'], isTrue);
+      expect(details['decodeElapsedUs'], greaterThanOrEqualTo(0));
+      expect(details.values, isNot(contains('time')));
+      expect(
+        CompressedResponseTransformer.takeDecodeSample(response.requestOptions),
+        isNull,
+      );
+
+      await dio.get<List<int>>(
+        'https://example.test/brotli',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      expect(
+        (diagnostics.recentLogs.first['details'] as Map).keys,
+        isNot(contains('decodeElapsedUs')),
+      );
+    },
+  );
+
   test('HTTP success and failure finish operations without copying request secrets', () async {
     await diagnostics.configure(tracing: true, level: DiagnosticLogLevel.debug);
-    final dio = Dio()..httpClientAdapter = _TestHttpAdapter();
+    final dio = Dio()
+      ..httpClientAdapter = _TestHttpAdapter()
+      ..transformer = CompressedResponseTransformer();
     dio.interceptors.add(DiagnosticHttpInterceptor(diagnostics: diagnostics));
     try {
       await dio.post<Object?>(
@@ -43,6 +82,13 @@ void main() {
       expect(http['completed'], 2);
       expect(http['errors'], 1);
       expect(diagnostics.recentLogs, hasLength(2));
+      final success = diagnostics.recentLogs
+          .map((record) => record['details'] as Map)
+          .singleWhere((details) => details['status'] == 200);
+      expect(success['responseBodyBytes'], 2);
+      expect(success['decodedResponseBytes'], 2);
+      expect(success['responseEncoding'], 'identity');
+      expect(success['decodeInBackground'], isFalse);
       final records = jsonEncode(diagnostics.recentLogs);
       for (final secret in [
         'http-query-test',
@@ -175,6 +221,16 @@ class _TestHttpAdapter implements HttpClientAdapter {
       throw DioException(
         requestOptions: options,
         type: DioExceptionType.connectionTimeout,
+      );
+    }
+    if (options.uri.path == '/brotli') {
+      return ResponseBody.fromBytes(
+        const [0x8b, 1, 0x80, 116, 105, 109, 101, 3],
+        200,
+        headers: {
+          'content-type': ['text/plain'],
+          'content-encoding': ['br'],
+        },
       );
     }
     return ResponseBody.fromString(
