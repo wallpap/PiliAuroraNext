@@ -27,6 +27,7 @@ fvm flutter test tool/experiments/
 | `images/decode_work_test.dart` | 从本地文件读取同一张 PNG，对照单请求和四次并发请求，再分别播放 GIF、WebP 各四轮。使用真实 decoder，测试时钟跳过帧间等待。每项预热两次，输出七次测量的耗时中位数和原生取帧数。 |
 | `danmaku/raster_cache_capacity_test.dart` | 对照 16/24/32 MiB 缓存容量在唯一内容、重复内容和预热扫描中的命中、光栅化与淘汰；检查预算和预期命中关系。 |
 | `danmaku/file_order_reuse_test.dart` | 用真实 protobuf 临时文件对照每次范围重建外部排序、来源排序产物冷构建和复用读取；核对相同范围内容、稳定次序、解码扫描量、产物复用及清理，输出宿主 CPU/磁盘耗时。 |
+| `danmaku/cpu_hotpaths_benchmark_test.dart` | 对照密集候选筛选、来源缓存保留和两类近似文本合并的耗时、输出校验值及进程峰值 RSS。 |
 | `danmaku/density_metrics.dart`、`density_metrics_test.dart` | 共享视口裁剪、逐权重显示及拥挤统计，验证不可见项、曝光积分、相对Top-N对照。 |
 | `danmaku/retention_budget_test.dart` | 完整真实分段及六分钟合成流，对照16/20/24MiB、30000/36000/42000条来源额度。 |
 | `danmaku/relative_density_analysis.py` | 将多组聚合报告汇总为逐权重CSV、JSON及Markdown，保留各配置实际覆盖的范围数。 |
@@ -47,6 +48,16 @@ fvm flutter test tool/experiments/
 | `diagnostics/memory_attribution_benchmark.dart` | 回放本地诊断目录，测量归属计算耗时与载荷大小；命令和范围见[诊断模块](../../lib/services/diagnostics/README.md#验证)。 |
 
 测量使用 Flutter 测试宿主，pump 时间反映本机 CPU 侧重建和缓存状态；GPU 帧耗时在目标设备测量。主测试集保留 `test/pages/danmaku/frame_rate_ticker_test.dart` 和 `native_video_frame_sync_test.dart` 的核心调度与相位回归，扩大矩阵只在实验目录按需运行。
+
+比较弹幕 CPU 热路径时，每种负载使用独立的测试进程，便于对照各自的峰值 RSS。
+
+```powershell
+foreach ($workload in 'selection', 'retention', 'merge', 'merge-close') {
+  fvm flutter test --no-pub --reporter expanded --name "^${workload}$" tool/experiments/danmaku/cpu_hotpaths_benchmark_test.dart
+}
+```
+
+固定输入预热三次后，输出九次耗时与中位数、结果校验值以及适用的保留字节数。峰值 RSS 统计整个 Flutter 测试进程。比较前后版本时，先核对校验值及保留字节数，再比较同一机器上的耗时。
 
 日志脱敏基准使用独立 Dart 入口。比较发布模式 CPU 成本时，先编译 AOT，再运行同一组输入：
 
