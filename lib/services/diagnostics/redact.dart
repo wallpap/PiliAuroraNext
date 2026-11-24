@@ -2,42 +2,45 @@ import 'dart:collection';
 
 /// 导出时清洗敏感字段；采集时只复制有界快照，避免正则处理阻塞播放。
 abstract final class DiagnosticRedactor {
+  static const _redacted = '<redacted>';
+  static const _credentialTerms =
+      r'authorization|cookies?|token|password|passwd|secret|credentials?|private[ _.-]?key|api[ _.-]?key|access[ _.-]?key|sessdata|bili_jct|csrf|dedeuserid|identifierforvendor|android[ _.-]?id|device[ _.-]?id|fingerprint|signature|w_rid|upsig|auth[ _.-]?(?:code|key)|ticket';
   static final _secretKey = RegExp(
-    r'authorization|cookie|token|password|passwd|secret|credential|private.?key|api.?key|access.?key|sessdata|bili_jct|csrf|buvid|dedeuserid|identifierforvendor|android.?id|device.?id|fingerprint|signature|^sign$|^w_rid$|^upsig$|auth.?code|auth.?key|ticket',
+    '$_credentialTerms|buvid|^sign\$',
     caseSensitive: false,
   );
-  static final _url = RegExp(
-    r'(?:https?|wss?)://[^\s<>"\x27]+(?:<redacted>)?',
-    caseSensitive: false,
-  );
-  // mpv 的音轨标题可能只含文件名和签名查询串，没有 URL scheme。
-  // 整段查询一并移除，不能只枚举已知 token 名称而漏掉其他签名参数。
-  static final _query = RegExp(r'''\?[^\s<>"']+''');
-  // 先定位固定敏感词，再检查赋值尾部，避免长键名和连字符触发重复回溯。
   static final _assignmentKey = RegExp(
-    r'authorization|cookie|set-cookie|token|access[_-]?key|api[_-]?key|password|passwd|secret|credential|private[_-]?key|SESSDATA|bili_jct|csrf|(buvid)|DedeUserID|sign(?:ature)?|w_rid|upsig|auth[_-]?(?:code|key)|ticket',
+    '(?:$_credentialTerms)\$|(?:^|[-_.])sign\$',
     caseSensitive: false,
   );
-  static final _keySuffix = RegExp(r'\w*', caseSensitive: false);
-  static final _assignmentValue = RegExp(
-    r'''(["']?\s*[=:]\s*)([^\r\n,;}]+)''',
+  static final _headerKey = RegExp(r'(?:authorization|cookies?)$');
+  static final _url = RegExp(
+    r'''(?:(?:https?|wss?|ftps?|rtmps?|rtsps?|file)://|(?<![\w:/\\])//)[^\s<>"']+(?:<redacted>)?''',
+    caseSensitive: false,
   );
+  static final _query = RegExp(r'''\?[^\s<>"']+''');
+  static final _relativeQuery = RegExp(
+    r'''(?:[/\\]|\.[A-Za-z0-9]{1,8})[^\s<>"'()]*$''',
+  );
+  static final _delimiter = RegExp(r'[:=]');
+  static final _lineEnd = RegExp(r'[\r\n]');
+  static final _bareValueEnd = RegExp(r'[\r\n,;\]}]');
   static final _bearer = RegExp(
-    r'\b(Bearer|Basic)\s+[^\s,;]+',
-    caseSensitive: false,
-  );
-  static final _header = RegExp(
-    r'''((?:authorization|cookie|set-cookie)["']?\s*[:=]\s*)[^\r\n]+''',
+    r'''\b(Bearer|Basic)\s+[^\s,;"'<>()\[\]{}]+''',
     caseSensitive: false,
   );
   static final _privateKey = RegExp(
-    r'-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|$)',
+    r'-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----|$)',
   );
-  static final _windowsPath = RegExp(r'\b[A-Za-z]:[\\/][^\r\n"<>]+');
-  static final _unixUserPath = RegExp(r'/(?:Users|home)/[^\s/]+');
-  // 覆盖所有规则的必要入口；普通字段只扫描一次，后续仍按原顺序脱敏。
+  static final _windowsPath = RegExp(
+    r'''\b[A-Za-z]:[\\/][^\r\n"'<>]+|\\\\[^\s\\/"'<>]+[\\/][^\r\n"'<>]+''',
+  );
+  static final _unixUserPath = RegExp(
+    r'''/(?:Users|home)/[^\s/"'<>]+''',
+    caseSensitive: false,
+  );
   static final _textMarker = RegExp(
-    r'[:=?/]|-----BEGIN |\b(?:Bearer|Basic)\s',
+    r'[:=?/\\]|-----BEGIN |\b(?:Bearer|Basic)\s',
     caseSensitive: false,
   );
 
@@ -50,36 +53,30 @@ abstract final class DiagnosticRedactor {
     if (result.contains('-----BEGIN ')) {
       result = result.replaceAll(_privateKey, '<private-key>');
     }
-    if (result.contains('://')) {
-      result = result.replaceAllMapped(_url, (match) {
-        final uri = Uri.tryParse(match[0]!);
-        if (uri == null) return '<url>';
-        final endpoint = Uri(
-          scheme: uri.scheme,
-          host: uri.host,
-          port: uri.hasPort ? uri.port : null,
-          path: uri.path,
-        );
-        return '$endpoint${uri.hasQuery ? '?<redacted>' : ''}';
-      });
+    if (result.contains('//')) {
+      result = result.replaceAllMapped(_url, _redactUrl);
     }
     if (result.contains('?')) {
-      result = result.replaceAll(_query, '?<redacted>');
+      final text = result;
+      result = result.replaceAllMapped(_query, (match) {
+        var start = match.start;
+        while (start > 0 && !_isTokenBoundary(text.codeUnitAt(start - 1))) {
+          start--;
+        }
+        final prefix = text.substring(start, match.start);
+        return _relativeQuery.hasMatch(prefix) || match[0]!.contains('=')
+            ? '?$_redacted'
+            : match[0]!;
+      });
     }
-    final hasColon = result.contains(':');
-    if (hasColon || result.contains('=')) {
-      result = result.replaceAllMapped(
-        _header,
-        (match) => '${match[1]}<redacted>',
-      );
+    if (_delimiter.hasMatch(result)) {
       result = _redactAssignments(result);
     }
     result = result.replaceAllMapped(
       _bearer,
-      (match) => '${match[1]} <redacted>',
+      (match) => '${match[1]} $_redacted',
     );
-    // 本机用户名及目录不是诊断指标。
-    if (hasColon) {
+    if (result.contains('\\') || result.contains(':')) {
       result = result.replaceAll(_windowsPath, '<local-path>');
     }
     if (result.contains('/')) {
@@ -88,43 +85,170 @@ abstract final class DiagnosticRedactor {
     return boundedText(result, maxLength: maxLength);
   }
 
+  static String _redactUrl(Match match) {
+    final uri = Uri.tryParse(match[0]!);
+    if (uri == null || uri.host.isEmpty && uri.scheme != 'file') return '<url>';
+    if (uri.scheme == 'file') return '<local-path>';
+    final endpoint = Uri(
+      scheme: uri.scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+      path: uri.path,
+    );
+    return '$endpoint${uri.hasQuery ? '?$_redacted' : ''}';
+  }
+
   static String _redactAssignments(String input) {
     StringBuffer? output;
     var copied = 0;
     var cursor = 0;
-    var buvidEnd = -1;
-    Match? buvidValue;
     while (cursor < input.length) {
-      final key = _assignmentKey.allMatches(input, cursor).firstOrNull;
-      if (key == null) break;
-      cursor = key.end;
-      var valueStart = cursor;
-      final Match? value;
-      if (key[1] != null) {
-        // 同一词的后缀和赋值只检查一次，仍保留 buvidapi-key 等重叠候选。
-        if (cursor > buvidEnd) {
-          buvidEnd = _keySuffix.matchAsPrefix(input, cursor)!.end;
-          buvidValue = _assignmentValue.matchAsPrefix(input, buvidEnd);
-        }
-        valueStart = buvidEnd;
-        value = buvidValue;
-      } else {
-        value = _assignmentValue.matchAsPrefix(input, cursor);
+      final delimiter = _delimiter.allMatches(input, cursor).firstOrNull;
+      if (delimiter == null) break;
+      cursor = delimiter.end;
+      var keyEnd = delimiter.start;
+      while (keyEnd > copied &&
+          _isHorizontalSpace(input.codeUnitAt(keyEnd - 1))) {
+        keyEnd--;
       }
-      if (value == null) {
-        // 固定词也可能重叠，例如 secretoken；失败后仅推进一个字符。
-        cursor = key.start + 1;
-        continue;
+      final quotedKey =
+          keyEnd > copied && _isQuote(input.codeUnitAt(keyEnd - 1));
+      var replacementQuote = '';
+      if (quotedKey) {
+        final quoteEnd = keyEnd;
+        keyEnd--;
+        if (keyEnd > copied && input.codeUnitAt(keyEnd - 1) == 92) keyEnd--;
+        replacementQuote = input.substring(keyEnd, quoteEnd);
       }
+      var keyStart = keyEnd;
+      while (keyStart > copied &&
+          (_isKeyCharacter(input.codeUnitAt(keyStart - 1)) ||
+              (quotedKey && input.codeUnitAt(keyStart - 1) == 32))) {
+        keyStart--;
+      }
+      if (keyStart == keyEnd) continue;
+      final key = input.substring(keyStart, keyEnd).toLowerCase();
+      if (!_assignmentKey.hasMatch(key) && !_hasBuvidSuffix(key)) continue;
+
+      var valueStart = delimiter.end;
+      while (valueStart < input.length &&
+          _isHorizontalSpace(input.codeUnitAt(valueStart))) {
+        valueStart++;
+      }
+      final header = _headerKey.hasMatch(key);
+      final quote = header && !quotedKey ? null : _quoteAt(input, valueStart);
+      final valueEnd = quote != null
+          ? _quotedEnd(input, valueStart, quote)
+          : _unquotedEnd(input, valueStart, header: header && !quotedKey);
+      if (valueStart == valueEnd) continue;
       (output ??= StringBuffer())
         ..write(input.substring(copied, valueStart))
-        ..write(value[1])
-        ..write('<redacted>');
-      cursor = copied = value.end;
+        ..write(replacementQuote)
+        ..write(_redacted)
+        ..write(replacementQuote);
+      cursor = copied = valueEnd;
     }
     if (output == null) return input;
-    output.write(input.substring(copied));
-    return output.toString();
+    return (output..write(input.substring(copied))).toString();
+  }
+
+  static bool _hasBuvidSuffix(String key) {
+    final hyphen = key.lastIndexOf('-');
+    final dot = key.lastIndexOf('.');
+    return key.contains('buvid', (hyphen > dot ? hyphen : dot) + 1);
+  }
+
+  static bool _isHorizontalSpace(int character) =>
+      character == 32 || character == 9;
+
+  static bool _isQuote(int character) => character == 34 || character == 39;
+
+  static bool _isKeyCharacter(int character) =>
+      (character >= 48 && character <= 57) ||
+      (character >= 65 && character <= 90) ||
+      (character >= 97 && character <= 122) ||
+      character == 45 ||
+      character == 46 ||
+      character == 95;
+
+  static bool _isTokenBoundary(int character) =>
+      character <= 32 ||
+      _isQuote(character) ||
+      character == 40 ||
+      character == 41 ||
+      character == 60 ||
+      character == 62;
+
+  static String? _quoteAt(String input, int start) {
+    if (start == input.length) return null;
+    final character = input.codeUnitAt(start);
+    if (_isQuote(character)) return input[start];
+    if (character == 92 &&
+        start + 1 < input.length &&
+        _isQuote(input.codeUnitAt(start + 1))) {
+      return input.substring(start, start + 2);
+    }
+    return null;
+  }
+
+  static int _quotedEnd(String input, int start, String quote) {
+    final expected = quote.codeUnitAt(quote.length - 1);
+    var cursor = start + quote.length;
+    while (cursor < input.length) {
+      final slashStart = cursor;
+      while (cursor < input.length && input.codeUnitAt(cursor) == 92) {
+        cursor++;
+      }
+      if (cursor == input.length) break;
+      final slashCount = cursor - slashStart;
+      if (input.codeUnitAt(cursor) == expected &&
+          (quote.length == 1 ? slashCount.isEven : slashCount == 1)) {
+        return cursor + 1;
+      }
+      cursor++;
+    }
+    return input.length;
+  }
+
+  static int _unquotedEnd(String input, int start, {required bool header}) {
+    if (start == input.length) return start;
+    final first = input.codeUnitAt(start);
+    if (!header) {
+      if (first == 91 || first == 123) return _containerEnd(input, start);
+      return _bareValueEnd.allMatches(input, start).firstOrNull?.start ??
+          input.length;
+    }
+    var end = start;
+    while (true) {
+      end = _lineEnd.allMatches(input, end).firstOrNull?.start ?? input.length;
+      var next = end;
+      if (next < input.length && input.codeUnitAt(next) == 13) next++;
+      if (next < input.length && input.codeUnitAt(next) == 10) next++;
+      if (next == input.length || !_isHorizontalSpace(input.codeUnitAt(next))) {
+        return end;
+      }
+      end = next + 1;
+    }
+  }
+
+  static int _containerEnd(String input, int start) {
+    final closers = <int>[];
+    var cursor = start;
+    while (cursor < input.length) {
+      final quote = _quoteAt(input, cursor);
+      if (quote != null) {
+        cursor = _quotedEnd(input, cursor, quote);
+        continue;
+      }
+      final character = input.codeUnitAt(cursor++);
+      if (character == 91 || character == 123) {
+        closers.add(character == 91 ? 93 : 125);
+      } else if (character == 93 || character == 125) {
+        if (character != closers.removeLast()) return input.length;
+        if (closers.isEmpty) return cursor;
+      }
+    }
+    return input.length;
   }
 
   static Object? clean(
@@ -251,6 +375,8 @@ abstract final class DiagnosticRedactor {
     if (value is double) return value.isFinite ? value : null;
     if (value is Map) {
       final result = <String, Object?>{};
+      final name = budget.redact ? value['name'] : null;
+      final sensitivePair = name is String && _secretKey.hasMatch(name);
       for (final entry in value.entries.take(64)) {
         final key = budget.redact ? text(entry.key) : entry.key.toString();
         // 原键保留到导出，避免截掉敏感键后缀后失去识别依据。
@@ -258,8 +384,10 @@ abstract final class DiagnosticRedactor {
             ? key.substring(0, key.length.clamp(0, 96))
             : key;
         result[outputKey] =
-            budget.redact && _secretKey.hasMatch(entry.key.toString())
-            ? '<redacted>'
+            budget.redact &&
+                (_secretKey.hasMatch(entry.key.toString()) ||
+                    (sensitivePair && entry.key == 'value'))
+            ? _redacted
             : _clean(entry.value, budget, depth + 1);
       }
       return budget.immutable ? UnmodifiableMapView(result) : result;

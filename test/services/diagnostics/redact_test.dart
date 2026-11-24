@@ -173,11 +173,88 @@ void main() {
   });
 
   test('redacting queries retains ordinary diagnostic questions', () {
-    expect(
-      DiagnosticRedactor.text('GPU ready? paused=true'),
+    for (final text in [
       'GPU ready? paused=true',
+      'GPU ready?yes',
+      'assign=4',
+    ]) {
+      expect(DiagnosticRedactor.text(text), text);
+    }
+    expect(DiagnosticRedactor.text('?other=query-secret'), '?<redacted>');
+  });
+
+  test('redacts complete quoted and nested values while keeping JSON valid', () {
+    const input =
+        r'''{"token":"before, after; bracket} escaped\" last","api Key":{"first":"nested, tail","last":["nested-tail"]},"deviceId":"device value","elapsedMs":42}''';
+    final output = DiagnosticRedactor.text(input);
+    expect(jsonDecode(output), {
+      'token': '<redacted>',
+      'api Key': '<redacted>',
+      'deviceId': '<redacted>',
+      'elapsedMs': 42,
+    });
+    expect(DiagnosticRedactor.text(output), output);
+  });
+
+  test('recognizes escaped JSON quotes and unclosed secret values', () {
+    final output = DiagnosticRedactor.text(
+      r'''{\"password\":\"first; escaped\\\" still-secret\",\"ready\":true}''',
+    );
+    expect(output, r'''{\"password\":\"<redacted>\",\"ready\":true}''');
+    expect(
+      DiagnosticRedactor.text('token="before; unfinished-secret'),
+      'token=<redacted>',
     );
   });
+
+  test('redacts full header values and folded continuation lines', () {
+    final output = DiagnosticRedactor.text(
+      'Proxy-Authorization: Digest username="first", response="second"\r\n'
+      '\tnonce="folded"\r\n'
+      'xCustomCookie: "first"; other=cookie-tail\n'
+      '  continued=cookie-folded\n'
+      'X-Trace-Id: accepted',
+    );
+    expect(
+      output,
+      'Proxy-Authorization: <redacted>\r\n'
+      'xCustomCookie: <redacted>\n'
+      'X-Trace-Id: accepted',
+    );
+    expect(DiagnosticRedactor.text(output), output);
+  });
+
+  test('redacts credential pairs in structured header data', () {
+    final output = DiagnosticRedactor.clean([
+      {'name': 'Proxy-Authorization', 'value': 'pair-secret'},
+      {'name': 'X-Trace-Id', 'value': 'trace-123'},
+    ]);
+    expect(output, [
+      {'name': 'Proxy-Authorization', 'value': '<redacted>'},
+      {'name': 'X-Trace-Id', 'value': 'trace-123'},
+    ]);
+  });
+
+  test(
+    'redacts userinfo in relative and playback URLs and hides file paths',
+    () {
+      final output = DiagnosticRedactor.text(
+        'GET //user:pass@example.test/path?other=relative-secret#fragment\n'
+        'PLAY rtsp://user:pass(word)@example.test:8554/live?stream=stream-secret\n'
+        'track.m4s?value=sample(suffix)\n'
+        'file:///storage/private-folder/media.m4s\n'
+        r'\\WORKSTATION\private-share\media.m4s',
+      );
+      expect(
+        output,
+        'GET //example.test/path?<redacted>\n'
+        'PLAY rtsp://example.test:8554/live?<redacted>\n'
+        'track.m4s?<redacted>\n'
+        '<local-path>\n<local-path>',
+      );
+      expect(DiagnosticRedactor.text(output), output);
+    },
+  );
 
   test('nested diagnostic payloads remain bounded', () {
     final large = List.generate(64, (_) => List.filled(64, 'x' * 10000));
