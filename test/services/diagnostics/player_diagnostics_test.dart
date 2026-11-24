@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show FrameTiming;
 
@@ -58,9 +59,43 @@ void main() {
         playerDiagnostics.snapshot(detailed: false),
         containsPair('durationMs', 87000),
       );
+      player.logController.add(
+        const PlayerLog(prefix: 'vd', level: 'error', text: 'native failure'),
+      );
+      player.errorController.add('native failure');
+      await Future<void>.delayed(Duration.zero);
+      player.errorController.add('independent failure');
+      await Future<void>.delayed(Duration.zero);
+      final events = diagnostics.recentEvents;
+      final created = events.singleWhere(
+        (event) => event.message == 'player.created',
+      );
+      expect(
+        created.details,
+        containsPair('playerId', playerDiagnostics.playerId),
+      );
+      expect(created.details, isNot(contains('durationMs')));
+      final native = events.singleWhere(
+        (event) => event.message == 'native failure',
+      );
+      final context =
+          events
+                  .singleWhere(
+                    (event) => event.message == 'mpv.error.context',
+                  )
+                  .details
+              as Map;
+      expect(context['mpvErrorSequence'], native.sequence);
+      expect(context['state'], containsPair('durationMs', 87000));
+      final standalone = events.singleWhere(
+        (event) => event.message == 'playback.error',
+      );
+      expect(standalone.details, containsPair('error', 'independent failure'));
     } finally {
       detachDanmaku();
       playerDiagnostics.dispose();
+      await player.logController.close();
+      await player.errorController.close();
       diagnostics.dispose();
       await diagnostics.flush();
       await directory.delete(recursive: true);
@@ -87,7 +122,14 @@ class _SnapshotPlayer implements NativePlayer {
   @override
   final onUnloadHooks = <Future<void> Function()>[];
   @override
-  final stream = _EmptyStreams();
+  final logController = StreamController<PlayerLog>();
+  @override
+  final errorController = StreamController<String>();
+  @override
+  late final stream = _SnapshotStreams(
+    logController.stream,
+    errorController.stream,
+  );
   @override
   Stream<String?> observeProperty(String name) => Stream.value(
     name == 'hwdec-current' ? 'mediacodec' : 'fixture-$name',
@@ -97,9 +139,11 @@ class _SnapshotPlayer implements NativePlayer {
       throw StateError('Unexpected native operation: ${invocation.memberName}');
 }
 
-class _EmptyStreams implements PlayerStream {
+class _SnapshotStreams implements PlayerStream {
+  _SnapshotStreams(this.log, this.error);
+
   @override
-  Stream<PlayerLog> get log => const Stream.empty();
+  final Stream<PlayerLog> log;
   @override
   Stream<bool> get playing => const Stream.empty();
   @override
@@ -109,7 +153,7 @@ class _EmptyStreams implements PlayerStream {
   @override
   Stream<VideoParams> get videoParams => const Stream.empty();
   @override
-  Stream<String> get error => const Stream.empty();
+  final Stream<String> error;
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw StateError('Unexpected player stream: ${invocation.memberName}');

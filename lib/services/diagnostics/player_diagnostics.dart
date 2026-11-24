@@ -1,26 +1,17 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
+import 'package:pili_aurora_next/services/diagnostics/redact.dart';
 
 /// 分离 mpv 原始日志、播放器状态和解码上下文；低等级只记录边界，不逐帧刷屏。
 class PlayerDiagnostics {
   PlayerDiagnostics(this.player, {this.extra}) {
     for (final name in _propertyNames) {
-      _subscriptions.add(
-        player
-            .observeProperty(name)
-            .listen(
-              (value) => _properties[name] = value,
-              onError: (Object error) {
-                _properties[name] = null;
-              },
-            ),
-      );
+      _subscriptions.add(_observe(name));
     }
     _unregister = Diagnostics.instance.register(
       playerId,
@@ -49,13 +40,7 @@ class PlayerDiagnostics {
           },
         ),
       ),
-      player.stream.error.listen(
-        (value) => event(
-          'playback.error',
-          level: DiagnosticLogLevel.error,
-          details: {'error': value, 'mpvContext': _context.toList()},
-        ),
-      ),
+      player.stream.error.listen(_onError),
     ]);
     Diagnostics.instance.addListener(_updateLevel);
     _updateLevel();
@@ -73,7 +58,8 @@ class PlayerDiagnostics {
   final _properties = <String, String?>{};
   late final void Function() _unregister;
   final _subscriptions = <StreamSubscription>[];
-  final _context = Queue<Map<String, Object?>>();
+  StreamSubscription<String?>? _cacheStateSubscription;
+  ({String text, int elapsedMs})? _lastMpvError;
   DiagnosticLogLevel? _level;
   Timer? _timer;
   int _mediaGeneration = 0;
@@ -85,6 +71,13 @@ class PlayerDiagnostics {
   String get playerId => 'player.${player.hashCode}';
   String? property(String name) => _disposed ? null : _properties[name];
   String? _property(String name) => property(name);
+
+  StreamSubscription<String?> _observe(String name) => player
+      .observeProperty(name)
+      .listen(
+        (value) => _properties[name] = value,
+        onError: (Object _) => _properties[name] = null,
+      );
 
   static final _propertyNames = [
     'mpv-version',
@@ -106,7 +99,6 @@ class PlayerDiagnostics {
     'mistimed-frame-count',
     'vo-delayed-frame-count',
     'avsync',
-    'demuxer-cache-state',
     'paused-for-cache',
     'eof-reached',
     'seeking',
@@ -170,12 +162,21 @@ class PlayerDiagnostics {
         level,
         'player',
         action,
-        details: {...snapshot(), ...?details},
+        details: {
+          'playerId': playerId,
+          'mediaGeneration': _mediaGeneration,
+          ...?details,
+          if (level == DiagnosticLogLevel.error) 'state': _failureState(),
+        },
       );
     } catch (_) {
       // 诊断读取失败不参与加载与解码控制。
     }
   }
+
+  Map<String, Object?> _failureState() => snapshot()
+    ..remove('playerId')
+    ..remove('mediaGeneration');
 
   Future<void> _onLoad() async {
     _mediaGeneration++;
@@ -189,13 +190,32 @@ class PlayerDiagnostics {
     ]) {
       _properties.remove(name);
     }
-    _context.clear();
+    _lastMpvError = null;
     _lastErrorContext.clear();
     _lastDecoder = null;
     event('media.load');
   }
 
   Future<void> _onUnload() async => event('media.unload');
+
+  void _onError(String error) {
+    if (_disposed ||
+        !Diagnostics.instance.acceptsPlayer(DiagnosticLogLevel.error)) {
+      return;
+    }
+    final last = _lastMpvError;
+    if (last != null &&
+        last.text == DiagnosticRedactor.boundedText(error, maxLength: 65536) &&
+        _errorClock.elapsedMilliseconds - last.elapsedMs < 1000) {
+      _lastMpvError = null;
+      return;
+    }
+    event(
+      'playback.error',
+      level: DiagnosticLogLevel.error,
+      details: {'error': error},
+    );
+  }
 
   void _onLog(PlayerLog log) {
     final level = switch (log.level) {
@@ -205,24 +225,33 @@ class PlayerDiagnostics {
       'debug' || 'v' => DiagnosticLogLevel.debug,
       _ => DiagnosticLogLevel.trace,
     };
-    if (_disposed) return;
+    final diagnostics = Diagnostics.instance;
+    if (_disposed || !diagnostics.acceptsPlayer(level)) return;
     final details = {
       'playerId': playerId,
       'mediaGeneration': _mediaGeneration,
       'prefix': log.prefix,
       'nativeLevel': log.level,
     };
-    if (Diagnostics.instance.playerLevel != DiagnosticLogLevel.off) {
-      _context.add({...details, 'message': log.text});
-      while (_context.length > 24) {
-        _context.removeFirst();
-      }
-    }
-    Diagnostics.instance.playerLog(level, 'mpv', log.text, details: details);
-    // 原始错误只写一次；上下文快照仅在错误边界采集，不对每条 mpv 文本读取所有属性。
-    if (level == DiagnosticLogLevel.error &&
-        Diagnostics.instance.acceptsPlayer(level)) {
+    final result = diagnostics.playerLog(
+      level,
+      'mpv',
+      log.text,
+      details: details,
+    );
+    if (level == DiagnosticLogLevel.error && result != null) {
       final now = _errorClock.elapsedMilliseconds;
+      if (log.level == 'error' &&
+          const {
+            'file',
+            'ffmpeg',
+            'vd',
+            'ad',
+            'cplayer',
+            'stream',
+          }.contains(log.prefix)) {
+        _lastMpvError = (text: result.event.message as String, elapsedMs: now);
+      }
       final previous = _lastErrorContext[log.prefix];
       if (previous == null || now - previous >= 1000) {
         _lastErrorContext[log.prefix] = now;
@@ -231,8 +260,7 @@ class PlayerDiagnostics {
           level: level,
           details: {
             'prefix': log.prefix,
-            'trigger': log.text,
-            'note': '同前缀错误快照限频 1 秒；全部原始错误保留在 mpv 记录中',
+            'mpvErrorSequence': ?result.event.sequence,
           },
         );
       }
@@ -258,17 +286,38 @@ class PlayerDiagnostics {
       );
       _lastDecoder = state;
     }
-    event(
-      'playback.snapshot',
-      level: Diagnostics.instance.playerLevel == DiagnosticLogLevel.trace
-          ? DiagnosticLogLevel.trace
-          : DiagnosticLogLevel.debug,
-    );
+    final diagnostics = Diagnostics.instance;
+    if (diagnostics.playerLevel == DiagnosticLogLevel.trace &&
+        !diagnostics.tracing) {
+      event(
+        'playback.snapshot',
+        level: DiagnosticLogLevel.trace,
+        details: {
+          'positionMs': player.state.position.inMilliseconds,
+          'bufferMs': player.state.buffer.inMilliseconds,
+          'frame-drop-count': _property('frame-drop-count'),
+          'decoder-frame-drop-count': _property('decoder-frame-drop-count'),
+          'avsync': _property('avsync'),
+        },
+      );
+    }
   }
 
   void _updateLevel() {
-    final level = Diagnostics.instance.playerLevel;
-    if (_disposed || player.disposed || level == _level) return;
+    final diagnostics = Diagnostics.instance;
+    final level = diagnostics.playerLevel;
+    if (_disposed || player.disposed) return;
+    final readCacheState =
+        diagnostics.tracing ||
+        diagnostics.acceptsPlayer(DiagnosticLogLevel.debug);
+    if (readCacheState) {
+      _cacheStateSubscription ??= _observe('demuxer-cache-state');
+    } else if (_cacheStateSubscription case final subscription?) {
+      unawaited(subscription.cancel());
+      _cacheStateSubscription = null;
+      _properties.remove('demuxer-cache-state');
+    }
+    if (level == _level) return;
     _level = level;
     _timer?.cancel();
     _timer = null;
@@ -309,7 +358,7 @@ class PlayerDiagnostics {
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
-    _context.clear();
+    unawaited(_cacheStateSubscription?.cancel());
   }
 }
 
