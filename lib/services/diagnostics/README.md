@@ -1,5 +1,15 @@
 # 诊断与轻量内存归属
 
+## 应用与播放日志
+
+`DiagnosticLogRecord` 统一新日志的采集、历史恢复和窗口转发。`runtime.jsonl` 与 `player.jsonl` 每行保存一个 `schema=1` 事件，沿用原有顶层字段，历史文件可直接读取。`channel`、`level`、`category` 与 `message` 描述事件，`details` 与 `stack` 按需提供。文本、列表和对象形式的消息在导出后仍可按原结构处理。
+
+用 `(runId, processId, windowId, sequence)` 对齐窗口转发副本。用 `time` 跨来源排序，用同进程的 `elapsedUs` 比较间隔。播放事件可按 `details.playerId` 和 `details.mediaGeneration` 分组。普通播放事件只记录变化内容，故障状态位于 `details.state`。`mpv.error.context` 的 `details.mpvErrorSequence` 指向同一来源的原始 mpv 错误。
+
+诊断页分别保留应用与播放最近 200 条，支持按消息、类别、路由搜索，以及按通道和等级筛选。展开可查看来源、详情和堆栈，复制或导出时脱敏。导出只保留一份跨窗口镜像，仍收集子窗口独有的记录，去重数量见 `manifest.json` 的 `export.duplicateRecords`。
+
+## 性能采集与内存归属
+
 在“设置 → 日志与诊断 → 记录性能”开启采集，建议每秒采样。退出播放后继续记录约 90 秒再导出。多窗口协调和文件轮转沿用现有流程，无需脚本或管理员权限。
 
 ## 采集与所有权

@@ -64,8 +64,42 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
   late final service = widget.diagnostics ?? Diagnostics.instance;
   bool _exporting = false;
   bool _showPerformance = false;
-  String? _channel;
-  bool _errorsOnly = false;
+  DiagnosticLogChannel? _channel;
+  DiagnosticLogLevel? _minimumLevel;
+  final _queryController = TextEditingController();
+  String _query = '';
+  List<DiagnosticLogRecord>? _filteredSource;
+  List<DiagnosticLogRecord> _filteredLogs = const [];
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  void _changeFilters(VoidCallback change) => setState(() {
+    change();
+    _filteredSource = null;
+  });
+
+  List<DiagnosticLogRecord> _filter(List<DiagnosticLogRecord> events) {
+    if (identical(_filteredSource, events)) return _filteredLogs;
+    _filteredSource = events;
+    if (_channel == null && _minimumLevel == null && _query.isEmpty) {
+      return _filteredLogs = events;
+    }
+    return _filteredLogs = [
+      for (final event in events)
+        if ((_channel == null || event.channel == _channel) &&
+            (_minimumLevel == null ||
+                event.level.index >= _minimumLevel!.index) &&
+            (_query.isEmpty ||
+                event.category.toLowerCase().contains(_query) ||
+                (event.route?.toLowerCase().contains(_query) ?? false) ||
+                '${event.message}'.toLowerCase().contains(_query)))
+          event,
+    ];
+  }
 
   Future<void> _configure({bool? tracing, int? intervalMs}) async {
     try {
@@ -211,13 +245,8 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
       final process = latest?['process'] as Map? ?? const {};
       final frames = latest?['frames'] as Map? ?? const {};
       final images = latest?['images'] as Map? ?? const {};
-      final logs = service.recentLogs
-          .where(
-            (record) =>
-                (_channel == null || record['channel'] == _channel) &&
-                (!_errorsOnly || record['level'] == 'error'),
-          )
-          .toList();
+      final events = service.recentEvents;
+      final logs = _filter(events);
       return Scaffold(
         appBar: widget.showAppBar
             ? AppBar(
@@ -427,35 +456,68 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
                     ],
                     const Divider(height: 32),
                     Text(
-                      '最近日志（${logs.length} 条）',
+                      '最近日志 · ${logs.length} / ${events.length} 条',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _queryController,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        hintText: '搜索消息、类别或路由',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _queryController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: '清空搜索',
+                                onPressed: () => _changeFilters(() {
+                                  _queryController.clear();
+                                  _query = '';
+                                }),
+                                icon: const Icon(Icons.close),
+                              ),
+                      ),
+                      onChanged: (value) => _changeFilters(
+                        () => _query = value.trim().toLowerCase(),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Wrap(
                       spacing: 8,
                       children: [
                         for (final (channel, label) in const [
                           (null, '全部'),
-                          ('runtime', '应用'),
-                          ('player', '播放'),
+                          (DiagnosticLogChannel.runtime, '应用'),
+                          (DiagnosticLogChannel.player, '播放'),
                         ])
                           ChoiceChip(
                             label: Text(label),
                             selected: _channel == channel,
                             onSelected: (_) =>
-                                setState(() => _channel = channel),
+                                _changeFilters(() => _channel = channel),
                           ),
-                        FilterChip(
-                          label: const Text('错误'),
-                          selected: _errorsOnly,
-                          onSelected: (value) =>
-                              setState(() => _errorsOnly = value),
-                        ),
+                        for (final (level, label) in const [
+                          (DiagnosticLogLevel.warning, '警告及以上'),
+                          (DiagnosticLogLevel.error, '错误'),
+                        ])
+                          FilterChip(
+                            label: Text(label),
+                            selected: _minimumLevel == level,
+                            onSelected: (selected) => _changeFilters(
+                              () => _minimumLevel = selected ? level : null,
+                            ),
+                          ),
                       ],
                     ),
                     if (logs.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('暂无记录。可调高日志详细程度后复现问题。'),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          events.isEmpty
+                              ? '暂无日志。可调高日志详细程度后复现问题。'
+                              : '没有符合当前筛选条件的日志。',
+                        ),
                       ),
                   ],
                 ),
@@ -463,18 +525,14 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
             ),
             SliverList.builder(
               itemCount: logs.length,
+              findChildIndexCallback: (key) {
+                if (key is! ObjectKey) return null;
+                final index = logs.indexOf(key.value as DiagnosticLogRecord);
+                return index < 0 ? null : index;
+              },
               itemBuilder: (context, index) {
                 final log = logs[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  child: _LogCard(
-                    key: ValueKey((log['runId'], log['sequence'], log['time'])),
-                    record: log,
-                  ),
-                );
+                return _LogCard(key: ObjectKey(log), record: log);
               },
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -487,7 +545,7 @@ class _DiagnosticsPageState extends State<DiagnosticsPage> {
 
 class _LogCard extends StatefulWidget {
   const _LogCard({super.key, required this.record});
-  final Map<String, Object?> record;
+  final DiagnosticLogRecord record;
 
   @override
   State<_LogCard> createState() => _LogCardState();
@@ -495,17 +553,55 @@ class _LogCard extends StatefulWidget {
 
 class _LogCardState extends State<_LogCard> {
   bool _expanded = false;
+  late final _record = widget.record;
+  late final _time = _record.time?.toLocal();
+  late final _messageText = '${_record.message}';
+  late final _detailsText = switch (_record.details) {
+    final String text => text,
+    final Object value => const JsonEncoder.withIndent('  ').convert(value),
+    null => null,
+  };
+
+  Future<void> _copy() async {
+    try {
+      await Clipboard.setData(
+        ClipboardData(
+          text: const JsonEncoder.withIndent(
+            '  ',
+          ).convert(DiagnosticRedactor.exportRecord(_record.toJson())),
+        ),
+      );
+      if (mounted) _message(context, '日志已复制');
+    } catch (_) {
+      if (mounted) _message(context, '复制日志失败，请重试');
+    }
+  }
+
+  Widget _detail(String label, String text) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        SelectableText(text),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final record = widget.record;
-    final colors = Theme.of(context).colorScheme;
-    final level = DiagnosticLogLevel.parse(record['level'] as String?);
-    final time = DateTime.tryParse('${record['time']}')?.toLocal();
-    String format() => const JsonEncoder.withIndent('  ').convert(record);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final localizations = MaterialLocalizations.of(context);
+    final level = _record.level;
+    final time = _time;
+    final metadataStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colors.onSurfaceVariant,
+    );
     return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -517,18 +613,34 @@ class _LogCardState extends State<_LogCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${record['message']}',
+                        _messageText,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: theme.textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${level.label} · ${record['category']} · ${time ?? record['time']}'
-                        '${record['windowId'] == null ? '' : ' · 窗口 ${record['windowId']}'}'
-                        '${record['processId'] == null ? '' : ' · 进程 ${record['processId']}'}'
-                        '${record['route'] == null ? '' : ' · ${record['route']}'}',
-                        style: TextStyle(color: colors.outline, fontSize: 13),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 2,
+                        children: [
+                          Text(
+                            level.label,
+                            style: metadataStyle?.copyWith(
+                              color: switch (level) {
+                                DiagnosticLogLevel.error => colors.error,
+                                DiagnosticLogLevel.warning => colors.tertiary,
+                                _ => colors.onSurfaceVariant,
+                              },
+                            ),
+                          ),
+                          Text(_record.category, style: metadataStyle),
+                          if (time != null)
+                            Text(
+                              '${localizations.formatShortDate(time)} '
+                              '${time.toIso8601String().substring(11, 19)}',
+                              style: metadataStyle,
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -536,20 +648,7 @@ class _LogCardState extends State<_LogCard> {
                 IconButton(
                   tooltip: '复制日志',
                   icon: const Icon(Icons.copy_outlined, size: 20),
-                  onPressed: () async {
-                    try {
-                      await Clipboard.setData(
-                        ClipboardData(
-                          text: const JsonEncoder.withIndent('  ').convert(
-                            DiagnosticRedactor.exportRecord(record),
-                          ),
-                        ),
-                      );
-                      if (context.mounted) _message(context, '日志已复制');
-                    } catch (_) {
-                      if (context.mounted) _message(context, '复制日志失败，请重试');
-                    }
-                  },
+                  onPressed: _copy,
                 ),
                 IconButton(
                   tooltip: _expanded ? '收起' : '展开',
@@ -559,11 +658,20 @@ class _LogCardState extends State<_LogCard> {
               ],
             ),
             if (_expanded) ...[
-              const Divider(height: 24),
-              SelectableText(
-                format(),
-                style: const TextStyle(fontFamily: 'Monospace', fontSize: 13),
+              const Divider(height: 16),
+              _detail('消息', _messageText),
+              _detail(
+                '来源',
+                [
+                  _record.channel == DiagnosticLogChannel.player ? '播放' : '应用',
+                  if (_record.windowId case final value?) '窗口 $value',
+                  if (_record.processId case final value?) '进程 $value',
+                  ?_record.route,
+                  if (_record.sequence case final value?) '#$value',
+                ].join(' · '),
               ),
+              if (_detailsText case final value?) _detail('详情', value),
+              if (_record.stack case final value?) _detail('堆栈', value),
             ],
           ],
         ),
