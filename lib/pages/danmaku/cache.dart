@@ -83,12 +83,21 @@ class DanmakuCache {
         (item) => item.progress * 1000,
         endUs,
       );
-      final selected = selectDanmakuPriority(
-        items.sublist(lower, upper),
-        maxEntriesPerBucket ?? upper - lower,
-        compareDanmakuPriority,
-      );
-      for (final element in selected) {
+      final limit = maxEntriesPerBucket;
+      final selected = limit != null && upper - lower > limit
+          ? selectDanmakuPriority(
+              items,
+              limit,
+              compareDanmakuPriority,
+              start: lower,
+              end: upper,
+            )
+          : null;
+      final source = selected ?? items;
+      final first = selected == null ? lower : 0;
+      final stop = selected == null ? upper : selected.length;
+      for (var index = first; index < stop; index++) {
+        final element = source[index];
         entries.add(
           DanmakuTimelineEntry(
             positionUs: element.progress * Duration.microsecondsPerMillisecond,
