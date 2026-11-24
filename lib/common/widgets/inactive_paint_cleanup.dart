@@ -120,7 +120,7 @@ class _RenderInactivePaintCleanup extends RenderProxyBox {
     }
 
     void collectLayers(ContainerLayer layer) {
-      if (!layers.add(layer)) return;
+      if (layers.contains(layer)) return;
       // Viewport 等组件会额外用 LayerHandle 保存内部裁剪层。旧卡片即使
       // 已销毁，这些层仍可持有其绘制记录，必须在摘下前收集整个层子树。
       var child = layer.firstChild;
@@ -128,6 +128,7 @@ class _RenderInactivePaintCleanup extends RenderProxyBox {
         if (child is ContainerLayer) collectLayers(child);
         child = child.nextSibling;
       }
+      layers.add(layer);
     }
 
     void collect(RenderObject node) {
@@ -152,23 +153,29 @@ class _RenderInactivePaintCleanup extends RenderProxyBox {
     }
 
     if (child case final child?) collect(child);
-    for (final layer in {...layers, ...detachedRoots}) {
+    for (final layer in layers) {
       inspect(layer);
+    }
+    for (final root in detachedRoots) {
+      inspect(root);
     }
     // 播放器与平台视图的组合由各自生命周期管理。
     if (hasExternalContent || layers.isEmpty) return;
     final handles = <LayerHandle<ContainerLayer>>[];
     try {
       // 普通 Dart 引用不能阻止 Layer.dispose；只在本次操作中临时保活。
-      for (final layer in {...layers, ...detachedRoots}) {
+      for (final layer in layers) {
         handles.add(LayerHandle<ContainerLayer>(layer));
       }
-      final orderedLayers = layers.toList()
-        ..sort((a, b) => b.depth.compareTo(a.depth));
-      for (final layer in orderedLayers) {
+      for (final root in detachedRoots) {
+        if (!layers.contains(root)) {
+          handles.add(LayerHandle<ContainerLayer>(root));
+        }
+      }
+      for (final layer in layers) {
         layer.removeAllChildren();
       }
-      for (final layer in orderedLayers) {
+      for (final layer in layers) {
         // 原来 attached 的内部层也会在上一步摘下，按清理后的状态判断。
         if (layer.attached) continue;
         // 正常 Scene 构建会替换旧 engineLayer，交还其持有的 native 图片。

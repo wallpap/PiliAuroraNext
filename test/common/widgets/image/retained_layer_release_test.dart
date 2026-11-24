@@ -105,6 +105,16 @@ Future<Uint8List> _pixels(ui.Image image) async {
 class _TrackedOffsetLayer extends OffsetLayer {
   ui.EngineLayer? get currentEngineLayer => engineLayer;
   int engineUpdates = 0;
+  int postFrameDepthReads = 0;
+
+  @override
+  int get depth {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.postFrameCallbacks) {
+      postFrameDepthReads++;
+    }
+    return super.depth;
+  }
 
   @override
   set engineLayer(ui.EngineLayer? value) {
@@ -200,6 +210,55 @@ class _VirtualizedPaintCardState extends State<_VirtualizedPaintCard> {
 }
 
 void main() {
+  testWidgets('Windows paint cleanup walks nested layers without sorting', (
+    tester,
+  ) async {
+    final cellKeys = List.generate(32, (_) => GlobalKey());
+    final grid = Column(
+      children: [
+        for (final key in cellKeys)
+          _TrackedBoundary(
+            child: _TrackedBoundary(
+              key: key,
+              child: const SizedBox(
+                width: 16,
+                height: 16,
+                child: ColoredBox(color: ui.Color(0xffff0000)),
+              ),
+            ),
+          ),
+      ],
+    );
+    Widget scene(bool active) => Directionality(
+      textDirection: TextDirection.ltr,
+      child: Offstage(
+        offstage: !active,
+        child: TickerMode(
+          enabled: active,
+          child: InactivePaintCleanup(child: grid),
+        ),
+      ),
+    );
+    await tester.pumpWidget(scene(true));
+    final layers = [
+      for (final key in cellKeys)
+        (key.currentContext!.findRenderObject()! as _RenderTrackedBoundary)
+                .debugLayer!
+            as _TrackedOffsetLayer,
+    ];
+    final pictures = layers.expand(_pictures).toList();
+    expect(pictures, hasLength(cellKeys.length));
+
+    await tester.pumpWidget(scene(false));
+    await tester.pumpAndSettle();
+    expect(pictures.every((picture) => picture.debugDisposed), isTrue);
+    expect(
+      layers.fold(0, (reads, layer) => reads + layer.postFrameDepthReads),
+      0,
+    );
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
   for (final (releaseContents, externalContent, lateCleanup) in [
     (false, false, false),
     (true, false, false),
