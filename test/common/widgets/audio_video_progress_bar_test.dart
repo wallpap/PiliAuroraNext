@@ -41,12 +41,10 @@ void main() {
     final progress = ValueNotifier(50);
     final seeks = <int>[];
     await tester.pumpWidget(_app(progress, seeks.add));
-    final render = tester.renderObject<RenderProgressBar>(
-      find.byType(ProgressBar),
-    );
-    render
-      ..increaseAction()
-      ..decreaseAction();
+    final render =
+        tester.renderObject<RenderProgressBar>(find.byType(ProgressBar))
+          ..increaseAction()
+          ..decreaseAction();
     expect(seeks, [55000, 45000]);
 
     final config = SemanticsConfiguration();

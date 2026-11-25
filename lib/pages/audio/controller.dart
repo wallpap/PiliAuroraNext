@@ -498,6 +498,13 @@ class AudioController with AudioNormalizationMixin {
   Future<void> playFromUi() => _consumePlaybackControl(onPlay);
   Future<void> pauseFromUi() => _consumePlaybackControl(onPause);
 
+  void cancelSeekFromUi() {
+    isDragging = false;
+    if (player case final current?) {
+      position.value = current.state.position.inSeconds;
+    }
+  }
+
   Future<void> seekFromUi(Duration duration) async {
     final target = player;
     final generation = _playGeneration;

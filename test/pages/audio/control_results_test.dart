@@ -239,6 +239,18 @@ void main() {
     await expectLater(controller.onPause(), throwsStateError);
   });
 
+  _check('cancelling a paused seek restores the observed audio position', (
+    tester,
+  ) async {
+    controller
+      ..isDragging = true
+      ..position.value = 42
+      ..cancelSeekFromUi();
+    expect(controller.isDragging, isFalse);
+    expect(controller.position.value, 7);
+    expect(player.state.position, const Duration(seconds: 7));
+  });
+
   _check('seek failure restores actual position and successful seek waits', (
     tester,
   ) async {
