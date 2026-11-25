@@ -127,7 +127,8 @@ class NativePlaybackRuntime
       configuration.playerOptions['glsl-shaders'] ?? '';
   int _lastBatchId = 0;
   bool _shutdownRequested = false;
-  bool _nativeLifecycleUnknown = false;
+  final _nativeLifecycleLost = Completer<void>();
+  bool get _nativeLifecycleUnknown => _nativeLifecycleLost.isCompleted;
   bool _nativeOpenNeedsRetirement = false;
   bool _seeking = false;
   int _mediaClockSeekSequence = 0;
@@ -1844,7 +1845,7 @@ class NativePlaybackRuntime
 
   void _markNativeLifecycleUnknown(String reason) {
     if (_nativeLifecycleUnknown) return;
-    _nativeLifecycleUnknown = true;
+    _nativeLifecycleLost.complete();
     _diagnostics?.event(
       'native.lifecycle.unknown',
       level: DiagnosticLogLevel.error,
@@ -2222,6 +2223,62 @@ class NativePlaybackRuntime
     cause: error.toString(),
   );
 
+  Future<void> _retireFileForShutdown(
+    Player player,
+    void Function(String) recordStage,
+  ) async {
+    if (!_nativeLifecycleUnknown &&
+        _activeBinding == null &&
+        _nativeOpenNeedsRetirement) {
+      recordStage('waiting-for-file-identity');
+      final opening = _openingLoad;
+      if (opening == null) {
+        _markNativeLifecycleUnknown('Shutdown has no binding for native open.');
+      } else {
+        await Future.any<void>([
+          opening.started.future,
+          _nativeLifecycleLost.future,
+        ]);
+      }
+    }
+    final binding = _activeBinding;
+    if (!_nativeLifecycleUnknown && binding == null) return;
+    if (binding != null && (binding.entryId == null || binding.token == null)) {
+      _markNativeLifecycleUnknown('Shutdown has an incomplete file binding.');
+    }
+
+    if (_nativeLifecycleUnknown ||
+        !(binding!.endFileSeen && binding.unloaded)) {
+      recordStage('stopping-file');
+      var stopConfirmed = false;
+      try {
+        await player.stop();
+        stopConfirmed = true;
+      } on TimeoutException {
+        recordStage('stop-reply-timed-out');
+      }
+      if (!_nativeLifecycleUnknown) {
+        recordStage('waiting-for-file-retirement');
+        await Future.any<void>([
+          binding!.retired.future,
+          _nativeLifecycleLost.future,
+        ]);
+      }
+      if (_nativeLifecycleUnknown) {
+        if (!stopConfirmed) {
+          recordStage('confirming-stop-after-identity-loss');
+          await player.stop();
+        }
+        recordStage('waiting-for-no-native-file');
+        await player.observeProperty('path').firstWhere((path) => path == null);
+        return;
+      }
+    }
+
+    recordStage('invalidating-output');
+    await _videoController?.invalidateOutputGeneration(binding!.token!);
+  }
+
   Future<PlaybackShutdownResult> _shutdown() async {
     final watch = Stopwatch()..start();
     var previousStageUs = 0;
@@ -2259,36 +2316,8 @@ class NativePlaybackRuntime
         if (!_released.isCompleted) _released.complete();
         return const PlaybackShutdownResult.released();
       }
-      if (_activeBinding == null && _nativeOpenNeedsRetirement) {
-        recordStage('waiting-for-file-identity');
-      }
-      final binding = await _waitForActiveBinding();
-      if (!player.disposed && binding != null) {
-        if (binding.entryId == null || binding.token == null) {
-          return PlaybackShutdownResult.cleanupIncomplete(
-            _failure(
-              PlaybackFailureCategory.disposal,
-              'shutdown-unload-barrier',
-              StateError('Active file identity is unknown.'),
-            ),
-          );
-        }
-        if (!(binding.endFileSeen && binding.unloaded)) {
-          recordStage('stopping-file');
-          try {
-            await player.stop();
-          } on TimeoutException {
-            // 回执超时后原生操作仍可能完成，继续用卸载事实确认释放时机。
-            recordStage('stop-reply-timed-out');
-          }
-          // The session's single shutdown deadline bounds the caller result.
-          // Keep this cleanup chain alive until native stop and unload facts
-          // actually arrive; a late barrier must still complete released.
-          recordStage('waiting-for-file-retirement');
-          await binding.retired.future;
-        }
-        recordStage('invalidating-output');
-        await _videoController?.invalidateOutputGeneration(binding.token!);
+      if (!player.disposed) {
+        await _retireFileForShutdown(player, recordStage);
         _activeBinding = null;
         _nativeOpenNeedsRetirement = false;
       }

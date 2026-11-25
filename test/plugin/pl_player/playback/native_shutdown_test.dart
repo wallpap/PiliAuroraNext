@@ -13,6 +13,7 @@ import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/native_playback_runtime.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/network_recovery.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/playback_runtime_slot.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 
@@ -236,6 +237,103 @@ void main() {
     await fixture.player.unload();
     fixture.player.endFile();
     expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+  });
+
+  for (final overflowDuringShutdown in [false, true]) {
+    test('文件退休证据丢失后等待文件卸载再释放（关闭中溢出：$overflowDuringShutdown）', () async {
+      final fixture = _Fixture(subscribeToPlaybackEvents: true);
+      addTearDown(fixture.close);
+      expect((await fixture.load()).loaded, isTrue);
+      final slot = PlaybackRuntimeSlot.isolated();
+      Future<PlaybackRuntimeSlotLease?> reserve() => slot.acquire(
+        deadline: const Duration(seconds: 2),
+        now: () => Duration.zero,
+      );
+      (await reserve())!.attachReleased(fixture.player.released);
+      var nextOwnsSlot = false;
+      final nextReservation = reserve().then((lease) {
+        nextOwnsSlot = lease != null;
+        return lease;
+      });
+
+      void overflow() {
+        fixture.player.events.add(const NativeEventQueueOverflow());
+      }
+
+      if (!overflowDuringShutdown) {
+        overflow();
+        await _turn();
+      }
+      final shutdown = fixture.runtime.shutdown();
+      await _turn();
+      expect(fixture.events, contains('stop'));
+      if (overflowDuringShutdown) {
+        overflow();
+        await _turn();
+      }
+
+      fixture.player.emitProperty('path', 'local-fixture.mp4');
+      await _turn();
+      expect(fixture.output.releaseCalls, 0);
+      expect(fixture.player.disposed, isFalse);
+
+      fixture.player.emitProperty('path', null);
+      await _turn();
+      expect(fixture.output.releaseCalls, 1);
+      expect(fixture.player.disposed, isFalse);
+      expect(nextOwnsSlot, isFalse);
+      fixture.output.releaseReceipt.complete();
+      expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+      await fixture.runtime.released;
+      expect(fixture.player.disposed, isTrue);
+      final nextLease = await nextReservation;
+      expect(nextLease, isNotNull);
+      nextLease?.release();
+    });
+  }
+
+  test('身份未知且停止命令挂起时，空闲通知不能提前释放输出', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    final stopReply = Completer<void>();
+    fixture.player.stopReply = stopReply.future;
+    addTearDown(() {
+      if (!stopReply.isCompleted) stopReply.complete();
+    });
+    fixture.player.deferStartFile = true;
+    final load = fixture.load();
+    await _turn();
+    fixture.player.events.add(const NativeEventQueueOverflow());
+    expect((await load).failure?.operation, 'native-lifecycle');
+
+    final shutdown = fixture.runtime.shutdown();
+    await _turn();
+    expect(fixture.events, contains('stop'));
+    fixture.player.emitProperty('path', null);
+    await _turn();
+    expect(fixture.output.releaseCalls, 0);
+
+    stopReply.complete();
+    await _turn();
+    expect(fixture.output.releaseCalls, 1);
+    fixture.output.releaseReceipt.complete();
+    expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+  });
+
+  test('无法确认隔离运行时的停止操作时不得释放输出或销毁播放器', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    expect((await fixture.load()).loaded, isTrue);
+    fixture.player.events.add(const NativeEventQueueOverflow());
+    fixture.player
+      ..stopTimesOut = true
+      ..emitProperty('path', null);
+
+    final result = await fixture.runtime.shutdown();
+    expect(result.outcome, PlaybackShutdownOutcome.cleanupIncomplete);
+    expect(fixture.events.where((event) => event == 'stop'), hasLength(2));
+    expect(fixture.output.releaseCalls, 0);
+    expect(fixture.player.disposed, isFalse);
   });
 
   test('轨道回执晚于身份丢失时加载不能转为成功', () async {
@@ -982,17 +1080,29 @@ class _Player implements NativePlayer {
 
   final playback = _PlayerStreams();
   final properties = <String, StreamController<String?>>{};
+  String? _nativePath;
   @override
   PlayerStream get stream => playback;
   @override
-  Stream<String?> observeProperty(String property) => properties
-      .putIfAbsent(
-        property,
-        () => StreamController<String?>.broadcast(sync: true),
-      )
-      .stream;
+  Stream<String?> observeProperty(String property) {
+    final stream = properties
+        .putIfAbsent(
+          property,
+          () => StreamController<String?>.broadcast(sync: true),
+        )
+        .stream;
+    if (property != 'path') return stream;
+    return Stream.multi((listener) {
+      listener.add(_nativePath);
+      final subscription = stream.listen(listener.add, onDone: listener.close);
+      listener.onCancel = subscription.cancel;
+    });
+  }
 
-  void emitProperty(String name, String value) => properties[name]?.add(value);
+  void emitProperty(String name, String? value) {
+    if (name == 'path') _nativePath = value;
+    properties[name]?.add(value);
+  }
 
   void startPlaying() => setPlaying(true);
 
@@ -1009,6 +1119,7 @@ class _Player implements NativePlayer {
   final events = StreamController<NativePlayerEvent>.broadcast(sync: true);
   NativeLifecycleHookHandler? hook;
   bool stopTimesOut = false;
+  Future<void>? stopReply;
   bool openTimesOut = false;
   bool openFailsBeforeSubmission = false;
   bool deferStartFile = false;
@@ -1043,6 +1154,7 @@ class _Player implements NativePlayer {
     onLoadSubmitted?.call();
     if (openTimesOut) throw TimeoutException('open reply');
     opens++;
+    emitProperty('path', 'local-fixture.mp4');
     if (recordOperations) calls.add('open');
     state.duration = const Duration(minutes: 5);
     state.completed = false;
@@ -1117,6 +1229,7 @@ class _Player implements NativePlayer {
   }
 
   void endFile() {
+    emitProperty('path', null);
     if (!events.isClosed) {
       events.add(
         NativeEndFile(
@@ -1137,6 +1250,7 @@ class _Player implements NativePlayer {
       started = false;
       entryId++;
     }
+    await stopReply;
     if (stopTimesOut) throw TimeoutException('stop reply');
   }
 

@@ -295,7 +295,19 @@ sourceFailed(load₁) ∧ 已接受 load₂ ∧ load₁ ≠ load₂
 
 首次失去身份时，原生层以 `native-lifecycle` 结算待确认的加载，并通知当前非退休文件所属的会话。
 随后到达的准备回执不能使加载成功。重复身份错误只触发一次通知。旧文件身份与卸载信息仍用于验证
-原生资源释放。
+文件身份未丢失时的正常释放；关闭期间丢失身份也要中止对文件事件的单一等待。
+
+```text
+identityUnknown ∧ closing ∧ nativeStopConfirmed ∧ freshNativePathUnavailable
+  ⇒ 可释放整个输出，不必重建丢失的文件身份
+允许新 Player 取得原生槽 ⇒ 旧输出和旧 Player 已确认释放
+```
+
+身份未知时，必须先收到整次原生 `stop` 的成功回执（含清空播放列表），再新订阅原生 `path`，
+等待当前文件已不再存在。单看 `idle-active`、Dart 播放状态或调用方超时都不是卸载证据。
+整个输出的释放和旧 Player 的真实销毁仍必须分别确认。任一确认缺失时不交出资源槽；
+调用方可以先收到 `cleanupIncomplete`，仍在途的清理不会因此失去资格。
+这条规则只用于关闭；旧运行时仍不能重新打开文件。
 
 对比单来源故障时，使用[生产会话设备探针](../../tool/probes/README.md#生产会话设备验收)的
 `networkRecoveryOnly`。两个真实 HTTP 端点分别验证 404 后原来源重试、切换到新内容，以及旧请求
