@@ -13,7 +13,10 @@ import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/native_playback_runtime.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/network_recovery.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
+
+import 'playback_session_fixture.dart' show sessionPlan;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -464,6 +467,82 @@ void main() {
     expect(ended, hasLength(2));
   });
 
+  for (final signal in ['missing', 'matched', 'eof']) {
+    test('原生 seek 落点观测 $signal', () async {
+      const limit = Duration(seconds: 5);
+      const target = Duration(seconds: 2);
+      const duration = Duration(seconds: 10);
+      final fixture = _Fixture();
+      fixture.player.autoStop = true;
+      final session = PlaybackSession(runtime: fixture.runtime);
+      final owner = session.attach();
+      final plan = sessionPlan(
+        'seek-observation',
+        audioOnly: true,
+        duration: duration,
+      );
+      try {
+        expect((await owner.load(plan)).outcome, LoadOutcome.ready);
+        expect((await owner.seek(target)).outcome, CommandOutcome.applied);
+        final observation = fixture.player.seekObservations.single!;
+        final oldEntry = fixture.player.entryId;
+        expect(fixture.runtime.seekSubmissionBlocked, isTrue);
+        void completeSeek(int entryId, int sequence) {
+          fixture.player.events.add(
+            NativeSeekCompleted(
+              playlistEntryId: entryId,
+              observationId: sequence,
+            ),
+          );
+        }
+
+        completeSeek(oldEntry + 1, observation);
+        completeSeek(oldEntry, observation + 1);
+        await _turn();
+        expect(fixture.runtime.seekSubmissionBlocked, isTrue);
+        expect(session.currentSnapshot.phase, PlaybackPhase.ready);
+        if (signal == 'matched') {
+          completeSeek(oldEntry, observation);
+        } else if (signal == 'eof') {
+          fixture.player.events.add(
+            NativePlaybackEof(
+              playlistEntryId: oldEntry,
+              reached: true,
+              position: duration,
+              duration: duration,
+            ),
+          );
+        }
+        await Future<void>.delayed(limit);
+
+        switch (signal) {
+          case 'missing':
+            final failed = session.currentSnapshot;
+            expect(failed.phase, PlaybackPhase.failed);
+            expect(failed.failure?.category, PlaybackFailureCategory.timeout);
+            expect(failed.failure?.operation, 'observe-native-seek');
+            expect(failed.failure?.recoverable, isTrue);
+            expect(fixture.runtime.seekSubmissionBlocked, isTrue);
+            completeSeek(oldEntry, observation);
+            await _turn();
+            expect(session.currentSnapshot.phase, PlaybackPhase.failed);
+            expect((await owner.retry()).outcome, LoadOutcome.ready);
+            expect(fixture.runtime.seekSubmissionBlocked, isFalse);
+            expect(fixture.player.opens, 2);
+          case 'matched':
+            expect(session.currentSnapshot.phase, PlaybackPhase.ready);
+            expect(fixture.runtime.seekSubmissionBlocked, isFalse);
+          case 'eof':
+            expect(session.currentSnapshot.phase, PlaybackPhase.ended);
+            expect(session.currentSnapshot.failure, isNull);
+        }
+      } finally {
+        await fixture.close();
+        await session.shutdown();
+      }
+    });
+  }
+
   for (final fps in <double?>[30, null]) {
     test('帧率${fps == null ? "未知" : "已知"}时按真实出帧检测停滞', () async {
       final fixture = _Fixture(subscribeToPlaybackEvents: true);
@@ -805,6 +884,7 @@ class _Player implements NativePlayer {
   _Player(this.calls, {this.hasVideo = false});
   final List<String> calls;
   final muteCalls = <String>[];
+  final seekObservations = <int?>[];
   final bool hasVideo;
   double? videoFps = 30;
   int videoWidth = 640;
@@ -819,6 +899,15 @@ class _Player implements NativePlayer {
   Future<void> play({bool synchronized = true}) async => setPlaying(true);
   @override
   Future<void> pause({bool synchronized = true}) async => setPlaying(false);
+  @override
+  Future<void> seek(
+    Duration duration, {
+    bool synchronized = true,
+    int? observationId,
+  }) async {
+    seekObservations.add(observationId);
+  }
+
   final playback = _PlayerStreams();
   final properties = <String, StreamController<String?>>{};
   @override

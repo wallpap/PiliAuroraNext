@@ -205,7 +205,8 @@ class NativePlaybackRuntime
     PlaybackExecutionContext context,
   ) => _serialize(() async {
     final player = _usablePlayer(context);
-    if (player == null) {
+    final binding = _activeBinding;
+    if (player == null || binding == null) {
       return const PlaybackRuntimeCommandResult(applied: false);
     }
     if (_mediaClockSeekPending) {
@@ -218,12 +219,34 @@ class NativePlaybackRuntime
     _seekSubmissionBlocked = true;
     _seekObservationTimeout = Timer(const Duration(seconds: 5), () {
       _seekObservationTimeout = null;
+      if (_shutdownRequested ||
+          _nativeLifecycleUnknown ||
+          !identical(_activeBinding, binding) ||
+          binding.retiring ||
+          binding.eofReported ||
+          !_mediaClockSeekPending ||
+          _mediaClockSeekSequence != context.seekSequence) {
+        return;
+      }
       _diagnostics?.event(
         'media.seek.observation.timeout',
         details: {
           'loadId': context.loadId,
           'seekSequence': context.seekSequence,
         },
+      );
+      _emit(
+        PlaybackRuntimeFailure(
+          runtimeId: runtimeId,
+          loadId: binding.loadId,
+          failure: const PlaybackFailure(
+            category: PlaybackFailureCategory.timeout,
+            operation: 'observe-native-seek',
+            stage: PlaybackStage.observing,
+            recoverable: true,
+            cause: '未在时限内确认原生跳转落点。',
+          ),
+        ),
       );
     });
     try {
