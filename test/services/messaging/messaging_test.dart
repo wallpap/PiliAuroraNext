@@ -380,7 +380,7 @@ void main() {
     expect(groups.total.map((m) => m.id), [3, 4]);
   });
 
-  test('未读合并重复刷新，阅读后旧结果失效', () async {
+  test('分类已读立即清角标，合并重复轮询并忽略在途旧数值', () async {
     final requests = <Completer<UnreadQueryResult>>[];
     final overview = UnreadOverview(
       session,
@@ -391,17 +391,41 @@ void main() {
       },
     );
     addTearDown(overview.dispose);
-    final first = overview.refresh();
+    final initial = overview.refresh();
+    await settle();
+    requests.single.complete(
+      const UnreadQueryResult({MsgUnReadType.reply: 4, MsgUnReadType.at: 2}),
+    );
+    await initial;
+    final feed = FeedHandle<int>(
+      session: session,
+      request: (account, cursor) async => Success(FeedPage(items: const [1])),
+      idOf: (item) => item,
+      notifyUnreadOnRefresh: true,
+      readType: MsgUnReadType.reply,
+    );
+    addTearDown(feed.dispose);
+
+    final stale = overview.refresh();
     final repeated = overview.refresh();
     await settle();
-    expect(requests, hasLength(1));
-    overview.invalidate();
+    expect(requests, hasLength(2));
+    await feed.refresh();
     await settle();
-    requests[1].complete(const UnreadQueryResult({MsgUnReadType.reply: 0}));
-    await settle();
-    requests[0].complete(const UnreadQueryResult({MsgUnReadType.reply: 9}));
-    await Future.wait([first, repeated]);
     expect(overview.state.value.counts[MsgUnReadType.reply], 0);
+    expect(overview.state.value.counts[MsgUnReadType.at], 2);
+    expect(requests, hasLength(2));
+    requests.last.complete(const UnreadQueryResult({MsgUnReadType.reply: 4}));
+    await Future.wait([stale, repeated]);
+    expect(overview.state.value.counts[MsgUnReadType.reply], 0);
+    expect(overview.state.value.refreshing, isFalse);
+
+    final next = overview.refresh();
+    await settle();
+    expect(requests, hasLength(3));
+    requests.last.complete(const UnreadQueryResult({MsgUnReadType.reply: 1}));
+    await next;
+    expect(overview.state.value.counts[MsgUnReadType.reply], 1);
   });
 
   test('点赞阅读成功立即清除角标，不等待未读查询', () async {
@@ -476,60 +500,6 @@ void main() {
     await settle();
   });
 
-  test('分类阅读后不被紧随其后的旧未读数重新点亮', () async {
-    var queries = 0;
-    final overview = UnreadOverview(
-      session,
-      query: () async {
-        queries++;
-        return const UnreadQueryResult({
-          MsgUnReadType.reply: 4,
-          MsgUnReadType.at: 2,
-        });
-      },
-    );
-    addTearDown(overview.dispose);
-    await overview.refresh();
-    final feed = FeedHandle<int>(
-      session: session,
-      request: (account, cursor) async => Success(FeedPage(items: const [1])),
-      idOf: (item) => item,
-      notifyUnreadOnRefresh: true,
-      readType: MsgUnReadType.reply,
-    );
-    await feed.refresh();
-    feed.dispose();
-    await settle();
-    expect(overview.state.value.counts[MsgUnReadType.reply], 0);
-    expect(overview.state.value.counts[MsgUnReadType.at], 2);
-    expect(queries, 1);
-    // 后续主动查询仍可取得新消息，不永久屏蔽该分类。
-    await overview.refresh();
-    expect(overview.state.value.counts[MsgUnReadType.reply], 4);
-  });
-  test('分类阅读成功后，在途未读旧响应不能恢复角标', () async {
-    final pending = Completer<UnreadQueryResult>();
-    var queries = 0;
-    final overview = UnreadOverview(
-      session,
-      query: () async => queries++ == 0
-          ? const UnreadQueryResult({MsgUnReadType.at: 2})
-          : pending.future,
-    );
-    addTearDown(overview.dispose);
-    await overview.refresh();
-    final stale = overview.refresh();
-    await settle();
-    session.notifyChanged(
-      MessagingChangeKind.unread,
-      readType: MsgUnReadType.at,
-    );
-    pending.complete(const UnreadQueryResult({MsgUnReadType.at: 2}));
-    await stale;
-    expect(overview.state.value.counts[MsgUnReadType.at], 0);
-    expect(overview.state.value.refreshing, isFalse);
-  });
-
   test('查询失败保留旧数值，缺失分类保持未知', () async {
     int count = 0;
     final overview = UnreadOverview(
@@ -553,7 +523,6 @@ void main() {
     response.complete(const Success(3));
     expect((await result as Error).code, messagingInactiveCode);
   });
-
 
   test('Feed 刷新废弃旧分页，删除使用稳定 ID', () async {
     final requests = <Completer<LoadingState<FeedPage<int>>>>[];

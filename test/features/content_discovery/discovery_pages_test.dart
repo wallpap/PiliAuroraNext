@@ -5,8 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:pili_aurora_next/common/widgets/flutter/refresh_indicator.dart'
-    as refresh;
 import 'package:pili_aurora_next/common/widgets/image/cached_image.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/discovery_preferences.dart';
 import 'package:pili_aurora_next/features/content_discovery/data/hot_repository.dart';
@@ -295,11 +293,12 @@ void main() {
       final retry = find.text('网络暂不可用 · 重试');
       expect(snapshot, findsOneWidget);
       expect(retry, findsNothing);
-      await tester
-          .widget<refresh.RefreshIndicator>(
-            find.byType(refresh.RefreshIndicator),
-          )
-          .onRefresh();
+      final scroll = find.byType(CustomScrollView).first;
+      await tester.timedDragFrom(
+        tester.getTopLeft(scroll) + const Offset(100, 70),
+        const Offset(0, 300),
+        const Duration(milliseconds: 600),
+      );
       await tester.pumpAndSettle();
       expect(snapshot, findsOneWidget);
       expect(retry, findsOneWidget);

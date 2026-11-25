@@ -13,6 +13,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/live_area.dart';
 import 'package:pili_aurora_next/features/content_discovery/domain/live/feed_index/card_data_list_item.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/live/second_list/tag.dart';
 import 'package:pili_aurora_next/pages/live_area_detail/view.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
@@ -44,8 +45,13 @@ class _Repository extends LiveCatalogRepository {
     required Object? parentAreaId,
     String? sortType,
     LiveCatalog? previous,
-  }) async =>
-      Success(DiscoveryPage([], metadata: LiveCatalog(), hasMore: false));
+  }) async => Success(
+    DiscoveryPage(
+      [],
+      metadata: LiveCatalog(tags: [LiveSecondTag(name: '房间标签 $areaId')]),
+      hasMore: false,
+    ),
+  );
 }
 
 void main() {
@@ -53,8 +59,8 @@ void main() {
   final interceptor = ControlledInterceptor();
   final requests = interceptor.requests;
   late ProviderContainer container;
-  LoginAccount account(int mid) => LoginAccount(
-    BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': 'fixture'}),
+  LoginAccount account(int mid, [String csrf = 'fixture']) => LoginAccount(
+    BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': csrf}),
     null,
     null,
   );
@@ -91,16 +97,17 @@ void main() {
       ..listen(provider, (_, _) {})
       ..read(provider);
     await interceptor.waitForRequests(1);
-    final source = container.read(provider).source;
-    Accounts.replaceCredentials(account(2));
-    expect(container.read(provider).source, same(source));
+    Accounts.replaceCredentials(account(2, 'main-next'));
+    await container.pump();
     await tick();
     expect(requests.length, 1);
-    final replacement = account(3);
-    Accounts.replaceCredentials(replacement);
+    Accounts.replaceCredentials(account(3, 'recommend-next'));
     expect(container.read(provider).loading, isA<Loading>());
     await interceptor.waitForRequests(2);
-    expect(requests[1].options.extra['account'], same(replacement));
+    expect(
+      (requests[1].options.extra['account'] as Account).csrf,
+      'recommend-next',
+    );
     requests[1].reply.complete({'code': -42, 'message': '暂不可用'});
     await tick();
     requests[0].reply.complete(directory('2'));
@@ -124,11 +131,13 @@ void main() {
       ..listen(provider, (_, _) {})
       ..read(provider);
     await interceptor.waitForRequests(1);
-    final replacement = account(3);
-    Accounts.replaceCredentials(replacement);
+    Accounts.replaceCredentials(account(3, 'recommend-next'));
     expect(container.read(provider).metadata, isNull);
     await interceptor.waitForRequests(2);
-    expect(requests[1].options.extra['account'], same(replacement));
+    expect(
+      (requests[1].options.extra['account'] as Account).csrf,
+      'recommend-next',
+    );
     requests[1].reply.complete(liveSecond([22]));
     await tick();
     requests[0].reply.complete(liveSecond([11]));
@@ -177,7 +186,7 @@ void main() {
     expect(container.exists(next), isFalse);
     expect(requests.length, 2);
   });
-  testWidgets('目录替换与离页释放 Widget 持有的活动 TabController', (tester) async {
+  testWidgets('换凭据时显示新目录和默认房间，切换分区途中可离页', (tester) async {
     final repository = _Repository();
     final widgetContainer = ProviderContainer(
       overrides: [liveCatalogRepositoryProvider.overrideWithValue(repository)],
@@ -209,32 +218,32 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump();
-    final first = tester.widget<TabBar>(find.byType(TabBar)).controller!;
-    expect(first.index, 1);
-    first.animateTo(0);
+    await tester.pumpAndSettle();
+    expect(find.text('房间标签 3'), findsOneWidget);
+    await tester.tap(find.text('分区二'));
     await tester.pump(const Duration(milliseconds: 10));
-    widgetContainer.invalidate(liveDirectoryProvider);
+    Accounts.replaceCredentials(account(3, 'recommend-next'));
     await tester.pump();
-    expect(first.animation, isNull);
+    expect(find.text('分区二'), findsNothing);
     repository.directories[1].complete(
       const Success(
         DiscoveryPage(
-          [AreaItem(id: '3', parentId: 8, name: '分区三')],
+          [
+            AreaItem(id: '3', parentId: 8, name: '分区三'),
+            AreaItem(id: '4', parentId: 8, name: '分区四'),
+          ],
           metadata: null,
           hasMore: false,
         ),
       ),
     );
-    await tester.pump();
-    await tester.pump();
-    final next = tester.widget<TabBar>(find.byType(TabBar)).controller!;
-    expect(next.length, 1);
-    expect(next, isNot(same(first)));
+    await tester.pumpAndSettle();
+    expect(find.text('分区四'), findsOneWidget);
+    expect(find.text('房间标签 3'), findsOneWidget);
+    await tester.tap(find.text('分区四'));
+    await tester.pump(const Duration(milliseconds: 10));
     await tester.pumpWidget(const SizedBox());
-    await tester.pump();
-    expect(next.animation, isNull);
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 }

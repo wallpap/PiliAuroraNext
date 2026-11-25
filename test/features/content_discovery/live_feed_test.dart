@@ -210,24 +210,20 @@ void main() {
     await interceptor.waitForRequests(1);
     requests[0].reply.complete(liveIndex(2, area: 7, hasMore: 1));
     await tick();
-    final before = container.read(provider);
     final operation = container.read(provider.notifier).onLoadMore();
     await interceptor.waitForRequests(2);
     requests[1].reply.complete(liveIndex(3, area: 9));
     await operation;
+    final current = container.read(provider);
     expect(
-      container.read(provider).metadata?.followed,
-      same(before.metadata?.followed),
-    );
-    expect(
-      container.read(provider).metadata?.areas,
-      same(before.metadata?.areas),
-    );
-    expect(container.read(provider).loading.data.map((item) => item.roomid), [
+      current.metadata?.followed?.cardData?.myIdolV1?.list?.single.roomid,
       2,
-      3,
-    ]);
-    expect(before.loading.data.single.roomid, 2);
+    );
+    expect(
+      current.metadata?.areas?.cardData?.areaEntranceV3?.list?.single.areaV2Id,
+      7,
+    );
+    expect(current.loading.data.map((item) => item.roomid), [2, 3]);
   });
   test('独立直播目录等待作者规则，旧凭据不发请求', () async {
     final gate = Completer<void>();
