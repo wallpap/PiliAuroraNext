@@ -96,11 +96,11 @@ void main() {
   final requests = interceptor.requests;
   late ProviderContainer container;
   late DynamicsUpdates updates;
-  LoginAccount account([String csrf = 'fixture']) => LoginAccount(
-    BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': csrf}),
+  LoginAccount account([String csrf = 'fixture', int mid = 1]) => LoginAccount(
+    BiliCookieJar.fromJson({'DedeUserID': '$mid', 'bili_jct': csrf}),
     null,
     null,
-  );
+  )..activated = true;
   Future<void> tick() => Future<void>.delayed(Duration.zero);
   Map<String, Object> page(
     List<String> ids,
@@ -122,6 +122,7 @@ void main() {
     hostMid: host,
   );
   setUpAll(() {
+    Accounts.account = MemoryBox<LoginAccount>();
     GStorage.setting = MemoryBox({SettingBoxKey.filterBlockedAuthors: false});
     GStorage.video = MemoryBox();
     GStorage.localCache = MemoryBox();
@@ -134,6 +135,7 @@ void main() {
   setUp(() {
     requests.clear();
     Accounts.accountMode[AccountType.main.index] = account();
+    Accounts.accountMode[AccountType.recommend.index] = account('recommend', 2);
     updates = DynamicsUpdates();
     container = ProviderContainer(
       overrides: [dynamicsUpdatesProvider.overrideWithValue(updates)],
@@ -156,15 +158,17 @@ void main() {
     final replacement = account('new');
     Accounts.replaceCredentials(replacement);
     await interceptor.waitForRequests(2);
-    expect(requests.last.options.extra['account'], same(replacement));
+    expect((requests.last.options.extra['account'] as Account).csrf, 'new');
     requests[1].reply.complete(page(['new'], 'next'));
     await tick();
     requests[0].reply.complete(page(['old'], 'old'));
     await tick();
     expect(container.read(provider).loading.data.single.idStr, 'new');
-    final source = container.read(provider).source;
-    Accounts.accountMode[AccountType.recommend.index] = account('recommend');
-    expect(container.read(provider).source, same(source));
+    await Accounts.set(AccountType.recommend, account('recommend-next', 3));
+    await container.pump();
+    await tick();
+    expect(requests, hasLength(2));
+    expect(container.read(provider).loading.data.single.idStr, 'new');
     Accounts.replaceCredentials(account('third'));
     expect(container.read(provider).loading, isA<Loading>());
     await interceptor.waitForRequests(3);

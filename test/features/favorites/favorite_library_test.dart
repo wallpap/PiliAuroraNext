@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart' show kLongPressTimeout;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,7 @@ import 'package:pili_aurora_next/features/favorites/application/favorite_library
 import 'package:pili_aurora_next/features/favorites/data/favorite_repository.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_detail/ugc.dart';
 import 'package:pili_aurora_next/features/favorites/domain/fav_folder/data.dart';
+import 'package:pili_aurora_next/features/favorites/domain/fav_order_type.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_detail_page.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_panel.dart';
 import 'package:pili_aurora_next/features/favorites/presentation/favorite_sort_page.dart';
@@ -196,20 +198,18 @@ void main() {
     final replacement = account('replacement');
     Accounts.replaceCredentials(replacement);
     final current = await container.read(favoriteFeedProvider(query).future);
-    expect(current.account, same(replacement));
+    expect(current.items.map(favoriteKey), [(2, 9)]);
     pending.complete(
       FeedPage([favoriteVideo(1)], metadata: const FavoriteMetadata()),
     );
     await old;
     expect(
-      (container.read(favoriteFeedProvider(query)).value!.items.single
-              as FavDetailItemModel)
-          .id,
-      9,
+      container.read(favoriteFeedProvider(query)).value!.items.map(favoriteKey),
+      [(2, 9)],
     );
-    expect(repository.requests.map((value) => value.account), [
-      original,
-      replacement,
+    expect(repository.requests.map((value) => value.account.csrf), [
+      'first',
+      'replacement',
     ]);
     container.dispose();
     Accounts.replaceCredentials(account('closed'));
@@ -217,21 +217,46 @@ void main() {
     container = ProviderContainer();
   });
   test('关键词、排序和页面身份生成独立查询', () async {
-    final a = FavoriteQuery(
+    final search = FavoriteQuery(
       owner: query.owner,
       kind: FavoriteKind.detail,
       mediaId: 7,
-      keyword: '旧',
+      keyword: '片段',
     );
-    final b = FavoriteQuery(
+    final sorted = FavoriteQuery(
       owner: query.owner,
       kind: FavoriteKind.detail,
       mediaId: 7,
-      keyword: '新',
+      order: FavOrderType.view,
     );
-    final first = await keep(a), second = await keep(b);
-    expect(first.source, isNot(same(second.source)));
-    expect(repository.requests.map((value) => value.query.keyword), ['旧', '新']);
+    final anotherPage = FavoriteQuery(
+      owner: UniqueKey(),
+      kind: FavoriteKind.detail,
+      mediaId: 7,
+    );
+    var lastId = 0;
+    repository.read = (query, _) async => FeedPage([
+      favoriteVideo(
+        switch ((query.keyword, query.order)) {
+          ('片段', _) => 10,
+          (_, FavOrderType.view) => 20,
+          _ => ++lastId,
+        },
+      ),
+    ], metadata: const FavoriteMetadata());
+    final queries = [query, search, sorted, anotherPage];
+    for (final query in queries) {
+      await keep(query);
+    }
+    await container.read(favoriteFeedProvider(query).notifier).refresh();
+    expect(
+      queries.map(
+        (query) => favoriteKey(
+          container.read(favoriteFeedProvider(query)).value!.items.single,
+        ),
+      ),
+      [(2, 3), (2, 10), (2, 20), (2, 2)],
+    );
   });
   test('分页互斥、去重、失败保留游标，刷新淘汰旧分页', () async {
     repository.read = (_, cursor) async => FeedPage(
@@ -413,33 +438,50 @@ void main() {
     );
     expect(repository.writes, isEmpty);
   });
-  test('追番迁移使所有分组失效，待确认不清空来源', () async {
-    const a = FavoriteQuery(
-          owner: Object(),
-          kind: FavoriteKind.pgc,
-          type: 1,
-          status: 1,
-        ),
-        b = FavoriteQuery(
-          owner: Object(),
-          kind: FavoriteKind.pgc,
-          type: 1,
-          status: 3,
-        );
-    repository.read = (_, _) async => FeedPage([
-      FavPgcItemModel(seasonId: 1),
-    ], metadata: const FavoriteMetadata());
-    final first = await keep(a), second = await keep(b);
-    final feed = container.read(favoriteFeedProvider(a).notifier);
-    repository.mutation = () async => const UnknownResult();
-    expect(await feed.pgc(first, first.items, 3), isA<UnknownResult>());
-    expect(container.read(favoriteFeedProvider(a)).value, same(first));
-    repository.mutation = null;
-    expect(await feed.pgc(first, first.items, 3), isA<Success>());
-    expect(
-      (await container.read(favoriteFeedProvider(b).future)).source,
-      isNot(same(second.source)),
+  test('追番迁移确认后更新两个分组，待确认时保留来源', () async {
+    const sourceQuery = FavoriteQuery(
+      owner: Object(),
+      kind: FavoriteKind.pgc,
+      type: 1,
+      status: 1,
     );
+    const destinationQuery = FavoriteQuery(
+      owner: Object(),
+      kind: FavoriteKind.pgc,
+      type: 1,
+      status: 3,
+    );
+    var moved = false;
+    repository.read = (query, _) async => FeedPage(
+      [
+        if (query.status == 3) FavPgcItemModel(seasonId: 2),
+        if (moved == (query.status == 3)) FavPgcItemModel(seasonId: 1),
+      ],
+      metadata: const FavoriteMetadata(),
+    );
+    final source = await keep(sourceQuery);
+    await keep(destinationQuery);
+    final feed = container.read(favoriteFeedProvider(sourceQuery).notifier);
+    repository.mutation = () async => const UnknownResult();
+    expect(await feed.pgc(source, source.items, 3), isA<UnknownResult>());
+    expect(repository.requests, hasLength(2));
+    final unchanged = await container.read(
+      favoriteFeedProvider(sourceQuery).future,
+    );
+    expect(unchanged.items.map(favoriteKey), [1]);
+    repository.mutation = () async {
+      moved = true;
+      return const Success(null);
+    };
+    expect(await feed.pgc(source, source.items, 3), isA<Success>());
+    expect(
+      (await container.read(favoriteFeedProvider(sourceQuery).future)).items,
+      isEmpty,
+    );
+    final destination = await container.read(
+      favoriteFeedProvider(destinationQuery).future,
+    );
+    expect(destination.items.map(favoriteKey), [2, 1]);
   });
   test('快速收藏在查询期间换目标停止后续写入，查询失败释放账号锁', () async {
     final pending = Completer<LoadingState<FavFolderData>>();
@@ -596,24 +638,6 @@ void main() {
     expect(repository.removals.last, hasLength(1));
     await tester.pumpWidget(const SizedBox());
   });
-  testWidgets('排序保护默认收藏夹，失败保留草稿，成功仅关闭所属页面', (tester) async {
-    final source = await keep(folders);
-    await mount(tester, FavoriteSortPage(query: folders, source: source));
-    await tester.pumpAndSettle();
-    final reorder = tester
-        .widget<ReorderableListView>(find.byType(ReorderableListView))
-        .onReorderItem!;
-    reorder(0, 1);
-    reorder(1, 2);
-    await tester.pump();
-    repository.mutation = () async => const UnknownResult();
-    await tester.tap(find.text('完成'));
-    await tester.pumpAndSettle();
-    expect(repository.writes.single, 'sort:null:1,3,2');
-    expect(source.items.map(favoriteKey), [1, 2, 3]);
-    expect(find.textContaining('操作结果待确认'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
-  });
   testWidgets('面板勾选保留本地草稿，确认成功向播放器回调一次', (tester) async {
     final query = (owner: Object(), target: (42 as Object, 2));
     container.listen(favoriteMembershipProvider(query), (_, _) {});
@@ -676,46 +700,18 @@ void main() {
     ]);
     await tester.pumpWidget(const SizedBox());
   });
-  testWidgets('排序被新页面覆盖时保留失败结果，返回后可重试', (tester) async {
-    final source = await keep(folders);
-    await mount(tester, FavoriteSortPage(query: folders, source: source));
-    await tester.pumpAndSettle();
-    tester
-        .widget<ReorderableListView>(find.byType(ReorderableListView))
-        .onReorderItem!(1, 2);
-    await tester.pump();
-    final pending = Completer<LoadingState<void>>();
-    repository.mutation = () => pending.future;
-    await tester.tap(find.text('完成'));
-    await tester.pump();
-    final navigator = tester.state<NavigatorState>(find.byType(Navigator))
-      ..push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('新页面')),
-        ),
-      );
-    await tester.pumpAndSettle();
-    pending.complete(const UnknownResult());
-    await tester.pumpAndSettle();
-    expect(find.text('新页面'), findsOneWidget);
-    navigator.pop();
-    await tester.pumpAndSettle();
-    expect(find.text('提交中'), findsNothing);
-    expect(find.textContaining('操作结果待确认'), findsOneWidget);
-    repository.mutation = null;
-    await tester.tap(find.text('完成'));
-    await tester.pumpAndSettle();
-    expect(repository.writes, ['sort:null:1,3,2', 'sort:null:1,3,2']);
-    await tester.pumpWidget(const SizedBox());
-  });
-  testWidgets('离开排序后的迟到成功刷新查询，保留新页面与原草稿', (tester) async {
-    final source = await keep(query);
+  Future<NavigatorState> openSort(
+    WidgetTester tester,
+    FavoriteQuery query,
+    FavoriteState source,
+  ) async {
     final navigator = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
           navigatorKey: navigator,
+          theme: ThemeData(platform: TargetPlatform.android),
           home: const Scaffold(body: Text('根页面')),
         ),
       ),
@@ -726,29 +722,90 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    tester
-        .widget<ReorderableListView>(find.byType(ReorderableListView))
-        .onReorderItem!(0, 1);
-    await tester.pump();
+    return navigator.currentState!;
+  }
+
+  Future<void> moveRow(WidgetTester tester, String from, String to) async {
+    final origin = tester.getCenter(find.text(from));
+    final target = tester.getCenter(find.text(to));
+    final distance = target.dy - origin.dy;
+    final gesture = await tester.startGesture(origin);
+    await tester.pump(kLongPressTimeout);
+    await gesture.moveBy(Offset(0, distance * 0.75));
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('排序保护默认收藏夹，页面被覆盖时保留草稿，返回后可重试', (tester) async {
+    final source = await keep(folders);
+    final navigator = await openSort(tester, folders, source);
+    double row(String title) => tester.getCenter(find.text(title)).dy;
+    await moveRow(tester, '收藏夹 1', '收藏夹 2');
+    expect(row('收藏夹 1'), lessThan(row('收藏夹 2')));
+    await moveRow(tester, '收藏夹 2', '收藏夹 3');
+    expect(row('收藏夹 3'), lessThan(row('收藏夹 2')));
+
     final pending = Completer<LoadingState<void>>();
     repository.mutation = () => pending.future;
     await tester.tap(find.text('完成'));
     await tester.pump();
-    navigator.currentState!.pop();
-    await tester.pumpAndSettle();
-    navigator.currentState!.push(
+    navigator.push(
       MaterialPageRoute<void>(
         builder: (_) => const Scaffold(body: Text('新页面')),
       ),
     );
     await tester.pumpAndSettle();
+    pending.complete(const UnknownResult());
+    await tester.pumpAndSettle();
+    expect(find.text('新页面'), findsOneWidget);
+    expect(source.items.map(favoriteKey), [1, 2, 3]);
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('提交中'), findsNothing);
+    expect(find.textContaining('操作结果待确认'), findsOneWidget);
+    expect(row('收藏夹 3'), lessThan(row('收藏夹 2')));
+    repository.mutation = null;
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+    expect(repository.writes, ['sort:null:1,3,2', 'sort:null:1,3,2']);
+    expect(find.text('根页面'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('离开排序后迟到的成功结果更新列表，不关闭新页面', (tester) async {
+    final source = await keep(query);
+    final navigator = await openSort(tester, query, source);
+    await moveRow(tester, '视频 1', '视频 2');
+    expect(
+      tester.getCenter(find.text('视频 2')).dy,
+      lessThan(tester.getCenter(find.text('视频 1')).dy),
+    );
+    final pending = Completer<LoadingState<void>>();
+    repository.mutation = () => pending.future;
+    await tester.tap(find.text('完成'));
+    await tester.pump();
+    expect(repository.writes, ['sort:7:2:2:1:2']);
+    navigator.pop();
+    await tester.pumpAndSettle();
+    navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('新页面')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    repository.read = (_, _) async => FeedPage(
+      [favoriteVideo(2), favoriteVideo(1)],
+      metadata: source.metadata,
+    );
     pending.complete(const Success(null));
     await tester.pumpAndSettle();
     expect(find.text('新页面'), findsOneWidget);
     expect(source.items.map(favoriteKey), [(2, 1), (2, 2)]);
     expect(
-      (await container.read(favoriteFeedProvider(query).future)).source,
-      isNot(same(source.source)),
+      (await container.read(favoriteFeedProvider(query).future)).items
+          .map(favoriteKey),
+      [(2, 2), (2, 1)],
     );
     await tester.pumpWidget(const SizedBox());
   });

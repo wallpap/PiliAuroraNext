@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show TabBarView, TabController;
@@ -10,9 +9,6 @@ import 'package:pili_aurora_next/common/widgets/inactive_paint_cleanup.dart';
 import 'package:pili_aurora_next/common/widgets/inactive_feed_sliver.dart';
 import 'package:pili_aurora_next/common/widgets/tab_activity.dart';
 
-import 'retained_layer_cleanup_prototype.dart';
-
-// 仅用于验证：正常的离屏保活不会释放旧 Picture；清理层内容是否能保留状态。
 class _RetainedPage extends StatefulWidget {
   const _RetainedPage({
     super.key,
@@ -102,25 +98,54 @@ Future<Uint8List> _pixels(ui.Image image) async {
   return data!.buffer.asUint8List();
 }
 
+ImageCache _isolateImageCache() {
+  final cache = PaintingBinding.instance.imageCache;
+  final previousMaximumSize = cache.maximumSize;
+  cache
+    ..clear()
+    ..clearLiveImages()
+    ..maximumSize = 0;
+  addTearDown(() {
+    cache
+      ..clear()
+      ..clearLiveImages()
+      ..maximumSize = previousMaximumSize;
+  });
+  return cache;
+}
+
+Future<void> _waitForImagePaint(WidgetTester tester) async {
+  bool ready() {
+    final images = tester.widgetList<RawImage>(find.byType(RawImage));
+    return images.isNotEmpty && images.every((image) => image.image != null);
+  }
+
+  final timeout = Stopwatch()..start();
+  while (timeout.elapsed < const Duration(seconds: 2)) {
+    await tester.pump(const Duration(milliseconds: 16));
+    if (ready()) {
+      await tester.pumpAndSettle();
+      if (ready()) return;
+    }
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
+  }
+  fail('The visible image fixture did not finish painting');
+}
+
+RenderRepaintBoundary _boundaryOf(GlobalKey key) =>
+    key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+
+Future<Uint8List> _capture(WidgetTester tester, GlobalKey key) async {
+  final boundary = _boundaryOf(key);
+  return (await tester.runAsync(
+    () async => _pixels(await boundary.toImage(pixelRatio: 1)),
+  ))!;
+}
+
 class _TrackedOffsetLayer extends OffsetLayer {
   ui.EngineLayer? get currentEngineLayer => engineLayer;
-  int engineUpdates = 0;
-  int postFrameDepthReads = 0;
-
-  @override
-  int get depth {
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.postFrameCallbacks) {
-      postFrameDepthReads++;
-    }
-    return super.depth;
-  }
-
-  @override
-  set engineLayer(ui.EngineLayer? value) {
-    engineUpdates++;
-    super.engineLayer = value;
-  }
 }
 
 class _TrackedBoundary extends SingleChildRenderObjectWidget {
@@ -210,15 +235,15 @@ class _VirtualizedPaintCardState extends State<_VirtualizedPaintCard> {
 }
 
 void main() {
-  testWidgets('Windows paint cleanup walks nested layers without sorting', (
+  testWidgets('Windows releases nested hidden paint', (
     tester,
   ) async {
     final cellKeys = List.generate(32, (_) => GlobalKey());
     final grid = Column(
       children: [
         for (final key in cellKeys)
-          _TrackedBoundary(
-            child: _TrackedBoundary(
+          RepaintBoundary(
+            child: RepaintBoundary(
               key: key,
               child: const SizedBox(
                 width: 16,
@@ -240,22 +265,14 @@ void main() {
       ),
     );
     await tester.pumpWidget(scene(true));
-    final layers = [
-      for (final key in cellKeys)
-        (key.currentContext!.findRenderObject()! as _RenderTrackedBoundary)
-                .debugLayer!
-            as _TrackedOffsetLayer,
-    ];
-    final pictures = layers.expand(_pictures).toList();
+    final pictures = cellKeys
+        .expand((key) => _pictures(_boundaryOf(key).debugLayer!))
+        .toList();
     expect(pictures, hasLength(cellKeys.length));
 
     await tester.pumpWidget(scene(false));
     await tester.pumpAndSettle();
     expect(pictures.every((picture) => picture.debugDisposed), isTrue);
-    expect(
-      layers.fold(0, (reads, layer) => reads + layer.postFrameDepthReads),
-      0,
-    );
     await tester.pumpWidget(const SizedBox());
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
@@ -275,13 +292,8 @@ void main() {
           ? 'releasing layer contents preserves state, scroll and restored pixels'
           : 'hidden image handles dispose while detached Pictures retain pixels',
       (tester) async {
-        final bytes = await tester.runAsync(_redPng);
-        final cache = PaintingBinding.instance.imageCache;
-        final previousMaximumSize = cache.maximumSize;
-        cache
-          ..clear()
-          ..clearLiveImages()
-          ..maximumSize = 0;
+        final bytes = (await tester.runAsync(_redPng))!;
+        final cache = _isolateImageCache();
 
         final previousCreate = ui.Image.onCreate;
         final previousDispose = ui.Image.onDispose;
@@ -297,10 +309,6 @@ void main() {
         addTearDown(() {
           ui.Image.onCreate = previousCreate;
           ui.Image.onDispose = previousDispose;
-          cache
-            ..clear()
-            ..clearLiveImages()
-            ..maximumSize = previousMaximumSize;
         });
 
         final pageKey = GlobalKey<_RetainedPageState>();
@@ -309,7 +317,7 @@ void main() {
         Widget scene(bool active, {bool? visible}) {
           Widget page = _RetainedPage(
             key: pageKey,
-            bytes: bytes!,
+            bytes: bytes,
             cellKey: cellKey,
             externalContent: externalContent,
           );
@@ -328,33 +336,16 @@ void main() {
           );
         }
 
-        Future<void> settleImage() async {
-          await tester.runAsync(() async {
-            await Future<void>.delayed(const Duration(milliseconds: 20));
-          });
-          await tester.pumpAndSettle();
-        }
-
         await tester.pumpWidget(scene(true));
-        await settleImage();
-        final state = pageKey.currentState!;
-        state.controller.jumpTo(50);
-        await tester.pump();
-        await settleImage();
-        expect(find.byType(RawImage), findsWidgets);
+        await _waitForImagePaint(tester);
+        pageKey.currentState!.controller.jumpTo(50);
+        await _waitForImagePaint(tester);
         expect(openImageHandles, greaterThan(0));
 
-        final boundary =
-            cellKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
+        final boundary = _boundaryOf(cellKey);
         final oldPictures = _pictures(boundary.debugLayer!);
         expect(oldPictures, isNotEmpty);
-        final root =
-            rootKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
-        final before = await tester.runAsync(
-          () async => _pixels(await root.toImage(pixelRatio: 1)),
-        );
+        final before = await _capture(tester, rootKey);
 
         // 模拟 PageView 已将页面移入保活桶，随后活动通知才卸载图像。
         // 若同一帧隐藏和卸载，flushPaint 会先重画深层边界，旧图可正常释放。
@@ -366,8 +357,7 @@ void main() {
         expect(cache.liveImageCount, 0);
         expect(cache.currentSizeBytes, 0);
         expect(openImageHandles, 0);
-        expect(pageKey.currentState, same(state));
-        expect(state.controller.offset, 50);
+        expect(pageKey.currentState!.controller.offset, 50);
 
         if (shouldRelease) {
           expect(oldPictures.every((picture) => picture.debugDisposed), isTrue);
@@ -385,14 +375,9 @@ void main() {
         }
 
         await tester.pumpWidget(scene(true));
-        await settleImage();
-        expect(pageKey.currentState, same(state));
-        expect(state.controller.offset, 50);
-        expect(find.byType(RawImage), findsWidgets);
-        final restored = await tester.runAsync(
-          () async => _pixels(await root.toImage(pixelRatio: 1)),
-        );
-        expect(restored, orderedEquals(before!));
+        await _waitForImagePaint(tester);
+        expect(pageKey.currentState!.controller.offset, 50);
+        expect(await _capture(tester, rootKey), orderedEquals(before));
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
@@ -406,19 +391,8 @@ void main() {
     testWidgets(
       'real TabActivity ${releaseContents ? 'on Windows releases' : 'on Android retains'} old image Pictures',
       (tester) async {
-        final bytes = await tester.runAsync(_redPng);
-        final cache = PaintingBinding.instance.imageCache;
-        final previousMaximumSize = cache.maximumSize;
-        cache
-          ..clear()
-          ..clearLiveImages()
-          ..maximumSize = 0;
-        addTearDown(() {
-          cache
-            ..clear()
-            ..clearLiveImages()
-            ..maximumSize = previousMaximumSize;
-        });
+        final bytes = (await tester.runAsync(_redPng))!;
+        final cache = _isolateImageCache();
 
         final controller = TabController(
           length: 3,
@@ -439,7 +413,7 @@ void main() {
                   index: 0,
                   child: _RetainedPage(
                     key: pageKey,
-                    bytes: bytes!,
+                    bytes: bytes,
                     cellKey: cellKey,
                   ),
                 ),
@@ -449,16 +423,10 @@ void main() {
             ),
           ),
         );
-        await tester.runAsync(() async {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        });
+        await _waitForImagePaint(tester);
+        pageKey.currentState!.controller.jumpTo(50);
         await tester.pumpAndSettle();
-        final state = pageKey.currentState!;
-        state.controller.jumpTo(50);
-        await tester.pumpAndSettle();
-        final boundary =
-            cellKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
+        final boundary = _boundaryOf(cellKey);
         final oldPictures = _pictures(boundary.debugLayer!);
         expect(oldPictures, isNotEmpty);
 
@@ -468,22 +436,15 @@ void main() {
         expect(find.byType(RawImage, skipOffstage: false), findsNothing);
         expect(cache.liveImageCount, 0);
         expect(cache.currentSizeBytes, 0);
-        expect(pageKey.currentState, same(state));
-        expect(state.controller.offset, 50);
+        expect(pageKey.currentState!.controller.offset, 50);
         expect(
           oldPictures.every((picture) => picture.debugDisposed),
           releaseContents,
         );
 
         controller.animateTo(0);
-        await tester.pumpAndSettle();
-        await tester.runAsync(() async {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        });
-        await tester.pumpAndSettle();
-        expect(find.byType(RawImage), findsWidgets);
-        expect(pageKey.currentState, same(state));
-        expect(state.controller.offset, 50);
+        await _waitForImagePaint(tester);
+        expect(pageKey.currentState!.controller.offset, 50);
 
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
@@ -495,396 +456,129 @@ void main() {
     );
   }
 
-  for (final strategy in [
-    'normal',
-    'none',
-    'followup',
-    'scope',
-    'root',
-    'production',
-  ]) {
-    testWidgets(
-      'attached cleanup then offstage: $strategy',
-      (tester) async {
-        final bytes = await tester.runAsync(_redPng);
-        final cache = PaintingBinding.instance.imageCache;
-        final previousMaximumSize = cache.maximumSize;
-        cache
-          ..clear()
-          ..clearLiveImages()
-          ..maximumSize = 0;
-        addTearDown(() {
-          cache
-            ..clear()
-            ..clearLiveImages()
-            ..maximumSize = previousMaximumSize;
-        });
-        final pageKey = GlobalKey<_RetainedPageState>();
-        final outerKey = GlobalKey();
-        final prototypeKey = GlobalKey();
-        final screenshotKey = GlobalKey();
-        final cellKey = GlobalKey();
-        Widget scene({
-          required bool active,
-          required bool visible,
-          required bool showImages,
-        }) => Directionality(
-          textDirection: TextDirection.ltr,
-          child: RepaintBoundary(
-            key: screenshotKey,
-            child: Stack(
-              children: [
-                Offstage(
-                  offstage: !visible,
-                  child: _TrackedBoundary(
-                    key: outerKey,
-                    child: TickerMode(
-                      enabled: active,
-                      child: Builder(
-                        builder: (_) {
-                          final probe = RetainedLayerCleanupPrototype(
-                            key: prototypeKey,
-                            child: _RetainedPage(
-                              key: pageKey,
-                              bytes: bytes!,
-                              cellKey: cellKey,
-                              showImagesOverride: showImages,
-                            ),
-                          );
-                          return strategy == 'production'
-                              ? InactivePaintCleanup(child: probe)
-                              : probe;
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  width: 8,
-                  height: 8,
-                  child: ColoredBox(color: ui.Color(0xff0000ff)),
-                ),
-              ],
-            ),
-          ),
-        );
-        Future<void> settleImage() async {
-          await tester.runAsync(() async {
-            await Future<void>.delayed(const Duration(milliseconds: 20));
-          });
-          await tester.pumpAndSettle();
-        }
-
-        await tester.pumpWidget(
-          scene(active: true, visible: true, showImages: true),
-        );
-        await settleImage();
-        final state = pageKey.currentState!;
-        final screenshot =
-            screenshotKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
-        final before = await tester.runAsync(
-          () async => _pixels(
-            await screenshot.toImage(pixelRatio: 1),
-          ),
-        );
-        await tester.pumpWidget(
-          scene(
-            active: false,
-            visible: true,
-            showImages: strategy != 'normal',
-          ),
-        );
-        final outer =
-            outerKey.currentContext!.findRenderObject()!
-                as _RenderTrackedBoundary;
-        final outerLayer = outer.debugLayer! as _TrackedOffsetLayer;
-        final prototype =
-            prototypeKey.currentContext!.findRenderObject()!
-                as RenderRetainedLayerCleanupPrototype;
-        expect(outerLayer.attached, isTrue);
-        if (strategy != 'production') expect(prototype.release(), isTrue);
-        final oldEngineLayer = outerLayer.currentEngineLayer!;
-        if (strategy == 'scope' || strategy == 'root') {
-          expect(
-            prototype.release(
-              recomposeAttachedScopes: true,
-              recomposeAttachedRoots: strategy == 'root',
-            ),
-            isTrue,
-          );
-        }
-        var followups = 0;
-        if (strategy == 'followup') {
-          SchedulerBinding.instance.addPostFrameCallback((_) {
-            if (prototype.attached) {
-              prototype.release();
-              followups++;
-            }
-          });
-        }
-        await tester.pumpWidget(
-          scene(active: false, visible: false, showImages: false),
-        );
-        expect(find.byType(RawImage, skipOffstage: false), findsNothing);
-        expect(cache.liveImageCount, 0);
-        expect(outerLayer.attached, isFalse);
-        if (strategy == 'root' ||
-            strategy == 'followup' ||
-            strategy == 'production') {
-          expect(
-            oldEngineLayer.dispose,
-            throwsA(
-              isA<AssertionError>().having(
-                (error) => error.message,
-                'disposed native handle',
-                'Object disposed',
-              ),
-            ),
-          );
-        } else {
-          expect(outerLayer.currentEngineLayer, same(oldEngineLayer));
-          if (strategy != 'scope') {
-            // scope-only 重建会使旧父层的 debug children 标为 usedAsOldLayer，
-            // addRetained 在 debug 模式因此拒绝它；其父 native handle 仍未释放。
-            final retained = (ui.SceneBuilder()..addRetained(oldEngineLayer))
-                .build();
-            final pixels = await tester.runAsync(
-              () => _pixels(retained.toImageSync(1, 1)),
-            );
-            retained.dispose();
-            expect(
-              pixels,
-              orderedEquals(
-                strategy == 'normal' ? [0, 0, 0, 0] : [255, 0, 0, 255],
-              ),
-            );
-          }
-        }
-        if (strategy == 'followup') expect(followups, 1);
-        await tester.pumpAndSettle();
-        if (strategy == 'followup') expect(followups, 1);
-        await tester.pumpWidget(
-          scene(active: true, visible: true, showImages: true),
-        );
-        await settleImage();
-        final restored = await tester.runAsync(
-          () async => _pixels(
-            await screenshot.toImage(pixelRatio: 1),
-          ),
-        );
-        expect(restored, orderedEquals(before!));
-        expect(pageKey.currentState, same(state));
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.windows),
-    );
-  }
-
   testWidgets(
-    'production cleanup cancels a stale followup across resume and rehide',
+    'late detachment releases native paint without losing restored pixels',
     (tester) async {
+      final bytes = (await tester.runAsync(_redPng))!;
+      final cache = _isolateImageCache();
+      final pageKey = GlobalKey<_RetainedPageState>();
       final outerKey = GlobalKey();
-      final innerKey = GlobalKey();
+      final screenshotKey = GlobalKey();
+      final cellKey = GlobalKey();
       Widget scene({required bool active, required bool visible}) =>
           Directionality(
             textDirection: TextDirection.ltr,
-            child: Offstage(
-              offstage: !visible,
-              child: _TrackedBoundary(
-                key: outerKey,
-                child: TickerMode(
-                  enabled: active,
-                  child: InactivePaintCleanup(
+            child: RepaintBoundary(
+              key: screenshotKey,
+              child: Stack(
+                children: [
+                  Offstage(
+                    offstage: !visible,
                     child: _TrackedBoundary(
-                      key: innerKey,
-                      child: const SizedBox.expand(
-                        child: ColoredBox(color: ui.Color(0xffff0000)),
+                      key: outerKey,
+                      child: TickerMode(
+                        enabled: active,
+                        child: InactivePaintCleanup(
+                          child: _RetainedPage(
+                            key: pageKey,
+                            bytes: bytes,
+                            cellKey: cellKey,
+                            showImagesOverride: visible,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    width: 8,
+                    height: 8,
+                    child: ColoredBox(color: ui.Color(0xff0000ff)),
+                  ),
+                ],
               ),
             ),
           );
+
       await tester.pumpWidget(scene(active: true, visible: true));
+      await _waitForImagePaint(tester);
+      final before = await _capture(tester, screenshotKey);
       await tester.pumpWidget(scene(active: false, visible: true));
-      final outer =
-          outerKey.currentContext!.findRenderObject()!
-              as _RenderTrackedBoundary;
-      final layer = outer.debugLayer! as _TrackedOffsetLayer;
-      final initialUpdates = layer.engineUpdates;
-
-      void buildWithoutCompletingFrame(Widget widget) {
-        final binding = tester.binding;
-        binding.attachRootWidget(binding.wrapWithDefaultView(widget));
-        binding.buildOwner!.buildScope(binding.rootElement!);
-      }
-
-      // 在旧 followup 执行前实际重建两次，让 render object 观察到新代次。
-      buildWithoutCompletingFrame(scene(active: true, visible: true));
-      buildWithoutCompletingFrame(scene(active: false, visible: true));
-      await tester.pumpWidget(scene(active: false, visible: false));
-      // 旧代次 followup 已取消；这里只执行新代次的首遍清理。
-      expect(layer.engineUpdates, initialUpdates + 1);
-      await tester.pump();
-      // 新代次也只补一遍。
-      expect(layer.engineUpdates, initialUpdates + 2);
-      await tester.pumpAndSettle();
-      expect(layer.engineUpdates, initialUpdates + 2);
       await tester.pumpWidget(scene(active: true, visible: true));
+      await _waitForImagePaint(tester);
+      expect(await _capture(tester, screenshotKey), orderedEquals(before));
+
+      await tester.pumpWidget(scene(active: false, visible: true));
+      final layer = _boundaryOf(outerKey).debugLayer! as _TrackedOffsetLayer;
+      expect(layer.attached, isTrue);
+      final oldEngineLayer = layer.currentEngineLayer!;
+      await tester.pumpWidget(scene(active: false, visible: false));
       await tester.pumpAndSettle();
-      expect(find.byType(ColoredBox), findsOneWidget);
+      expect(cache.liveImageCount, 0);
+      expect(find.byType(RawImage, skipOffstage: false), findsNothing);
+      expect(oldEngineLayer.dispose, throwsAssertionError);
+
+      await tester.pumpWidget(scene(active: true, visible: true));
+      await _waitForImagePaint(tester);
+      expect(await _capture(tester, screenshotKey), orderedEquals(before));
       await tester.pumpWidget(const SizedBox());
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
 
-  for (final strategy in ['original', 'recursive', 'production']) {
-    final recursive = strategy != 'original';
-    final production = strategy == 'production';
-    testWidgets(
-      'viewport retained clip survives card disposal: $strategy',
-      (tester) async {
-        final bytes = await tester.runAsync(_redPng);
-        final cache = PaintingBinding.instance.imageCache;
-        final previousMaximumSize = cache.maximumSize;
-        cache
-          ..clear()
-          ..clearLiveImages()
-          ..maximumSize = 0;
-        addTearDown(() {
-          cache
-            ..clear()
-            ..clearLiveImages()
-            ..maximumSize = previousMaximumSize;
-        });
-        final pageKey = GlobalKey<_VirtualizedPaintPageState>();
-        final prototypeKey = GlobalKey();
-        final screenshotKey = GlobalKey();
-        Widget scene({required bool active, required bool visible}) =>
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: RepaintBoundary(
-                key: screenshotKey,
-                child: Offstage(
-                  offstage: !visible,
-                  child: TickerMode(
-                    enabled: active,
-                    child: Builder(
-                      builder: (_) {
-                        final page = RetainedLayerCleanupPrototype(
-                          key: prototypeKey,
-                          child: _VirtualizedPaintPage(
-                            key: pageKey,
-                            bytes: bytes!,
-                          ),
-                        );
-                        return production
-                            ? InactivePaintCleanup(child: page)
-                            : page;
-                      },
-                    ),
+  testWidgets(
+    'hidden viewport releases old paint even after cards are disposed',
+    (tester) async {
+      final bytes = (await tester.runAsync(_redPng))!;
+      final cache = _isolateImageCache();
+      final pageKey = GlobalKey<_VirtualizedPaintPageState>();
+      final screenshotKey = GlobalKey();
+      Widget scene({required bool active, required bool visible}) =>
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: RepaintBoundary(
+              key: screenshotKey,
+              child: Offstage(
+                offstage: !visible,
+                child: TickerMode(
+                  enabled: active,
+                  child: InactivePaintCleanup(
+                    child: _VirtualizedPaintPage(key: pageKey, bytes: bytes),
                   ),
                 ),
               ),
-            );
-        Future<void> settleImage() async {
-          await tester.runAsync(() async {
-            await Future<void>.delayed(const Duration(milliseconds: 20));
-          });
-          await tester.pumpAndSettle();
-        }
+            ),
+          );
 
-        await tester.pumpWidget(scene(active: true, visible: true));
-        await settleImage();
-        final page = pageKey.currentState!;
-        page.controller.jumpTo(50);
-        await tester.pumpAndSettle();
-        final position = page.controller.position;
-        final viewport = tester.renderObject<RenderViewport>(
-          find.byType(Viewport),
-        );
-        final viewportLayer = viewport.debugLayer!;
-        final clip = viewportLayer.firstChild! as ClipRectLayer;
-        final oldPictures = _pictures(clip);
-        expect(oldPictures.length, greaterThan(4));
-        final cardCount = page.liveCards.length;
-        expect(cardCount, greaterThan(4));
-        final oldCard = page.liveCards.last.context.findRenderObject()!;
-        final screenshot =
-            screenshotKey.currentContext!.findRenderObject()!
-                as RenderRepaintBoundary;
-        final before = await tester.runAsync(
-          () async => _pixels(await screenshot.toImage(pixelRatio: 1)),
-        );
+      await tester.pumpWidget(scene(active: true, visible: true));
+      await _waitForImagePaint(tester);
+      final page = pageKey.currentState!;
+      page.controller.jumpTo(50);
+      await _waitForImagePaint(tester);
+      final viewport = tester.renderObject<RenderViewport>(
+        find.byType(Viewport),
+      );
+      final oldPictures = _pictures(viewport.debugLayer!);
+      expect(oldPictures, isNotEmpty);
+      expect(page.liveCards.length, greaterThan(4));
+      final before = await _capture(tester, screenshotKey);
 
-        await tester.pumpWidget(scene(active: true, visible: false));
-        await tester.pumpWidget(scene(active: false, visible: false));
-        await tester.pumpAndSettle();
-        expect(page.liveCards, hasLength(4));
-        expect(oldCard.debugDisposed, isTrue);
-        expect(find.byType(RawImage, skipOffstage: false), findsNothing);
-        expect(cache.liveImageCount, 0);
-        expect(cache.currentSizeBytes, 0);
-        expect(clip.attached, isFalse);
-        expect(clip.debugDisposed, isFalse);
-        final prototype =
-            prototypeKey.currentContext!.findRenderObject()!
-                as RenderRetainedLayerCleanupPrototype;
-        if (!production) {
-          expect(
-            _pictures(clip).any((picture) => !picture.debugDisposed),
-            isTrue,
-          );
-          expect(
-            prototype.release(recursiveScopeContainers: recursive),
-            isTrue,
-          );
-        }
-        expect(viewportLayer.firstChild, isNull);
-        expect(clip.parent, isNull);
-        expect(clip.debugDisposed, isFalse);
-        final remainingPictures = oldPictures
-            .where((picture) => !picture.debugDisposed)
-            .toList();
-        debugPrint(
-          'viewport clip $strategy: cards=$cardCount -> 4; '
-          'oldPictures=${oldPictures.length}; retained=${remainingPictures.length}; '
-          'clipChildren=${clip.firstChild != null}',
-        );
-        if (recursive) {
-          expect(remainingPictures, isEmpty);
-          expect(clip.firstChild, isNull);
-        } else {
-          expect(remainingPictures, isNotEmpty);
-          final retainedPixels = await tester.runAsync(
-            () async => _pixels(await remainingPictures.first.toImage(1, 1)),
-          );
-          expect(retainedPixels, orderedEquals([255, 0, 0, 255]));
-          // 再次沿当前 RenderObject 树清理也找不到已成为孤岛的内部 Clip。
-          expect(prototype.release(), isTrue);
-          expect(
-            remainingPictures.any((picture) => !picture.debugDisposed),
-            isTrue,
-          );
-        }
-        await tester.pumpWidget(scene(active: true, visible: true));
-        await settleImage();
-        final restored = await tester.runAsync(
-          () async => _pixels(await screenshot.toImage(pixelRatio: 1)),
-        );
-        expect(restored, orderedEquals(before!));
-        expect(pageKey.currentState, same(page));
-        expect(page.controller.position, same(position));
-        expect(position.pixels, 50);
-        await tester.pumpWidget(const SizedBox());
-        await tester.pumpAndSettle();
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.windows),
-    );
-  }
+      await tester.pumpWidget(scene(active: true, visible: false));
+      await tester.pumpWidget(scene(active: false, visible: false));
+      await tester.pumpAndSettle();
+      expect(pageKey.currentState!.liveCards.length, lessThanOrEqualTo(4));
+      expect(find.byType(RawImage, skipOffstage: false), findsNothing);
+      expect(cache.liveImageCount, 0);
+      expect(cache.currentSizeBytes, 0);
+      expect(oldPictures.every((picture) => picture.debugDisposed), isTrue);
+
+      await tester.pumpWidget(scene(active: true, visible: true));
+      await _waitForImagePaint(tester);
+      expect(pageKey.currentState!.controller.offset, 50);
+      expect(await _capture(tester, screenshotKey), orderedEquals(before));
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 }

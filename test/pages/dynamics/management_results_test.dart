@@ -59,6 +59,7 @@ void main() {
   }
 
   setUpAll(() {
+    Accounts.account = MemoryBox<LoginAccount>();
     GStorage.setting = MemoryBox({SettingBoxKey.filterBlockedAuthors: false});
     GStorage.video = MemoryBox();
     GStorage.localCache = MemoryBox();
@@ -100,15 +101,20 @@ void main() {
     final replacement = account('replacement');
     Accounts.replaceCredentials(replacement);
     await interceptor.waitForRequests(2);
-    expect(requests[1].options.extra['account'], same(replacement));
+    expect(
+      (requests[1].options.extra['account'] as Account).csrf,
+      'replacement',
+    );
     requests[1].reply.complete(page(['2'], 'new'));
     await tick();
     requests[0].reply.complete(page(['1'], 'old'));
     await tick();
     expect(container.read(provider).loading.data.single.idStr, '2');
-    final source = container.read(provider).source;
-    Accounts.accountMode[AccountType.recommend.index] = account('other');
-    expect(container.read(provider).source, same(source));
+    await Accounts.set(AccountType.recommend, account('other', 3));
+    await container.pump();
+    await tick();
+    expect(requests, hasLength(2));
+    expect(container.read(provider).loading.data.single.idStr, '2');
     subscription.close();
     await container.pump();
     Accounts.replaceCredentials(account('closed'));

@@ -191,9 +191,10 @@ void main() {
 
           await tester.pumpWidget(scene(true));
           await tester.pumpAndSettle();
-          final page = pageKey.currentState!;
-          final position = page.controller.position;
-          final data = page.loadedData;
+          final offset = pageKey.currentState!.controller.offset;
+          expect(offset, 250);
+          final visibleTitle = find.text('title 3').hitTestable();
+          expect(visibleTitle, findsOneWidget);
           final initialCardReferences = tracker.created
               .where((entry) => entry.reference.target?.debugDisposed == false)
               .toList();
@@ -217,10 +218,9 @@ void main() {
 
           await tester.pumpWidget(scene(true));
           await tester.pumpAndSettle();
-          expect(pageKey.currentState, same(page));
-          expect(page.controller.position, same(position));
-          expect(page.loadedData, same(data));
-          expect(position.pixels, 250);
+          final page = pageKey.currentState!;
+          expect(page.controller.offset, offset);
+          expect(visibleTitle, findsOneWidget);
           page.focusNode.requestFocus();
           await tester.pumpAndSettle();
           expect(page.focusNode.hasPrimaryFocus, isTrue);

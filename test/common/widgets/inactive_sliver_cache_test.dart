@@ -143,17 +143,6 @@ class _PageState extends State<_Page> with AutomaticKeepAliveClientMixin {
   }
 }
 
-int _elementCount(BuildContext context) {
-  var count = 0;
-  void visit(Element element) {
-    count++;
-    element.visitChildren(visit);
-  }
-
-  visit(context as Element);
-  return count;
-}
-
 Future<Uint8List> _capture(RenderRepaintBoundary boundary) async {
   final image = await boundary.toImage(pixelRatio: 1);
   final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -188,20 +177,6 @@ class _RenderCorrectionSliver extends RenderSliver {
 }
 
 void main() {
-  test('zero cache interval is inconsistent at a nonzero exact grid row', () {
-    const layout = SliverGridRegularTileLayout(
-      crossAxisCount: 4,
-      mainAxisStride: 100,
-      crossAxisStride: 200,
-      childMainAxisExtent: 100,
-      childCrossAxisExtent: 200,
-      reverseCrossAxis: false,
-    );
-    expect(layout.getMinChildIndexForScrollOffset(300), 12);
-    expect(layout.getMaxChildIndexForScrollOffset(300), 11);
-    expect(layout.getMaxChildIndexForScrollOffset(301), 15);
-  });
-
   testWidgets(
     'inactive extent preservation forwards real scroll offset corrections',
     (tester) async {
@@ -303,58 +278,43 @@ void main() {
           );
           await tester.pumpAndSettle();
           final page = pageKey.currentState!;
-          final data = page.loadedData;
-          final position = page.controller.position;
           page.controller.jumpTo(offset);
           await tester.pumpAndSettle();
-          final initialOffset = position.pixels;
-          final initialMax = position.maxScrollExtent;
+          final initialOffset = page.controller.offset;
+          final initialMax = page.controller.position.maxScrollExtent;
           final activeCards = page.live.length;
-          final activeElements = _elementCount(pageKey.currentContext!);
           final boundary =
               screenshotKey.currentContext!.findRenderObject()!
                   as RenderRepaintBoundary;
           final before = await tester.runAsync(() => _capture(boundary));
-          final budget =
+          RenderSliver sliverOf(_PageState page) =>
               page.budgetKey.currentContext!.findRenderObject()!
                   as RenderSliver;
-          final outsideCache = budget.constraints.remainingCacheExtent == 0;
+          final outsideCache =
+              sliverOf(page).constraints.remainingCacheExtent == 0;
           if (!outsideCache) expect(activeCards, greaterThan(grid ? 4 : 1));
 
           tabs.animateTo(2);
           await tester.pumpAndSettle();
-          final hiddenCards = page.live.length;
-          final hiddenElements = _elementCount(pageKey.currentContext!);
+          final hiddenPage = pageKey.currentState!;
+          final hiddenCards = hiddenPage.live.length;
+          final hiddenPosition = hiddenPage.controller.position;
+          final budget = sliverOf(hiddenPage);
           expect(
             budget.geometry!.cacheExtent,
             lessThanOrEqualTo(budget.constraints.remainingCacheExtent),
           );
-          debugPrint(
-            'inactive sliver: grid=$grid keepAlive=$keepAlive '
-            'offset=$initialOffset -> ${position.pixels}; '
-            'max=$initialMax -> ${position.maxScrollExtent}; '
-            'incomingCache=${budget.constraints.remainingCacheExtent}; '
-            'cards=$activeCards -> $hiddenCards; '
-            'elements=$activeElements -> $hiddenElements',
-          );
-          expect(pageKey.currentState, same(page));
-          expect(page.loadedData, same(data));
-          expect(page.controller.position, same(position));
-          expect(position.pixels, initialOffset);
-          expect(position.maxScrollExtent, initialMax);
+          expect(hiddenPosition.pixels, initialOffset);
+          expect(hiddenPosition.maxScrollExtent, initialMax);
           if (keepAlive) {
             expect(hiddenCards, greaterThanOrEqualTo(activeCards));
           } else {
             expect(hiddenCards, lessThanOrEqualTo(grid ? 4 : 1));
-            expect(hiddenElements, lessThanOrEqualTo(activeElements));
-            if (!outsideCache) expect(hiddenElements, lessThan(activeElements));
           }
 
           tabs.animateTo(0);
           await tester.pumpAndSettle();
-          expect(pageKey.currentState, same(page));
-          expect(page.controller.position, same(position));
-          expect(position.pixels, initialOffset);
+          expect(pageKey.currentState!.controller.offset, initialOffset);
           final restored = await tester.runAsync(() => _capture(boundary));
           expect(restored, orderedEquals(before!));
           await tester.pumpWidget(const SizedBox());

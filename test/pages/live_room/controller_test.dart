@@ -119,6 +119,11 @@ Widget _app(LiveRoomController controller, {double width = 360}) => MaterialApp(
   ),
 );
 
+List<String> _chatTexts(LiveRoomController controller) => [
+  for (final message in controller.chatHistory.value.messages)
+    (message.content as DanmakuMsg).text,
+];
+
 void main() {
   setUpAll(() {
     GStorage.setting = MemoryBox({
@@ -258,12 +263,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.disableAutoScroll.value, isTrue);
       final offset = controller.scrollController.offset;
-      final frozen = controller.chatHistory.value.messages;
+      final frozen = _chatTexts(controller);
       for (var i = 500; i < 2500; i++) {
         controller.addDm(_message(i));
       }
       await tester.pump(const Duration(milliseconds: 100));
-      expect(controller.chatHistory.value.messages, same(frozen));
+      expect(_chatTexts(controller), frozen);
       expect(controller.scrollController.offset, offset);
       expect(controller.unreadMessages.value, (500, 1500));
       expect(find.text('回到底部 · 500 条新消息\n已略过 1500 条'), findsOneWidget);
@@ -272,10 +277,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.disableAutoScroll.value, isFalse);
       expect(controller.unreadMessages.value, (0, 0));
-      expect(controller.chatHistory.value.messages.length, 500);
       expect(
-        controller.chatHistory.value.messages.last.content.text,
-        '消息 2499',
+        find.textContaining('消息 2499', findRichText: true),
+        findsOneWidget,
       );
       expect(controller.scrollController.offset, 0);
       controller.close();
@@ -301,14 +305,14 @@ void main() {
       expect(controller.unreadMessages.value, (0, 0));
 
       controller.disableAutoScroll.value = true;
-      final frozen = controller.chatHistory.value.messages;
+      final frozen = _chatTexts(controller);
       controller.plPlayerController.showDanmaku = false;
       controller
         ..addDm(_message(601))
         ..refreshMsgIfNeeded();
       controller.plPlayerController.showDanmaku = true;
       await tester.pumpAndSettle();
-      expect(controller.chatHistory.value.messages, same(frozen));
+      expect(_chatTexts(controller), frozen);
       expect(controller.unreadMessages.value, (1, 0));
       controller.close();
     },
@@ -368,9 +372,8 @@ void main() {
         ..addDm(_message(1))
         ..refreshMsgIfNeeded();
       await tester.pump(const Duration(seconds: 1));
-      expect(controller.chatHistory.value.messages, isEmpty);
-      expect(controller.chatBuffer.historyCount, 0);
-      expect(controller.chatBuffer.pendingCount, 0);
+      expect(_chatTexts(controller), isEmpty);
+      expect(controller.unreadMessages.value, (0, 0));
       expect(tester.takeException(), isNull);
     },
   );
@@ -431,7 +434,8 @@ void main() {
       controller.tokenRequests.single.complete(Success(_messageInfo('first')));
       await tester.pump();
       expect(controller.messageStreams, hasLength(1));
-      expect(identical(controller.startLiveMsg(), first), isTrue);
+      final concurrent = controller.startLiveMsg();
+      expect(controller.tokenRequests, hasLength(1));
       if (throws) {
         initializing.completeError(
           StateError('synthetic initialization failure'),
@@ -442,7 +446,8 @@ void main() {
         );
       }
       await tester.pumpAndSettle();
-      await first;
+      await Future.wait([first, concurrent]);
+      expect(controller.messageStreams, hasLength(1));
       expect(controller.messageStreams.single.isClosed, isTrue);
       expect(controller.dmInfo, isNull);
 

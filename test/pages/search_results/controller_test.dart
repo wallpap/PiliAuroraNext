@@ -11,8 +11,7 @@ import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart' show Error;
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/search/application/search_results.dart';
-import 'package:pili_aurora_next/pages/search_panel/video/view.dart';
-import 'package:pili_aurora_next/pages/search_panel/view.dart';
+import 'package:pili_aurora_next/features/search/domain/result.dart';
 import 'package:pili_aurora_next/pages/search_result/view.dart';
 import 'package:pili_aurora_next/features/search/domain/filters/search_type.dart';
 import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
@@ -24,22 +23,6 @@ import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
-
-class _ResultsNotifier extends SearchResultsNotifier {
-  _ResultsNotifier(super.query, this.queries, [this.delayedTotal]);
-  final List<SearchResultsQuery> queries;
-  final Future<int>? delayedTotal;
-  @override
-  Future<SearchResultsState> build() async {
-    queries.add(query);
-    return SearchResultsState(
-      items: [],
-      nextPage: 2,
-      hasMore: false,
-      total: await (delayedTotal ?? Future.value(3)),
-    );
-  }
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -193,7 +176,7 @@ void main() {
     await dispatched(2);
     final first = await container.read(provider.future);
     expect(first.items.map((item) => item.aid), [40, 41, 42]);
-    expect(first.pendingItems.single, same(first.items[1]));
+    expect((first.pendingItems.single as SearchVideoItemModel).aid, 41);
     expect(requests.last.options.path, Api.videoIntro);
     requests.last.reply.complete({
       'code': 0,
@@ -204,7 +187,7 @@ void main() {
       },
     });
     final finalPage = await settled.future;
-    expect(finalPage.items, [first.items.first, first.items.last]);
+    expect(finalPage.items.map((item) => item.aid), [40, 42]);
     expect(finalPage.pendingItems, isEmpty);
   });
 
@@ -561,60 +544,30 @@ void main() {
     expect(requests, hasLength(1));
   });
 
-  testWidgets('视频筛选建立新查询，分类计数从有效快照回传', (tester) async {
-    container.dispose();
-    final queries = <SearchResultsQuery>[];
-    container = ProviderContainer(
-      overrides: [
-        searchResultsProvider.overrideWith2(
-          (query) => _ResultsNotifier(query, queries),
-        ),
-      ],
-    );
-    final counts = <int?>[];
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          home: SearchVideoPanel(
-            keyword: 'test',
-            searchType: SearchType.video,
-            tag: Object(),
-            onCount: counts.add,
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(queries, hasLength(1));
-    expect(counts.last, 3);
-    await tester.tap(find.text('播放多'));
-    await tester.pumpAndSettle();
-    expect(queries, hasLength(2));
-    expect(queries.last.filters, contains('click'));
-    expect(queries.last.revision, isNot(same(queries.first.revision)));
-    await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const SizedBox()),
-    );
-    await tester.pump();
-    expect(requests, isEmpty);
-  });
+  testWidgets('切换分类和视频排序后，只显示当前查询的计数', (tester) async {
+    Future<void> waitForSearch(int requestCount) async {
+      for (var frame = 0; frame < 60; frame++) {
+        if (requests.length >= requestCount) break;
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(requests, hasLength(requestCount));
+    }
 
-  testWidgets('搜索结果页通过回调回传分类且不注册 GetX 状态', (tester) async {
-    container.dispose();
-    final queries = <SearchResultsQuery>[];
-    final videoTotal = Completer<int>();
-    container = ProviderContainer(
-      overrides: [
-        searchResultsProvider.overrideWith2(
-          (query) => _ResultsNotifier(
-            query,
-            queries,
-            query.type == SearchType.video ? videoTotal.future : null,
-          ),
-        ),
-      ],
-    );
+    Future<void> reply(
+      int requestCount, {
+      required String type,
+      required int total,
+      String? order,
+    }) async {
+      await waitForSearch(requestCount);
+      final request = requests.last;
+      expect(request.options.queryParameters['search_type'], type);
+      expect(request.options.queryParameters['order'], order);
+      request.reply.complete(page([], total: total));
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(requestCount));
+    }
+
     final selected = <int>[];
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -637,51 +590,32 @@ void main() {
       ),
     );
     await tester.tap(find.text('open'));
+    await reply(1, type: 'all', total: 3);
+    expect(find.text('综合 3'), findsOneWidget);
+    await tester.tap(find.text('视频'));
+    await reply(2, type: 'video', total: 120);
+    expect(selected.last, SearchType.video.index);
+    expect(find.text('视频 99+'), findsOneWidget);
+
+    await tester.tap(find.text('播放多'));
+    await waitForSearch(3);
+    expect(find.text('视频 99+'), findsNothing);
+    await reply(3, type: 'video', order: 'click', total: 125);
+    expect(find.text('视频 99+'), findsOneWidget);
+
+    await tester.tap(find.text('新发布'));
+    await waitForSearch(4);
+    expect(find.text('视频'), findsOneWidget);
+    await reply(4, type: 'video', order: 'pubdate', total: 99);
+    expect(find.text('视频 99'), findsOneWidget);
+    expect(find.text('综合 3'), findsOneWidget);
+
+    await tester.tap(find.text('弹幕多'));
+    await waitForSearch(5);
+    await tester.tap(find.text('test'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(Tab, '视频'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    expect(selected, contains(SearchType.video.index));
-    expect(queries.any((q) => q.type == SearchType.video), isTrue);
-    final view = find.byType(TabBarView);
-    final panels = find.byWidgetPredicate(
-      (widget) => widget is CommonSearchPanel,
-      skipOffstage: false,
-    );
-    final previousView = tester.widget<TabBarView>(view);
-    final previousPanels = tester
-        .widgetList<CommonSearchPanel>(panels)
-        .toList();
-    final queryCount = queries.length;
-    videoTotal.complete(120);
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(Tab, '视频 99+'), findsOneWidget);
-    expect(
-      tester.widgetList<CommonSearchPanel>(panels),
-      orderedEquals(previousPanels),
-    );
-    expect(tester.widget<TabBarView>(view), same(previousView));
-    expect(queries, hasLength(queryCount));
-    final tabs = find.byType(TabBar);
-    final previousTabs = tester.widget<TabBar>(tabs);
-    final reportVideoCount = previousPanels
-        .singleWhere((panel) => panel.searchType == SearchType.video)
-        .onCount!;
-    reportVideoCount(125);
-    await tester.pump();
-    expect(tester.widget<TabBar>(tabs), same(previousTabs));
-    reportVideoCount(99);
-    await tester.pump();
-    expect(find.widgetWithText(Tab, '视频 99'), findsOneWidget);
-    reportVideoCount(null);
-    await tester.pump();
-    expect(find.widgetWithText(Tab, '视频'), findsOneWidget);
-    expect(tester.widget<TabBarView>(view), same(previousView));
-    await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: const SizedBox()),
-    );
-    reportVideoCount(5);
-    await tester.pump();
+    await reply(5, type: 'video', order: 'dm', total: 5);
+    expect(find.text('open'), findsOneWidget);
+    expect(find.text('视频 5'), findsNothing);
   });
 }
