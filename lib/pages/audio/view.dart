@@ -929,6 +929,7 @@ class _AudioPageState extends ConsumerState<AudioPage>
         thumbRadius: 6,
         onDragStart: _onDragStart,
         onDragUpdate: _onDragUpdate,
+        onDragCancel: () => _controller.isDragging = false,
         onSeek: _onSeek,
       ),
     );

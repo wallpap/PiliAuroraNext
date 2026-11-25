@@ -34,6 +34,7 @@ class ProgressBar extends LeafRenderObjectWidget {
     this.onDragStart,
     this.onDragUpdate,
     this.onDragEnd,
+    this.onDragCancel,
     this.barHeight = 5.0,
     required this.baseBarColor,
     required this.progressBarColor,
@@ -116,6 +117,8 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// This method is called directly before [onSeek].
   final VoidCallback? onDragEnd;
 
+  final VoidCallback? onDragCancel;
+
   /// The vertical thickness of the progress bar.
   final double barHeight;
 
@@ -183,6 +186,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       onDragStart: onDragStart,
       onDragUpdate: onDragUpdate,
       onDragEnd: onDragEnd,
+      onDragCancel: onDragCancel,
       barHeight: barHeight,
       baseBarColor: baseBarColor,
       progressBarColor: progressBarColor,
@@ -208,6 +212,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..onDragStart = onDragStart
       ..onDragUpdate = onDragUpdate
       ..onDragEnd = onDragEnd
+      ..onDragCancel = onDragCancel
       ..barHeight = barHeight
       ..baseBarColor = baseBarColor
       ..progressBarColor = progressBarColor
@@ -313,10 +318,22 @@ class ThumbDragDetails {
 // you would cause a swipe rather than a drag when trying to move the thumb.
 class _EagerHorizontalDragGestureRecognizer
     extends HorizontalDragGestureRecognizer {
+  bool handlingCancel = false;
+
   @override
   void addAllowedPointer(PointerDownEvent event) {
     super.addAllowedPointer(event);
     resolve(GestureDisposition.accepted);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    handlingCancel = event is PointerCancelEvent;
+    try {
+      super.handleEvent(event);
+    } finally {
+      handlingCancel = false;
+    }
   }
 
   @override
@@ -332,6 +349,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     ThumbDragStartCallback? onDragStart,
     ThumbDragUpdateCallback? onDragUpdate,
     VoidCallback? onDragEnd,
+    this.onDragCancel,
     required this._barHeight,
     required this._baseBarColor,
     required this._progressBarColor,
@@ -353,7 +371,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
         ..onStart = _onDragStart
         ..onUpdate = _onDragUpdate
         ..onEnd = _onDragEnd
-        ..onCancel = _finishDrag;
+        ..onCancel = _cancelDrag;
     }
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
@@ -404,14 +422,29 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   }
 
   void _onDragEnd(DragEndDetails details) {
+    if (_drag?.handlingCancel == true) {
+      _cancelDrag();
+      return;
+    }
+    final target = _currentThumbDurationInMilliseconds();
     onDragEnd?.call();
-    onSeek?.call(_currentThumbDurationInMilliseconds());
     _finishDrag();
+    onSeek?.call(target);
+  }
+
+  VoidCallback? onDragCancel;
+
+  void _cancelDrag() {
+    if (!_userIsDraggingThumb) return;
+    _finishDrag();
+    onDragCancel?.call();
   }
 
   void _finishDrag() {
     _userIsDraggingThumb = false;
+    _thumbValue = _proportionOfTotal(_progress);
     markNeedsPaint();
+    markNeedsSemanticsUpdate();
   }
 
   int _currentThumbDuration() {
@@ -437,8 +470,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     final barWidth = barEnd - barStart;
     final position = (dx - barStart).clamp(0.0, barWidth);
     _thumbValue = position / barWidth;
-    _progress = _currentThumbDuration();
     markNeedsPaint();
+    markNeedsSemanticsUpdate();
   }
 
   /// The play location of the media.
@@ -451,11 +484,12 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     if (_progress == clamp) {
       return;
     }
+    _progress = clamp;
     if (!_userIsDraggingThumb) {
-      _progress = clamp;
       _thumbValue = _proportionOfTotal(clamp);
     }
     markNeedsPaint();
+    markNeedsSemanticsUpdate();
   }
 
   /// The total time length of the media.
@@ -471,6 +505,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       _thumbValue = _proportionOfTotal(progress);
     }
     markNeedsPaint();
+    markNeedsSemanticsUpdate();
   }
 
   /// The buffered length of the media when streaming.
@@ -499,6 +534,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       return;
     }
     _onSeek = value;
+    markNeedsSemanticsUpdate();
   }
 
   /// A callback when the thumb starts being dragged.
@@ -768,38 +804,31 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // description
     config
       ..textDirection = TextDirection.ltr
-      ..label =
-          '进度条' //'Progress bar';
-      ..value = '${(_thumbValue * 100).round()}%'
-      // increase action
-      ..onIncrease = increaseAction;
-    final increased = _thumbValue + _semanticActionUnit;
+      ..label = '进度条'
+      ..value = '${(_thumbValue * 100).round()}%';
+    if (onSeek == null || total <= 0 || _userIsDraggingThumb) return;
     config
-      ..increasedValue = '${((increased).clamp(0.0, 1.0) * 100).round()}%'
-      // decrease action
-      ..onDecrease = decreaseAction;
-    final decreased = _thumbValue - _semanticActionUnit;
-    config.decreasedValue = '${((decreased).clamp(0.0, 1.0) * 100).round()}%';
+      ..onIncrease = increaseAction
+      ..increasedValue =
+          '${(_semanticTarget(_semanticActionUnit) * 100).round()}%'
+      ..onDecrease = decreaseAction
+      ..decreasedValue =
+          '${(_semanticTarget(-_semanticActionUnit) * 100).round()}%';
   }
 
   // This is how much to move the thumb if the move is triggered by a
   // semantic action rather than a touch event.
   static const double _semanticActionUnit = 0.05;
 
-  void increaseAction() {
-    final newValue = _thumbValue + _semanticActionUnit;
-    _thumbValue = (newValue).clamp(0.0, 1.0);
-    onSeek?.call(_currentThumbDuration());
-    markNeedsPaint();
-    markNeedsSemanticsUpdate();
-  }
+  double _semanticTarget(double delta) => (_thumbValue + delta).clamp(0.0, 1.0);
 
-  void decreaseAction() {
-    final newValue = _thumbValue - _semanticActionUnit;
-    _thumbValue = (newValue).clamp(0.0, 1.0);
-    onSeek?.call(_currentThumbDuration());
-    markNeedsPaint();
-    markNeedsSemanticsUpdate();
+  void increaseAction() => _semanticSeek(_semanticActionUnit);
+
+  void decreaseAction() => _semanticSeek(-_semanticActionUnit);
+
+  void _semanticSeek(double delta) {
+    if (total <= 0 || _userIsDraggingThumb) return;
+    onSeek?.call((_semanticTarget(delta) * total * 1000).round());
   }
 
   @override
