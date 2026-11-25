@@ -1660,6 +1660,9 @@ class PlaybackSession implements PlaybackMediaClock {
   }) {
     final rejection = _rejectLoad(owner);
     if (rejection != null) return Future.value(rejection);
+    if (!_canRecoverLoad(owner, plan.contentKey)) {
+      return Future.value(const LoadResult.superseded());
+    }
     final incident = _ensureRecoveryIncident(plan.contentKey)
       ..sourceEnded |= sourceEnded;
     if (incident.stopped) {
@@ -1723,7 +1726,7 @@ class PlaybackSession implements PlaybackMediaClock {
 
   void _stopRecovery(PlaybackOwner owner) {
     final plan = _currentPlan;
-    if (!owner.isActive || plan == null) return;
+    if (plan == null || !_canRecoverLoad(owner, plan.contentKey)) return;
     _ensureRecoveryIncident(plan.contentKey)
       ..stopped = true
       ..deferredPlan = null
@@ -1731,6 +1734,12 @@ class PlaybackSession implements PlaybackMediaClock {
     _recoveryCheck?.cancel();
     _recoveryCheck = null;
   }
+
+  bool _canRecoverLoad(PlaybackOwner owner, String contentKey) =>
+      owner.hasLoadedMedia &&
+      _phase == PlaybackPhase.ready &&
+      _acceptedRequest == null &&
+      _currentPlan?.contentKey == contentKey;
 
   _RecoveryIncident _ensureRecoveryIncident(String contentKey) {
     final current = _recoveryIncident;
@@ -2820,6 +2829,17 @@ class PlaybackOwner {
   bool Function() guard() {
     final generation = _generation;
     return () => isActive && generation == _generation;
+  }
+
+  bool Function() guardRecovery(String contentKey) {
+    final stillOwnsPage = guard();
+    final request = _session.requestId;
+    final load = _session.loadId;
+    return () =>
+        stillOwnsPage() &&
+        request == _session.requestId &&
+        load == _session.loadId &&
+        _session._canRecoverLoad(this, contentKey);
   }
 
   void activate() => _session._activate(this);

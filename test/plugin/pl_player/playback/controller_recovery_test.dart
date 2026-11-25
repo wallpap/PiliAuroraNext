@@ -1782,6 +1782,33 @@ void main() {
     expect(f.runtime.repairs, 1);
   });
 
+  _recoveryTest('同请求的配置重载淘汰旧加载的网络恢复计时器', (f) async {
+    await f.load();
+    final initial = f.controller.currentPlaybackSnapshot;
+    f.readFailure();
+    f.runtime.shaderChangeRequiresRendererReset = true;
+    f.runtime.beforeLoad = (_) async {
+      f.runtime.shaderChangeRequiresRendererReset = false;
+    };
+    expect(
+      (await f.owner.setShader(['fixture.glsl'])).outcome,
+      CommandOutcome.applied,
+    );
+    await f.tester.pump();
+    final replaced = f.controller.currentPlaybackSnapshot;
+    expect(replaced.requestId, initial.requestId);
+    expect(replaced.loadId, isNot(initial.loadId));
+    expect(f.runtime.loads, hasLength(2));
+
+    f.runtime.player.state.buffer = f.runtime.player.state.position;
+    await f.advance(3, advancing: false);
+    expect(f.runtime.loads, hasLength(2));
+
+    f.readFailure();
+    await f.advance(3, advancing: false);
+    expect(f.runtime.loads, hasLength(3));
+  });
+
   _recoveryTest('播放完成后迟到的音轨失败回执不能重载或自动播放', (f) async {
     await f.load();
     final pending = Completer<PlaybackRuntimeCommandResult>();
@@ -2142,6 +2169,8 @@ class _Runtime extends NativePlaybackRuntime {
   @override
   final _Player player = _Player();
   final diagnostic = _Diagnostics();
+  @override
+  bool shaderChangeRequiresRendererReset = false;
   @override
   PlayerDiagnostics get diagnostics => diagnostic;
   final _events = StreamController<PlaybackRuntimeEvent>.broadcast(sync: true);

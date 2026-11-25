@@ -10,6 +10,8 @@ enum _Input { pause, redirectSeek, replace, close }
 
 enum _LoadReply { resolver, predicate, open, intent, nativeFailure }
 
+enum _RecoveryHandoff { resolving, replaced, ownerChanged }
+
 Iterable<List<_Input>> _orders(List<_Input> remaining) sync* {
   if (remaining.isEmpty) {
     yield const [];
@@ -62,6 +64,55 @@ void _emitTerminal(FakeSessionRuntime runtime, int load, {required bool eof}) {
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  for (final handoff in _RecoveryHandoff.values) {
+    test('旧媒体的自动恢复不能跨过交接：${handoff.name}', () async {
+      final runtime = FakeSessionRuntime();
+      final session = PlaybackSession(runtime: runtime);
+      final originalOwner = session.attach();
+      final original = sessionPlan('recovery-old');
+      final next = sessionPlan('recovery-next');
+      final resolver = Completer<PlaybackPlan?>();
+      try {
+        expect(
+          (await originalOwner.load(
+            original,
+            start: PlaybackStartPolicy.play,
+          )).outcome,
+          LoadOutcome.ready,
+        );
+        var owner = originalOwner;
+        Future<LoadResult>? replacement;
+        switch (handoff) {
+          case _RecoveryHandoff.resolving:
+            replacement = owner.query((_) => resolver.future);
+          case _RecoveryHandoff.replaced:
+            expect((await owner.load(next)).outcome, LoadOutcome.ready);
+          case _RecoveryHandoff.ownerChanged:
+            owner = session.attach();
+        }
+        await _turn();
+        final revision = session.revision;
+        final loadId = session.loadId;
+        final snapshot = session.currentSnapshot;
+        expect((await owner.recover(original)).outcome, LoadOutcome.superseded);
+        expect(session.revision, revision);
+        expect(session.loadId, loadId);
+        expect(session.currentSnapshot, same(snapshot));
+        if (replacement != null) {
+          resolver.complete(next);
+          expect((await replacement).outcome, LoadOutcome.ready);
+        }
+        expect(runtime.loadedKeys, [
+          original.contentKey,
+          if (handoff != _RecoveryHandoff.ownerChanged) next.contentKey,
+        ]);
+      } finally {
+        if (!resolver.isCompleted) resolver.complete(null);
+        await session.shutdown();
+      }
+    });
+  }
+
   for (final cleanup in ['pending', 'incomplete', 'error']) {
     testWidgets('先收到实际释放，再处理关闭回执 $cleanup', (tester) async {
       const budget = Duration(seconds: 2);

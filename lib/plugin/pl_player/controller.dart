@@ -1622,7 +1622,9 @@ class PlPlayerController
     if (owner == null ||
         !owner.isActive ||
         plan == null ||
-        (automaticRecovery && !plan.source.isNetwork) ||
+        (automaticRecovery &&
+            (!plan.source.isNetwork ||
+                !owner.guardRecovery(plan.contentKey)())) ||
         processing) {
       return null;
     }
@@ -1635,7 +1637,7 @@ class PlPlayerController
       );
       if (next != null) {
         reloadPlan = plan.withSource(next);
-        _currentPlan = reloadPlan;
+        if (!automaticRecovery) _currentPlan = reloadPlan;
       }
     }
     return () async {
@@ -1679,15 +1681,17 @@ class PlPlayerController
     bool permissionDenied = false,
     bool requireVideoProgress = false,
   }) {
+    final owner = activePlaybackOwner;
     final plan = currentPlaybackPlan;
-    if (plan == null || !plan.source.isNetwork) return;
-    final revision = _session.revision;
+    if (owner == null || plan == null || !plan.source.isNetwork) return;
+    final isCurrent = owner.guardRecovery(plan.contentKey);
+    if (!isCurrent()) return;
     if (_networkRecovery?.isActive == false) {
       _networkRecovery?.dispose();
       _networkRecovery = null;
     }
     _networkRecovery ??= PlaybackNetworkRecovery(
-      isCurrent: () => _session.isCurrent(revision),
+      isCurrent: isCurrent,
       readState: () {
         final player = _videoPlayerController;
         if (player == null ||
@@ -1723,7 +1727,7 @@ class PlPlayerController
     );
     if (permissionDenied) {
       _networkRecovery!.stopForPermissionFailure();
-      _activeOwner?.stopRecovery();
+      owner.stopRecovery();
       return;
     }
     _networkRecovery!.schedule(
@@ -1763,8 +1767,10 @@ class PlPlayerController
 
   PlaybackAudioRecovery? _ensureAudioRecovery() {
     if (isFileSource) return null;
-    final plan = _currentPlan;
-    if (plan == null ||
+    final owner = activePlaybackOwner;
+    final plan = currentPlaybackPlan;
+    if (owner == null ||
+        plan == null ||
         (plan.source.currentAudioSource?.isNotEmpty != true &&
             _videoPlayerController?.state.tracks.audio.any(
                   (track) => int.tryParse(track.id) != null,
@@ -1772,7 +1778,8 @@ class PlPlayerController
                 true)) {
       return null;
     }
-    final revision = _session.revision;
+    final isCurrent = owner.guardRecovery(plan.contentKey);
+    if (!isCurrent()) return null;
     if (_audioRecovery?.isActive == false) {
       _audioRecovery?.dispose();
       _audioRecovery = null;
@@ -1783,7 +1790,7 @@ class PlPlayerController
           : () => _monotonicNow().inMilliseconds,
       readState: () {
         final player = _videoPlayerController;
-        if (!_session.isCurrent(revision) ||
+        if (!isCurrent() ||
             player == null ||
             player.disposed ||
             player.current.isEmpty) {
@@ -1816,18 +1823,18 @@ class PlPlayerController
         );
       },
       repairAudio: () {
-        if (processing) return null;
-        final owner = _activeOwner;
-        if (owner == null || !owner.isActive) return Future.value(false);
+        if (!isCurrent()) return null;
         return owner.reloadAudio().then(
           (result) => result.outcome == CommandOutcome.applied,
         );
       },
-      reload: () => refreshPlayer(
-        tryNextCdn: true,
-        automaticRecovery: true,
-        failedTrack: PlaybackRecoveryTrack.audio,
-      ),
+      reload: () => isCurrent()
+          ? refreshPlayer(
+              tryNextCdn: true,
+              automaticRecovery: true,
+              failedTrack: PlaybackRecoveryTrack.audio,
+            )
+          : null,
       onDiagnostic: (action) => _diagnostics?.event(
         action,
         level: DiagnosticLogLevel.warning,
