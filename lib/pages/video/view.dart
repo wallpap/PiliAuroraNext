@@ -326,7 +326,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
   }
 
   void positionListener(Duration position) {
-    videoDetailController.playedTime = position;
+    videoDetailController.observePlaybackProgress(position);
   }
 
   @override
@@ -356,6 +356,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
   // 播放器状态监听
   Future<void> playerListener(PlayerStatus status) async {
     if (!videoDetailController.playbackOwner.isActive) return;
+    videoDetailController.observePlaybackProgress();
     final isPlaying = status.isPlaying;
     try {
       if (videoDetailController.scrollCtr.hasClients) {
@@ -525,7 +526,6 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
       ..holdPlaybackForRoute()
       ..videoState.value = false
       ..cancelBlockListener()
-      ..playerStatus = plPlayerController?.playerStatus
       ..brightness = plPlayerController?.brightness.value;
     if (plPlayerController != null) {
       videoDetailController.makeHeartBeat();

@@ -11,6 +11,44 @@ import 'playback_session_fixture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('进度归属需要当前 owner 及已确认的内容', () async {
+    final runtime = FakeSessionRuntime();
+    final session = PlaybackSession(runtime: runtime);
+    addTearDown(session.shutdown);
+    final first = session.attach();
+    final initial = await first.load(sessionPlan('file:1'));
+    expect(first.ownsLoadedContent('file:1'), isTrue);
+    expect(first.ownsLoadedContent('file:2'), isFalse);
+    runtime.eventController.add(
+      PlaybackRuntimeEnded(
+        runtimeId: runtime.runtimeId,
+        loadId: initial.loadId,
+        position: const Duration(seconds: 10),
+      ),
+    );
+    expect(session.currentSnapshot.phase, PlaybackPhase.ended);
+    expect(first.ownsLoadedContent('file:1'), isTrue);
+
+    final pending = Completer<void>();
+    runtime.onLoad = (_, context, _) async {
+      await pending.future;
+      return failedSessionLoad(context);
+    };
+    final replacing = first.load(sessionPlan('file:2'));
+    await waitForSessionCondition(() => runtime.loadedPlans.length == 2);
+    expect(first.ownsLoadedContent('file:1'), isFalse);
+    expect(first.ownsLoadedContent('file:2'), isFalse);
+    pending.complete();
+    expect((await replacing).outcome, LoadOutcome.failed);
+    expect(first.ownsLoadedContent('file:1'), isFalse);
+
+    final second = session.attach();
+    runtime.onLoad = null;
+    await second.load(sessionPlan('file:1'));
+    expect(second.ownsLoadedContent('file:1'), isTrue);
+    expect(first.ownsLoadedContent('file:1'), isFalse);
+  });
+
   test('seek 等待原生资格时暂停可执行，较新目标替换旧等待', () async {
     final runtime = GatedSessionRuntime();
     final session = PlaybackSession(runtime: runtime);

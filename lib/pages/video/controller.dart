@@ -55,7 +55,6 @@ import 'package:pili_aurora_next/pages/video/widgets/header_control.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/heart_beat_type.dart';
-import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pili_aurora_next/features/account/application/account_scope.dart';
@@ -253,7 +252,7 @@ class VideoDetailController with BlockMixin {
   int? seasonCid;
   final seasonIndex = ValueNotifier(0);
 
-  PlayerStatus? playerStatus;
+  bool _offlineCompleted = false;
 
   late final scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
   final isVertical = ValueNotifier(false);
@@ -410,8 +409,21 @@ class VideoDetailController with BlockMixin {
 
   final isLoginVideo = AccountScope.captureVideo().account.isLogin;
 
-  void cacheLocalProgress() {
-    final position = plPlayerController.playerStatus.isCompleted
+  String get _playbackContentKey => isFileSource
+      ? 'file:${cid.value}'
+      : isUgc
+      ? 'ugc:$bvid:${cid.value}'
+      : 'pgc:${seasonId ?? 0}:${epId ?? 0}:${cid.value}';
+
+  void observePlaybackProgress([Duration? position]) {
+    if (!playbackOwner.ownsLoadedContent(_playbackContentKey)) return;
+    if (position != null) playedTime = position;
+    if (isFileSource) _offlineCompleted = plPlayerController.isCompleted;
+  }
+
+  void _cacheLocalProgress() {
+    observePlaybackProgress();
+    final position = _offlineCompleted
         ? entry.totalTimeMilli
         : playedTime?.inMilliseconds;
     if (position != null) {
@@ -921,13 +933,8 @@ class VideoDetailController with BlockMixin {
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
-    final contentKey = isFileSource
-        ? 'file:${cid.value}'
-        : isUgc
-        ? 'ugc:$bvid:${cid.value}'
-        : 'pgc:${seasonId ?? 0}:${epId ?? 0}:${cid.value}';
     return plPlayerController.createPlaybackPlan(
-      contentKey: contentKey,
+      contentKey: _playbackContentKey,
       source: source,
       configuration: configuration,
       timelineKind: isFileSource
@@ -990,6 +997,7 @@ class VideoDetailController with BlockMixin {
   ) => playbackOwner.setSubtitleTrack(track);
 
   void holdPlaybackForRoute() {
+    if (isFileSource) observePlaybackProgress();
     _routePlaybackGeneration++;
     _sourceSelectionGeneration++;
     _pendingSourceSelection = null;
@@ -1678,10 +1686,10 @@ class VideoDetailController with BlockMixin {
     _videoQueryCancel?.cancel();
     _subtitleGeneration++;
     _shutdownBinding?.dispose();
-    plPlayerController.closePlaybackOwner(playbackOwner);
     if (isFileSource) {
-      cacheLocalProgress();
+      _cacheLocalProgress();
     }
+    plPlayerController.closePlaybackOwner(playbackOwner);
     introScrollCtr?.dispose();
     introScrollCtr = null;
     tabCtr.dispose();
@@ -1720,10 +1728,11 @@ class VideoDetailController with BlockMixin {
   void onReset({bool isStein = false}) {
     _videoQueryCancel?.cancel();
     _subtitleGeneration++;
-    playbackOwner.invalidateRequests();
     if (isFileSource) {
-      cacheLocalProgress();
+      _cacheLocalProgress();
+      _offlineCompleted = false;
     }
+    playbackOwner.invalidateRequests();
 
     playedTime = null;
     defaultST = null;

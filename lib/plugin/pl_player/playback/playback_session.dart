@@ -2697,6 +2697,12 @@ class PlaybackOwner {
       !_session.isDisposed &&
       identical(_session._activeOwner, this);
   bool get hasLoadedMedia => isActive && !_requiresLoad;
+  bool ownsLoadedContent(String contentKey) =>
+      hasLoadedMedia &&
+      _session._currentPlan?.contentKey == contentKey &&
+      (_session._phase == PlaybackPhase.ready ||
+          _session._phase == PlaybackPhase.ended);
+
   bool get isQuerying =>
       identical(_session._acceptedRequest?.owner, this) &&
       _session._stage == PlaybackStage.resolving;

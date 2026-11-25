@@ -22,6 +22,7 @@ import 'package:pili_aurora_next/features/playback/domain/play_info/subtitle.dar
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/local/view.dart';
 import 'package:pili_aurora_next/pages/video/view.dart';
+import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
@@ -518,6 +519,33 @@ void main() {
       const Duration(seconds: 27),
     );
     controller.closePlayback();
+  });
+
+  test('失去播放所有权的离线页不记录其他页面的完播', () {
+    const offlineCid = 161;
+    final offline = page()
+      ..isFileSource = true
+      ..cid.value = offlineCid
+      ..entry = downloadEntry(cid: offlineCid, completed: true)
+      ..playedTime = const Duration(seconds: 8);
+    final next = page();
+    final player = offline.plPlayerController;
+    final previousStatus = player.playerStatus;
+    addTearDown(() async {
+      player.playerStatus = previousStatus;
+      next.closePlayback();
+      offline.closePlayback();
+      await GStorage.watchProgress.delete('$offlineCid');
+    });
+    expect(next.playbackOwner.isActive, isTrue);
+    expect(offline.playbackOwner.isActive, isFalse);
+    player.playerStatus = PlayerStatus.completed;
+
+    offline
+      ..observePlaybackProgress(const Duration(seconds: 60))
+      ..onReset();
+
+    expect(GStorage.watchProgress.get('$offlineCid'), 8000);
   });
 
   test('字幕加载期间选择关闭，以最新选择为准', () async {
