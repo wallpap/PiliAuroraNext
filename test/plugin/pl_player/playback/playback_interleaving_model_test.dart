@@ -113,6 +113,125 @@ void main() {
     });
   }
 
+  test('没有接受过计划的新页面不能重试或读到旧页面的进度', () async {
+    final runtime = FakeSessionRuntime();
+    final session = PlaybackSession(runtime: runtime);
+    final original = session.attach();
+    try {
+      await original.load(sessionPlan('retry-owner-old'));
+      runtime.position = _nextTarget;
+      expect(session.resumePosition, _nextTarget);
+      final next = session.attach();
+      expect(session.resumePosition, isNull);
+      expect((await next.retry()).outcome, LoadOutcome.noMedia);
+      expect(runtime.loadedKeys, ['retry-owner-old']);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
+  test('同内容的两个页面重试仍按各自的来源和配置', () async {
+    final runtime = FakeSessionRuntime();
+    final session = PlaybackSession(runtime: runtime);
+    final original = session.attach();
+    final firstPlan = sessionPlan(
+      'shared-content',
+      candidates: ['https://example.test/first.mp4'],
+    ).withConfiguration(PlaybackConfiguration(volume: 25));
+    final secondPlan = sessionPlan(
+      'shared-content',
+      candidates: ['https://example.test/second.mp4'],
+    ).withConfiguration(PlaybackConfiguration(volume: 75));
+    try {
+      expect((await original.load(firstPlan)).outcome, LoadOutcome.ready);
+      expect((await original.setVolume(40)).outcome, CommandOutcome.applied);
+      final second = session.attach();
+      expect((await second.load(secondPlan)).outcome, LoadOutcome.ready);
+      expect(runtime.loadedPlans.last.configuration.volume, 75);
+      runtime.position = _nextTarget;
+
+      original.activate();
+      expect(session.resumePosition, isNull);
+      expect((await original.retry()).outcome, LoadOutcome.ready);
+      final loaded = runtime.loadedPlans.last;
+      expect(loaded.source, same(firstPlan.source));
+      expect(loaded.configuration.volume, 40);
+      expect(loaded.reloadPosition, isNull);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
+  for (final resolved in [false, true]) {
+    test('查询未提交播放计划时重试不能重开旧视频：resolved=$resolved', () async {
+      final runtime = FakeSessionRuntime();
+      final session = PlaybackSession(runtime: runtime);
+      final owner = session.attach();
+      final resolver = Completer<PlaybackPlan?>();
+      try {
+        await owner.load(sessionPlan('retry-query-old'));
+        final query = owner.query(
+          (_) => resolver.future,
+          shouldLoad: () => false,
+        );
+        expect((await owner.retry()).outcome, LoadOutcome.superseded);
+        resolver.complete(resolved ? sessionPlan('retry-query-next') : null);
+        expect(
+          (await query).outcome,
+          resolved ? LoadOutcome.noMedia : LoadOutcome.failed,
+        );
+        expect((await owner.retry()).outcome, LoadOutcome.noMedia);
+        expect(session.resumePosition, isNull);
+        expect(runtime.loadedKeys, ['retry-query-old']);
+      } finally {
+        if (!resolver.isCompleted) resolver.complete(null);
+        await session.shutdown();
+      }
+    });
+  }
+
+  testWidgets('新视频排队超时后重试最新计划，而非仍在原生的旧视频', (tester) async {
+    const budget = Duration(seconds: 2);
+    var now = Duration.zero;
+    final nativeSeek = Completer<PlaybackRuntimeCommandResult>();
+    final runtime = FakeSessionRuntime()..onSeek = (_, _) => nativeSeek.future;
+    final session = PlaybackSession(
+      runtime: runtime,
+      loadBudget: budget,
+      monotonicNow: () => now,
+    );
+    final owner = session.attach();
+    try {
+      expect(
+        (await owner.load(sessionPlan('retry-queued-old'))).outcome,
+        LoadOutcome.ready,
+      );
+      final seeking = owner.seek(_firstTarget);
+      expect(runtime.seekCalls, [_firstTarget]);
+      final replacement = owner.load(sessionPlan('retry-queued-next'));
+      expect((await seeking).outcome, CommandOutcome.superseded);
+      now += budget;
+      await tester.pump(budget);
+      expect(
+        (await replacement).failure?.category,
+        PlaybackFailureCategory.timeout,
+      );
+      expect(runtime.loadedKeys, ['retry-queued-old']);
+
+      nativeSeek.complete(const PlaybackRuntimeCommandResult());
+      await tester.pump();
+      expect((await owner.retry()).outcome, LoadOutcome.ready);
+      expect(runtime.loadedKeys, ['retry-queued-old', 'retry-queued-next']);
+    } finally {
+      if (!nativeSeek.isCompleted) {
+        nativeSeek.complete(const PlaybackRuntimeCommandResult());
+      }
+      final shutdown = session.shutdown();
+      await tester.pump();
+      await shutdown;
+    }
+  });
+
   for (final cleanup in ['pending', 'incomplete', 'error']) {
     testWidgets('先收到实际释放，再处理关闭回执 $cleanup', (tester) async {
       const budget = Duration(seconds: 2);

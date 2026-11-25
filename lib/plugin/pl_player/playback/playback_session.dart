@@ -192,9 +192,7 @@ class PlaybackSession implements PlaybackMediaClock {
   PlaybackSnapshot get currentSnapshot => _snapshot;
   PlaybackPlan? get currentPlan => _currentPlan;
   Duration? get resumePosition {
-    final plan = identical(_lastLoadOwner, _activeOwner)
-        ? _lastLoadPlan ?? _currentPlan
-        : _currentPlan;
+    final plan = _activeOwner?._retryPlan;
     return plan == null ? null : _planForReload(plan).reloadPosition;
   }
 
@@ -344,7 +342,9 @@ class PlaybackSession implements PlaybackMediaClock {
 
     // Same-content source refreshes may be resolved from an older facade
     // snapshot. Preserve the session's latest user-selected configuration.
-    final acceptedPlan = _currentPlan?.contentKey == plan.contentKey
+    final acceptedPlan =
+        identical(_lastLoadOwner, owner) &&
+            _currentPlan?.contentKey == plan.contentKey
         ? plan.withConfiguration(_desiredConfiguration)
         : plan;
 
@@ -376,6 +376,7 @@ class PlaybackSession implements PlaybackMediaClock {
       automaticRecovery ? PlaybackStage.recovering : PlaybackStage.queued,
       budget: requestBudget,
       retainRequestId: retainRequestId,
+      retryPlan: acceptedPlan,
     );
     if (request == null) {
       return Future.value(_closedOrInactive(owner));
@@ -495,6 +496,7 @@ class PlaybackSession implements PlaybackMediaClock {
     PlaybackStage stage, {
     Duration? budget,
     bool retainRequestId = false,
+    PlaybackPlan? retryPlan,
   }) {
     if (_closingRequested || _disposed || owner._closed) return null;
     if (!owner.isActive) return null;
@@ -510,6 +512,7 @@ class PlaybackSession implements PlaybackMediaClock {
       configurationRevisionsAtAcceptance: Map.of(_configurationRevisions),
     );
     _acceptedRequest = request;
+    owner._retryPlan = retryPlan;
     if (start == PlaybackStartPolicy.play) owner._playing = true;
     if (start == PlaybackStartPolicy.pause) owner._playing = false;
     _updateRecoveryClock(acceptedAt);
@@ -538,6 +541,7 @@ class PlaybackSession implements PlaybackMediaClock {
   void _scheduleLoad(_AcceptedRequest request, PlaybackPlan plan) {
     if (!_continueRequest(request)) return;
     final effectivePlan = _mergeConfigChangesSinceAcceptance(request, plan);
+    request.owner._retryPlan = effectivePlan;
     _stage = PlaybackStage.queued;
     _publish();
     final task = _operations.submit<PlaybackRuntimeLoadResult>(
@@ -749,6 +753,7 @@ class PlaybackSession implements PlaybackMediaClock {
       // stop/open 会清零原生位置；失败与取消后的下一次重试沿用这份续播点。
       _lastLoadPlan = plan;
       _lastLoadOwner = request.owner;
+      request.owner._retryPlan = plan;
       _runtimePositionAvailable = false;
       final result = await _runtime.load(plan, context);
       request.finalPlan = plan;
@@ -1275,6 +1280,15 @@ class PlaybackSession implements PlaybackMediaClock {
       }
     }
     _desiredConfiguration = desired;
+    if (owner._retryPlan case final plan?) {
+      owner._retryPlan = plan.withConfiguration(
+        changedKeys.fold(
+          plan.configuration,
+          (configuration, key) =>
+              _copyConfigurationKey(configuration, desired, key),
+        ),
+      );
+    }
     final revisions = <PlaybackConfigurationKey, int>{};
     for (final changedKey in changedKeys) {
       final revision = (_configurationRevisions[changedKey] ?? 0) + 1;
@@ -1563,7 +1577,9 @@ class PlaybackSession implements PlaybackMediaClock {
 
   PlaybackPlan _planForReload(PlaybackPlan plan) {
     // 状态快照按状态变化发布，续播位置在真正提交重载时向运行时采样。
-    final sameMedia = _lastLoadPlan?.contentKey == plan.contentKey;
+    final sameMedia =
+        identical(_lastLoadOwner, _activeOwner) &&
+        _lastLoadPlan?.contentKey == plan.contentKey;
     final position = plan.timeline.kind == PlaybackTimelineKind.live
         ? null
         : sameMedia && _completedLoadId == _loadId
@@ -1582,7 +1598,7 @@ class PlaybackSession implements PlaybackMediaClock {
         contentKey: plan.contentKey,
         source: plan.source,
         timeline: plan.timeline,
-        configuration: _desiredConfiguration,
+        configuration: sameMedia ? _desiredConfiguration : plan.configuration,
         startPosition: position,
         reloadPosition: position,
         metadata: plan.metadata,
@@ -1835,11 +1851,11 @@ class PlaybackSession implements PlaybackMediaClock {
   Future<LoadResult> _retry(PlaybackOwner owner) {
     final rejection = _rejectLoad(owner);
     if (rejection != null) return Future.value(rejection);
-    final plan = identical(_lastLoadOwner, owner)
-        ? _lastLoadPlan ?? _currentPlan
-        : _currentPlan;
+    if (_acceptedRequest != null) {
+      return Future.value(const LoadResult.superseded());
+    }
+    final plan = owner._retryPlan;
     if (plan == null) return Future.value(const LoadResult.noMedia());
-    _resetRecovery();
     final retryPlan = _planForReload(plan);
     return _load(owner, retryPlan, start: PlaybackStartPolicy.preserve);
   }
@@ -2350,6 +2366,7 @@ class PlaybackSession implements PlaybackMediaClock {
     owner
       .._closed = true
       .._attached = false
+      .._retryPlan = null
       ..invalidateRequests();
     _closeSnapshotStreams(owner);
     owner._inhibitors.clear();
@@ -2666,6 +2683,7 @@ class PlaybackOwner {
   final PlaybackSession _session;
   final int id;
   final Set<PlaybackInhibitorToken> _inhibitors = {};
+  PlaybackPlan? _retryPlan;
   int _generation = 0;
   bool _playing = false;
   bool _requiresLoad = true;
