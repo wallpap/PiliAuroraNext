@@ -7,7 +7,10 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/view/video_progress.dart';
 import 'package:pili_aurora_next/plugin/pl_player/view/video_time.dart';
 
-VideoDetailController? mountedVideoPage(PlPlayerController? player) {
+VideoDetailController? mountedVideoPage(
+  PlPlayerController? player, {
+  int? cid,
+}) {
   VideoDetailController? page;
   void visit(Element element) {
     if (element.widget
@@ -15,7 +18,8 @@ VideoDetailController? mountedVideoPage(PlPlayerController? player) {
           :final controller,
           :final videoDetailController,
         )
-        when identical(controller, player)) {
+        when identical(controller, player) &&
+            (cid == null || videoDetailController.cid.value == cid)) {
       page = videoDetailController;
     }
     if (page == null) element.visitChildren(visit);

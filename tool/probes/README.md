@@ -434,6 +434,27 @@ Windows 的 ready 结果要求输出纹理已符合屏幕限幅，避免页面�
 `/sdcard/Android/data/com.wallpap.piliauroranext.dev/files/video/0.mp4` 后重新启动。
 探针将报告写入同一 `files/` 下的 `page-replay.json`；只更新自己安装的测试包。
 
+## Android 视频页永久失焦验收
+
+沿用上面的带音轨样片和 Android 测试包，额外传入 `PAGE_RECOVER_AUDIO_FOCUS`。
+辅助应用不读取媒体，也不播放声音；它在前台请求 `AUDIOFOCUS_GAIN`，随后退到后台。
+辅助应用构建需要 JDK、Android SDK 36 和 Build Tools 36.0.0。
+
+```powershell
+./tool/build.ps1 -Platform android -Mode release -Abi arm64-v8a -DevRelease -Target tool/probes/playback/android_page_replay_acceptance.dart -DartDefine @('PAGE_REPLAY_DURATION_MS=24000','PAGE_RECOVER_AUDIO_FOCUS=true')
+./tool/probes/playback/build_android_audio_focus_fixture.ps1
+adb install --no-incremental -r build/playback-android-focus/competitor/focus-competitor.apk
+```
+
+清除上次的 `page-audio-focus.ready` 和 `page-audio-focus.json` 再启动测试包。等待 `files/` 下
+出现 `page-audio-focus.ready`，随即执行 `adb shell am start -W -n local.piliaurora.audiofocusfixture/.FocusActivity`。
+报告 `page-audio-focus.json` 要求观测到实际永久失焦事件、切换视频后仍暂停，以及手动播放后重新获焦、
+出帧并推进。辅助包获焦但设备未派发失焦时，报告保留事件和失败阶段，不能算作通过。
+
+如需只验证收到回调之后的链路，可在启动测试包前创建 `files/page-audio-focus.inject`，无需启动辅助包。
+探针主动放弃原生焦点，再向 Flutter 注入同一插件回调；新的焦点申请、切源与渲染仍在真机执行。
+报告的 `trigger` 字段将这条路径标为 `injected-platform-callback`，不验证系统何时派发失焦。
+
 ## Windows 独立播放窗口验收
 
 `playback/desktop_window_acceptance.dart` 使用生产 IPC、子进程启动、播放页面和原生纹理，

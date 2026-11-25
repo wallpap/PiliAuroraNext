@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
+import 'package:audio_session/audio_session.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -37,6 +40,7 @@ Future<void> main() async {
   if (!Platform.isAndroid) throw UnsupportedError('仅支持 Android');
   ScaledWidgetsFlutterBinding.ensureInitialized();
   const lengthMs = int.fromEnvironment('PAGE_REPLAY_DURATION_MS');
+  const focusRecovery = bool.fromEnvironment('PAGE_RECOVER_AUDIO_FOCUS');
   if (lengthMs < 5000) throw ArgumentError('需要至少 5 秒的样片时长');
   final root =
       await getExternalStorageDirectory() ??
@@ -49,7 +53,10 @@ Future<void> main() async {
 
   const cid = 1;
   const positionKey = '$cid';
+  const reportName = focusRecovery ? 'page-audio-focus' : 'page-replay';
   final report = <String, Object?>{'passed': false};
+  final focusEvents = <Map<String, Object?>>[];
+  StreamSubscription<AudioInterruptionEvent>? focusSubscription;
   var step = 'initialize';
   var deniedHttpRequests = 0;
   try {
@@ -67,6 +74,7 @@ Future<void> main() async {
       SettingBoxKey.showVideoReply: false,
       SettingBoxKey.showRelatedVideo: false,
       SettingBoxKey.enableHA: true,
+      if (focusRecovery) SettingBoxKey.continuePlayInBackground: true,
     });
     await LoggerUtils.initialize();
     AppIcon.load();
@@ -113,7 +121,7 @@ Future<void> main() async {
     );
     await WidgetsBinding.instance.endOfFrame;
 
-    final entry =
+    BiliDownloadEntryInfo entryFor(int mediaCid) =>
         BiliDownloadEntryInfo(
             isCompleted: true,
             totalBytes: fixture.lengthSync(),
@@ -128,7 +136,7 @@ Future<void> main() async {
             avid: 1,
             bvid: 'BV-local-replay',
             pageData: PageInfo(
-              cid: cid,
+              cid: mediaCid,
               page: 1,
               hasAlias: false,
               tid: 0,
@@ -138,15 +146,17 @@ Future<void> main() async {
           )
           ..entryDirPath = root.path
           ..pageDirPath = fixture.parent.path;
-    Future<(PlPlayerController, VideoDetailController)> openPage() {
+    Future<(PlPlayerController, VideoDetailController)> openPage(int mediaCid) {
+      final entry = entryFor(mediaCid);
       unawaited(
         Get.toNamed<void>(
           videoRoute.name,
+          preventDuplicates: false,
           arguments: {
             'aid': entry.avid,
             'bvid': entry.bvid,
-            'cid': cid,
-            'heroTag': 'android-page-replay',
+            'cid': mediaCid,
+            'heroTag': 'android-page-replay-$mediaCid',
             'videoType': VideoType.ugc,
             'sourceType': SourceType.file,
             'entry': entry,
@@ -157,7 +167,7 @@ Future<void> main() async {
       );
       return _waitFor(() {
         final player = PlPlayerController.instance;
-        final page = mountedVideoPage(player);
+        final page = mountedVideoPage(player, cid: mediaCid);
         if (player == null ||
             page == null ||
             !page.playbackOwner.hasLoadedMedia) {
@@ -167,31 +177,104 @@ Future<void> main() async {
       });
     }
 
-    step = 'open-completed-history';
-    await GStorage.watchProgress.put(positionKey, lengthMs);
-    final (player, page) = await openPage();
-    report['firstOpen'] = await _observeFreshPlayback(player);
+    final PlPlayerController next;
+    if (focusRecovery) {
+      step = 'focus-first-page';
+      final (player, _) = await openPage(cid);
+      report['firstOpen'] = await _observeFreshPlayback(player);
+      final audioSession = await AudioSession.instance;
+      focusSubscription = audioSession.interruptionEventStream.listen((event) {
+        focusEvents.add({'type': event.type.name, 'begin': event.begin});
+      });
+      await player.play();
 
-    step = 'reopen-mounted-page';
-    final replay = await observeReplayProgress(player, page);
-    report['samePage'] = replay;
-    if (replay['passed'] != true) throw StateError('same-page replay failed');
+      step = 'expect-system-interruption';
+      final inject = File('${root.path}/$reportName.inject').existsSync();
+      report['trigger'] = inject ? 'injected-platform-callback' : 'system';
+      if (inject) {
+        if (!await audioSession.setActive(false)) {
+          throw StateError('cannot abandon native focus before injecting loss');
+        }
+        ui.channelBuffers.push(
+          'com.ryanheise.android_audio_manager',
+          const StandardMethodCodec().encodeMethodCall(
+            const MethodCall('onAudioFocusChanged', [-1]),
+          ),
+          (_) {},
+        );
+      } else {
+        await File('${root.path}/$reportName.ready').writeAsString(
+          'request competing AUDIOFOCUS_GAIN',
+          flush: true,
+        );
+      }
+      await _waitFor(
+        () =>
+            focusEvents.any(
+                  (event) =>
+                      event['type'] == 'unknown' && event['begin'] == true,
+                ) &&
+                _focusInhibited(player) &&
+                player.currentPlaybackSnapshot.actual.playing == false &&
+                WidgetsBinding.instance.lifecycleState ==
+                    AppLifecycleState.resumed
+            ? true
+            : null,
+      );
+      report['pausedAfterLoss'] = true;
+      final previousLoad = player.currentPlaybackSnapshot.loadId;
 
-    step = 'leave-at-eof';
-    await player.seekTo(const Duration(milliseconds: lengthMs - 1000));
-    await _waitFor(() => player.isCompleted ? true : null);
-    Get.back<void>();
-    await _waitFor(() => mountedVideoPage(player) == null ? true : null);
-    final saved = GStorage.watchProgress.get(positionKey);
-    report['savedAtExitMs'] = saved;
-    if (saved != lengthMs) throw StateError('completed history was not saved');
-    await player.playbackReleased.timeout(const Duration(seconds: 12));
+      step = 'switch-while-focus-lost';
+      (next, _) = await openPage(2);
+      await _waitFor(() {
+        final snapshot = next.currentPlaybackSnapshot;
+        return snapshot.phase == PlaybackPhase.ready &&
+                snapshot.loadId != previousLoad &&
+                snapshot.intent.playing &&
+                snapshot.actual.playing == false &&
+                _focusInhibited(next)
+            ? true
+            : null;
+      });
+      if (!identical(player, next)) {
+        throw StateError('switch did not reuse the same playback facade');
+      }
+      report['pausedAfterSwitch'] = true;
 
-    step = 'open-saved-history';
-    final (next, nextPage) = await openPage();
-    report['newPage'] = !identical(nextPage, page);
-    report['reopenedRoute'] = await _observeFreshPlayback(next);
-    if (identical(nextPage, page)) throw StateError('page was not replaced');
+      step = 'explicit-focus-reacquisition';
+      await next.play();
+      report['afterReacquisition'] = await _observeFreshPlayback(next);
+      if (_focusInhibited(next)) throw StateError('focus inhibitor remained');
+    } else {
+      step = 'open-completed-history';
+      await GStorage.watchProgress.put(positionKey, lengthMs);
+      final (player, page) = await openPage(cid);
+      report['firstOpen'] = await _observeFreshPlayback(player);
+
+      step = 'reopen-mounted-page';
+      final replay = await observeReplayProgress(player, page);
+      report['samePage'] = replay;
+      if (replay['passed'] != true) throw StateError('same-page replay failed');
+
+      step = 'leave-at-eof';
+      await player.seekTo(const Duration(milliseconds: lengthMs - 1000));
+      await _waitFor(() => player.isCompleted ? true : null);
+      Get.back<void>();
+      await _waitFor(() => mountedVideoPage(player) == null ? true : null);
+      final saved = GStorage.watchProgress.get(positionKey);
+      report['savedAtExitMs'] = saved;
+      if (saved != lengthMs) {
+        throw StateError('completed history was not saved');
+      }
+      await player.playbackReleased.timeout(const Duration(seconds: 12));
+
+      step = 'open-saved-history';
+      final (reopenedPlayer, nextPage) = await openPage(cid);
+      next = reopenedPlayer;
+      report['newPage'] = !identical(nextPage, page);
+      report['reopenedRoute'] = await _observeFreshPlayback(next);
+      if (identical(nextPage, page)) throw StateError('page was not replaced');
+    }
 
     step = 'release';
     final released = await next.shutdownPlaybackFacade();
@@ -216,13 +299,20 @@ Future<void> main() async {
         'load': snapshot.loadId,
         'positionMs': player.positionInMilliseconds,
         'playing': snapshot.actual.playing,
+        'playIntent': snapshot.intent.playing,
+        'inhibitors': snapshot.inhibitors
+            .map((token) => token.source.name)
+            .toList(),
+        'lifecycle': WidgetsBinding.instance.lifecycleState?.name,
         'framePresented': player.videoFramePresented.value,
         'failure': snapshot.failure?.operation,
       };
     }
   }
+  await focusSubscription?.cancel();
+  if (focusRecovery) report['focusEvents'] = focusEvents;
   report['deniedHttpRequests'] = deniedHttpRequests;
-  await File('${root.path}/page-replay.json').writeAsString(
+  await File('${root.path}/$reportName.json').writeAsString(
     const JsonEncoder.withIndent('  ').convert(report),
     flush: true,
   );
@@ -230,11 +320,17 @@ Future<void> main() async {
   exit(report['passed'] == true ? 0 : 1);
 }
 
+bool _focusInhibited(PlPlayerController player) =>
+    player.currentPlaybackSnapshot.inhibitors.any(
+      (token) => token.source == PlaybackInhibitorSource.audioFocus,
+    );
+
 Future<Map<String, Object?>> _observeFreshPlayback(PlPlayerController player) =>
     _waitFor(() {
       final snapshot = player.currentPlaybackSnapshot;
       final position = player.positionInMilliseconds;
       if (snapshot.phase != PlaybackPhase.ready ||
+          snapshot.actual.playing != true ||
           !player.videoFramePresented.value ||
           position <= 0 ||
           position >= 3000) {
