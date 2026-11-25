@@ -163,6 +163,42 @@ void main() {
     }
   });
 
+  for (final offsetMs in [-1, 0, 1]) {
+    test('关闭释放按单调截止时间结算：偏移 ${offsetMs}ms', () async {
+      const budget = Duration(seconds: 2);
+      var now = Duration.zero;
+      final cleanupReply = Completer<PlaybackShutdownResult>();
+      final runtime = FakeSessionRuntime()
+        ..onShutdown = () => cleanupReply.future;
+      final session = PlaybackSession(
+        runtime: runtime,
+        shutdownBudget: budget,
+        monotonicNow: () => now,
+      );
+      try {
+        final shutdown = session.shutdown();
+        now = budget + Duration(milliseconds: offsetMs);
+        runtime.completeRelease();
+        final outcome = await shutdown;
+
+        expect(
+          outcome.outcome,
+          offsetMs < 0
+              ? PlaybackShutdownOutcome.released
+              : PlaybackShutdownOutcome.cleanupIncomplete,
+        );
+        if (offsetMs >= 0) {
+          expect(outcome.failure?.category, PlaybackFailureCategory.timeout);
+        }
+        expect(session.currentSnapshot.phase, PlaybackPhase.disposed);
+        expect(session.currentSnapshot.failure, isNull);
+      } finally {
+        cleanupReply.complete(const PlaybackShutdownResult.released());
+        await runtime.eventController.close();
+      }
+    });
+  }
+
   for (final eofFirst in [false, true]) {
     test('当前加载的失败与完播按首个终态结算 EOF 先到=$eofFirst', () async {
       final runtime = FakeSessionRuntime();

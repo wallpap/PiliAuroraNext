@@ -162,6 +162,7 @@ class PlaybackSession implements PlaybackMediaClock {
   bool _closingRequested = false;
   bool _disposed = false;
   Completer<PlaybackShutdownResult>? _shutdownReceipt;
+  late final Duration _shutdownDeadline;
   Timer? _shutdownTimer;
   PlaybackShutdownResult? _observedRelease;
   _AcceptedRequest? _acceptedRequest;
@@ -2353,8 +2354,12 @@ class PlaybackSession implements PlaybackMediaClock {
   void _requestShutdown() {
     if (_shutdownReceipt != null) return;
     _shutdownReceipt = Completer<PlaybackShutdownResult>();
+    _shutdownDeadline = _now() + shutdownBudget;
     _closingRequested = true;
-    _shutdownTimer = Timer(shutdownBudget, _shutdownTimedOut);
+    _shutdownTimer = Timer(
+      shutdownBudget,
+      () => _settleShutdown(_shutdownTimeoutResult),
+    );
     _phase = PlaybackPhase.closing;
     _stage = PlaybackStage.closing;
     _resetRecovery();
@@ -2377,7 +2382,7 @@ class PlaybackSession implements PlaybackMediaClock {
         _settleShutdown(result);
       }
     } on TimeoutException {
-      _shutdownTimedOut();
+      _settleShutdown(_shutdownTimeoutResult);
     } catch (error) {
       _settleShutdown(
         PlaybackShutdownResult.cleanupIncomplete(
@@ -2393,16 +2398,16 @@ class PlaybackSession implements PlaybackMediaClock {
     }
   }
 
-  void _shutdownTimedOut() {
-    const failure = PlaybackFailure(
-      category: PlaybackFailureCategory.timeout,
-      operation: 'shutdown',
-      stage: PlaybackStage.closing,
-      recoverable: false,
-      cause: '关闭超过首次接受时的总时限；资源仍由 released 屏障跟踪。',
-    );
-    _settleShutdown(const PlaybackShutdownResult.cleanupIncomplete(failure));
-  }
+  static const _shutdownTimeoutResult =
+      PlaybackShutdownResult.cleanupIncomplete(
+        PlaybackFailure(
+          category: PlaybackFailureCategory.timeout,
+          operation: 'shutdown',
+          stage: PlaybackStage.closing,
+          recoverable: false,
+          cause: '关闭超过首次接受时的总时限；资源仍由 released 屏障跟踪。',
+        ),
+      );
 
   void _handleReleased() {
     const result = PlaybackShutdownResult.released();
@@ -2427,15 +2432,19 @@ class PlaybackSession implements PlaybackMediaClock {
   void _settleShutdown(PlaybackShutdownResult result) {
     final receipt = _shutdownReceipt;
     if (receipt == null) return;
+    final receiptResult = _now() < _shutdownDeadline
+        ? result
+        : _shutdownTimeoutResult;
     if (result.outcome == PlaybackShutdownOutcome.released) _markDisposed();
     if (receipt.isCompleted) return;
     _shutdownTimer?.cancel();
     _shutdownTimer = null;
-    if (result.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
-      _failure = result.failure;
+    if (!_disposed &&
+        receiptResult.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
+      _failure = receiptResult.failure;
       _publish();
     }
-    receipt.complete(result);
+    receipt.complete(receiptResult);
   }
 
   void _markDisposed() {

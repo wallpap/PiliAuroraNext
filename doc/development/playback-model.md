@@ -132,6 +132,7 @@ createNextPlayer ⇒ previousPlayer.released 已成功完成
 同一次关闭共享一个回执和一个截止时间。截止前观测到 `released` 即可确认关闭成功，
 清理方法报告成功后仍须取得 `released`。清理失败或截止时间先到时，调用方取得
 `cleanupIncomplete`。之后收到真实释放时，会话进入 `disposed`，已交付回执保持原结果。
+到期与逾期按单调时钟判定，不依赖计时器回调先于或晚于释放信号执行。
 `disposed` 是吸收态，迟到的清理结果无法修改终态。
 
 Windows 降分辨率、转为纯音频或加载尺寸未知的新源时，旧媒体卸载后再回收渲染器中的
