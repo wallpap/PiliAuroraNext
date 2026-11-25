@@ -110,9 +110,8 @@ void main() {
     final runtime = FakeSessionRuntime();
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
-    runtime.onLoad = (plan, context, index) async => index == 0
-        ? audioSessionLoad(context)
-        : preparedSessionLoad(context, plan);
+    runtime.onLoad = (plan, context, index) async =>
+        index == 0 ? audioSessionLoad(context) : preparedSessionLoad(context, plan);
     final result = await owner.load(
       sessionPlan(
         'live',
@@ -202,8 +201,7 @@ void main() {
       final runtime = FakeSessionRuntime();
       final session = PlaybackSession(runtime: runtime);
       final owner = session.attach();
-      runtime.onLoad = (plan, context, index) async =>
-          audioSessionLoad(context);
+      runtime.onLoad = (plan, context, index) async => audioSessionLoad(context);
       final result = await owner.load(
         sessionPlan(
           'audio',
@@ -366,8 +364,7 @@ void main() {
     final owner = session.attach();
     final oldResolver = Completer<PlaybackPlan?>();
     final oldStarted = Completer<void>();
-    runtime.onLoad = (plan, context, _) async =>
-        preparedSessionLoad(context, plan);
+    runtime.onLoad = (plan, context, _) async => preparedSessionLoad(context, plan);
 
     final old = owner.query((query) {
       oldStarted.complete();
@@ -388,10 +385,7 @@ void main() {
     final runtime = FakeSessionRuntime();
     final session = PlaybackSession(runtime: runtime);
     final previous = session.attach();
-    expect(
-      (await previous.load(sessionPlan('movie'))).outcome,
-      LoadOutcome.ready,
-    );
+    expect((await previous.load(sessionPlan('movie'))).outcome, LoadOutcome.ready);
     await previous.setPlaying(true);
     final routeToken = previous.acquireInhibitor(
       PlaybackInhibitorSource.system,
@@ -417,10 +411,7 @@ void main() {
     );
     expect(runtime.playCalls.last, isFalse);
     expect((await previous.setPlaying(true)).outcome, CommandOutcome.noMedia);
-    expect(
-      (await previous.load(sessionPlan('movie'))).outcome,
-      LoadOutcome.ready,
-    );
+    expect((await previous.load(sessionPlan('movie'))).outcome, LoadOutcome.ready);
     await waitForSessionCondition(() => runtime.playCalls.last);
 
     previous.close();
@@ -433,10 +424,7 @@ void main() {
     final session = PlaybackSession(runtime: runtime, monotonicNow: () => now);
     final owner = session.attach();
     try {
-      await owner.load(
-        sessionPlan('truncated'),
-        start: PlaybackStartPolicy.play,
-      );
+      await owner.load(sessionPlan('truncated'), start: PlaybackStartPolicy.play);
       for (var i = 0; i < 3; i++) {
         now = Duration(seconds: [0, 10, 25][i]);
         runtime.eventController.add(
@@ -463,9 +451,7 @@ void main() {
           loadId: session.loadId,
         ),
       );
-      await waitForSessionCondition(
-        () => session.currentSnapshot.phase == PlaybackPhase.failed,
-      );
+      await waitForSessionCondition(() => session.currentSnapshot.phase == PlaybackPhase.failed);
       expect(runtime.loadedKeys, hasLength(4));
       expect(session.currentSnapshot.failure?.operation, 'automatic-recovery');
     } finally {
@@ -479,10 +465,7 @@ void main() {
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     try {
-      await owner.load(
-        sessionPlan('truncated'),
-        start: PlaybackStartPolicy.pause,
-      );
+      await owner.load(sessionPlan('truncated'), start: PlaybackStartPolicy.pause);
       runtime.eventController.add(
         PlaybackRuntimeEnded(
           runtimeId: runtime.runtimeId,
@@ -539,8 +522,7 @@ void main() {
   }
 
   test('片尾 seek 重载目标位置并保留暂停意图和最新配置', () async {
-    final runtime = FakeSessionRuntime()
-      ..position = const Duration(seconds: 10);
+    final runtime = FakeSessionRuntime()..position = const Duration(seconds: 10);
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     try {
@@ -598,8 +580,7 @@ void main() {
   });
 
   test('显式 seek 到片尾保留用户目标，包括播放结束后重载', () async {
-    final runtime = FakeSessionRuntime()
-      ..position = const Duration(seconds: 10);
+    final runtime = FakeSessionRuntime()..position = const Duration(seconds: 10);
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     addTearDown(session.shutdown);
@@ -627,8 +608,7 @@ void main() {
 
   for (final playing in [false, true]) {
     test('片尾复播从零重载，在途最新播放意图生效：$playing', () async {
-      final runtime = FakeSessionRuntime()
-        ..position = const Duration(seconds: 10);
+      final runtime = FakeSessionRuntime()..position = const Duration(seconds: 10);
       final session = PlaybackSession(runtime: runtime);
       final owner = session.attach();
       final opened = Completer<void>();
@@ -662,8 +642,7 @@ void main() {
   }
 
   test('片尾复播协调播放时暂停，等待 writer 落实较新意图', () async {
-    final runtime = FakeSessionRuntime()
-      ..position = const Duration(seconds: 10);
+    final runtime = FakeSessionRuntime()..position = const Duration(seconds: 10);
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     final playing = Completer<void>();
@@ -700,8 +679,7 @@ void main() {
   });
 
   test('片尾连续 seek 取代在途重载，保留期间最新播放意图', () async {
-    final runtime = FakeSessionRuntime()
-      ..position = const Duration(seconds: 10);
+    final runtime = FakeSessionRuntime()..position = const Duration(seconds: 10);
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     final opened = Completer<void>();
@@ -741,8 +719,7 @@ void main() {
   });
 
   test('片尾 seek 范围和能力校验不触发重载，复播失败如实返回', () async {
-    final runtime = FakeSessionRuntime()
-      ..position = const Duration(seconds: 10);
+    final runtime = FakeSessionRuntime()..position = const Duration(seconds: 10);
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     try {
@@ -776,8 +753,7 @@ void main() {
         );
       }
       expect(runtime.loadedPlans, hasLength(1));
-      runtime.onLoad = (plan, context, index) async =>
-          failedSessionLoad(context);
+      runtime.onLoad = (plan, context, index) async => failedSessionLoad(context);
       expect((await owner.setPlaying(true)).outcome, CommandOutcome.failed);
       expect(session.currentSnapshot.phase, PlaybackPhase.failed);
     } finally {
@@ -794,10 +770,7 @@ void main() {
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     try {
-      await owner.load(
-        sessionPlan('seek-eof'),
-        start: PlaybackStartPolicy.play,
-      );
+      await owner.load(sessionPlan('seek-eof'), start: PlaybackStartPolicy.play);
       final seeking = owner.seek(const Duration(seconds: 4));
       await waitForSessionCondition(() => runtime.seekCalls.isNotEmpty);
       runtime
@@ -888,10 +861,7 @@ void main() {
     final runtime = FakeSessionRuntime();
     final session = PlaybackSession(runtime: runtime);
     final previous = session.attach();
-    expect(
-      (await previous.load(sessionPlan('movie'))).outcome,
-      LoadOutcome.ready,
-    );
+    expect((await previous.load(sessionPlan('movie'))).outcome, LoadOutcome.ready);
     await previous.setPlaying(true);
 
     final active = session.attach();
@@ -912,10 +882,7 @@ void main() {
     final runtime = FakeSessionRuntime();
     final session = PlaybackSession(runtime: runtime);
     final previous = session.attach();
-    expect(
-      (await previous.load(sessionPlan('movie'))).outcome,
-      LoadOutcome.ready,
-    );
+    expect((await previous.load(sessionPlan('movie'))).outcome, LoadOutcome.ready);
     await previous.setPlaying(true);
 
     final focusToken = session.acquireSessionInhibitor(
@@ -1012,8 +979,7 @@ void main() {
   });
 
   test('不可 seek 直播的 shader 重建走同一加载协议并保留 request 与播放意图', () async {
-    final runtime = FakeSessionRuntime()
-      ..shaderChangeRequiresRendererReset = true;
+    final runtime = FakeSessionRuntime()..shaderChangeRequiresRendererReset = true;
     final session = PlaybackSession(
       runtime: runtime,
       commandBudget: Duration.zero,
@@ -1053,8 +1019,7 @@ void main() {
 
   for (final playing in [true, false]) {
     test('点播 shader 重建通过卸载重载恢复位置与播放意图 playing=$playing', () async {
-      final runtime = FakeSessionRuntime()
-        ..shaderChangeRequiresRendererReset = true;
+      final runtime = FakeSessionRuntime()..shaderChangeRequiresRendererReset = true;
       final session = PlaybackSession(runtime: runtime);
       final owner = session.attach();
       expect(
@@ -1909,10 +1874,7 @@ void main() {
     final session = PlaybackSession(runtime: runtime);
     final owner = session.attach();
     addTearDown(session.shutdown);
-    final plan = sessionPlan(
-      'short-actual',
-      duration: const Duration(seconds: 30),
-    );
+    final plan = sessionPlan('short-actual', duration: const Duration(seconds: 30));
     expect((await owner.load(plan)).outcome, LoadOutcome.ready);
     runtime
       ..emitActual(
@@ -2022,9 +1984,7 @@ void main() {
     );
     await waitForSessionCondition(() => runtime.loadedPlans.length == 2);
     expect(runtime.loadedPlans.last.reloadPosition, const Duration(seconds: 8));
-    await waitForSessionCondition(
-      () => session.currentSnapshot.phase == PlaybackPhase.ready,
-    );
+    await waitForSessionCondition(() => session.currentSnapshot.phase == PlaybackPhase.ready);
     final live = sessionPlan('live', kind: PlaybackTimelineKind.live);
     await owner.load(live, start: PlaybackStartPolicy.play);
     runtime.emitActual(
@@ -2544,9 +2504,7 @@ void main() {
     expect(result.outcome, CommandOutcome.failed);
     expect(result.failure, same(failure));
     runtime.completeRelease();
-    await waitForSessionCondition(
-      () => session.currentSnapshot.phase == PlaybackPhase.disposed,
-    );
+    await waitForSessionCondition(() => session.currentSnapshot.phase == PlaybackPhase.disposed);
   });
 
   test('shutdown deadline可先结算cleanupIncomplete，released迟到后仍完成资源释放', () async {
@@ -2567,9 +2525,7 @@ void main() {
     expect(session.currentSnapshot.phase, PlaybackPhase.closing);
 
     runtime.completeRelease();
-    await waitForSessionCondition(
-      () => session.currentSnapshot.phase == PlaybackPhase.disposed,
-    );
+    await waitForSessionCondition(() => session.currentSnapshot.phase == PlaybackPhase.disposed);
   });
 
   test('shutdown 不因暂停的 snapshot stream 拖住原生 released', () async {
