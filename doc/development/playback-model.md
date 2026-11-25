@@ -18,7 +18,7 @@
 S = (phase, stage, owner, g, request, load, runtime, output,
      plan, intent, inhibitors, desired, applied, revisions, pending,
      activeOperation, pendingOperations, writer, anchor, failure, action,
-     owners, keepalive, released)
+     pendingEOF, startupWatch, nativeIdentity, owners, keepalive, released)
 ```
 
 | 符号 | 源码含义 |
@@ -32,6 +32,9 @@ S = (phase, stage, owner, g, request, load, runtime, output,
 | `activeOperation` | 调度器正在排空的操作；调用方终结后，原生操作仍可能在执行 |
 | `writer` | 单独串行协调播放/暂停意图的写入器；最终原生互斥由运行时保证 |
 | `anchor` | 媒体位置与单调时间的只读锚点 |
+| `pendingEOF` | 当前接受请求中，等待加载结算的本次原生打开结束事件 |
+| `startupWatch` | 当前有效播放区间的非外推位置基线、截止时间及是否已观察到推进 |
+| `nativeIdentity` | 当前 runtime 的原生文件身份是否仍可验证，不随换片重置 |
 | `released` | Player 实际释放屏障，不能用 shutdown 的调用方超时代替 |
 
 ## 不变量与活性条件
@@ -143,6 +146,10 @@ action.completed.owner = 已加载媒体的业务所有者
 第二式仅在该请求仍是当前请求时适用。被新请求取代的结果不能改写新状态。
 结束、失败和关闭均停止媒体时间外推。
 
+当前请求未结算时，归属匹配的原生终止错误同时结算请求和快照，沿用同一个 `failure`。
+取消只使未结算回执失效，不意味着原生操作已排空；迟到的 open 或 play 成功不能恢复 `ready`。
+若 `LoadResult.ready` 已交付，后续原生错误只改变当前快照，不追溯修改旧回执。
+
 ### I6：媒体时间与输出交接
 
 对锚点 `A = (p₀, t₀, rate, advancing, ready, continuity, ttl)`：
@@ -212,17 +219,67 @@ P 保持预置值或上次值   otherwise
 未知时长只保留最新的待提交跳转，时长判断不使用显示层取整。切换来源、切换 owner
 或退出时撤销等待与拖动预览。完播后的播放命令直接重开，不依赖跳转能力或已知时长。
 
+### I10：加载结算不得丢弃同代 EOF
+
+原生文件和输出准备、Session 写入播放意图是两个回执。原生层会合并同一文件的重复 EOF；
+Session 不能假设进入 `ready` 后原生层还会再发一次。
+
+```text
+k := (runtime, owner, request, load)
+EOF(k) ∧ k = 当前打开 ∧ phase ∈ {loading, recovering} ⇒ 暂存首个 EOF(k)
+加载及意图确认成功 ∧ k 仍有效 ⇒ 消费暂存 EOF(k)
+失败、超时、请求被取代或重新打开 ⇒ 丢弃旧打开的 EOF
+```
+
+消费沿用 `ready` 后的判定：网络点播提前断流保留播放意图与中断点并进入恢复；确认完播
+则提交完成动作。`LoadResult.ready` 表示加载和意图已经获得所需回执，快照可能已因 EOF
+进入结束或恢复。原生输出尚未准备便收到 EOF 时，仍由原生加载结算为失败。
+
+### I11：跨内容的不可播放有独立作用域
+
+```text
+nativeIdentity = unknown ⇒ 同一 runtime 不发起新的原生 open
+切换内容、来源或网络 ⇏ 新 runtime ∨ 释放屏障已通过
+sessionInhibitors ≠ ∅ ⇒ 切换 owner 后仍不允许有效播放
+```
+
+原生事件队列溢出可使文件身份不可再验证；这条路径与来源是否可访问无关。此时不能清除
+身份标记或跳过释放屏障来强行打开下一文件。会话级抑制则允许加载确认成功，但播放意图
+不落实为原生播放。两者都可能跨视频持续，和单次加载的 EOF 不同，须按快照及运行时日志区分。
+
+### L1：已就绪且要求播放时，启动必须有限结算
+
+`ready` 只确认加载及意图协调，不代表媒体已经推进。首次自动播放、主动播放、最后一个抑制令牌释放，
+或显式 seek 结算后，若仍需播放，则开始观察当前加载的原生位置：
+
+```text
+eligible = phase = ready ∧ effectivePlaying ∧ 无待结算的 seek 命令
+advance = actual.playing = true ∧ actual.buffering ≠ true
+          ∧ 两个可比较的原生位置属于同一加载，且后者严格大于前者
+eligible 持续到截止时间 ∧ 未观察到 advance ⇒ failed(observe-playback-start)
+```
+
+截止时间从本次观察开始计 15 秒。`playing=true`、缓冲通知和重复播放请求不能证明推进或延长时限；
+外推位置不作为证据。seek 的原生观测未确认时不能比较位置；确认后的首个读数只作为新基线。
+暂停、抑制、新加载或离开 `ready` 使旧观察失效；恢复有效播放时重新计时。已有恢复、EOF 或错误转换
+先发生时，以其结果为准。此条件假设 Dart 事件循环能交付定时器及原生观测；它不证明实际出帧、
+音轨健康或启动成功后的持续推进。
+
 ## 检查方法
 
 1. 沿源码调用关系为每个事件列出提交条件、状态写入和异步边界。
 2. 选取会打破不变量的最短事件序列，例如“失败 → 相同配置重试”、
    “旧媒体加载 → 新页面接管 → 旧媒体 EOF”、“旧意图写入 → 新意图 → 旧写入抛错”。
 3. 在实际会话/运行时接口注入可控回执，先运行失败用例，再修改实现。
+   EOF 回归分别安排在加载回执前、意图回执前、`ready` 后，并组合完播、提前断流、失败和换代；
+   运行时作用域通过一次身份故障后尝试不同内容键和来源来检验。
+   [核心时序模型](../../test/plugin/pl_player/playback/playback_core_model_test.dart)用可控时钟和 `PlaybackSession`
+   实例执行启动入口与观测的有限组合，并单独检查截止前中断、seek 落点和错误到达顺序。
 4. 修复后重新沿模型检查，新反例继续补充回归。
 5. 最后一轮没有新的可确认反例，且相关回归与静态检查通过，才结束本轮审查。
 
 ## 验证边界
 
-主机测试覆盖已构造的事件排序、状态归属、时限、配置和释放场景。
+主机测试穷举测试中声明的输入组合，不穷举整个播放器状态空间，也不假定原生事件一定能到达。
 Android Surface/MediaCodec、Windows 纹理/GPU 的真实呈现、音频焦点和系统全屏效果
 通过目标设备验证，并记录设备、输入和结果。

@@ -59,6 +59,10 @@ icacls .\build\windows\x64\runner\Release\PiliAuroraNext.exe
 
 排查播放状态时先记录 `PlaybackSnapshot` 的 phase、stage、requestId、loadId 和 outputEpoch，再沿 owner → session → runtime 对照日志。命令返回、原生事件和输出回执必须属于同一代次；直接读取 Player 或界面控件只能作为补充证据。Android Surface、Windows 纹理和首帧像素分别验收。
 
+如果能进视频页，但换片、换网络后仍不能播放，复现前在“设置 → 日志与诊断”打开调试日志和性能记录。复现后先不要退出，换一个不相关的视频，记录有无声音、时间是否走动、是否出现报错，再导出脱敏诊断包；最后测试彻底退出 App 后能否恢复。附上版本、设备和大致复现时间。
+
+对照两次加载的 `runtimeId` 和 `loadId`：同一 runtime 下出现 `native.lifecycle.unknown`，且后续加载报 `native-lifecycle`，定位到原生文件身份屏障；`ready`、`playingIntent=true` 但仍有 `inhibitors`，核对对应的后台状态或音频焦点；有声音或媒体时钟在走但画面不动时，优先核对当前输出代次的帧消费。仅凭换网络无效不能区分这些路径。
+
 Windows 视频输出的 EGL/mpv 释放顺序、超分切换重建和首帧条件见[视频输出说明](windows-video-output.md)。原生库来源与构建步骤见[mpv 构建入口](../../third_party/media_kit_libs_windows_video/UPSTREAM.md)，探针命令见[平台探针](../../tool/probes/README.md)。
 
 ### 视频弹幕

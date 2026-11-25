@@ -163,6 +163,41 @@ void main() {
     expect(fixture.runtime.retainedNativeFileCount, 0);
   });
 
+  test('原生事件溢出后同一运行时拒绝不同内容和来源，直到真实释放', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    expect((await fixture.load()).loaded, isTrue);
+
+    fixture.player.events.add(const NativeEventQueueOverflow());
+    await _turn();
+    for (final (loadId, contentKey, host) in [
+      (2, 'other-video', 'example.test'),
+      (3, 'third-video', 'another.test'),
+    ]) {
+      final load = await fixture.load(
+        loadId: loadId,
+        contentKey: contentKey,
+        source: PlaybackSourceSnapshot.fromDataSource(
+          NetworkSource(videoSource: 'https://$host/video', audioSource: null),
+        ),
+      );
+      expect(load.loaded, isFalse);
+      expect(load.failure?.category, PlaybackFailureCategory.capability);
+      expect(load.failure?.operation, 'native-lifecycle');
+    }
+    expect(fixture.player.opens, 1);
+    expect(fixture.player.disposed, isFalse);
+
+    fixture.player.autoStop = true;
+    fixture.output.releaseReceipt.complete();
+    expect(
+      (await fixture.runtime.shutdown()).outcome,
+      PlaybackShutdownOutcome.released,
+    );
+    await fixture.runtime.released;
+    expect(fixture.player.disposed, isTrue);
+  });
+
   test('Windows 降画质在旧文件卸载后、下一次 open 前回收渲染器', () async {
     if (!Platform.isWindows) return;
     final fixture = _Fixture(subscribeToPlaybackEvents: true);
@@ -651,12 +686,13 @@ class _Fixture {
 
   Future<PlaybackRuntimeLoadResult> load({
     int loadId = 1,
+    String contentKey = 'shutdown-fixture',
     PlaybackMetadataHint? metadata,
     List<String> shaders = const [],
     PlaybackSourceSnapshot? source,
   }) => runtime.load(
     PlaybackPlan(
-      contentKey: 'shutdown-fixture',
+      contentKey: contentKey,
       source:
           source ??
           PlaybackSourceSnapshot.fromDataSource(
