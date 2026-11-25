@@ -411,6 +411,24 @@ Android 可使用独立测试包，以 `DEVICE_MEDIA=sample.mp4`、`DEVICE_REPOR
 Windows 的 ready 结果要求输出纹理已符合屏幕限幅，避免页面挂载后再次调整初始尺寸；
 报告的 `initialOutput` 保留预期尺寸与实际纹理尺寸。
 
+## Android 视频页完播重开验收
+
+`playback/android_page_replay_acceptance.dart` 在独立 `.dev` 包中挂载生产 `/videoV` 路由。
+先写入合成完播记录，再检查首次进入出帧、同一页面自然完播后重开归零与推进，
+最后退出并用页面实际保存的本地记录再次进入。时间标签、进度条和渲染位置都使用生产控件。
+探针只加载本地文件，使用独立空账号存储，不覆盖线上来源、真实 CDN 或用户账号。
+
+准备持续运动、包含音轨、超过 5 秒且关键帧间隔不超过 500 毫秒的 MP4。
+用 `ffprobe` 获取精确时长并换算为整数毫秒；下例假设时长为 24 秒：
+
+```powershell
+./tool/build.ps1 -Platform android -Mode release -Abi arm64-v8a -DevRelease -Target tool/probes/playback/android_page_replay_acceptance.dart -DartDefine 'PAGE_REPLAY_DURATION_MS=24000'
+```
+
+安装后先启动一次，让应用创建外部私有 `files/` 目录。将样片放到
+`/sdcard/Android/data/com.wallpap.piliauroranext.dev/files/video/0.mp4` 后重新启动。
+探针将报告写入同一 `files/` 下的 `page-replay.json`；只更新自己安装的测试包。
+
 ## Windows 独立播放窗口验收
 
 `playback/desktop_window_acceptance.dart` 使用生产 IPC、子进程启动、播放页面和原生纹理，
