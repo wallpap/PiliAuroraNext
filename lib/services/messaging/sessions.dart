@@ -314,6 +314,8 @@ class Sessions {
     }
     for (final handle in _lists.values) {
       if (!handle._started ||
+          (change.kind == MessagingChangeKind.privateUnreadIncreased &&
+              handle.folder != SessionFolder.home) ||
           (changedKey != null &&
               handle.folder != SessionFolder.home &&
               !handle._ids.contains(changedKey))) {

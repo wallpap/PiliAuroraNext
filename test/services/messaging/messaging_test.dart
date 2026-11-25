@@ -103,6 +103,85 @@ void main() {
   setUp(() => session = sessionFixture());
   tearDown(() => session.dispose());
 
+  test('未读轮询发现新私信后，消息中心自动更新会话预览', () async {
+    final adapter = FakeSessionAdapter();
+    final sessions = Sessions(session, adapter: adapter);
+    addTearDown(sessions.dispose);
+    var unread = 0;
+    final overview = UnreadOverview(
+      session,
+      query: () async => UnreadQueryResult({MsgUnReadType.pm: unread}),
+    );
+    addTearDown(overview.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        sessionsProvider.overrideWithValue(sessions),
+        overviewHandleProvider.overrideWithValue(overview),
+      ],
+    );
+    addTearDown(container.dispose);
+    final list = container.listen(
+      sessionListSnapshotProvider(SessionFolder.home),
+      (_, _) {},
+    );
+    await overview.refresh();
+    adapter.requests.single.complete(sessionPage([1]));
+    await settle();
+    expect(list.read().entries.single.key.primary, 1);
+
+    final stale = sessions.list(SessionFolder.home).refresh();
+    unread = 1;
+    await overview.refresh();
+    expect(container.read(overviewProvider).counts[MsgUnReadType.pm], 1);
+    expect(adapter.requests, hasLength(3), reason: '未读增加后应自动获取最新会话');
+    adapter.requests.last.complete(sessionPage([2, 1]));
+    await settle();
+    adapter.requests[1].complete(sessionPage([1]));
+    await stale;
+    expect(list.read().entries.map((entry) => entry.key.primary), [2, 1]);
+  });
+
+  test('私信未读增加只刷新已加载的消息中心', () async {
+    final adapter = FakeSessionAdapter();
+    final sessions = Sessions(session, adapter: adapter);
+    addTearDown(sessions.dispose);
+    final home = sessions.list(SessionFolder.home);
+    final secondary = sessions.list(SessionFolder.unfollowed);
+    var result = const UnreadQueryResult({MsgUnReadType.pm: 1});
+    final overview = UnreadOverview(session, query: () async => result);
+    addTearDown(overview.dispose);
+
+    await overview.refresh();
+    expect(adapter.requests, isEmpty);
+    final loadHome = home.loadIfNeeded();
+    final loadSecondary = secondary.loadIfNeeded();
+    adapter.requests[0].complete(sessionPage([1]));
+    adapter.requests[1].complete(sessionPage([2]));
+    await Future.wait([loadHome, loadSecondary]);
+
+    result = const UnreadQueryResult({
+      MsgUnReadType.pm: 1,
+      MsgUnReadType.reply: 2,
+    });
+    await overview.refresh();
+    result = const UnreadQueryResult(
+      {MsgUnReadType.pm: 2},
+      errors: {MsgUnReadType.pm: '失败'},
+    );
+    await overview.refresh();
+    result = const UnreadQueryResult({MsgUnReadType.pm: 0});
+    await overview.refresh();
+    expect(adapter.requests, hasLength(2));
+
+    result = const UnreadQueryResult({MsgUnReadType.pm: 1});
+    await overview.refresh();
+    expect(adapter.requests, hasLength(3));
+    adapter.requests.last.complete(sessionPage([3]));
+    await settle();
+    expect(home.state.value.entries.single.key.primary, 3);
+    expect(secondary.state.value.entries.single.key.primary, 2);
+  });
+
   test('会话已读同步到所有列表，旧刷新不会覆盖操作结果', () async {
     final adapter = FakeSessionAdapter();
     final sessions = Sessions(session, adapter: adapter);

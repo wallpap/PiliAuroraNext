@@ -93,7 +93,8 @@ class UnreadOverview {
     try {
       final result = await (query?.call() ?? _fetch());
       if (!_valid(generation)) return;
-      final counts = Map<MsgUnReadType, int?>.of(state.value.counts);
+      final previousCounts = state.value.counts;
+      final counts = Map<MsgUnReadType, int?>.of(previousCounts);
       for (final entry in result.counts.entries) {
         if (!result.errors.containsKey(entry.key)) {
           counts[entry.key] = entry.value;
@@ -104,6 +105,11 @@ class UnreadOverview {
         errors: result.errors,
         updatedAt: DateTime.now(),
       );
+      final privateUnread = counts[MsgUnReadType.pm];
+      if (privateUnread != null &&
+          privateUnread > (previousCounts[MsgUnReadType.pm] ?? 0)) {
+        session.notifyChanged(MessagingChangeKind.privateUnreadIncreased);
+      }
     } catch (_) {
       if (_valid(generation)) {
         state.value = UnreadSnapshot(

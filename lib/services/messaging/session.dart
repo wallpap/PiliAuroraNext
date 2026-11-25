@@ -14,6 +14,7 @@ enum MessagingChangeKind {
   conversation,
   conversationRead,
   unread,
+  privateUnreadIncreased,
   settings,
 }
 
