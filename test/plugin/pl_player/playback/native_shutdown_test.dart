@@ -166,10 +166,22 @@ void main() {
   test('原生事件溢出后同一运行时拒绝不同内容和来源，直到真实释放', () async {
     final fixture = _Fixture();
     addTearDown(fixture.close);
+    final failures = <PlaybackRuntimeFailure>[];
+    final subscription = fixture.runtime.events
+        .where((event) => event is PlaybackRuntimeFailure)
+        .cast<PlaybackRuntimeFailure>()
+        .listen(failures.add);
+    addTearDown(subscription.cancel);
     expect((await fixture.load()).loaded, isTrue);
 
-    fixture.player.events.add(const NativeEventQueueOverflow());
+    fixture.player.events
+      ..add(const NativeEventQueueOverflow())
+      ..add(const NativeEventQueueOverflow());
     await _turn();
+    expect(failures, hasLength(1));
+    expect(failures.single.loadId, 1);
+    expect(failures.single.failure.operation, 'native-lifecycle');
+    expect(failures.single.failure.recoverable, isFalse);
     for (final (loadId, contentKey, host) in [
       (2, 'other-video', 'example.test'),
       (3, 'third-video', 'another.test'),
@@ -196,6 +208,54 @@ void main() {
     );
     await fixture.runtime.released;
     expect(fixture.player.disposed, isTrue);
+  });
+
+  test('START_FILE 未到时身份丢失立即结算加载，迟到身份仍可用于释放', () async {
+    final fixture = _Fixture();
+    fixture.player.deferStartFile = true;
+    addTearDown(fixture.close);
+    PlaybackRuntimeLoadResult? result;
+    final load = fixture.load().then((value) => result = value);
+    await _turn();
+    expect(fixture.player.opens, 1);
+    expect(result, isNull);
+
+    fixture.player.events.add(const NativeEventQueueOverflow());
+    await _turn();
+    expect(result?.failure?.operation, 'native-lifecycle');
+    expect((await load).loaded, isFalse);
+
+    fixture.output.releaseReceipt.complete();
+    final shutdown = fixture.runtime.shutdown();
+    await _turn();
+    expect(fixture.player.disposed, isFalse);
+    fixture.player.startFile();
+    await fixture.player.unload();
+    fixture.player.endFile();
+    expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+  });
+
+  test('轨道回执晚于身份丢失时加载不能转为成功', () async {
+    final fixture = _Fixture();
+    final configureAudio = Completer<void>();
+    final audioReply = Completer<void>();
+    fixture.player.onAudioTrack = () {
+      configureAudio.complete();
+      return audioReply.future;
+    };
+    addTearDown(() async {
+      if (!audioReply.isCompleted) audioReply.complete();
+      await fixture.close();
+    });
+    final load = fixture.load();
+    await configureAudio.future;
+
+    fixture.player.events.add(const NativeEventQueueOverflow());
+    audioReply.complete();
+
+    final result = await load;
+    expect(result.loaded, isFalse);
+    expect(result.failure?.operation, 'native-lifecycle');
   });
 
   test('Windows 降画质在旧文件卸载后、下一次 open 前回收渲染器', () async {
@@ -785,6 +845,8 @@ class _Player implements NativePlayer {
   bool stopTimesOut = false;
   bool openTimesOut = false;
   bool openFailsBeforeSubmission = false;
+  bool deferStartFile = false;
+  Future<void> Function()? onAudioTrack;
   bool started = false;
   int entryId = 7;
   @override
@@ -822,6 +884,7 @@ class _Player implements NativePlayer {
     current
       ..clear()
       ..add(const Media('https://example.test/movie'));
+    if (deferStartFile) return;
     startFile();
     final parameters = hasVideo
         ? NativeVideoOutputParameters(
@@ -937,7 +1000,10 @@ class _Player implements NativePlayer {
   Future<void> setAudioTrack(
     AudioTrack track, {
     bool synchronized = true,
-  }) async {}
+  }) async {
+    await onAudioTrack?.call();
+  }
+
   @override
   Future<void> setSubtitleTrack(
     SubtitleTrack track, {

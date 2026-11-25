@@ -487,13 +487,7 @@ class NativePlaybackRuntime
         StateError('Load request is no longer current.'),
       );
     }
-    if (_nativeLifecycleUnknown) {
-      return _loadFailure(
-        PlaybackFailureCategory.capability,
-        'native-lifecycle',
-        StateError('Native file identity or unload barrier is unknown.'),
-      );
-    }
+    if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
 
     final player = await _ensureInitialized(context);
     if (player == null) {
@@ -516,6 +510,7 @@ class NativePlaybackRuntime
       final resetForSource = _rendererNeedsSourceReset(plan);
       await _unloadActiveFile(player, context);
       if (!context.isCurrent()) return _supersededLoad();
+      if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
       _activePlan = null;
       _lastPublishedCapabilities = null;
 
@@ -621,6 +616,10 @@ class NativePlaybackRuntime
         await output.invalidateOutputGeneration(token);
         return _supersededLoad();
       }
+      if (_nativeLifecycleUnknown) {
+        await output.invalidateOutputGeneration(token);
+        return _nativeLifecycleLoadFailure();
+      }
       _diagnostics?.event(
         'media.open.requested',
         details: {
@@ -645,7 +644,10 @@ class NativePlaybackRuntime
         },
       );
       // open 回执可能先于 start-file；取消后仍需保留归属，直到原生身份已知。
-      await pending.started.future.timeout(_remaining(context));
+      await Future.any([
+        pending.started.future,
+        pending.identityLost.future,
+      ]).timeout(_remaining(context));
       _diagnostics?.event(
         'media.open.completed',
         details: {
@@ -657,12 +659,14 @@ class NativePlaybackRuntime
         await output.invalidateOutputGeneration(token);
         return _supersededLoad();
       }
+      if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
 
       final result = await _awaitPendingLoad(pending);
       if (!context.isCurrent()) {
         await output.invalidateOutputGeneration(token);
         return _supersededLoad();
       }
+      if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
       if (result.loaded &&
           result.output.strategy != PlaybackOutputStrategy.unknown) {
         _mediaClockSeekSequence = context.seekSequence;
@@ -674,6 +678,7 @@ class NativePlaybackRuntime
         if (binding != null) _activeBinding = binding;
         await _applyLoadedTrackConfiguration(player, plan, context);
         if (!context.isCurrent()) return _supersededLoad();
+        if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
         _emitCapabilities(context.loadId);
         _emitActual(context.loadId);
         return PlaybackRuntimeLoadResult(
@@ -685,6 +690,7 @@ class NativePlaybackRuntime
       }
       return result;
     } catch (error) {
+      if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
       final category = error is TimeoutException
           ? PlaybackFailureCategory.timeout
           : PlaybackFailureCategory.source;
@@ -777,10 +783,9 @@ class NativePlaybackRuntime
       return;
     }
     if (binding.entryId == null || binding.token == null) {
-      _nativeLifecycleUnknown = true;
-      throw StateError(
-        'Cannot retire a native file without identity and token.',
-      );
+      const reason = 'Cannot retire a native file without identity and token.';
+      _markNativeLifecycleUnknown(reason);
+      throw StateError(reason);
     }
     binding.retiring = true;
     await player.stop();
@@ -1515,9 +1520,6 @@ class NativePlaybackRuntime
         }
       case NativeEventQueueOverflow():
         _markNativeLifecycleUnknown('Native event queue overflowed.');
-        _pendingLoad?.fail(
-          const _NativeIdentityFailure('Native event queue overflowed.'),
-        );
       case NativeEventBatchDrained(:final batchId):
         if (batchId > _lastBatchId) _lastBatchId = batchId;
     }
@@ -1821,7 +1823,33 @@ class NativePlaybackRuntime
       level: DiagnosticLogLevel.error,
       details: {'reason': reason, 'batchId': _lastBatchId},
     );
+    if (_shutdownRequested) return;
+    final binding = _activeBinding;
+    final pending = _pendingLoad;
+    final failure = PlaybackFailure(
+      category: PlaybackFailureCategory.capability,
+      operation: 'native-lifecycle',
+      stage: pending == null ? PlaybackStage.observing : PlaybackStage.opening,
+      recoverable: false,
+      cause: reason,
+    );
+    pending?.failLoad(failure, 'native-file-identity-unknown');
+    pending?.identityLost.complete();
+    if (binding == null || binding.retiring) return;
+    _emit(
+      PlaybackRuntimeFailure(
+        runtimeId: runtimeId,
+        loadId: binding.loadId,
+        failure: failure,
+      ),
+    );
   }
+
+  PlaybackRuntimeLoadResult _nativeLifecycleLoadFailure() => _loadFailure(
+    PlaybackFailureCategory.capability,
+    'native-lifecycle',
+    'Native file identity or unload barrier is unknown.',
+  );
 
   PlaybackOutputStrategy _playbackOutputStrategy(
     OutputPreparationStrategy strategy,
@@ -2343,6 +2371,7 @@ class _PendingNativeLoad extends NativeLoadReadiness {
   final PlaybackExecutionContext context;
   final OutputOperationToken token;
   final Completer<void> started = Completer<void>();
+  final Completer<void> identityLost = Completer<void>();
   _NativeFileBinding? binding;
   OutputLoadSelectionResult? selection;
   String? selectionFailure;
