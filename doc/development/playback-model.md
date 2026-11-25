@@ -18,7 +18,7 @@
 S = (phase, stage, owner, g, request, load, runtime, output,
      plan, intent, inhibitors, desired, applied, revisions, pending,
      activeOperation, pendingOperations, writer, anchor, failure, action,
-     pendingEOF, startupWatch, nativeIdentity, owners, keepalive, released)
+     pendingEOF, progressWatch, nativeIdentity, owners, keepalive, released)
 ```
 
 | 符号 | 源码含义 |
@@ -33,7 +33,7 @@ S = (phase, stage, owner, g, request, load, runtime, output,
 | `writer` | 单独串行协调播放/暂停意图的写入器；最终原生互斥由运行时保证 |
 | `anchor` | 媒体位置与单调时间的只读锚点 |
 | `pendingEOF` | 当前接受请求中，等待加载结算的本次原生打开结束事件 |
-| `startupWatch` | 当前有效播放区间的非外推位置基线、截止时间及是否已观察到推进 |
+| `progressWatch` | 当前有效播放区间的非外推位置基线、无推进的截止时间及是否已观察到推进 |
 | `nativeIdentity` | 当前 runtime 的原生文件身份是否仍可验证，不随换片重置 |
 | `released` | Player 实际释放屏障，不能用 shutdown 的调用方超时代替 |
 
@@ -262,8 +262,18 @@ eligible 持续到截止时间 ∧ 未观察到 advance ⇒ failed(observe-playb
 截止时间从本次观察开始计 15 秒。`playing=true`、缓冲通知和重复播放请求不能证明推进或延长时限；
 外推位置不作为证据。seek 的原生观测未确认时不能比较位置；确认后的首个读数只作为新基线。
 暂停、抑制、新加载或离开 `ready` 使旧观察失效；恢复有效播放时重新计时。已有恢复、EOF 或错误转换
-先发生时，以其结果为准。此条件假设 Dart 事件循环能交付定时器及原生观测；它不证明实际出帧、
-音轨健康或启动成功后的持续推进。
+先发生时，以其结果为准。此条件假设 Dart 事件循环能交付定时器及原生观测。
+
+### L2：首次推进后仍须持续观测
+
+```text
+advance ⇒ deadline := now + 30s
+eligible 持续到 deadline 且未再次推进 ⇒ failed(observe-playback-stall)
+```
+
+首次推进不结束观察。计时到期时再读一次当前原生位置，允许没有状态回调的播放继续。
+缓冲通知与重复位置不延长时限。已有的网络、音轨及视频恢复路径可以提前处理故障，
+新加载独立计时。位置推进只保障媒体时钟的活性，音轨健康和实际出帧仍需各自证据。
 
 ## 检查方法
 

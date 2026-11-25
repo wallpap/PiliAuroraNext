@@ -7,6 +7,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart
 import 'playback_session_fixture.dart';
 
 const _window = Duration(seconds: 15);
+const _stallWindow = Duration(seconds: 30);
 const _step = Duration(seconds: 1);
 
 enum _Start { load, play, releaseFocus }
@@ -222,6 +223,64 @@ void main() {
       }
     });
   }
+
+  for (final interruption in ['none', 'buffering', 'pause', 'newLoad']) {
+    testWidgets('持续推进模型：首次推进后 $interruption', (tester) async {
+      final model = _Harness(tester);
+      try {
+        await model.start(_Start.load);
+        await model.pump(_step);
+        model.observe(model.session.loadId, playing: true, position: _step);
+        await model.pump(_stallWindow - _step);
+        expect(model.phase, PlaybackPhase.ready);
+        switch (interruption) {
+          case 'buffering':
+            model.observe(
+              model.session.loadId,
+              playing: true,
+              buffering: true,
+              position: _step,
+            );
+          case 'pause':
+            await model.owner.setPlaying(false);
+          case 'newLoad':
+            await model.owner.load(sessionPlan('new-media'));
+        }
+        await model.pump(_step);
+        if (interruption == 'none' || interruption == 'buffering') {
+          expect(model.phase, PlaybackPhase.failed);
+          expect(
+            model.session.currentSnapshot.failure?.operation,
+            'observe-playback-stall',
+          );
+        } else {
+          expect(model.phase, PlaybackPhase.ready);
+        }
+      } finally {
+        await model.close();
+      }
+    });
+  }
+
+  testWidgets('持续推进模型：只在临界时读取到新位置仍续期', (tester) async {
+    final model = _Harness(tester);
+    try {
+      await model.start(_Start.load);
+      final load = model.session.loadId;
+      await model.pump(_step);
+      model.observe(load, playing: true, position: _step);
+      await model.pump(_stallWindow - _step);
+      model.runtime.position = _step * 2;
+      await model.pump(_step);
+      expect(model.phase, PlaybackPhase.ready);
+      await model.pump(_stallWindow - _step);
+      expect(model.phase, PlaybackPhase.ready);
+      await model.pump(_step);
+      expect(model.phase, PlaybackPhase.failed);
+    } finally {
+      await model.close();
+    }
+  });
 
   for (final stage in _FailureAt.values) {
     test('结算模型：${stage.name} 的原生失败不可被成功回执覆盖', () async {

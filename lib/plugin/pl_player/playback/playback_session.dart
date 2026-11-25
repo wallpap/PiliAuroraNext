@@ -51,6 +51,7 @@ class PlaybackSession implements PlaybackMediaClock {
   static final Stopwatch _clock = Stopwatch()..start();
   static Duration _defaultClock() => _clock.elapsed;
   static const _playbackStartBudget = Duration(seconds: 15);
+  static const _playbackStallBudget = Duration(seconds: 30);
 
   final PlaybackRuntimePort _runtime;
   final Duration Function() _now;
@@ -159,7 +160,7 @@ class PlaybackSession implements PlaybackMediaClock {
   bool _shutdownStarted = false;
   Future<PlaybackShutdownResult>? _shutdownTask;
   _AcceptedRequest? _acceptedRequest;
-  _PlaybackStartWatch? _playbackStartWatch;
+  _PlaybackProgressWatch? _playbackProgressWatch;
   _RecoveryIncident? _recoveryIncident;
   Duration? _healthySince;
   Timer? _healthyCheck;
@@ -1145,7 +1146,7 @@ class PlaybackSession implements PlaybackMediaClock {
     final seekSequence = ++_seekSequence;
     _invalidateMediaAnchor();
     _pendingSeekSequence = seekSequence;
-    _observePlaybackStart();
+    _observePlaybackProgress();
     final deadline = _now() + commandBudget;
     try {
       if (_runtime case final PlaybackSeekSubmissionGate gate) {
@@ -1220,7 +1221,7 @@ class PlaybackSession implements PlaybackMediaClock {
     } finally {
       if (_pendingSeekSequence == seekSequence) {
         _pendingSeekSequence = null;
-        _observePlaybackStart();
+        _observePlaybackProgress();
         _resumeDeferredRecovery();
       }
     }
@@ -1849,7 +1850,7 @@ class PlaybackSession implements PlaybackMediaClock {
           return;
         }
         _mediaAnchor = anchor;
-        _observePlaybackStart();
+        _observePlaybackProgress();
         _mediaAnchors.add(anchor);
       case PlaybackRuntimeStateChanged(:final actual):
         if (_phase == PlaybackPhase.ended) return;
@@ -1955,37 +1956,27 @@ class PlaybackSession implements PlaybackMediaClock {
     }
   }
 
-  void _observePlaybackStart() {
+  void _observePlaybackProgress() {
     if (_phase != PlaybackPhase.ready ||
         !_effectivePlaying ||
         _pendingSeekSequence != null) {
-      _playbackStartWatch?.timer?.cancel();
-      _playbackStartWatch = null;
+      _playbackProgressWatch?.timer?.cancel();
+      _playbackProgressWatch = null;
       return;
     }
-    final watch = _playbackStartWatch;
-    if (watch != null && watch.timer == null) return;
+    final watch = _playbackProgressWatch;
     final position = switch (_runtime) {
       _ when _actual.seeking == true => null,
       PlaybackSeekSubmissionGate(seekSubmissionBlocked: true) => null,
       _ => _runtime.position,
     };
     if (watch == null) {
-      final next = _PlaybackStartWatch(position);
-      _playbackStartWatch = next;
-      next.timer = Timer(_playbackStartBudget, () {
-        _observePlaybackStart();
-        if (!identical(_playbackStartWatch, next) || next.timer == null) return;
-        _publishFailure(
-          const PlaybackFailure(
-            category: PlaybackFailureCategory.timeout,
-            operation: 'observe-playback-start',
-            stage: PlaybackStage.observing,
-            recoverable: true,
-            cause: '播放器已就绪，但未在时限内观察到媒体位置推进。',
-          ),
-        );
-      });
+      final next = _PlaybackProgressWatch(
+        position,
+        _now() + _playbackStartBudget,
+      );
+      _playbackProgressWatch = next;
+      _scheduleProgressCheck(next, _playbackStartBudget);
       return;
     }
     final previous = watch.position;
@@ -1995,9 +1986,36 @@ class PlaybackSession implements PlaybackMediaClock {
         previous != null &&
         position != null &&
         position > previous) {
-      watch.timer?.cancel();
-      watch.timer = null;
+      watch
+        ..hasAdvanced = true
+        ..deadline = _now() + _playbackStallBudget;
     }
+  }
+
+  void _scheduleProgressCheck(_PlaybackProgressWatch watch, Duration delay) {
+    watch.timer = Timer(delay, () {
+      if (!identical(_playbackProgressWatch, watch)) return;
+      _observePlaybackProgress();
+      if (!identical(_playbackProgressWatch, watch)) return;
+      final remaining = watch.deadline - _now();
+      if (remaining > Duration.zero) {
+        _scheduleProgressCheck(watch, remaining);
+        return;
+      }
+      _publishFailure(
+        PlaybackFailure(
+          category: PlaybackFailureCategory.timeout,
+          operation: watch.hasAdvanced
+              ? 'observe-playback-stall'
+              : 'observe-playback-start',
+          stage: PlaybackStage.observing,
+          recoverable: true,
+          cause: watch.hasAdvanced
+              ? '媒体位置长时间未继续推进。'
+              : '播放器已就绪，但未在时限内观察到媒体位置推进。',
+        ),
+      );
+    });
   }
 
   void _observeHealth(Duration now) {
@@ -2427,7 +2445,7 @@ class PlaybackSession implements PlaybackMediaClock {
 
   void _publish() {
     if (_disposed) return;
-    _observePlaybackStart();
+    _observePlaybackProgress();
     if (!_mediaClockMayAdvance) _freezeMediaAnchor();
     _snapshot = PlaybackSnapshot(
       snapshotVersion: ++_snapshotVersion,
@@ -2798,10 +2816,12 @@ class PlaybackSessionTrace {
   final Map<String, Object?> fields;
 }
 
-class _PlaybackStartWatch {
-  _PlaybackStartWatch(this.position);
+class _PlaybackProgressWatch {
+  _PlaybackProgressWatch(this.position, this.deadline);
 
   Duration? position;
+  Duration deadline;
+  bool hasAdvanced = false;
   Timer? timer;
 }
 
