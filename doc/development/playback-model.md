@@ -18,7 +18,8 @@
 S = (phase, stage, owner, g, request, load, runtime, output,
      plan, intent, inhibitors, desired, applied, revisions, pending,
      activeOperation, pendingOperations, writer, anchor, failure, action,
-     pendingEOF, progressWatch, nativeIdentity, owners, keepalive, released)
+     pendingEOF, progressWatch, recoveryIncident, healthySince, nativeIdentity,
+     snapshotVersion, routeGeneration, routeInhibitor, owners, keepalive, released)
 ```
 
 | 符号 | 源码含义 |
@@ -34,7 +35,10 @@ S = (phase, stage, owner, g, request, load, runtime, output,
 | `anchor` | 媒体位置与单调时间的只读锚点 |
 | `pendingEOF` | 当前接受请求中，等待加载结算的本次原生打开结束事件 |
 | `progressWatch` | 当前有效播放区间的非外推位置基线、无推进的截止时间及是否已观察到推进 |
+| `recoveryIncident, healthySince` | 按内容累计的恢复次数、活跃耗时与当前连续健康窗口的起点 |
 | `nativeIdentity` | 当前 runtime 的原生文件身份是否仍可验证，不随换片重置 |
+| `snapshotVersion` | 会话发布的状态版本，门面用它拒绝过期投递 |
+| `routeGeneration, routeInhibitor` | 点播页面的交接代次及等候恢复时持有的抑制令牌 |
 | `released` | Player 实际释放屏障，不能用 shutdown 的调用方超时代替 |
 
 ## 不变量与活性条件
