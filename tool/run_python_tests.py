@@ -22,6 +22,7 @@ TEST_DIRECTORIES = {
     'android-analysis': 'tool/experiments/android',
     'danmaku-analysis': 'tool/experiments/danmaku',
 }
+EXPERIMENT_SUITES = {'android-analysis', 'danmaku-analysis'}
 NATIVE_PROBES = {
     'frame-sampling': 'tool/probes/windows/windows_frame_sampling_probe.py',
     'angle-rollback': 'tool/probes/windows/windows_angle_rollback_probe.py',
@@ -85,8 +86,10 @@ def positive_jobs(value):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', action='append', choices=[*TEST_DIRECTORIES, *NATIVE_PROBES],
-                        help='Run only these suites; repeat to select several.')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--suite', action='append', choices=[*TEST_DIRECTORIES, *NATIVE_PROBES],
+                           help='Run only these suites; repeat to select several.')
+    selection.add_argument('--ci', action='store_true', help='Exclude offline experiment tooling suites.')
     parser.add_argument('--jobs', type=positive_jobs, default=min(4, os.cpu_count() or 1),
                         help='Maximum parallel suites (default: up to 4 CPUs).')
     parser.add_argument('--native', action='store_true', help='Also run the three C++ host probes.')
@@ -97,6 +100,8 @@ def main(argv=None):
             print(f'{name:18} {path}')
         return 0
     names = list(dict.fromkeys(args.suite or TEST_DIRECTORIES))
+    if args.ci:
+        names = [name for name in names if name not in EXPERIMENT_SUITES]
     if args.native:
         names = list(dict.fromkeys([*names, *NATIVE_PROBES]))
     return run_suites(names, args.jobs)

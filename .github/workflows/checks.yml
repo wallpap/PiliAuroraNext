@@ -2,6 +2,8 @@ name: Code checks
 
 on:
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -68,7 +72,7 @@ jobs:
           python-version-file: .python-version
 
       - name: Test tools and native host probes
-        run: python tool/run_python_tests.py --native --jobs 4
+        run: python tool/run_python_tests.py --ci --native --jobs 4
 
   windows:
     name: Windows host checks
@@ -76,6 +80,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -95,13 +101,10 @@ jobs:
       - name: Test Windows WebView environment lifecycle
         run: flutter test --no-pub third_party/flutter_inappwebview_windows/test/webview_environment_channel_test.dart
 
-      - name: Set up Python for native playback regression
+      - name: Set up Python for native image regressions
         uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
-
-      - name: Verify native fragmented audio backward seek
-        run: python tool/verify_libmpv.py --backward-seek
 
       - name: Build Windows region decoder and generated fixtures
         run: |
@@ -112,3 +115,17 @@ jobs:
       - name: Test native image pixels and lifecycle
         shell: pwsh
         run: pwsh -NoProfile -File tool/run-ci-tests.ps1 -FlutterTool path -NativeImages -Concurrency 2
+
+  gate:
+    name: PR checks
+    needs: [checks, windows]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both host checks to pass
+        env:
+          LINUX_RESULT: ${{ needs.checks.result }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+        run: |
+          printf 'Linux: %s\nWindows: %s\n' "$LINUX_RESULT" "$WINDOWS_RESULT"
+          test "$LINUX_RESULT" = success && test "$WINDOWS_RESULT" = success

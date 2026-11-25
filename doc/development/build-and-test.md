@@ -126,7 +126,9 @@ fvm flutter test
 
 常规分析覆盖应用、测试和工具代码。本地依赖包有各自的依赖上下文；更新依赖包时，按[依赖维护流程](../../third_party/README.md)单独检查。全仓库分析会包含上游源码和实验代码，结果按来源区分。
 
-PR 检查由 `.github/workflows/checks.yml` 独立执行，使用只读仓库权限。Linux 任务运行依赖验收、共享 CI 测试、Android 主机探针、采集器单元测试、呈现引擎身份与 APK 装配回归及 Windows 采样门控的主机探针。Windows 任务运行 CI 测试、页面与 WebView 保留回归，以及固定 libmpv 包的离线分片音轨回退回归，覆盖依赖实际 Windows 主机的全屏布局交接与原生 seek。严格分析覆盖完整 `lib test tool`，生成代码按 `analysis_options.yaml` 显式排除；上游控件副本的旧文本选择工具栏兼容调用在具体使用点标明保留原因，图片磁盘元信息检查保持异步，避免阻塞 UI。
+PR 检查由 `.github/workflows/checks.yml` 独立执行，使用只读仓库权限。Linux 任务运行依赖验收、静态分析、共享 CI 测试、Android 主机探针和生产工具回归；Windows 任务运行宿主专用的页面、播放、WebView 和原生图片回归。两项主机任务都成功后，`PR checks` 才通过；若配置分支保护或合并队列，可将它设为必需检查。严格分析覆盖完整 `lib test tool`，生成协议单独校验和分析。
+
+依赖下载的真实 libmpv 分片音轨回退验收由 Windows 发布流程执行，不在 PR 重跑；可在 Windows 手动运行 `uv run --locked python tool/verify_libmpv.py --backward-seek`。Android 诊断和弹幕离线分析器不阻塞 PR，仍包含在本地 Python 全量回归。
 
 CI 从 `.fvmrc` 读取 Flutter 固定版本，避免 Windows 为解析 `pubspec.yaml` 额外安装 yq；升级 SDK 时仍须同步 `pubspec.yaml` 的版本约束。同一 PR 有新提交时自动取消旧检查，手动检查与发布构建保留独立运行。Android 发布启用 Gradle 任务缓存，配合现有 Gradle 用户目录缓存复用可缓存的任务输出；Gradle 脚本、属性与 Pub 锁文件参与缓存键。实际命中率和耗时需在后续 GitHub Actions 运行中确认。
 
@@ -148,7 +150,7 @@ pwsh -NoProfile -File tool/run-ci-tests.ps1
 
 PR 的 Linux 任务运行共享测试和 Android 模拟通道测试。Windows 用 `-PlatformOnly` 运行 Windows 专用测试，并补测需要在两种主机上验证的行为。生成区域解码夹具后，再用 `-NativeImages` 跑原生图片测试。各套件的平台要求见 [`tool/test-platforms.json`](../../tool/test-platforms.json)。
 
-Python 回归使用 `uv run --locked python tool/run_python_tests.py --jobs 4`，`--suite` 选择分组，`--native` 追加三项 C++ 主机探针。组间进程隔离并汇总退出码，Linux CI 复用同一入口。分组与平台条件见[工具说明](../../tool/README.md#python-回归与并行执行)。
+Python 回归使用 `uv run --locked python tool/run_python_tests.py --jobs 4`，`--suite` 选择分组，`--native` 追加三项 C++ 主机探针。Linux PR 使用 `--ci --native`，排除两组离线实验但保留生产工具与主机探针。分组与平台条件见[工具说明](../../tool/README.md#python-回归与并行执行)。
 
 定位单个功能时，可将相关测试文件或目录传给 `fvm flutter test`。测试按业务领域放在 `test/` 下，目录索引见 [`test/README.md`](../../test/README.md)。
 

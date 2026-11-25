@@ -23,6 +23,16 @@ class PythonTestRunnerTest(unittest.TestCase):
                                           '--native', '--jobs', '2']), 1)
         run.assert_called_once_with(['engine', *runner.NATIVE_PROBES], 2)
 
+    def test_ci_omits_only_offline_experiments_and_keeps_native_probes(self):
+        experiments = {'android-analysis', 'danmaku-analysis'}
+        with patch.object(runner, 'run_suites', return_value=0) as run:
+            self.assertEqual(runner.main(['--jobs', '2']), 0)
+            self.assertEqual(runner.main(['--ci', '--native', '--jobs', '2']), 0)
+        full, ci = (set(call.args[0]) for call in run.call_args_list)
+        self.assertTrue(experiments <= full)
+        self.assertEqual(full - ci, experiments)
+        self.assertEqual(ci - full, {'frame-sampling', 'angle-rollback', 'renderer-release'})
+
     def test_list_does_not_execute_and_invalid_jobs_fail(self):
         with patch.object(runner, 'run_suites') as run, redirect_stdout(io.StringIO()):
             self.assertEqual(runner.main(['--list']), 0)

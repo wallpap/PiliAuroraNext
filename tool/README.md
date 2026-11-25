@@ -41,7 +41,7 @@ Windows PR 任务用 `-PlatformOnly` 补跑宿主测试。原生图片用 `-Nati
 
 独立测试文件由 Flutter 并行执行，默认采用其并发配置；传入 `-Concurrency 4` 可指定同时运行的文件数。共用构建输出的 Flutter 命令仍使用同一入口执行。
 
-`.github/workflows/checks.yml` 在 PR 和手动触发时以 `contents: read` 执行检查。Linux 任务覆盖依赖验收、严格静态分析、共享 CI 测试、Java 探针及 Python 工具回归；Windows 任务覆盖平台回归及页面、WebView 和原生图片回归，原生全屏时序测试只在 Windows 主机运行。图片目录由原生夹具步骤之后统一运行，页面保留步骤不重复选择其中的文件。`.github/workflows/build.yml` 统一构建 Android 和 Windows 发布包，可分别选择平台，并在 Windows 构建前校验 libmpv 与 cnativeapi 预编译包。
+`.github/workflows/checks.yml` 在 PR、合并队列和手动触发时以 `contents: read` 执行检查。Linux 运行共享回归和生产工具，Windows 运行平台、WebView 和原生图片回归。`PR checks` 汇总两端结果。`.github/workflows/build.yml` 单独构建发布包，在 Windows 构建前执行 libmpv 原生回退验收并校验 cnativeapi 预编译包。
 
 Java 探针要求 PATH 中有 JDK 25，依赖已通过固定 Flutter SDK 准备：
 
@@ -100,12 +100,12 @@ uv sync --locked
 uv run --locked python tool/run_python_tests.py --list
 uv run --locked python tool/run_python_tests.py --jobs 4
 uv run --locked python tool/run_python_tests.py --suite engine --suite android-engine --jobs 2
-uv run --locked python tool/run_python_tests.py --native --jobs 4
+uv run --locked python tool/run_python_tests.py --ci --native --jobs 4
 ```
 
 默认运行工具入口、Android/Windows 探针、引擎身份、两端引擎构建、打包，以及 Android/弹幕离线分析器共 9 组回归；`--suite` 可重复选择，`--jobs` 默认不超过 4。各组使用当前 Python 解释器启动独立进程，避免同名模块串用，日志按组输出。所有选定组完成后汇总，任一失败返回非零退出码。
 
-`--native` 追加帧采样、ANGLE 回滚及 renderer 释放三项 C++17 主机探针，需要 g++。Linux CI 使用同一入口。依赖平台、编译器、Inno Setup 或图片 worker 的用例保留原跳过条件，需核对日志中的 skipped。图片原生用例先按[图片测试契约](../test/common/widgets/image/CONTRACTS.md#区域后端和设备验收)准备夹具。
+`--ci` 排除 Android 和弹幕离线分析器两组实验测试；本地默认仍运行它们，也可用 `--suite` 单独选取。`--native` 追加帧采样、ANGLE 回滚及 renderer 释放三项 C++17 主机探针，需要 g++。依赖平台、编译器、Inno Setup 或图片 worker 的用例保留原跳过条件，需核对日志中的 skipped。图片原生用例先按[图片测试契约](../test/common/widgets/image/CONTRACTS.md#区域后端和设备验收)准备夹具。
 
 此入口只运行回归。SDK 补丁、应用/引擎构建及夹具生成按依赖顺序执行；性能、GPU 和真机测量单独运行，避免资源竞争影响数据。
 
