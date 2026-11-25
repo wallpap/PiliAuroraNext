@@ -140,11 +140,15 @@ class PlaybackSession implements PlaybackMediaClock {
     _mediaAnchors.add(frozen);
   }
 
-  void _invalidateMediaAnchor() {
+  void _clearSeekWait() {
     _pendingSeekSequence = null;
     final waiting = _seekWaitCancelled;
     _seekWaitCancelled = null;
     if (waiting != null && !waiting.isCompleted) waiting.complete();
+  }
+
+  void _invalidateMediaAnchor() {
+    _clearSeekWait();
     if (_mediaAnchor == null) return;
     _mediaAnchor = null;
     _mediaAnchors.add(null);
@@ -1137,6 +1141,7 @@ class PlaybackSession implements PlaybackMediaClock {
     }
     final seekSequence = ++_seekSequence;
     _invalidateMediaAnchor();
+    _operations.cancel(PlaybackOperationSlot.seek);
     _pendingSeekSequence = seekSequence;
     _observeHealth(_now());
     _observePlaybackProgress();
@@ -1929,6 +1934,7 @@ class PlaybackSession implements PlaybackMediaClock {
         );
         _phase = PlaybackPhase.ended;
         _stage = PlaybackStage.observing;
+        _cancelSeekAtTerminal();
         _pendingAction = PlaybackAction(
           id: _nextActionId++,
           ownerId: owner.id,
@@ -2073,6 +2079,11 @@ class PlaybackSession implements PlaybackMediaClock {
     });
   }
 
+  void _cancelSeekAtTerminal() {
+    _clearSeekWait();
+    _operations.cancel(PlaybackOperationSlot.seek);
+  }
+
   void _publishFailure(PlaybackFailure failure) {
     if (_closingRequested || _disposed) return;
     _recoveryCheck?.cancel();
@@ -2082,6 +2093,7 @@ class PlaybackSession implements PlaybackMediaClock {
     _failure = failure;
     _phase = PlaybackPhase.failed;
     _stage = failure.stage;
+    _cancelSeekAtTerminal();
     _emitTrace('playback.failed', {
       'requestId': _requestId,
       'loadId': _loadId,

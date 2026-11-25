@@ -17,7 +17,7 @@
 ```text
 S = (phase, stage, owner, g, request, load, runtime, output,
      plan, intent, inhibitors, desired, applied, revisions, pending,
-     activeOperation, pendingOperations, writer, anchor, failure, action,
+     activeOperation, pendingOperations, writer, seekSequence, pendingSeek, anchor, failure, action,
      pendingEOF, progressWatch, recoveryIncident, healthySince, nativeIdentity,
      snapshotVersion, routeGeneration, routeInhibitor, owners, keepalive, released)
 ```
@@ -32,6 +32,7 @@ S = (phase, stage, owner, g, request, load, runtime, output,
 | `intent, inhibitors` | 用户播放意图，以及页面和会话分别持有的抑制令牌 |
 | `activeOperation` | 调度器正在排空的操作；调用方终结后，原生操作仍可能在执行 |
 | `writer` | 单独串行协调播放/暂停意图的写入器；最终原生互斥由运行时保证 |
+| `seekSequence, pendingSeek` | 最新跳转代次及其尚未结算的等待，包括提交资格与原生命令回执 |
 | `anchor` | 媒体位置与单调时间的只读锚点 |
 | `pendingEOF` | 当前接受请求中，等待加载结算的本次原生打开结束事件 |
 | `progressWatch` | 当前有效播放区间的非外推位置基线、无推进的截止时间及是否已观察到推进 |
@@ -138,6 +139,14 @@ reconfig/reset，避免旧帧引用跨到下一次解码器分配。新 load 首
 
 活性检查有明确前提：底层操作最终返回时，最新且未超时的请求应可继续执行。
 若底层永不返回，调用方仍须在 deadline 终结，但不能为追求继续播放而提前释放资源。
+
+```text
+接受更新的 seek，或当前加载进入 ended / failed
+  ⇒ 未结算的旧 seek 立即返回 superseded
+已提交的旧 seek 仍占用执行器，直到原生回执到达
+```
+
+等待原生提交资格时同样执行跳转失效规则。暂停保留当前跳转，切源与关闭分别按请求取代与关闭协议结算。
 
 ### I5：终态一致性
 
@@ -315,6 +324,9 @@ eligible 持续到 deadline 且未再次推进 ⇒ failed(observe-playback-stall
    运行时作用域通过一次身份故障后尝试不同内容键和来源来检验。
    [核心时序模型](../../test/plugin/pl_player/playback/playback_core_model_test.dart)用可控时钟和 `PlaybackSession`
    实例执行启动入口与观测的有限组合，并单独检查截止前中断、seek 落点和错误到达顺序。
+   [命令交错模型](../../test/plugin/pl_player/playback/playback_interleaving_model_test.dart)在一次原生 seek 尚未返回时，
+   穷举暂停、更新 seek、切源的 6 种顺序，以及加入关闭后的 24 种顺序。每条轨迹检查回执、
+   下一次原生提交和旧 EOF、旧失败的影响。另检查当前 EOF 或失败与 seek 提交前、提交后的组合。
 4. 修复后重新沿模型检查，新反例继续补充回归。
 5. 最后一轮没有新的可确认反例，且相关回归与静态检查通过，才结束本轮审查。
 
