@@ -29,6 +29,13 @@ const _failure = PlaybackFailure(
   recoverable: false,
   cause: 'fixture failure',
 );
+const _cleanupFailure = PlaybackFailure(
+  category: PlaybackFailureCategory.disposal,
+  operation: 'fixture-cleanup',
+  stage: PlaybackStage.closing,
+  recoverable: false,
+  cause: 'fixture cleanup failure',
+);
 const _firstTarget = Duration(seconds: 1);
 const _nextTarget = Duration(seconds: 2);
 const _duration = Duration(seconds: 10);
@@ -53,6 +60,111 @@ void _emitTerminal(FakeSessionRuntime runtime, int load, {required bool eof}) {
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  for (final cleanup in ['pending', 'incomplete', 'error']) {
+    testWidgets('先收到实际释放，再处理关闭回执 $cleanup', (tester) async {
+      const budget = Duration(seconds: 2);
+      final cleanupReply = Completer<PlaybackShutdownResult>();
+      final runtime = FakeSessionRuntime()
+        ..onShutdown = () => cleanupReply.future;
+      final session = PlaybackSession(runtime: runtime, shutdownBudget: budget);
+      final owner = session.attach();
+      try {
+        await owner.load(sessionPlan('shutdown-release-first'));
+        PlaybackShutdownResult? receipt;
+        final shutdown = session.shutdown()..then((result) => receipt = result);
+        runtime.completeRelease();
+        await tester.pump();
+        expect(session.currentSnapshot.phase, PlaybackPhase.disposed);
+        expect(receipt?.outcome, PlaybackShutdownOutcome.released);
+
+        switch (cleanup) {
+          case 'incomplete':
+            cleanupReply.complete(
+              const PlaybackShutdownResult.cleanupIncomplete(_cleanupFailure),
+            );
+          case 'error':
+            cleanupReply.completeError(StateError('fixture late cleanup'));
+        }
+        await tester.pump(budget);
+        expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+        expect(session.currentSnapshot.phase, PlaybackPhase.disposed);
+        expect(session.currentSnapshot.failure, isNull);
+      } finally {
+        if (!cleanupReply.isCompleted) {
+          cleanupReply.complete(const PlaybackShutdownResult.released());
+        }
+        await tester.pump();
+        await runtime.eventController.close();
+      }
+    });
+  }
+
+  test('关闭重入共享真实收据，清理成功仍须等实际释放', () async {
+    final runtime = FakeSessionRuntime();
+    final session = PlaybackSession(runtime: runtime);
+    session.attach();
+    final cleanupReply = Completer<PlaybackShutdownResult>();
+    Future<PlaybackShutdownResult>? reentrant;
+    runtime.onShutdown = () {
+      reentrant = session.shutdown();
+      return cleanupReply.future;
+    };
+    try {
+      final shutdown = session.shutdown();
+      expect(reentrant, same(shutdown));
+      var settled = false;
+      unawaited(shutdown.then((_) => settled = true));
+      cleanupReply.complete(const PlaybackShutdownResult.released());
+      await _turn();
+      expect(settled, isFalse);
+      expect(session.currentSnapshot.phase, PlaybackPhase.closing);
+      runtime.completeRelease();
+      expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+      expect(session.currentSnapshot.phase, PlaybackPhase.disposed);
+    } finally {
+      if (!cleanupReply.isCompleted) {
+        cleanupReply.complete(const PlaybackShutdownResult.released());
+      }
+      runtime.completeRelease();
+      await session.shutdown();
+      await runtime.eventController.close();
+    }
+  });
+
+  testWidgets('关闭超时收据固定，真实释放仍推进会话终态', (tester) async {
+    const budget = Duration(seconds: 2);
+    final cleanupReply = Completer<PlaybackShutdownResult>();
+    final runtime = FakeSessionRuntime()
+      ..onShutdown = () => cleanupReply.future;
+    final session = PlaybackSession(runtime: runtime, shutdownBudget: budget);
+    session.attach();
+    try {
+      final shutdown = session.shutdown();
+      await tester.pump(budget);
+      final result = await shutdown;
+      expect(result.outcome, PlaybackShutdownOutcome.cleanupIncomplete);
+      expect(result.failure?.category, PlaybackFailureCategory.timeout);
+      expect(session.currentSnapshot.failure, same(result.failure));
+
+      runtime.completeRelease();
+      await tester.pump();
+      cleanupReply.complete(
+        const PlaybackShutdownResult.cleanupIncomplete(_cleanupFailure),
+      );
+      await tester.pump();
+      expect(session.currentSnapshot.phase, PlaybackPhase.disposed);
+      expect(session.currentSnapshot.failure, isNull);
+      expect(await shutdown, same(result));
+    } finally {
+      if (!cleanupReply.isCompleted) {
+        cleanupReply.complete(const PlaybackShutdownResult.released());
+      }
+      runtime.completeRelease();
+      await tester.pump();
+      await runtime.eventController.close();
+    }
+  });
+
   for (final closeDuringSeek in [false, true]) {
     for (final order in _orders([
       _Input.pause,

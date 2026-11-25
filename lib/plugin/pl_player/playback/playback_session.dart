@@ -161,8 +161,9 @@ class PlaybackSession implements PlaybackMediaClock {
   Completer<void>? _writerDrain;
   bool _closingRequested = false;
   bool _disposed = false;
-  bool _shutdownStarted = false;
-  Future<PlaybackShutdownResult>? _shutdownTask;
+  Completer<PlaybackShutdownResult>? _shutdownReceipt;
+  Timer? _shutdownTimer;
+  PlaybackShutdownResult? _observedRelease;
   _AcceptedRequest? _acceptedRequest;
   _PlaybackProgressWatch? _playbackProgressWatch;
   _RecoveryIncident? _recoveryIncident;
@@ -324,11 +325,8 @@ class PlaybackSession implements PlaybackMediaClock {
       !_closingRequested && !_disposed && requestId == _requestId;
 
   Future<PlaybackShutdownResult> shutdown() {
-    if (!_shutdownStarted && !_disposed) _requestShutdown();
-    return _shutdownTask ??
-        Future<PlaybackShutdownResult>.value(
-          const PlaybackShutdownResult.released(),
-        );
+    _requestShutdown();
+    return _shutdownReceipt!.future;
   }
 
   Future<LoadResult> _load(
@@ -2349,9 +2347,10 @@ class PlaybackSession implements PlaybackMediaClock {
   }
 
   void _requestShutdown() {
-    if (_shutdownStarted || _disposed) return;
+    if (_shutdownReceipt != null) return;
+    _shutdownReceipt = Completer<PlaybackShutdownResult>();
     _closingRequested = true;
-    _shutdownStarted = true;
+    _shutdownTimer = Timer(shutdownBudget, _shutdownTimedOut);
     _phase = PlaybackPhase.closing;
     _stage = PlaybackStage.closing;
     _resetRecovery();
@@ -2362,54 +2361,35 @@ class PlaybackSession implements PlaybackMediaClock {
     _intentRevision++;
     _publish();
     _closeAllSnapshotStreams();
-    _shutdownTask = _shutdownRuntime();
-    unawaited(_shutdownTask!);
+    final release = _observedRelease;
+    if (release != null) _settleShutdown(release);
+    unawaited(_shutdownRuntime());
   }
 
-  Future<PlaybackShutdownResult> _shutdownRuntime() async {
-    final started = _now();
-    Future<PlaybackShutdownResult> cleanup;
+  Future<void> _shutdownRuntime() async {
     try {
-      // Runtime owns the native operation queue and can begin teardown now.
-      // A single deadline bounds the result; timing out this await does not
-      // cancel the cleanup or release the resource slot.
-      cleanup = _runtime.shutdown();
-      final remaining = shutdownBudget - (_now() - started);
-      if (remaining <= Duration.zero) {
-        return _shutdownTimedOut();
-      }
-      final result = await cleanup.timeout(remaining);
+      final result = await _runtime.shutdown();
       if (result.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
-        _failure = result.failure;
-        _phase = PlaybackPhase.closing;
-        _stage = PlaybackStage.closing;
-        _publish();
-        return result;
+        _settleShutdown(result);
       }
-      final releaseRemaining = shutdownBudget - (_now() - started);
-      if (releaseRemaining <= Duration.zero) return _shutdownTimedOut();
-      await _runtime.released.timeout(releaseRemaining);
-      _markDisposed();
-      return result;
     } on TimeoutException {
-      return _shutdownTimedOut();
+      _shutdownTimedOut();
     } catch (error) {
-      final failure = PlaybackFailure(
-        category: PlaybackFailureCategory.disposal,
-        operation: 'shutdown',
-        stage: PlaybackStage.closing,
-        recoverable: false,
-        cause: error.toString(),
+      _settleShutdown(
+        PlaybackShutdownResult.cleanupIncomplete(
+          PlaybackFailure(
+            category: PlaybackFailureCategory.disposal,
+            operation: 'shutdown',
+            stage: PlaybackStage.closing,
+            recoverable: false,
+            cause: error.toString(),
+          ),
+        ),
       );
-      _failure = failure;
-      _phase = PlaybackPhase.closing;
-      _stage = PlaybackStage.closing;
-      _publish();
-      return PlaybackShutdownResult.cleanupIncomplete(failure);
     }
   }
 
-  PlaybackShutdownResult _shutdownTimedOut() {
+  void _shutdownTimedOut() {
     const failure = PlaybackFailure(
       category: PlaybackFailureCategory.timeout,
       operation: 'shutdown',
@@ -2417,29 +2397,41 @@ class PlaybackSession implements PlaybackMediaClock {
       recoverable: false,
       cause: '关闭超过首次接受时的总时限；资源仍由 released 屏障跟踪。',
     );
-    _failure = failure;
-    _phase = PlaybackPhase.closing;
-    _stage = PlaybackStage.closing;
-    _publish();
-    return const PlaybackShutdownResult.cleanupIncomplete(failure);
+    _settleShutdown(const PlaybackShutdownResult.cleanupIncomplete(failure));
   }
 
   void _handleReleased() {
-    if (_closingRequested) _markDisposed();
+    const result = PlaybackShutdownResult.released();
+    _observedRelease = result;
+    _settleShutdown(result);
   }
 
   void _handleReleaseFailure(Object error) {
-    if (!_closingRequested) return;
-    _failure = PlaybackFailure(
-      category: PlaybackFailureCategory.disposal,
-      operation: 'runtime.release',
-      stage: PlaybackStage.closing,
-      recoverable: false,
-      cause: error.toString(),
+    final result = PlaybackShutdownResult.cleanupIncomplete(
+      PlaybackFailure(
+        category: PlaybackFailureCategory.disposal,
+        operation: 'runtime.release',
+        stage: PlaybackStage.closing,
+        recoverable: false,
+        cause: error.toString(),
+      ),
     );
-    _phase = PlaybackPhase.closing;
-    _stage = PlaybackStage.closing;
-    _publish();
+    _observedRelease = result;
+    _settleShutdown(result);
+  }
+
+  void _settleShutdown(PlaybackShutdownResult result) {
+    final receipt = _shutdownReceipt;
+    if (receipt == null) return;
+    if (result.outcome == PlaybackShutdownOutcome.released) _markDisposed();
+    if (receipt.isCompleted) return;
+    _shutdownTimer?.cancel();
+    _shutdownTimer = null;
+    if (result.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {
+      _failure = result.failure;
+      _publish();
+    }
+    receipt.complete(result);
   }
 
   void _markDisposed() {
