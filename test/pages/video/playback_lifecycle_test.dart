@@ -680,6 +680,54 @@ void main() {
     controller.closePlayback();
   });
 
+  test('返回页面的旧加载结果不能确认新分 P', () async {
+    final controller = await selectionPage();
+    addTearDown(controller.closePlayback);
+    final completion = Completer<LoadResult>();
+    controller.sourceLoad = (_) => completion.future;
+    controller.holdPlaybackForRoute();
+    controller.videoState.value = false;
+
+    final restoring = controller.restorePlaybackAfterRoute();
+    controller.cid.value = 2;
+    completion.complete(const LoadResult.ready(2));
+    await restoring;
+
+    expect(controller.videoState.value, isFalse);
+    expect(
+      controller.plPlayerController.currentPlaybackSnapshot.inhibitors,
+      isEmpty,
+    );
+  });
+
+  test('再次离页或返回后旧回执不能释放当前交接的抑制', () async {
+    final controller = await selectionPage();
+    addTearDown(controller.closePlayback);
+    final firstReply = Completer<LoadResult>();
+    final secondReply = Completer<LoadResult>();
+    controller.sourceLoad = (_) => firstReply.future;
+    controller.holdPlaybackForRoute();
+    controller.videoState.value = false;
+    final firstRestore = controller.restorePlaybackAfterRoute();
+
+    controller.holdPlaybackForRoute();
+    controller.sourceLoad = (_) => secondReply.future;
+    final secondRestore = controller.restorePlaybackAfterRoute();
+    firstReply.complete(const LoadResult.ready(2));
+    await firstRestore;
+
+    final player = controller.plPlayerController;
+    final stillHeld = player.currentPlaybackSnapshot.inhibitors;
+    expect(stillHeld.map((token) => token.source), [
+      PlaybackInhibitorSource.system,
+    ]);
+    expect(controller.videoState.value, isFalse);
+    secondReply.complete(const LoadResult.ready(3));
+    await secondRestore;
+    expect(player.currentPlaybackSnapshot.inhibitors, isEmpty);
+    expect(controller.videoState.value, isTrue);
+  });
+
   testWidgets('切换失败保留确认值并消费异常，同一画质可以重试', (tester) async {
     await tester.pumpWidget(
       MaterialApp(builder: FlutterSmartDialog.init(), home: const SizedBox()),

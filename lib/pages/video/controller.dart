@@ -218,6 +218,7 @@ class VideoDetailController with BlockMixin {
   })?
   _pendingSourceSelection;
   PlaybackInhibitorToken? _routeInhibitor;
+  int _routePlaybackGeneration = 0;
   Duration? defaultST;
   Duration? playedTime;
   String playedTimePos(bool hasParams) {
@@ -989,6 +990,7 @@ class VideoDetailController with BlockMixin {
   ) => playbackOwner.setSubtitleTrack(track);
 
   void holdPlaybackForRoute() {
+    _routePlaybackGeneration++;
     _sourceSelectionGeneration++;
     _pendingSourceSelection = null;
     playbackOwner.invalidateRequests();
@@ -1029,34 +1031,46 @@ class VideoDetailController with BlockMixin {
   }
 
   Future<void> restorePlaybackAfterRoute() async {
+    if (isClosed) return;
+    final generation = ++_routePlaybackGeneration;
     plPlayerController.activatePlaybackOwner(playbackOwner);
     _bindShutdownTimer();
     final plan = _playbackPlan;
     final token = _routeInhibitor;
-    if (plan != null && !isClosed) {
-      final identity = (bvid, cid.value, epId, seasonId);
-      final result = await loadPlaybackPlanForRoute(
-        plan,
-        start: PlaybackStartPolicy.preserve,
-        onReady: () {
-          if (isClosed || identity != (bvid, cid.value, epId, seasonId)) return;
+    final identity = (bvid, cid.value, epId, seasonId);
+    final ownsPlayback = playbackOwner.guard();
+    bool canConfirm() =>
+        !isClosed &&
+        generation == _routePlaybackGeneration &&
+        ownsPlayback() &&
+        identity == (bvid, cid.value, epId, seasonId);
+
+    try {
+      if (plan != null) {
+        final result = await loadPlaybackPlanForRoute(
+          plan,
+          start: PlaybackStartPolicy.preserve,
+          onReady: () {
+            if (!canConfirm()) return;
+            videoState.value = true;
+            unawaited(setSubtitle(vttSubtitlesIndex.value));
+          },
+        );
+        if (result.outcome == LoadOutcome.ready && canConfirm()) {
           videoState.value = true;
-          unawaited(setSubtitle(vttSubtitlesIndex.value));
-        },
-      );
-      if (result.outcome == LoadOutcome.ready && !isClosed) {
-        videoState.value = true;
-      }
-    } else if (plan == null && !isClosed) {
-      if (isFileSource) {
+        }
+      } else if (isFileSource) {
         await _initPlayerIfNeeded(false);
       } else {
         await queryVideoUrl(startPolicy: PlaybackStartPolicy.preserve);
       }
-    }
-    if (token != null) {
-      _routeInhibitor = null;
-      await playbackOwner.releaseInhibitor(token);
+    } finally {
+      if (token != null &&
+          generation == _routePlaybackGeneration &&
+          identical(token, _routeInhibitor)) {
+        _routeInhibitor = null;
+        await playbackOwner.releaseInhibitor(token);
+      }
     }
   }
 
