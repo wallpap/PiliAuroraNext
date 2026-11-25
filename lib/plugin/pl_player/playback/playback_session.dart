@@ -28,7 +28,7 @@ class PlaybackSession implements PlaybackMediaClock {
     _runtimeSubscription = runtime.events.listen(
       _handleRuntimeEvent,
       onError: (Object error, StackTrace stackTrace) {
-        _publishFailure(
+        _failFromRuntime(
           PlaybackFailure(
             category: PlaybackFailureCategory.unknown,
             operation: 'runtime.events',
@@ -50,6 +50,7 @@ class PlaybackSession implements PlaybackMediaClock {
 
   static final Stopwatch _clock = Stopwatch()..start();
   static Duration _defaultClock() => _clock.elapsed;
+  static const _playbackStartBudget = Duration(seconds: 15);
 
   final PlaybackRuntimePort _runtime;
   final Duration Function() _now;
@@ -158,6 +159,7 @@ class PlaybackSession implements PlaybackMediaClock {
   bool _shutdownStarted = false;
   Future<PlaybackShutdownResult>? _shutdownTask;
   _AcceptedRequest? _acceptedRequest;
+  _PlaybackStartWatch? _playbackStartWatch;
   _RecoveryIncident? _recoveryIncident;
   Duration? _healthySince;
   Timer? _healthyCheck;
@@ -628,8 +630,8 @@ class PlaybackSession implements PlaybackMediaClock {
             playResult.outcome == CommandOutcome.superseded) {
           playResult = await _ensureWriter();
         }
-        _writerLoadRequestId = null;
         if (!_isRequestCurrent(request)) return;
+        _writerLoadRequestId = null;
         if (playResult.outcome != CommandOutcome.applied) {
           _failLoad(
             request,
@@ -657,7 +659,16 @@ class PlaybackSession implements PlaybackMediaClock {
           'output': value.output.strategy.name,
         });
         _finishRequest(request, LoadResult.ready(request.loadId!));
-        _publish();
+        final previousSnapshot = _snapshot;
+        final ended = request.endedWhileLoading;
+        if (ended != null &&
+            _phase == PlaybackPhase.ready &&
+            identical(_activeOwner, request.owner) &&
+            _requestId == request.id &&
+            _loadId == ended.loadId) {
+          _handleRuntimeEvent(ended);
+        }
+        if (identical(_snapshot, previousSnapshot)) _publish();
         _resumeDeferredRecovery();
       case PlaybackOperationOutcome.superseded:
         _finishRequest(request, const LoadResult.superseded());
@@ -716,7 +727,10 @@ class PlaybackSession implements PlaybackMediaClock {
       // 排队和候选轮换期间配置仍可能变化，每次 open 都重新核对来源约束。
       plan = _mergeConfigChangesSinceAcceptance(request, plan);
       final thisLoadId = ++_loadId;
-      request.loadId = thisLoadId;
+      request
+        ..loadId = thisLoadId
+        ..endedWhileLoading = null;
+      _actual = const PlaybackActual();
       _stage = PlaybackStage.initializing;
       _publish();
       final context = PlaybackExecutionContext(
@@ -1131,6 +1145,7 @@ class PlaybackSession implements PlaybackMediaClock {
     final seekSequence = ++_seekSequence;
     _invalidateMediaAnchor();
     _pendingSeekSequence = seekSequence;
+    _observePlaybackStart();
     final deadline = _now() + commandBudget;
     try {
       if (_runtime case final PlaybackSeekSubmissionGate gate) {
@@ -1205,6 +1220,7 @@ class PlaybackSession implements PlaybackMediaClock {
     } finally {
       if (_pendingSeekSequence == seekSequence) {
         _pendingSeekSequence = null;
+        _observePlaybackStart();
         _resumeDeferredRecovery();
       }
     }
@@ -1833,6 +1849,7 @@ class PlaybackSession implements PlaybackMediaClock {
           return;
         }
         _mediaAnchor = anchor;
+        _observePlaybackStart();
         _mediaAnchors.add(anchor);
       case PlaybackRuntimeStateChanged(:final actual):
         if (_phase == PlaybackPhase.ended) return;
@@ -1867,6 +1884,15 @@ class PlaybackSession implements PlaybackMediaClock {
         _observeHealth(_now());
         _publish();
       case PlaybackRuntimeEnded(:final position, :final duration):
+        final request = _acceptedRequest;
+        if ((_phase == PlaybackPhase.loading ||
+                _phase == PlaybackPhase.recovering) &&
+            request != null &&
+            identical(request.owner, _activeOwner) &&
+            request.loadId == event.loadId) {
+          request.endedWhileLoading ??= event;
+          return;
+        }
         if (_phase != PlaybackPhase.ready || _pendingAction != null) return;
         final owner = _activeOwner;
         if (owner == null || owner._requiresLoad) return;
@@ -1925,7 +1951,52 @@ class PlaybackSession implements PlaybackMediaClock {
                     request?.loadId != event.loadId))) {
           return;
         }
-        _publishFailure(failure);
+        _failFromRuntime(failure);
+    }
+  }
+
+  void _observePlaybackStart() {
+    if (_phase != PlaybackPhase.ready ||
+        !_effectivePlaying ||
+        _pendingSeekSequence != null) {
+      _playbackStartWatch?.timer?.cancel();
+      _playbackStartWatch = null;
+      return;
+    }
+    final watch = _playbackStartWatch;
+    if (watch != null && watch.timer == null) return;
+    final position = switch (_runtime) {
+      _ when _actual.seeking == true => null,
+      PlaybackSeekSubmissionGate(seekSubmissionBlocked: true) => null,
+      _ => _runtime.position,
+    };
+    if (watch == null) {
+      final next = _PlaybackStartWatch(position);
+      _playbackStartWatch = next;
+      next.timer = Timer(_playbackStartBudget, () {
+        _observePlaybackStart();
+        if (!identical(_playbackStartWatch, next) || next.timer == null) return;
+        _publishFailure(
+          const PlaybackFailure(
+            category: PlaybackFailureCategory.timeout,
+            operation: 'observe-playback-start',
+            stage: PlaybackStage.observing,
+            recoverable: true,
+            cause: '播放器已就绪，但未在时限内观察到媒体位置推进。',
+          ),
+        );
+      });
+      return;
+    }
+    final previous = watch.position;
+    watch.position = position;
+    if (_actual.playing == true &&
+        _actual.buffering != true &&
+        previous != null &&
+        position != null &&
+        position > previous) {
+      watch.timer?.cancel();
+      watch.timer = null;
     }
   }
 
@@ -2023,6 +2094,21 @@ class PlaybackSession implements PlaybackMediaClock {
     _writerLoadRequestId = null;
     _finishRequest(request, LoadResult.failed(failure));
     _publish();
+  }
+
+  void _failFromRuntime(PlaybackFailure failure) {
+    final request = _acceptedRequest;
+    if (request != null) {
+      if (!_ownsRequest(request)) return;
+      _cancelRequestCallbacks(request);
+      if (!_ownsRequest(request)) return;
+      _operations
+        ..cancel(PlaybackOperationSlot.load)
+        ..cancel(PlaybackOperationSlot.recovery);
+      _writerLoadRequestId = null;
+      _finishRequest(request, LoadResult.failed(failure));
+    }
+    _publishFailure(failure);
   }
 
   void _expireRequest(_AcceptedRequest request) {
@@ -2341,6 +2427,7 @@ class PlaybackSession implements PlaybackMediaClock {
 
   void _publish() {
     if (_disposed) return;
+    _observePlaybackStart();
     if (!_mediaClockMayAdvance) _freezeMediaAnchor();
     _snapshot = PlaybackSnapshot(
       snapshotVersion: ++_snapshotVersion,
@@ -2711,6 +2798,13 @@ class PlaybackSessionTrace {
   final Map<String, Object?> fields;
 }
 
+class _PlaybackStartWatch {
+  _PlaybackStartWatch(this.position);
+
+  Duration? position;
+  Timer? timer;
+}
+
 class _AcceptedRequest {
   _AcceptedRequest({
     required this.id,
@@ -2728,6 +2822,7 @@ class _AcceptedRequest {
   final List<void Function()> cancelCallbacks = [];
   Timer? timer;
   int? loadId;
+  PlaybackRuntimeEnded? endedWhileLoading;
   PlaybackPlan? finalPlan;
   bool loaded = false;
   bool resolved = false;
