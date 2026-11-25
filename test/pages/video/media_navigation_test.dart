@@ -34,10 +34,23 @@ class _Player extends Fake implements PlPlayerController {
   @override
   PlayRepeat playRepeat = PlayRepeat.listOrder;
   bool repeated = false;
+  bool? allowedFocusReacquisition;
+  Duration? lastSeek;
 
   @override
-  Future<void> play({bool repeat = false, bool hideControls = true}) async =>
-      repeated = repeat;
+  Future<void> play({
+    bool repeat = false,
+    bool hideControls = true,
+    bool allowFocusReacquisition = true,
+  }) async {
+    repeated = repeat;
+    allowedFocusReacquisition = allowFocusReacquisition;
+  }
+
+  @override
+  Future<void> seek(Duration position, {bool isSeek = false}) async {
+    lastSeek = position;
+  }
 }
 
 class _Video extends Fake implements VideoDetailController {
@@ -134,6 +147,20 @@ void main() {
     expect(ugc.cid.value, 11);
     expect(ugc.nextPlay(), isTrue);
     expect(ugc.cid.value, 21);
+  });
+
+  test('本地单集自动循环不重新申请音频焦点', () async {
+    final video = _Video();
+    final controller = _Local(video)
+      ..index.value = 0
+      ..list.value = [_Entry()];
+    addTearDown(controller.close);
+    final player = video.plPlayerController..playRepeat = PlayRepeat.listCycle;
+
+    expect(controller.nextPlay(), isTrue);
+    await Future<void>.delayed(Duration.zero);
+    expect(player.lastSeek, Duration.zero);
+    expect(player.allowedFocusReacquisition, isFalse);
   });
 
   for (final mode in ['UGC 分P', 'UGC 合集', 'PGC', '本地列表']) {
