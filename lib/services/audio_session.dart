@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
@@ -6,11 +7,17 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/diagnostics/report_error.dart';
 
+enum _FocusInterruption { awaitingGain, requiresActivation }
+
 class AudioSessionHandler {
-  AudioSessionHandler({Future<AudioSession> Function()? loadSession})
-    : _loadSession = loadSession ?? (() => AudioSession.instance);
+  AudioSessionHandler({
+    Future<AudioSession> Function()? loadSession,
+    bool? androidFocusLifecycle,
+  }) : _loadSession = loadSession ?? (() => AudioSession.instance),
+       _androidFocusLifecycle = androidFocusLifecycle ?? Platform.isAndroid;
 
   final Future<AudioSession> Function() _loadSession;
+  final bool _androidFocusLifecycle;
   Future<void>? _initialization;
   Future<void>? _disposal;
   StreamSubscription<AudioInterruptionEvent>? _interruptions;
@@ -18,7 +25,9 @@ class AudioSessionHandler {
   late AudioSession session;
   final _independent = <IndependentAudioLease>[];
   Future<void> _focusChanges = Future<void>.value();
-  bool _interrupted = false;
+  _FocusInterruption? _interruption;
+  int _interruptionRevision = 0;
+  bool get _interrupted => _interruption != null;
   bool _ducked = false;
   bool _active = false;
   PlPlayerController? _playbackController;
@@ -61,35 +70,81 @@ class AudioSessionHandler {
     PlPlayerController controller,
     bool active, {
     bool Function()? isCurrent,
+    bool allowFocusReacquisition = true,
   }) {
     if (_disposal != null || isCurrent?.call() == false) {
       return Future.value(true);
     }
     _playbackController ??= controller;
     return _serializeFocus(() async {
-      if (_disposal != null ||
-          isCurrent?.call() == false ||
-          _independent.isNotEmpty ||
-          !identical(controller, _playbackController)) {
-        return true;
-      }
-      return setActive(active);
+      bool ownsFocus() =>
+          _disposal == null &&
+          isCurrent?.call() != false &&
+          _independent.isEmpty &&
+          identical(controller, _playbackController);
+      if (!ownsFocus()) return true;
+      return _setFocusActive(
+        active,
+        ownsFocus: ownsFocus,
+        allowReacquisition: allowFocusReacquisition,
+      );
     });
   }
 
   Future<bool> _changeIndependentActive(
     IndependentAudioLease lease,
-    bool active,
-  ) => _serializeFocus(() async {
+    bool active, {
+    int? explicitPlayRevision,
+  }) => _serializeFocus(() async {
     if (!identical(_independent.lastOrNull, lease)) return false;
-    if (active && (lease._closing || !lease._playing || lease._interrupted)) {
-      return true;
-    }
+    final canReacquire = explicitPlayRevision == lease._intentRevision;
+    bool ownsFocus() =>
+        lease._current &&
+        !lease._closing &&
+        lease._playing &&
+        (!lease._interrupted || explicitPlayRevision == lease._intentRevision);
+    if (active && !ownsFocus()) return true;
     if (!active && !lease._closing && lease._playing && !lease._interrupted) {
       return true;
     }
-    return setActive(active);
+    return _setFocusActive(
+      active,
+      ownsFocus: ownsFocus,
+      allowReacquisition: canReacquire,
+    );
   });
+
+  Future<bool> _setFocusActive(
+    bool active, {
+    required bool Function() ownsFocus,
+    required bool allowReacquisition,
+  }) async {
+    final interruption = _interruption;
+    final revision = _interruptionRevision;
+    final reacquiring = interruption == _FocusInterruption.requiresActivation;
+    if (active && reacquiring && !allowReacquisition) return true;
+    final accepted = await setActive(active);
+    if (_disposal != null || revision != _interruptionRevision) return accepted;
+    if (!active) {
+      if (_androidFocusLifecycle &&
+          interruption == _FocusInterruption.awaitingGain) {
+        _interruption = _FocusInterruption.requiresActivation;
+        _interruptionRevision++;
+      }
+      return accepted;
+    }
+    if (!reacquiring) return accepted;
+    if (!accepted || !ownsFocus()) {
+      await setActive(false);
+      return accepted;
+    }
+    _interruption = null;
+    _interruptionRevision++;
+    _independent.lastOrNull?._interrupted = false;
+    await _focusInhibitor.end();
+    return true;
+  }
+
   final PlaybackFocusInhibitor _focusInhibitor = PlaybackFocusInhibitor(
     onError: reportError,
   );
@@ -101,8 +156,14 @@ class AudioSessionHandler {
     if (_disposal != null) return false;
     await initSession();
     if (_disposal != null) return false;
+    final revision = _interruptionRevision;
     final accepted = await session.setActive(active);
-    if (accepted) _active = active;
+    if (accepted &&
+        (!active ||
+            revision == _interruptionRevision ||
+            _interruption != _FocusInterruption.requiresActivation)) {
+      _active = active;
+    }
     return accepted;
   }
 
@@ -159,8 +220,24 @@ class AudioSessionHandler {
 
     _interruptions = session.interruptionEventStream.listen((event) {
       if (_disposal != null) return;
-      if (event.type == AudioInterruptionType.duck) _ducked = event.begin;
-      if (event.type != AudioInterruptionType.duck) _interrupted = event.begin;
+      if (event.type == AudioInterruptionType.duck) {
+        _ducked = event.begin;
+      } else {
+        if (!event.begin &&
+            _interruption == _FocusInterruption.requiresActivation) {
+          return;
+        }
+        _interruptionRevision++;
+        if (!event.begin) {
+          _interruption = null;
+        } else if (_androidFocusLifecycle &&
+            event.type == AudioInterruptionType.unknown) {
+          _interruption = _FocusInterruption.requiresActivation;
+          _active = false;
+        } else {
+          _interruption = _FocusInterruption.awaitingGain;
+        }
+      }
       final independent = _independent.lastOrNull;
       if (independent != null) {
         independent._handleInterruption(event);
@@ -349,17 +426,26 @@ class IndependentAudioLease {
   Future<void> setPlaying(bool playing) {
     if (_closing) return Future.error(StateError('音频播放器已关闭'));
     _playing = playing;
-    _intentRevision++;
-    return _enqueue(_reconcile);
+    final revision = ++_intentRevision;
+    return _enqueue(
+      () => _reconcile(explicitPlayRevision: playing ? revision : null),
+    );
   }
 
-  Future<void> _reconcile() async {
+  Future<void> _reconcile({int? explicitPlayRevision}) async {
     if (_closing || !_current) return;
     await prepare();
     if (_closing || !_current) return;
-    final effective = _playing && !_interrupted;
+    final reacquire =
+        explicitPlayRevision == _intentRevision &&
+        _handler._interruption == _FocusInterruption.requiresActivation;
+    final effective = _playing && (!_interrupted || reacquire);
     if (effective) {
-      if (!await _handler._changeIndependentActive(this, true)) {
+      if (!await _handler._changeIndependentActive(
+        this,
+        true,
+        explicitPlayRevision: explicitPlayRevision,
+      )) {
         throw StateError('系统未授予音频焦点');
       }
       if (_closing || !_current) return;
@@ -457,7 +543,11 @@ class IndependentAudioLease {
           controller.activePlaybackOwner?.isActive == true &&
           controller.currentPlaybackSnapshot.intent.playing) {
         try {
-          await _handler.changeVideoActive(controller, true);
+          await _handler.changeVideoActive(
+            controller,
+            true,
+            allowFocusReacquisition: false,
+          );
         } catch (error, stack) {
           reportError(error, stack);
         }

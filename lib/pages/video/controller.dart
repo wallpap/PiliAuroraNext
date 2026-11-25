@@ -694,7 +694,7 @@ class VideoDetailController with BlockMixin {
       ),
     );
     if (isPlaying) {
-      plPlayerController.play();
+      plPlayerController.play(allowFocusReacquisition: false);
     }
   }
 

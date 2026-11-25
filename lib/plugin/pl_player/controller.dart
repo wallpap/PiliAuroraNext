@@ -2254,7 +2254,11 @@ class PlPlayerController
   }
 
   /// 播放视频
-  Future<void> play({bool repeat = false, bool hideControls = true}) async {
+  Future<void> play({
+    bool repeat = false,
+    bool hideControls = true,
+    bool allowFocusReacquisition = true,
+  }) async {
     final owner = _activeOwner;
     if (owner == null || !owner.isActive) return;
     final version = ++_audioSessionVersion;
@@ -2268,7 +2272,12 @@ class PlPlayerController
     final result = await owner.setPlaying(true);
     if (result.outcome == CommandOutcome.applied ||
         result.outcome == CommandOutcome.accepted) {
-      await _changeAudioSession(owner, true, version);
+      await _changeAudioSession(
+        owner,
+        true,
+        version,
+        allowFocusReacquisition: allowFocusReacquisition && !repeat,
+      );
     }
   }
 
@@ -2290,8 +2299,9 @@ class PlPlayerController
   Future<void> _changeAudioSession(
     PlaybackOwner owner,
     bool active,
-    int version,
-  ) {
+    int version, {
+    bool allowFocusReacquisition = false,
+  }) {
     final handler = audioSessionHandler;
     if (handler == null) return Future<void>.value();
     late final Future<void> change;
@@ -2308,6 +2318,7 @@ class PlPlayerController
             if (!await handler.changeVideoActive(
               this,
               active,
+              allowFocusReacquisition: allowFocusReacquisition,
               isCurrent: () =>
                   version == _audioSessionVersion &&
                   owner.isActive &&

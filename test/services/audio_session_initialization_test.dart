@@ -3,15 +3,47 @@ import 'dart:async';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
 import 'package:pili_aurora_next/services/audio_session.dart';
+
+import '../plugin/pl_player/playback/playback_session_fixture.dart';
 
 class _PlaybackController implements PlPlayerController {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _SessionPlaybackController extends _PlaybackController {
+  final runtime = FakeSessionRuntime();
+  late final playback = PlaybackSession(runtime: runtime);
+
+  @override
+  PlaybackOwner? activePlaybackOwner;
+
+  PlaybackOwner attachOwner() => activePlaybackOwner = playback.attach();
+
+  @override
+  PlaybackSnapshot get currentPlaybackSnapshot => playback.currentSnapshot;
+
+  @override
+  PlaybackInhibitorToken? acquireSessionInhibitor(
+    PlaybackInhibitorSource source,
+  ) => playback.acquireSessionInhibitor(source);
+
+  @override
+  Future<CommandResult> releaseSessionInhibitor(
+    PlaybackInhibitorToken token,
+  ) => playback.releaseSessionInhibitor(token);
+
+  @override
+  Future<CommandResult> synchronizePlaybackIntent() =>
+      playback.synchronizePlaybackIntent();
+}
+
 class _AudioSession implements AudioSession {
   Future<void> Function()? configureSession;
+  Future<bool> Function(bool)? changeActivation;
   int configurations = 0;
   int interruptionSubscriptions = 0;
   int noisySubscriptions = 0;
@@ -48,7 +80,7 @@ class _AudioSession implements AudioSession {
         const AudioSessionConfiguration.music(),
   }) async {
     activations.add(active);
-    return active;
+    return changeActivation?.call(active) ?? active;
   }
 
   @override
@@ -171,5 +203,218 @@ void main() {
     handler.detachPlaybackController(current);
     await handler.changeVideoActive(next, false);
     expect(session.activations, [true, false]);
+  });
+
+  test('Android 永久失焦跨视频保留，手动申请成功后解除系统抑制', () async {
+    final session = _AudioSession();
+    final handler = AudioSessionHandler(
+      loadSession: () async => session,
+      androidFocusLifecycle: true,
+    );
+    final controller = _SessionPlaybackController();
+    addTearDown(session.dispose);
+    addTearDown(controller.playback.shutdown);
+    addTearDown(handler.dispose);
+    handler.attachPlaybackController(controller);
+    final first = controller.attachOwner();
+    await first.load(sessionPlan('first'), start: PlaybackStartPolicy.play);
+    expect(await handler.changeVideoActive(controller, true), isTrue);
+
+    session.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.unknown),
+    );
+    await waitForSessionCondition(() => !controller.runtime.playCalls.last);
+    final second = controller.attachOwner();
+    final loaded = await second.load(
+      sessionPlan('other-origin'),
+      start: PlaybackStartPolicy.play,
+    );
+    expect(loaded.outcome, LoadOutcome.ready);
+    expect(controller.currentPlaybackSnapshot.intent.playing, isTrue);
+    expect(controller.runtime.playCalls.last, isFalse);
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(1));
+
+    expect(
+      await handler.changeVideoActive(
+        controller,
+        true,
+        allowFocusReacquisition: false,
+      ),
+      isTrue,
+    );
+    expect(session.activations, [true]);
+    session.interruptions.add(
+      AudioInterruptionEvent(false, AudioInterruptionType.pause),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(1));
+
+    session.changeActivation = (active) async => !active;
+    expect(await handler.changeVideoActive(controller, true), isFalse);
+    expect(session.activations, [true, true, false]);
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(1));
+    expect(controller.runtime.playCalls.last, isFalse);
+
+    session.changeActivation = null;
+    expect(await handler.changeVideoActive(controller, true), isTrue);
+    expect(controller.currentPlaybackSnapshot.inhibitors, isEmpty);
+    expect(controller.runtime.playCalls.last, isTrue);
+  });
+
+  test('Android 暂时失焦不提前恢复；主动放弃请求后可以再次申请', () async {
+    final session = _AudioSession()..changeActivation = (_) async => true;
+    final handler = AudioSessionHandler(
+      loadSession: () async => session,
+      androidFocusLifecycle: true,
+    );
+    final controller = _SessionPlaybackController();
+    addTearDown(session.dispose);
+    addTearDown(controller.playback.shutdown);
+    addTearDown(handler.dispose);
+    handler.attachPlaybackController(controller);
+    final owner = controller.attachOwner();
+    await owner.load(sessionPlan('video'), start: PlaybackStartPolicy.play);
+    await handler.changeVideoActive(controller, true);
+    final playing = controller.runtime.playCalls;
+
+    session.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.pause),
+    );
+    await waitForSessionCondition(() => !playing.last);
+    await handler.changeVideoActive(controller, true);
+    expect(playing.last, isFalse);
+    session.interruptions.add(
+      AudioInterruptionEvent(false, AudioInterruptionType.pause),
+    );
+    await waitForSessionCondition(() => playing.last);
+
+    session.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.pause),
+    );
+    await waitForSessionCondition(() => !playing.last);
+    await owner.setPlaying(false);
+    await handler.changeVideoActive(controller, false);
+    expect(controller.currentPlaybackSnapshot.intent.playing, isFalse);
+    expect(playing.last, isFalse);
+    await owner.setPlaying(true);
+    await handler.changeVideoActive(controller, true);
+    expect(controller.currentPlaybackSnapshot.inhibitors, isEmpty);
+    expect(playing.last, isTrue);
+  });
+
+  test('Android 迟到焦点回执不能解除更新的永久失焦', () async {
+    final session = _AudioSession();
+    final handler = AudioSessionHandler(
+      loadSession: () async => session,
+      androidFocusLifecycle: true,
+    );
+    final controller = _SessionPlaybackController();
+    addTearDown(session.dispose);
+    addTearDown(controller.playback.shutdown);
+    addTearDown(handler.dispose);
+    handler.attachPlaybackController(controller);
+    final owner = controller.attachOwner();
+    await owner.load(sessionPlan('video'), start: PlaybackStartPolicy.play);
+    await handler.changeVideoActive(controller, true);
+
+    final lost = AudioInterruptionEvent(true, AudioInterruptionType.unknown);
+    session.interruptions.add(lost);
+    await waitForSessionCondition(() => !controller.runtime.playCalls.last);
+    final pending = Completer<bool>();
+    session.changeActivation = (_) => pending.future;
+    final request = handler.changeVideoActive(controller, true);
+    await waitForSessionCondition(() => session.activations.length == 2);
+    session.interruptions.add(lost);
+    await Future<void>.delayed(Duration.zero);
+    pending.complete(true);
+    await request;
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(1));
+    expect(controller.runtime.playCalls.last, isFalse);
+
+    session.changeActivation = null;
+    await handler.changeVideoActive(controller, true);
+    expect(controller.currentPlaybackSnapshot.inhibitors, isEmpty);
+    expect(controller.runtime.playCalls.last, isTrue);
+  });
+
+  test('Android 旧播放所有者的获焦回执不能恢复新视频', () async {
+    final session = _AudioSession();
+    final handler = AudioSessionHandler(
+      loadSession: () async => session,
+      androidFocusLifecycle: true,
+    );
+    final controller = _SessionPlaybackController();
+    addTearDown(session.dispose);
+    addTearDown(controller.playback.shutdown);
+    addTearDown(handler.dispose);
+    handler.attachPlaybackController(controller);
+    final first = controller.attachOwner();
+    await first.load(sessionPlan('first'), start: PlaybackStartPolicy.play);
+    await handler.changeVideoActive(controller, true);
+    session.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.unknown),
+    );
+    await waitForSessionCondition(() => !controller.runtime.playCalls.last);
+
+    final pending = Completer<bool>();
+    session.changeActivation = (active) =>
+        active ? pending.future : Future.value(true);
+    final request = handler.changeVideoActive(
+      controller,
+      true,
+      isCurrent: () => first.isActive,
+    );
+    await waitForSessionCondition(() => session.activations.length == 2);
+    final second = controller.attachOwner();
+    await second.load(sessionPlan('second'), start: PlaybackStartPolicy.play);
+    pending.complete(true);
+    await request;
+    expect(session.activations, [true, true, false]);
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(1));
+    expect(controller.runtime.playCalls.last, isFalse);
+
+    session.changeActivation = null;
+    expect(await handler.changeVideoActive(controller, true), isTrue);
+    expect(controller.currentPlaybackSnapshot.inhibitors, isEmpty);
+    expect(controller.runtime.playCalls.last, isTrue);
+  });
+
+  test('独立音频重新获焦，独立租约仍保持视频暂停直到实际释放', () async {
+    final session = _AudioSession()..changeActivation = (_) async => true;
+    final handler = AudioSessionHandler(
+      loadSession: () async => session,
+      androidFocusLifecycle: true,
+    );
+    final controller = _SessionPlaybackController();
+    addTearDown(session.dispose);
+    addTearDown(controller.playback.shutdown);
+    addTearDown(handler.dispose);
+    handler.attachPlaybackController(controller);
+    final owner = controller.attachOwner();
+    await owner.load(sessionPlan('video'), start: PlaybackStartPolicy.play);
+    final playing = <bool>[];
+    final lease = handler.acquireIndependentPlayer(
+      setPlaying: (value) async => playing.add(value),
+      volume: () => 100,
+      volumeRevision: () => 0,
+      setVolume: (_) async {},
+    );
+    await lease.setPlaying(true);
+    expect(playing.last, isTrue);
+    expect(controller.runtime.playCalls.last, isFalse);
+
+    session.interruptions.add(
+      AudioInterruptionEvent(true, AudioInterruptionType.unknown),
+    );
+    await waitForSessionCondition(() => !playing.last);
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(2));
+    await lease.setPlaying(true);
+    expect(playing.last, isTrue);
+    expect(controller.currentPlaybackSnapshot.inhibitors, hasLength(1));
+    expect(controller.runtime.playCalls.last, isFalse);
+
+    await lease.close(() async {});
+    expect(controller.currentPlaybackSnapshot.inhibitors, isEmpty);
+    expect(controller.runtime.playCalls.last, isTrue);
   });
 }
