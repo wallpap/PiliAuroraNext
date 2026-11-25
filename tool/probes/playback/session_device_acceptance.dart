@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -65,6 +66,7 @@ Future<void> main() async {
   final diagnosticReplayOnly = config['diagnosticReplayOnly'] == true;
   final startupOnly = config['startupOnly'] == true;
   final eofOnly = config['eofOnly'] == true;
+  final networkRecoveryOnly = config['networkRecoveryOnly'] == true;
   final switchSources = (config['switchSources'] as List?)?.cast<String>();
   final switchOnly = switchSources != null;
   final mountAfterLoad = config['mountAfterLoad'] == true;
@@ -156,6 +158,12 @@ Future<void> main() async {
     String name,
     Future<Map<String, Object?>> Function() body,
   ) async {
+    if (networkRecoveryOnly &&
+        name != 'paused-load' &&
+        name != 'shutdown-released' &&
+        !name.startsWith('network-')) {
+      return;
+    }
     if (eofOnly &&
         !{
           'paused-load',
@@ -217,24 +225,27 @@ Future<void> main() async {
     debugPrint('DEVICE_ACCEPTANCE ${jsonEncode(cases.last)}');
   }
 
-  PlaybackPlan plan({String? sound, bool live = false, String? source}) =>
-      PlaybackPlan(
-        contentKey: live || switchOnly ? 'fixture-live-policy' : 'fixture',
-        source: PlaybackSourceSnapshot.fromDataSource(
-          NetworkSource(videoSource: source ?? media, audioSource: sound),
-        ),
-        timeline: PlaybackTimeline(
-          kind: live || switchOnly
-              ? PlaybackTimelineKind.live
-              : PlaybackTimelineKind.onDemand,
-          seekPolicy: live || switchOnly
-              ? PlaybackSeekPolicy.disabled
-              : PlaybackSeekPolicy.allowed,
-        ),
-        configuration: PlaybackConfiguration(
-          hwdec: decoder,
-        ),
-      );
+  PlaybackPlan plan({
+    String? sound,
+    bool live = false,
+    String? source,
+    String? contentKey,
+  }) => PlaybackPlan(
+    contentKey:
+        contentKey ?? (live || switchOnly ? 'fixture-live-policy' : 'fixture'),
+    source: PlaybackSourceSnapshot.fromDataSource(
+      NetworkSource(videoSource: source ?? media, audioSource: sound),
+    ),
+    timeline: PlaybackTimeline(
+      kind: live || switchOnly
+          ? PlaybackTimelineKind.live
+          : PlaybackTimelineKind.onDemand,
+      seekPolicy: live || switchOnly
+          ? PlaybackSeekPolicy.disabled
+          : PlaybackSeekPolicy.allowed,
+    ),
+    configuration: PlaybackConfiguration(hwdec: decoder),
+  );
   final runtime = NativePlaybackRuntime(
     configuration: PlaybackRuntimeConfig(
       playerOptions: const {'ao': 'null', 'gpu-dumb-mode': 'no'},
@@ -268,7 +279,9 @@ Future<void> main() async {
   double? property(String key) =>
       double.tryParse(runtime.player!.getProperty(key));
   Future<Map<String, Object?>> advancing() async {
-    final beforePixels = switchOnly ? await pixels() : null;
+    final beforePixels = switchOnly || networkRecoveryOnly
+        ? await pixels()
+        : null;
     final before = property('time-pos');
     final audioBefore = property('audio-pts');
     await Future<void>.delayed(const Duration(seconds: 2));
@@ -300,6 +313,149 @@ Future<void> main() async {
       'codec': runtime.player!.getProperty('video-codec'),
       ...afterPixels,
     };
+  }
+
+  Future<void> verifyNetworkRecovery() async {
+    final nativePlayer = runtime.player;
+    final origins = <_MediaOrigin>[];
+    Future<_MediaOrigin> startOrigin(Uint8List bytes) async {
+      final origin = await _MediaOrigin.start(bytes);
+      origins.add(origin);
+      return origin;
+    }
+
+    Future<Map<String, Object?>> ready(LoadResult result) async {
+      check(result.outcome == LoadOutcome.ready, 'network source not ready');
+      check(result.loadId == session.loadId, 'ready for a stale load');
+      check(
+        identical(runtime.player, nativePlayer),
+        'recovery did not reuse the native player',
+      );
+      await waitFor(
+        () =>
+            session.currentSnapshot.actual.playing == true &&
+            nativePlayer!.state.position.inMilliseconds > 500,
+      );
+      final evidence = await advancing();
+      check(
+        session.currentSnapshot.phase == PlaybackPhase.ready &&
+            session.currentSnapshot.failure == null &&
+            session.loadId == result.loadId,
+        'old network failure overwrote the ready load',
+      );
+      return {'loadId': result.loadId, ...evidence};
+    }
+
+    try {
+      final bytes = await File(media).readAsBytes();
+      final original = await startOrigin(bytes);
+      final alternate = await startOrigin(bytes);
+      final originalPlan = plan(
+        source: original.url('/playing.mp4'),
+        contentKey: 'network-original',
+      );
+      final alternatePlan = plan(
+        source: alternate.url('/playing.mp4'),
+        contentKey: 'network-alternate',
+      );
+
+      Future<PlaybackFailure> rejected() async {
+        final before = original.rejections;
+        original.reject = true;
+        final result = await owner.load(
+          originalPlan,
+          start: PlaybackStartPolicy.play,
+        );
+        check(original.rejections > before, 'source did not receive HTTP 404');
+        check(
+          result.outcome == LoadOutcome.failed &&
+              session.currentSnapshot.phase == PlaybackPhase.failed,
+          'HTTP 404 did not settle the current load as failed',
+        );
+        return result.failure!;
+      }
+
+      await test('network-retry-same-source', () async {
+        final failure = await rejected();
+        original.reject = false;
+        final before = original.served;
+        final evidence = await ready(await owner.retry());
+        check(original.served > before, 'retry did not request media');
+        return {
+          'failureOperation': failure.operation,
+          'failureCategory': failure.category.name,
+          ...evidence,
+        };
+      });
+      await test('network-switch-after-failure', () async {
+        final failure = await rejected();
+        final before = alternate.served;
+        final evidence = await ready(
+          await owner.load(alternatePlan, start: PlaybackStartPolicy.play),
+        );
+        check(
+          alternate.served > before,
+          'alternate origin did not serve media',
+        );
+        return {
+          'failureOperation': failure.operation,
+          'failureCategory': failure.category.name,
+          ...evidence,
+        };
+      });
+      await test('network-switch-during-stalled-open', () async {
+        final stalled = owner.load(
+          plan(
+            source: original.url('/stall'),
+            contentKey: 'network-stall',
+          ),
+          start: PlaybackStartPolicy.play,
+        );
+        await original.stalled.future.timeout(const Duration(seconds: 10));
+        check(
+          session.currentSnapshot.phase == PlaybackPhase.loading,
+          'open not pending when HTTP request stalled',
+        );
+        final previousLoadId = session.loadId;
+        final before = alternate.served;
+        final watch = Stopwatch()..start();
+        final replacement = session.attach();
+        try {
+          final loaded = replacement.load(
+            alternatePlan,
+            start: PlaybackStartPolicy.play,
+          );
+          final superseded = await stalled;
+          final result = await loaded;
+          final switchMs = watch.elapsedMilliseconds;
+          check(
+            superseded.outcome == LoadOutcome.superseded,
+            'previous owner retained the stalled request',
+          );
+          check(
+            switchMs < 10000 && result.loadId != previousLoadId,
+            'replacement waited on the stalled request',
+          );
+          final evidence = await ready(result);
+          check(
+            alternate.served > before,
+            'alternate origin did not serve media',
+          );
+          return {
+            'oldOutcome': superseded.outcome.name,
+            'oldLoadId': previousLoadId,
+            'switchMs': switchMs,
+            ...evidence,
+          };
+        } finally {
+          replacement.close();
+        }
+      });
+    } finally {
+      for (final origin in origins) {
+        await origin.server.close(force: true);
+      }
+    }
   }
 
   try {
@@ -345,6 +501,7 @@ Future<void> main() async {
         'loadId': session.loadId,
       };
     });
+    if (networkRecoveryOnly) await verifyNetworkRecovery();
     if (switchSources != null) {
       await owner.setPlaying(true);
       for (var index = 0; index < switchSources.length; index++) {
@@ -763,4 +920,69 @@ Future<void> main() async {
 class _CheckFailure implements Exception {
   const _CheckFailure(this.reason);
   final String reason;
+}
+
+class _MediaOrigin {
+  _MediaOrigin(this.server, this.bytes);
+
+  final HttpServer server;
+  final Uint8List bytes;
+  final stalled = Completer<void>();
+  static final _range = RegExp(r'^bytes=(\d+)-(\d*)$');
+  bool reject = false;
+  int rejections = 0;
+  int served = 0;
+
+  static Future<_MediaOrigin> start(Uint8List bytes) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final origin = _MediaOrigin(server, bytes);
+    server.listen(origin._respond);
+    return origin;
+  }
+
+  String url(String path) => 'http://127.0.0.1:${server.port}$path';
+
+  void _respond(HttpRequest request) {
+    final response = request.response;
+    response.done.ignore();
+    if (request.uri.path == '/stall') {
+      if (!stalled.isCompleted) stalled.complete();
+      return;
+    }
+    if (reject || request.uri.path != '/playing.mp4') {
+      rejections++;
+      response.statusCode = HttpStatus.notFound;
+      response.close().ignore();
+      return;
+    }
+    final range = request.headers.value(HttpHeaders.rangeHeader);
+    final match = range == null ? null : _range.firstMatch(range);
+    final first = match == null ? 0 : int.parse(match[1]!);
+    final last = match == null || match[2]!.isEmpty
+        ? bytes.length - 1
+        : int.parse(match[2]!).clamp(0, bytes.length - 1);
+    if ((range != null && match == null) || first > last) {
+      response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+      response.headers.set(
+        HttpHeaders.contentRangeHeader,
+        'bytes */${bytes.length}',
+      );
+      response.close().ignore();
+      return;
+    }
+    served++;
+    if (match != null) {
+      response.statusCode = HttpStatus.partialContent;
+      response.headers.set(
+        HttpHeaders.contentRangeHeader,
+        'bytes $first-$last/${bytes.length}',
+      );
+    }
+    response.headers.contentType = ContentType('video', 'mp4');
+    response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+    response
+      ..contentLength = last - first + 1
+      ..add(Uint8List.sublistView(bytes, first, last + 1))
+      ..close().ignore();
+  }
 }

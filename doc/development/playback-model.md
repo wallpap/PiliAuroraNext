@@ -279,6 +279,8 @@ EOF(k) ∧ k = 当前打开 ∧ phase ∈ {loading, recovering} ⇒ 暂存首个
 nativeIdentity = unknown ⇒ 同一 runtime 不发起新的原生 open
 切换内容、来源或网络 ⇏ 新 runtime ∨ 释放屏障已通过
 sessionInhibitors ≠ ∅ ⇒ 切换 owner 后仍不允许有效播放
+sourceFailed(load₁) ∧ 已接受 load₂ ∧ load₁ ≠ load₂
+  ⇒ load₁ 的迟到回执不得使 load₂ 失败或阻止其推进
 ```
 
 原生事件队列溢出可使文件身份不可再验证；这条路径与来源是否可访问无关。此时不能清除
@@ -288,6 +290,11 @@ sessionInhibitors ≠ ∅ ⇒ 切换 owner 后仍不允许有效播放
 首次失去身份时，原生层以 `native-lifecycle` 结算待确认的加载，并通知当前非退休文件所属的会话。
 随后到达的准备回执不能使加载成功。重复身份错误只触发一次通知。旧文件身份与卸载信息仍用于验证
 原生资源释放。
+
+对比单来源故障时，使用[生产会话设备探针](../../tool/probes/README.md#生产会话设备验收)的
+`networkRecoveryOnly`。两个真实 HTTP 端点分别验证 404 后原来源重试、切换到新内容，以及旧请求
+收到服务端连接但无响应头时的 owner 交接；判据是新加载身份、同一原生播放器的时间推进与纹理变化。
+这些轨迹不覆盖原生身份丢失、真实 CDN 或物理换网，不能反推报告中的跨视频故障已修复。
 
 ### I12：恢复预算的健康窗口
 
