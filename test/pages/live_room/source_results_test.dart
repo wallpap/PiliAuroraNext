@@ -287,21 +287,6 @@ void main() {
     settings.data[SettingBoxKey.liveStream] = _oldPreference;
     Accounts.accountMode[AccountType.heartbeat.index] = AnonymousAccount();
     interceptor.requests.clear();
-    runtime = _Runtime();
-    session = PlaybackSession(runtime: runtime);
-    room = _Room(_Player(session))
-      ..open()
-      ..stream = _streams()
-      ..currentQn = 80
-      ..videoUrl = 'confirmed-source';
-    room.currentQnDesc.value = '流畅';
-  });
-  tearDown(() async {
-    for (final request in interceptor.requests) {
-      if (!request.reply.isCompleted) request.reply.complete({'code': -1});
-    }
-    room.close();
-    await session.shutdown();
   });
   tearDownAll(() async {
     Request.dio.close(force: true);
@@ -324,6 +309,14 @@ void main() {
 
   void check(String name, Future<void> Function(WidgetTester) body) {
     testWidgets(name, (tester) async {
+      runtime = _Runtime();
+      session = PlaybackSession(runtime: runtime);
+      room = _Room(_Player(session))
+        ..open()
+        ..stream = _streams()
+        ..currentQn = 80
+        ..videoUrl = 'confirmed-source';
+      room.currentQnDesc.value = '流畅';
       await tester.pumpWidget(
         MaterialApp(
           builder: FlutterSmartDialog.init(),
@@ -333,6 +326,11 @@ void main() {
       try {
         await body(tester);
       } finally {
+        for (final request in interceptor.requests) {
+          if (!request.reply.isCompleted) request.reply.complete({'code': -1});
+        }
+        room.close();
+        await complete(tester, session.shutdown());
         final dismiss = SmartDialog.dismiss(status: SmartStatus.allToast);
         await tester.pump(const Duration(seconds: 6));
         await dismiss;
