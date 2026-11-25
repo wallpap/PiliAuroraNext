@@ -11,6 +11,8 @@ import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/app/bootstrap.dart';
 import 'package:pili_aurora_next/common/widgets/scale_app.dart';
+import 'package:pili_aurora_next/common/widgets/progress_bar/audio_video_progress_bar.dart';
+import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:pili_aurora_next/http/api.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/source_type.dart';
@@ -20,7 +22,11 @@ import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/controller.dart';
 import 'package:pili_aurora_next/pages/live_room/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
+import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/video_progress.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/video_time.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/desktop_playback_menu.dart';
+import 'package:pili_aurora_next/plugin/pl_player/widgets/player_loading.dart';
 import 'package:pili_aurora_next/plugin/pl_player/widgets/video_output_handoff.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
@@ -78,23 +84,23 @@ Future<void> main(List<String> arguments) async {
           };
         }
       }
-      if (Get.isRegistered<VideoDetailController>(tag: 'window-probe')) {
-        final page = Get.find<VideoDetailController>(tag: 'window-probe');
+      final page = _mountedVideoPage(player);
+      if (page != null) {
         report['pageLoaded'] = page.videoState.value;
         report['pageAutoPlay'] = page.autoPlay;
       }
       final before = await _texturePixels();
       await Future<void>.delayed(const Duration(seconds: 2));
       final after = await _texturePixels();
+      final movingTexture =
+          before['range'] != null &&
+          (before['range']! as int) > 40 &&
+          (after['range'] as int? ?? 0) > 40 &&
+          before['fingerprint'] != after['fingerprint'];
       report.addAll({
         'beforePixels': before,
         'afterPixels': after,
-        'passed':
-            (report['startup'] as Map)['passed'] == true &&
-            before['range'] != null &&
-            (before['range']! as int) > 40 &&
-            (after['range']! as int) > 40 &&
-            before['fingerprint'] != after['fingerprint'],
+        'passed': (report['startup'] as Map)['passed'] == true && movingTexture,
       });
       if (liveBase != null) {
         LiveRoomController? live;
@@ -138,14 +144,22 @@ Future<void> main(List<String> arguments) async {
             report['passed'] == true &&
             switches.every((s) => s['passed'] == true);
       }
-      if (liveBase == null && report['passed'] == true && player != null) {
-        final page = Get.find<VideoDetailController>(tag: 'window-probe');
+      if (liveBase == null && movingTexture && player != null) {
+        if (page == null) throw StateError('Video page is missing');
         await player.pause();
         await page.playerInit();
         final paused = player.currentPlaybackSnapshot;
         report['reloadKeptPause'] =
             !paused.intent.playing && paused.actual.playing == false;
-        report['passed'] = report['reloadKeptPause'] == true;
+        report['passed'] =
+            report['passed'] == true && report['reloadKeptPause'] == true;
+        if (options['replayProgress'] == true &&
+            report['reloadKeptPause'] == true) {
+          final progress = await _observeReplayProgress(player, page);
+          report['replayProgress'] = progress;
+          report['passed'] =
+              report['passed'] == true && progress['passed'] == true;
+        }
       }
     } catch (error, stack) {
       report.addAll({
@@ -296,10 +310,144 @@ Future<void> main(List<String> arguments) async {
   await windowManager.destroy();
 }
 
+VideoDetailController? _mountedVideoPage(PlPlayerController? player) {
+  VideoDetailController? page;
+  void visit(Element element) {
+    if (element.widget
+        case VideoProgressTrack(
+          :final controller,
+          :final videoDetailController,
+        )
+        when identical(controller, player)) {
+      page = videoDetailController;
+    }
+    if (page == null) element.visitChildren(visit);
+  }
+
+  WidgetsBinding.instance.rootElement?.visitChildren(visit);
+  return page;
+}
+
+Future<Map<String, Object?>> _observeReplayProgress(
+  PlPlayerController player,
+  VideoDetailController page,
+) async {
+  final steps = <String, Object?>{};
+  final durationWatch = Stopwatch()..start();
+  late Duration length;
+  while (true) {
+    final actual = player.videoPlayerController?.state.duration;
+    if (actual != null &&
+        actual >= const Duration(seconds: 5) &&
+        actual.inSeconds == player.duration.value) {
+      length = actual;
+      break;
+    }
+    if (durationWatch.elapsed >= const Duration(seconds: 8)) {
+      return {
+        'passed': false,
+        'reason': 'duration not confirmed',
+        'actualMs': actual?.inMilliseconds,
+        'projectedMs': player.durationInMilliseconds,
+      };
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+  }
+
+  Future<bool> observe(
+    String name, {
+    required PlaybackPhase phase,
+    required int minimum,
+    required int maximum,
+    int? previousLoad,
+  }) async {
+    final watch = Stopwatch()..start();
+    do {
+      VideoTime? time;
+      ProgressBar? track;
+      RenderProgressBar? rendered;
+      void visit(Element element) {
+        if (element.widget case final VideoTime widget) time = widget;
+        if (element.widget case final ProgressBar widget
+            when widget.onDragStart != null) {
+          track = widget;
+          rendered = element.findRenderObject() as RenderProgressBar?;
+        }
+        element.visitChildren(visit);
+      }
+
+      WidgetsBinding.instance.rootElement!.visitChildren(visit);
+      final snapshot = player.currentPlaybackSnapshot;
+      final position = player.position.value;
+      final total = player.duration.value;
+      final passed =
+          snapshot.phase == phase &&
+          snapshot.loadId != null &&
+          (previousLoad == null || snapshot.loadId != previousLoad) &&
+          position >= minimum &&
+          position <= maximum &&
+          track?.progress == position &&
+          rendered?.progress == position &&
+          track?.total == total &&
+          time?.position == DurationUtils.formatDuration(position) &&
+          time?.duration == DurationUtils.formatDuration(total);
+      steps[name] = {
+        'passed': passed,
+        'phase': snapshot.phase.name,
+        'load': snapshot.loadId,
+        'minimum': minimum,
+        'maximum': maximum,
+        'position': position,
+        'duration': total,
+        'track': track?.progress,
+        'trackTotal': track?.total,
+        'rendered': rendered?.progress,
+        'time': time?.position,
+        'timeTotal': time?.duration,
+      };
+      if (passed) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+    } while (watch.elapsed < const Duration(seconds: 8));
+    return false;
+  }
+
+  await player.seekTo(length - const Duration(seconds: 1));
+  await player.play(hideControls: false);
+  final ended = await observe(
+    'ended',
+    phase: PlaybackPhase.ended,
+    minimum: length.inSeconds - 2,
+    maximum: length.inSeconds,
+  );
+  final endedLoad = player.currentPlaybackSnapshot.loadId;
+  if (!ended) return {'passed': false, 'steps': steps};
+
+  await page.playerInit(autoplay: false);
+  player.controls = true;
+  final reset = await observe(
+    'reopened',
+    phase: PlaybackPhase.ready,
+    minimum: 0,
+    maximum: 0,
+    previousLoad: endedLoad,
+  );
+  if (!reset) return {'passed': false, 'steps': steps};
+
+  await player.play(hideControls: false);
+  final advanced = await observe(
+    'advancing',
+    phase: PlaybackPhase.ready,
+    minimum: 1,
+    maximum: 3,
+    previousLoad: endedLoad,
+  );
+  return {'passed': advanced, 'steps': steps};
+}
+
 Future<Map<String, Object?>> _observeStartup() async {
   final watch = Stopwatch()..start();
   final geometry = <String>[];
-  var visibleWithoutTexture = 0, handoffSamples = 0;
+  var visibleLoading = 0, visibleWithoutFeedback = 0, handoffSamples = 0;
   int? firstTextureMs;
   while (watch.elapsed < const Duration(seconds: 6)) {
     await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -312,7 +460,21 @@ Future<Map<String, Object?>> _observeStartup() async {
     for (final view in RendererBinding.instance.renderViews) {
       visit(view);
     }
-    if (count == 0 && await windowManager.isVisible()) visibleWithoutTexture++;
+    if (count == 0 && await windowManager.isVisible()) {
+      var loading = false;
+      void inspectLoading(Element element) {
+        if (element.widget case Offstage(offstage: true)) return;
+        if (element.widget is PlayerLoadingIndicator) loading = true;
+        if (!loading) element.visitChildren(inspectLoading);
+      }
+
+      WidgetsBinding.instance.rootElement?.visitChildren(inspectLoading);
+      if (loading) {
+        visibleLoading++;
+      } else {
+        visibleWithoutFeedback++;
+      }
+    }
     final player = PlPlayerController.instance;
     if (count > 0 && player?.currentPlaybackSnapshot.actual.playing == true) {
       firstTextureMs ??= watch.elapsedMilliseconds;
@@ -332,12 +494,13 @@ Future<Map<String, Object?>> _observeStartup() async {
   }
   return {
     'firstTextureMs': firstTextureMs,
-    'visibleWithoutTextureSamples': visibleWithoutTexture,
+    'visibleLoadingSamples': visibleLoading,
+    'visibleWithoutFeedbackSamples': visibleWithoutFeedback,
     'geometryWhilePlaying': geometry,
     'handoffSamples': handoffSamples,
     'passed':
         firstTextureMs != null &&
-        visibleWithoutTexture == 0 &&
+        visibleWithoutFeedback == 0 &&
         geometry.length == 1 &&
         handoffSamples == 0,
   };
