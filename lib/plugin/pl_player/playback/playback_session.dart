@@ -439,7 +439,7 @@ class PlaybackSession implements PlaybackMediaClock {
     }
     try {
       final plan = await resolve(query).timeout(remaining);
-      if (!_isRequestCurrent(request)) return;
+      if (!_continueRequest(request)) return;
       if (plan == null) {
         const failure = PlaybackFailure(
           category: PlaybackFailureCategory.source,
@@ -455,8 +455,9 @@ class PlaybackSession implements PlaybackMediaClock {
         _publish();
         return;
       }
-      if (!_isRequestCurrent(request)) return;
-      if (request.shouldLoad?.call() == false) {
+      final shouldLoad = request.shouldLoad?.call() ?? true;
+      if (!_continueRequest(request)) return;
+      if (!shouldLoad) {
         request.resolved = true;
         request.owner._requiresLoad = true;
         _phase = PlaybackPhase.idle;
@@ -472,7 +473,7 @@ class PlaybackSession implements PlaybackMediaClock {
     } on TimeoutException {
       _expireRequest(request);
     } catch (error) {
-      if (!_isRequestCurrent(request)) return;
+      if (!_continueRequest(request)) return;
       final failure = PlaybackFailure(
         category: PlaybackFailureCategory.source,
         operation: 'query',
@@ -535,7 +536,7 @@ class PlaybackSession implements PlaybackMediaClock {
       : PlaybackPhase.loading;
 
   void _scheduleLoad(_AcceptedRequest request, PlaybackPlan plan) {
-    if (!_isRequestCurrent(request)) return;
+    if (!_continueRequest(request)) return;
     final effectivePlan = _mergeConfigChangesSinceAcceptance(request, plan);
     _stage = PlaybackStage.queued;
     _publish();
@@ -564,7 +565,7 @@ class PlaybackSession implements PlaybackMediaClock {
     Future<PlaybackOperationResult<PlaybackRuntimeLoadResult>> task,
   ) async {
     final result = await task;
-    if (!_isRequestCurrent(request)) return;
+    if (!_continueRequest(request)) return;
     switch (result.outcome) {
       case PlaybackOperationOutcome.completed:
         final value = result.value;
@@ -626,7 +627,7 @@ class PlaybackSession implements PlaybackMediaClock {
             playResult.outcome == CommandOutcome.superseded) {
           playResult = await _ensureWriter();
         }
-        if (!_isRequestCurrent(request)) return;
+        if (!_continueRequest(request)) return;
         _writerLoadRequestId = null;
         if (playResult.outcome != CommandOutcome.applied) {
           _failLoad(
@@ -2133,9 +2134,9 @@ class PlaybackSession implements PlaybackMediaClock {
       return;
     }
     if (request != null) {
-      if (!_ownsRequest(request)) return;
+      if (!_continueRequest(request)) return;
       _cancelRequestCallbacks(request);
-      if (!_ownsRequest(request)) return;
+      if (!_continueRequest(request)) return;
       _operations
         ..cancel(PlaybackOperationSlot.load)
         ..cancel(PlaybackOperationSlot.recovery);
@@ -2148,6 +2149,7 @@ class PlaybackSession implements PlaybackMediaClock {
   void _expireRequest(_AcceptedRequest request) {
     if (!_ownsRequest(request)) return;
     _cancelRequestCallbacks(request);
+    if (!_ownsRequest(request)) return;
     _operations
       ..cancel(PlaybackOperationSlot.load)
       ..cancel(PlaybackOperationSlot.recovery);
@@ -2199,6 +2201,13 @@ class PlaybackSession implements PlaybackMediaClock {
 
   bool _isRequestCurrent(_AcceptedRequest request) =>
       _ownsRequest(request) && request.deadline > _now();
+
+  bool _continueRequest(_AcceptedRequest request) {
+    if (!_ownsRequest(request)) return false;
+    if (_now() < request.deadline) return true;
+    _expireRequest(request);
+    return false;
+  }
 
   bool _ownsRequest(_AcceptedRequest request) =>
       !_closingRequested &&

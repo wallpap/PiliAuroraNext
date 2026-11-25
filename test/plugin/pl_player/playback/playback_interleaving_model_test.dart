@@ -8,6 +8,8 @@ import 'playback_session_fixture.dart';
 
 enum _Input { pause, redirectSeek, replace, close }
 
+enum _LoadReply { resolver, predicate, open, intent, nativeFailure }
+
 Iterable<List<_Input>> _orders(List<_Input> remaining) sync* {
   if (remaining.isEmpty) {
     yield const [];
@@ -197,6 +199,107 @@ void main() {
         await runtime.eventController.close();
       }
     });
+  }
+
+  for (final reply in _LoadReply.values) {
+    for (final offsetMs in [-1, 0, 1]) {
+      testWidgets('加载回执与截止时间：${reply.name} 偏移 ${offsetMs}ms', (
+        tester,
+      ) async {
+        const budget = Duration(seconds: 2);
+        var now = Duration.zero;
+        final blocked = Completer<int>();
+        final resume = Completer<void>();
+        final plan = sessionPlan('deadline');
+        final runtime = FakeSessionRuntime()
+          ..onLoad = (plan, context, _) async {
+            if (reply == _LoadReply.open || reply == _LoadReply.nativeFailure) {
+              blocked.complete(context.loadId);
+              await resume.future;
+            }
+            return preparedSessionLoad(context, plan);
+          }
+          ..onSetPlaying = (playing, context, _) async {
+            if (playing && reply == _LoadReply.intent) {
+              blocked.complete(context.loadId);
+              await resume.future;
+            }
+            return const PlaybackRuntimeCommandResult();
+          };
+        final session = PlaybackSession(
+          runtime: runtime,
+          loadBudget: budget,
+          monotonicNow: () => now,
+        );
+        final owner = session.attach();
+        final receiptTime = budget + Duration(milliseconds: offsetMs);
+        try {
+          final fromQuery =
+              reply == _LoadReply.resolver || reply == _LoadReply.predicate;
+          final load = fromQuery
+              ? owner.query(
+                  (_) async {
+                    blocked.complete(0);
+                    await resume.future;
+                    return plan;
+                  },
+                  start: PlaybackStartPolicy.play,
+                  shouldLoad: reply == _LoadReply.predicate
+                      ? () {
+                          now = receiptTime;
+                          return false;
+                        }
+                      : null,
+                )
+              : owner.load(plan, start: PlaybackStartPolicy.play);
+          LoadResult? receipt;
+          unawaited(load.then((result) => receipt = result));
+          final loadId = await blocked.future;
+          if (reply != _LoadReply.predicate) now = receiptTime;
+          if (reply == _LoadReply.nativeFailure) {
+            _emitTerminal(runtime, loadId, eof: false);
+          }
+          resume.complete();
+          await tester.pump();
+
+          final beforeDeadline = offsetMs < 0;
+          final expected = !beforeDeadline || reply == _LoadReply.nativeFailure
+              ? LoadOutcome.failed
+              : reply == _LoadReply.predicate
+              ? LoadOutcome.noMedia
+              : LoadOutcome.ready;
+          expect(
+            receipt?.outcome,
+            expected,
+          );
+          expect(
+            receipt?.failure?.category,
+            expected != LoadOutcome.failed
+                ? null
+                : beforeDeadline
+                ? _failure.category
+                : PlaybackFailureCategory.timeout,
+          );
+          expect(
+            session.currentSnapshot.phase,
+            switch (expected) {
+              LoadOutcome.ready => PlaybackPhase.ready,
+              LoadOutcome.noMedia => PlaybackPhase.idle,
+              _ => PlaybackPhase.failed,
+            },
+          );
+          expect(session.currentSnapshot.failure, same(receipt?.failure));
+          if (fromQuery && expected != LoadOutcome.ready) {
+            expect(runtime.loadedKeys, isEmpty);
+          }
+        } finally {
+          if (!resume.isCompleted) resume.complete();
+          final shutdown = session.shutdown();
+          await tester.pump();
+          await shutdown;
+        }
+      });
+    }
   }
 
   for (final eofFirst in [false, true]) {
