@@ -275,4 +275,159 @@ void main() {
     expect((await second).outcome, CommandOutcome.applied);
     expect(runtime.seekCalls, [_firstTarget, _nextTarget]);
   });
+
+  test('旧原生 play 未返回时，重复 pause 必须等待最新暂停落实', () async {
+    final nativePlay = Completer<PlaybackRuntimeCommandResult>();
+    final writes = <bool>[];
+    final runtime = FakeSessionRuntime()
+      ..onSetPlaying = (playing, context, _) async {
+        writes.add(playing);
+        if (playing) return nativePlay.future;
+        return const PlaybackRuntimeCommandResult();
+      };
+    final session = PlaybackSession(runtime: runtime);
+    final owner = session.attach();
+    addTearDown(() async {
+      if (!nativePlay.isCompleted) {
+        nativePlay.complete(const PlaybackRuntimeCommandResult());
+      }
+      await session.shutdown();
+    });
+    final opened = await owner.load(sessionPlan('repeated-pause'));
+    runtime.emitActual(opened.loadId!, const PlaybackActual(playing: false));
+    final play = owner.setPlaying(true);
+    expect(writes, [false, true]);
+    final pause = owner.setPlaying(false);
+    CommandResult? lastReceipt;
+    final repeatedPause = owner.setPlaying(false)
+      ..then((result) => lastReceipt = result);
+    await _turn();
+    expect((await play).outcome, CommandOutcome.superseded);
+    expect((await pause).outcome, CommandOutcome.superseded);
+    expect(lastReceipt, isNull);
+
+    nativePlay.complete(const PlaybackRuntimeCommandResult());
+    expect((await repeatedPause).outcome, CommandOutcome.applied);
+    expect(writes, [false, true, false]);
+  });
+
+  for (final sessionScope in [false, true]) {
+    testWidgets('解除抑制有独立命令时限 sessionScope=$sessionScope', (
+      tester,
+    ) async {
+      const budget = Duration(seconds: 2);
+      final nativePause = Completer<PlaybackRuntimeCommandResult>();
+      final writes = <bool>[];
+      final runtime = FakeSessionRuntime()
+        ..onSetPlaying = (playing, _, _) async {
+          writes.add(playing);
+          if (!playing) return nativePause.future;
+          return const PlaybackRuntimeCommandResult();
+        };
+      final session = PlaybackSession(runtime: runtime, commandBudget: budget);
+      final owner = session.attach();
+      try {
+        final opened = await owner.load(
+          sessionPlan('release-timeout'),
+          start: PlaybackStartPolicy.play,
+        );
+        runtime.emitActual(opened.loadId!, const PlaybackActual(playing: true));
+        final token = sessionScope
+            ? session.acquireSessionInhibitor(
+                PlaybackInhibitorSource.audioFocus,
+              )!
+            : owner.acquireInhibitor(PlaybackInhibitorSource.system)!;
+        expect(writes, [true, false]);
+
+        CommandResult? releaseReceipt;
+        final release = sessionScope
+            ? session.releaseSessionInhibitor(token)
+            : owner.releaseInhibitor(token);
+        unawaited(release.then((result) => releaseReceipt = result));
+        await tester.pump(budget);
+        expect(releaseReceipt?.outcome, CommandOutcome.failed);
+        expect(
+          releaseReceipt?.failure?.category,
+          PlaybackFailureCategory.timeout,
+        );
+        expect(writes, [true, false]);
+
+        nativePause.complete(const PlaybackRuntimeCommandResult());
+        await tester.pump();
+        expect(writes, [true, false, true]);
+        expect(session.currentSnapshot.intent.playing, isTrue);
+        expect(session.currentSnapshot.inhibitors, isEmpty);
+      } finally {
+        if (!nativePause.isCompleted) {
+          nativePause.complete(const PlaybackRuntimeCommandResult());
+        }
+        final shutdown = session.shutdown();
+        await tester.pump();
+        await shutdown;
+      }
+    });
+  }
+
+  for (final offsetMs in [-1, 0, 1]) {
+    testWidgets('连续切源与在途 seek 回执的截止时间偏移 ${offsetMs}ms', (
+      tester,
+    ) async {
+      const budget = Duration(seconds: 2);
+      var now = Duration.zero;
+      final nativeSeek = Completer<PlaybackRuntimeCommandResult>();
+      final runtime = FakeSessionRuntime()
+        ..onSeek = (_, _) => nativeSeek.future;
+      final session = PlaybackSession(
+        runtime: runtime,
+        loadBudget: budget,
+        monotonicNow: () => now,
+      );
+      final owner = session.attach();
+      try {
+        final initial = await owner.load(sessionPlan('initial'));
+        final seek = owner.seek(_firstTarget);
+        expect(runtime.seekCalls, [_firstTarget]);
+        final middle = owner.load(sessionPlan('middle'));
+        LoadResult? receipt;
+        final latest = owner.load(sessionPlan('latest'))
+          ..then((result) => receipt = result);
+        expect((await seek).outcome, CommandOutcome.superseded);
+        expect((await middle).outcome, LoadOutcome.superseded);
+        _emitTerminal(runtime, initial.loadId!, eof: true);
+
+        now = budget + Duration(milliseconds: offsetMs);
+        await tester.pump(now);
+        expect(runtime.loadedKeys, ['initial']);
+        if (offsetMs < 0) {
+          expect(receipt, isNull);
+        } else {
+          expect(receipt?.outcome, LoadOutcome.failed);
+          expect(receipt?.failure?.category, PlaybackFailureCategory.timeout);
+        }
+
+        nativeSeek.complete(const PlaybackRuntimeCommandResult());
+        await tester.pump();
+        final result = await latest;
+        if (offsetMs < 0) {
+          expect(result.outcome, LoadOutcome.ready);
+          expect(runtime.loadedKeys, ['initial', 'latest']);
+          expect(session.currentSnapshot.loadId, result.loadId);
+          expect(session.currentSnapshot.phase, PlaybackPhase.ready);
+        } else {
+          expect(result.outcome, LoadOutcome.failed);
+          expect(runtime.loadedKeys, ['initial']);
+          expect(session.currentSnapshot.phase, PlaybackPhase.failed);
+          expect(session.currentSnapshot.failure, same(result.failure));
+        }
+        expect(session.currentSnapshot.pendingAction, isNull);
+      } finally {
+        if (!nativeSeek.isCompleted) {
+          nativeSeek.complete(const PlaybackRuntimeCommandResult());
+        }
+        final shutdown = session.shutdown();
+        await tester.pump();
+        await shutdown;
+      }
+    });
+  }
 }

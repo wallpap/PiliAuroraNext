@@ -72,6 +72,10 @@ effectivePlaying = mediaReady ∧ ownerLoaded ∧ intent.playing
 确认命令写入，`actual.playing` 仍由观测事件更新。令牌释放只能移除持有者的抑制，
 不能将用户暂停改为播放。旧 writer 的成功或失败都不能结算新修订的调用方。
 
+当 writer 尚有在途写入时，即使重复指令与当前观测相符，调用方仍须等待最新指令落实。
+解除页面或会话抑制时，令牌立即移除，等待原生写入的回执受同一命令时限约束。
+回执超时后，writer 继续排空在途写入并落实有效意图。
+
 独立音频 Player 通过 `AudioSessionHandler` 的租约栈接管声音。当前租约持有视频会话
 抑制，等待视频或前一音频的暂停回执后才播放；系统焦点变更串行执行并重新检查归属。
 音频页关闭等待创建、open 和 Player 销毁，销毁失败继续持有抑制。系统中断只影响有效
@@ -327,6 +331,7 @@ eligible 持续到 deadline 且未再次推进 ⇒ failed(observe-playback-stall
    [命令交错模型](../../test/plugin/pl_player/playback/playback_interleaving_model_test.dart)在一次原生 seek 尚未返回时，
    穷举暂停、更新 seek、切源的 6 种顺序，以及加入关闭后的 24 种顺序。每条轨迹检查回执、
    下一次原生提交和旧 EOF、旧失败的影响。另检查当前 EOF 或失败与 seek 提交前、提交后的组合。
+   连续切源时，只允许最新有效请求等待原生执行器，并检查它在截止前、到期时及到期后收到旧回执的结果。
 4. 修复后重新沿模型检查，新反例继续补充回归。
 5. 最后一轮没有新的可确认反例，且相关回归与静态检查通过，才结束本轮审查。
 

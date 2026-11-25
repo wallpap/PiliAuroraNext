@@ -317,12 +317,7 @@ class PlaybackSession implements PlaybackMediaClock {
     if (_phase != PlaybackPhase.ready) {
       return Future.value(const CommandResult.applied());
     }
-    return _ensureWriter().then((result) {
-      if (result.outcome == CommandOutcome.applied) {
-        _resumeDeferredRecovery();
-      }
-      return result;
-    });
+    return _reconcileAfterInhibitorRelease();
   }
 
   bool isCurrent(int requestId) =>
@@ -915,7 +910,9 @@ class PlaybackSession implements PlaybackMediaClock {
     if (_phase != PlaybackPhase.ready) {
       return Future.value(const CommandResult.accepted());
     }
-    if (previous == playing && _effectivePlaying == _actual.playing) {
+    if (!_writerRunning &&
+        previous == playing &&
+        _effectivePlaying == _actual.playing) {
       if (playing) _resumeDeferredRecovery();
       return Future.value(const CommandResult.applied());
     }
@@ -981,6 +978,27 @@ class PlaybackSession implements PlaybackMediaClock {
     final completer = Completer<CommandResult>();
     _playingWaiters[revision] = completer;
     return completer.future;
+  }
+
+  Future<CommandResult> _reconcileAfterInhibitorRelease() {
+    final reconciliation = _ensureWriter().then((result) {
+      if (result.outcome == CommandOutcome.applied) {
+        _resumeDeferredRecovery();
+      }
+      return result;
+    });
+    return reconciliation.timeout(
+      commandBudget,
+      onTimeout: () => CommandResult.failed(
+        PlaybackFailure(
+          category: PlaybackFailureCategory.timeout,
+          operation: 'release-playback-inhibitor',
+          stage: _stage,
+          recoverable: true,
+          cause: '解除播放抑制后，原生意图协调超过命令预算。',
+        ),
+      ),
+    );
   }
 
   Future<void> _runPlaybackWriter() async {
@@ -1536,12 +1554,7 @@ class PlaybackSession implements PlaybackMediaClock {
       _settlePlayingWaiters(const CommandResult.superseded());
       _publish();
       if (_phase == PlaybackPhase.ready) {
-        return _ensureWriter().then((result) {
-          if (result.outcome == CommandOutcome.applied) {
-            _resumeDeferredRecovery();
-          }
-          return result;
-        });
+        return _reconcileAfterInhibitorRelease();
       }
     }
     _publish();
