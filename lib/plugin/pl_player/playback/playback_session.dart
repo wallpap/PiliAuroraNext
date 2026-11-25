@@ -1666,7 +1666,7 @@ class PlaybackSession implements PlaybackMediaClock {
       return Future.value(const LoadResult.superseded());
     }
     _updateRecoveryClock();
-    if (_shouldDeferRecovery(owner)) {
+    if (_shouldDeferRecovery(owner, sourceEnded: incident.sourceEnded)) {
       incident.deferredPlan = plan.withConfiguration(_desiredConfiguration);
       _emitTrace('recovery.deferred', {
         'contentKey': plan.contentKey,
@@ -1742,10 +1742,20 @@ class PlaybackSession implements PlaybackMediaClock {
     return incident;
   }
 
-  bool _shouldDeferRecovery(PlaybackOwner owner) =>
+  bool get _nativeSeekLandingPending => switch (_runtime) {
+    PlaybackSeekSubmissionGate(:final seekSubmissionBlocked) =>
+      seekSubmissionBlocked,
+    _ => false,
+  };
+
+  bool _shouldDeferRecovery(
+    PlaybackOwner owner, {
+    required bool sourceEnded,
+  }) =>
       owner._requiresLoad ||
       _pendingSeekSequence != null ||
-      _actual.seeking == true ||
+      (_actual.seeking == true &&
+          !(sourceEnded && _nativeSeekLandingPending)) ||
       _sessionInhibitors.isNotEmpty ||
       !owner._playing ||
       (_ownerInhibitors[owner]?.any(
@@ -1759,7 +1769,9 @@ class PlaybackSession implements PlaybackMediaClock {
     if (incident == null) return;
     final now = at ?? _now();
     final owner = _activeOwner;
-    final active = owner != null && !_shouldDeferRecovery(owner);
+    final active =
+        owner != null &&
+        !_shouldDeferRecovery(owner, sourceEnded: incident.sourceEnded);
     if (active) {
       incident.activeSince ??= now;
       return;
@@ -1795,13 +1807,15 @@ class PlaybackSession implements PlaybackMediaClock {
     final owner = _activeOwner;
     final incident = _recoveryIncident;
     if (owner == null ||
-        _shouldDeferRecovery(owner) ||
-        (_actual.playing != true && incident?.sourceEnded != true)) {
+        incident == null ||
+        _shouldDeferRecovery(owner, sourceEnded: incident.sourceEnded) ||
+        (_actual.playing != true && !incident.sourceEnded)) {
       return;
     }
     _observeHealth(_now());
-    final plan = incident?.deferredPlan;
-    if (incident == null || plan == null) return;
+    if (!identical(_recoveryIncident, incident)) return;
+    final plan = incident.deferredPlan;
+    if (plan == null) return;
     // Let observed healthy media continue for the full recovery-reset window
     // before deciding whether the deferred failure still needs a reload.
     if (_healthySince != null) return;

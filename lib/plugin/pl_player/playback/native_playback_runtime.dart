@@ -133,6 +133,7 @@ class NativePlaybackRuntime
   int _mediaClockSeekSequence = 0;
   int _mediaClockContinuity = 0;
   bool _mediaClockSeekPending = false;
+  bool get _seekInProgress => _seeking || _mediaClockSeekPending;
   final _mediaClockSampling = NativeMediaClockSampling();
   bool _seekSubmissionBlocked = false;
   final _seekSubmissionChanges = StreamController<void>.broadcast(sync: true);
@@ -215,8 +216,9 @@ class NativePlaybackRuntime
     _mediaClockSeekSequence = context.seekSequence;
     _mediaClockSeekPending = true;
     _samplingSeekConfirmed = false;
-    _syncVideoFrameSampling();
     _seekSubmissionBlocked = true;
+    _resetHealthEvidence(keepCapabilities: true);
+    _emitActual(binding.loadId);
     _seekObservationTimeout = Timer(const Duration(seconds: 5), () {
       _seekObservationTimeout = null;
       if (_shutdownRequested ||
@@ -254,6 +256,7 @@ class NativePlaybackRuntime
     } catch (_) {
       _mediaClockSeekPending = false;
       _releaseSeekObservation();
+      _emitActual(binding.loadId);
       sampleMediaClock();
       rethrow;
     }
@@ -1388,7 +1391,7 @@ class NativePlaybackRuntime
         _mediaClockSeekPending = false;
         _mediaClockContinuity++;
         _releaseSeekObservation();
-        _syncVideoFrameSampling();
+        _emitActual(binding.loadId);
         sampleMediaClock();
       case NativeStartFile(:final playlistEntryId):
         final pending = _pendingLoad ?? _openingLoad;
@@ -1417,6 +1420,7 @@ class NativePlaybackRuntime
                   !identical(_pendingLoad, pending) ||
                   !pending.context.isCurrent();
         pending.binding = binding;
+        _seeking = false;
         _seekable = null;
         _partiallySeekable = null;
         _lastPublishedCapabilities = null;
@@ -1908,7 +1912,12 @@ class NativePlaybackRuntime
 
   void _observePts(String kind, String? raw) {
     final binding = _activeBinding;
-    if (binding == null || binding.token == null || raw == null) return;
+    if (binding == null ||
+        binding.token == null ||
+        raw == null ||
+        _mediaClockSeekPending) {
+      return;
+    }
     final value = double.tryParse(raw);
     if (value == null || !value.isFinite) return;
     final previous = _lastPts[kind];
@@ -1926,7 +1935,12 @@ class NativePlaybackRuntime
 
   void _observeVideoPosition(String? raw) {
     final binding = _activeBinding;
-    if (binding == null || binding.token == null || raw == null) return;
+    if (binding == null ||
+        binding.token == null ||
+        raw == null ||
+        _mediaClockSeekPending) {
+      return;
+    }
     final position = double.tryParse(raw);
     if (position == null || !position.isFinite) return;
     final previous = _lastVideoPosition;
@@ -1949,6 +1963,7 @@ class NativePlaybackRuntime
       return;
     }
     if (!_frameTimings.recordConsumed(progress.consumedAtMonotonicUs)) return;
+    if (_seekInProgress) return;
     _lastVideoFrameConsumed = _activeNow();
     _scheduleHealthExpiry();
     _emitActual(binding.loadId);
@@ -1986,7 +2001,7 @@ class NativePlaybackRuntime
     return _fresh(_lastAudioPtsAdvance, now) &&
         !_buffering &&
         _playing &&
-        !_seeking;
+        !_seekInProgress;
   }
 
   bool? _videoProgressing(Duration now) {
@@ -2000,7 +2015,7 @@ class NativePlaybackRuntime
         _fresh(_lastVideoFrameConsumed, now) &&
         !_buffering &&
         _playing &&
-        !_seeking;
+        !_seekInProgress;
   }
 
   bool _fresh(Duration? timestamp, Duration now) =>
@@ -2073,7 +2088,7 @@ class NativePlaybackRuntime
     final actual = PlaybackActual(
       playing: player.state.playing,
       buffering: player.state.buffering,
-      seeking: _seeking,
+      seeking: _seekInProgress,
       position: player.state.position,
       duration: player.state.duration,
       audioProgressing: _audioProgressing(now),

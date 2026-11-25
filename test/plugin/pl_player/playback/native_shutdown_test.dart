@@ -543,6 +543,77 @@ void main() {
     });
   }
 
+  for (final finish in ['landing', 'premature-eof', 'replacement']) {
+    test('已回执的原生跳转与自动恢复：$finish', () async {
+      const initialPosition = Duration(seconds: 2);
+      const target = Duration(seconds: 4);
+      const length = Duration(seconds: 10);
+      final fixture = _Fixture(subscribeToPlaybackEvents: true);
+      fixture.player.autoStop = true;
+      final session = PlaybackSession(runtime: fixture.runtime);
+      final owner = session.attach();
+      final plan = sessionPlan('seek-recovery', audioOnly: true);
+      try {
+        expect(
+          (await owner.load(plan, start: PlaybackStartPolicy.play)).outcome,
+          LoadOutcome.ready,
+        );
+        final oldEntry = fixture.player.entryId;
+        fixture.player.state.position = initialPosition;
+        expect((await owner.seek(target)).outcome, CommandOutcome.applied);
+        final observation = fixture.player.seekObservations.single!;
+        void completeSeek() => fixture.player.events.add(
+          NativeSeekCompleted(
+            playlistEntryId: oldEntry,
+            observationId: observation,
+          ),
+        );
+
+        if (finish == 'premature-eof') {
+          fixture.player.emitProperty('seeking', 'yes');
+          fixture.player.setPlaying(false);
+          fixture.player.events.add(
+            NativePlaybackEof(
+              playlistEntryId: oldEntry,
+              reached: true,
+              position: initialPosition,
+              duration: length,
+            ),
+          );
+          await _turn();
+          expect(fixture.player.opens, 2);
+          expect(session.currentSnapshot.phase, PlaybackPhase.ready);
+        } else {
+          fixture.player.setBuffering(true);
+          expect((await owner.recover(plan)).outcome, LoadOutcome.deferred);
+          expect(fixture.player.opens, 1);
+          expect(session.currentSnapshot.actual.seeking, isTrue);
+          expect(session.currentSnapshot.actual.buffering, isTrue);
+          if (finish == 'landing') {
+            fixture.player.state.position = target;
+            completeSeek();
+            await _turn();
+            expect(fixture.player.opens, 2);
+            expect(session.currentPlan?.reloadPosition, target);
+          } else {
+            final next = sessionPlan('seek-replacement', audioOnly: true);
+            expect((await owner.load(next)).outcome, LoadOutcome.ready);
+            fixture.player.setBuffering(false);
+            completeSeek();
+            await _turn();
+            expect(fixture.player.opens, 2);
+            expect(session.currentPlan?.contentKey, next.contentKey);
+            expect(session.currentSnapshot.actual.seeking, isFalse);
+            expect(session.currentSnapshot.actual.buffering, isFalse);
+          }
+        }
+      } finally {
+        await fixture.close();
+        await session.shutdown();
+      }
+    });
+  }
+
   for (final fps in <double?>[30, null]) {
     test('帧率${fps == null ? "未知" : "已知"}时按真实出帧检测停滞', () async {
       final fixture = _Fixture(subscribeToPlaybackEvents: true);
@@ -873,6 +944,7 @@ class _Fixture {
     await runtime.shutdown();
     await player.events.close();
     await player.playback.playingEvents.close();
+    await player.playback.bufferingEvents.close();
     for (final property in player.properties.values) {
       await property.close();
     }
@@ -927,6 +999,11 @@ class _Player implements NativePlayer {
   void setPlaying(bool playing) {
     state.playing = playing;
     playback.playingEvents.add(playing);
+  }
+
+  void setBuffering(bool buffering) {
+    state.buffering = buffering;
+    playback.bufferingEvents.add(buffering);
   }
 
   final events = StreamController<NativePlayerEvent>.broadcast(sync: true);
@@ -1180,6 +1257,7 @@ class _Output implements VideoController {
 
 class _PlayerStreams implements PlayerStream {
   final playingEvents = StreamController<bool>.broadcast(sync: true);
+  final bufferingEvents = StreamController<bool>.broadcast(sync: true);
   @override
   Stream<bool> get playing => playingEvents.stream;
   @override
@@ -1189,7 +1267,7 @@ class _PlayerStreams implements PlayerStream {
   @override
   Stream<bool> get completed => const Stream.empty();
   @override
-  Stream<bool> get buffering => const Stream.empty();
+  Stream<bool> get buffering => bufferingEvents.stream;
   @override
   Stream<VideoParams> get videoParams => const Stream.empty();
   @override
