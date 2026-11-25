@@ -43,7 +43,15 @@
 - 黑名单管理由内容发现的 `application/blacklist.dart` 持有分页和移除操作，与全量过滤共用 `data/blocked_author_repository.dart` 的查询。移除后重读偏移边界页，补齐前移的条目。
 - `application/cooperative_authors.dart` 处理合作作者；`rights.is_cooperation`、`is_union_video` 等明确标志触发补查，已知名单直接复用，否则查询详情的 `staff`。请求合并，共用两个并发名额，成功缓存一小时、最多 256 条，失败缓存一分钟；黑名单同步缓存五分钟。
 - 首页普通卡片先显示，合作卡片按检查结果局部更新；增删时才更新列表，卡片对象身份保留图片子树。过滤入口在内容发现的 `application/discovery_filter.dart`，领域列表通过 `application/discovery_listing.dart` 调度。相关推荐的 `application/related_videos.dart` 同时服务面板和自动连播。用户范围见[黑名单屏蔽](../guides/content.md#黑名单屏蔽)。
-- `TabActivity`/`TickerMode` 标记活动标签，隐藏页卸载 `CachedImage` 并保留数据和滚动位置。`CachedImageCache` 在动图最后一个监听退出后释放缓存句柄；静态帧沿用 LRU，显式保活句柄可以保留暂停动画。离页后才完成的文件加载，会在首帧完成后回收无人监听的动图。`NetworkImgLayer` 为 B 站质量型缩略图补充卡片尺寸，已有裁剪参数及原图查看/下载沿用原构图或地址。缓存字节不等于全部原生纹理占用，内存与耗时需实测。
+- `CachedImageCache` 在动图最后一个监听退出后释放缓存句柄。静态帧沿用 LRU，显式保活句柄可以保留暂停动画。文件加载若在离页后才完成，无人监听的动图会在首帧完成后回收。`NetworkImgLayer` 为 B 站质量型缩略图补充卡片尺寸，已有裁剪参数及原图查看、下载不变。图片缓存和原生纹理分别计量。
+
+## 页面切换与绘制
+
+[`TabActivity`](../../lib/common/widgets/tab_activity.dart) 通过 `TickerMode` 标记可见的保活标签。拖动时允许相邻页同时活动，程序化切换时保留起点和终点；父级停用时，两端也会停用。活动状态不变时，动画推进不会重建这层包装。隐藏页停用动画并卸载 `CachedImage`，数据和滚动位置留在页面实例中。
+
+Windows 的 [`InactivePaintCleanup`](../../lib/common/widgets/inactive_paint_cleanup.dart) 在帧结束后按子层到父层的顺序释放旧绘制记录，并在下一帧再检查一次迟脱离的层。含播放器纹理、平台视图或合成回调的子树交给各自的资源所有者处理。重新显示时页面重绘，业务状态不重置。
+
+生效条件和释放行为分别由 [`tab_activity_test.dart`](../../test/common/widgets/tab_activity_test.dart) 与 [`retained_layer_release_test.dart`](../../test/common/widgets/image/retained_layer_release_test.dart) 验证。窗体可见时的耗时与内存用 [Windows 切页探针](../../tool/probes/README.md#windows-切页与播放卡顿对照) 测量。
 
 ## 消息、私信与分享
 
@@ -69,7 +77,11 @@
 
 点播与直播共用 `danmaku/window_renderer.dart`，分别由 `window_coordinator.dart` 和 `live_queue.dart` 提供候选，挂载为 `view.dart` 与 `live_layer.dart`。媒体时钟、资源归属与来源更新协议见[架构](architecture.md#弹幕显示与来源)。
 
-合并在 `danmaku/merge.dart`，过滤与后台结果接入在 `controller.dart`。在线按分段处理，本地文件稳定排序并保留全文件合并锚点；8～200 字符允许有界编辑差异，数字和否定词保持独立。普通文字池 0/3 参与，自己发送、不同模式、字幕及特殊弹幕独立。匹配最多保留 2048 组、每条检查 64 个候选，后台结果在来源或页面失效后丢弃。功能参考 [PiliNara](https://github.com/Starfallan/PiliNara#改动说明未来计划)，本项目未引入拼音依赖。
+合并在 [`merge.dart`](../../lib/pages/danmaku/merge.dart)，过滤和后台结果由 `controller.dart` 接入。在线按分段处理，本地文件稳定排序并保留全文件合并锚点。普通文字池 0/3 参与合并；自己发送的弹幕、不同模式、字幕和特殊弹幕仍独立显示。后台结果在来源或页面失效后丢弃。
+
+合并先查规范化后的完全匹配，找不到才对 8～200 字符的文本检查近似匹配。近似匹配先核对数字和否定词，再跳过相同的前后缀，只尝试最多两次编辑。窗口内最多保留 2048 组，每条检查至多 64 个候选。功能参考 [PiliNara](https://github.com/Starfallan/PiliNara#改动说明未来计划)，本项目未引入拼音依赖。
+
+[`priority.dart`](../../lib/pages/danmaku/priority.dart) 用固定容量的堆筛选超额候选。优先级相同时选来源靠前的条目，入选后按原顺序交付。[`cache.dart`](../../lib/pages/danmaku/cache.dart) 直接读取时间区间内的条目，超出每桶上限才筛选，无需先复制切片。缓存配额和显示上限不变。对照耗时和内存占用可运行[弹幕热路径基准](../../tool/experiments/README.md#弹幕-cpu-热路径)。
 
 帧调度依据所在视图刷新率及播放器实际显示同步状态决定合帧准入。Android 同频目标跟随 vsync，读数容差 0.5 Hz；低档位提前半周期安排唤醒并扣除更新耗时。连续六个稳定且周期匹配的视频间隔允许相位校准，不稳定或显示同步未确认时回到独立调度；设置在播放器初始化时应用，采样到来保留已安排唤醒。模拟刷新和唤醒计数只作调度对照，设备耗电另测。
 

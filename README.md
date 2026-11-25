@@ -126,9 +126,9 @@ PiliAuroraNext 免费开源。你可以自愿通过支付宝或微信支付支�
 
 ## 问题反馈
 
-请在 [GitHub Issues](https://github.com/wallpap/PiliAuroraNext/issues) 提交问题，并附上系统、设备、应用版本、复现步骤和相关页面。播放问题请补充视频编码、清晰度、弹幕设置和硬件解码状态。分享日志前，请移除 Cookie、Token、二维码登录信息和其他账号数据。
+请在 [GitHub Issues](https://github.com/wallpap/PiliAuroraNext/issues) 提交问题，并附上系统、设备、应用版本、复现步骤和相关页面。播放问题请补充视频编码、清晰度、弹幕设置和硬件解码状态。
 
-需要排查性能时，可在“设置 → 日志与诊断”按需开启性能记录并导出诊断包，复现后关闭记录。记录会增加采样和存储开销。
+需要附日志时，请从“设置 → 日志与诊断”复制记录或导出诊断包。[分享诊断记录](doc/guides/data-security.md#分享诊断记录)说明了如何采集性能数据，以及公开前要检查哪些内容。
 
 ## 声明
 

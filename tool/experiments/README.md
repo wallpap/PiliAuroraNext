@@ -49,7 +49,9 @@ fvm flutter test tool/experiments/
 
 测量使用 Flutter 测试宿主，pump 时间反映本机 CPU 侧重建和缓存状态；GPU 帧耗时在目标设备测量。主测试集保留 `test/pages/danmaku/frame_rate_ticker_test.dart` 和 `native_video_frame_sync_test.dart` 的核心调度与相位回归，扩大矩阵只在实验目录按需运行。
 
-比较弹幕 CPU 热路径时，每种负载使用独立的测试进程，便于对照各自的峰值 RSS。
+### 弹幕 CPU 热路径
+
+分开运行筛选、保留和两种近似合并负载。同一个测试进程里的峰值 RSS 会沿用此前的高点，不能拿来比较后续负载。
 
 ```powershell
 foreach ($workload in 'selection', 'retention', 'merge', 'merge-close') {
@@ -57,7 +59,9 @@ foreach ($workload in 'selection', 'retention', 'merge', 'merge-close') {
 }
 ```
 
-固定输入预热三次后，输出九次耗时与中位数、结果校验值以及适用的保留字节数。峰值 RSS 统计整个 Flutter 测试进程。比较前后版本时，先核对校验值及保留字节数，再比较同一机器上的耗时。
+每项用固定输入预热三次，输出九次耗时、中位数和结果校验值。保留与合并负载还报告算法计账字节数。先核对结果校验值和计账口径，再比较同一机器上的耗时与峰值 RSS。RSS 属于整个 Flutter 测试进程，不能据此推断播放时的应用内存或实际显示帧率。
+
+### 日志脱敏
 
 日志脱敏基准使用独立 Dart 入口。比较发布模式 CPU 成本时，先编译 AOT，再运行同一组输入：
 
@@ -69,6 +73,8 @@ fvm dart compile exe tool/experiments/diagnostics/redactor_benchmark.dart -o bui
 
 每项预热 3 次，再取 7 次测量的中位数。可选文件的测量包含生产脱敏和 JSON 重新编码，不包含文件读取、JSON 解码、快照协调和 ZIP 压缩；文件内容不会回显或改写。耗时用于同机对照，不作为自动化测试阈值；Android 设备速度需另行测量。
 
+### 实际呈现连续性
+
 实际呈现分析的输入为已分段的 `presentation-stage-*.json`，包含 `summary`（`run/stage/target`）与 `matched` 数组；每帧字段为 `index/targetUs/positionUs/presentNs`，其中 `presentNs` 必须来自该弹幕更新帧的实际屏幕呈现。暂停、切档和媒体代次分别输入；缺帧、时间倒退和位置回退会中断窗口，首尾采用完整窗口，不补点。一般场景使用滚动＋顶部固定＋底部固定，覆盖固定弹幕进入、驻留和到期。
 
 ```powershell
@@ -77,6 +83,8 @@ python -m unittest discover -s tool/experiments/danmaku -p presentation_continui
 ```
 
 `--rate` 指定该测量段的媒体倍速，默认 1。省略 `--output` 时输出每阶段一行完整 JSON，可通过 PowerShell 管道保存。每个阶段独立保留逐帧值、跨 1/2/3 帧的跨度，以及间隔序列滞后 1/2/3 项的差分；±r 窗口包含 `2r+1` 帧和 `2r` 个间隔。窗口记录相对目标间隔误差、相对媒体速率误差的 RMS、呈现延迟极差及总位移速度，汇总数量、均值、分位数、峰值和速度偏差超过 10% 的诊断分桶。长短帧可能抵消窗口总误差，需结合窗口内 RMS 判断；重叠窗口的计数表示覆盖范围。`summary.json/summary.csv` 提供汇总，各阶段 JSON 保留明细。
+
+### 文件排序复用
 
 文件排序复用实验默认生成 9000 条弹幕，对照三个固定 20 秒范围。可单独运行，并通过 `DANMAKU_FILE_ORDER_ELEMENTS` 扩大输入条数（至少 1500）：
 

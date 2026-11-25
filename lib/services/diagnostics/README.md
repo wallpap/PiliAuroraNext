@@ -2,13 +2,19 @@
 
 ## 应用与播放日志
 
-`DiagnosticLogRecord` 统一新日志的采集、历史恢复和窗口转发。`runtime.jsonl` 与 `player.jsonl` 每行保存一个 `schema=1` 事件，沿用原有顶层字段，历史文件可直接读取。`channel`、`level`、`category` 与 `message` 描述事件，`details` 与 `stack` 按需提供。文本、列表和对象形式的消息在导出后仍可按原结构处理。
+`runtime.jsonl` 与 `player.jsonl` 每行保存一个 `schema=1` 的 `DiagnosticLogRecord`。采集、读取历史和窗口转发共用事件模型，旧文件仍可读取。事件有 `channel`、`level`、`category` 和 `message`，需要时添加 `details` 或 `stack`。导出会清洗消息内容，字符串、列表和对象仍各自保持原有类型。
 
-用 `(runId, processId, windowId, sequence)` 对齐窗口转发副本。用 `time` 跨来源排序，用同进程的 `elapsedUs` 比较间隔。播放事件可按 `details.playerId` 和 `details.mediaGeneration` 分组。普通播放事件只记录变化内容，故障状态位于 `details.state`。`mpv.error.context` 的 `details.mpvErrorSequence` 指向同一来源的原始 mpv 错误。
+按 `time` 对照不同来源的事件。同一进程内用 `elapsedUs` 计算间隔；定位窗口转发副本时用 `(runId, processId, windowId, sequence)`。
 
-诊断页分别保留应用与播放最近 200 条，支持按消息、类别、路由搜索，以及按通道和等级筛选。展开可查看来源、详情和堆栈，复制或导出时脱敏。导出只保留一份跨窗口镜像，仍收集子窗口独有的记录，去重数量见 `manifest.json` 的 `export.duplicateRecords`。
+查播放问题先按 `details.playerId` 和 `details.mediaGeneration` 分组。`decoder.state.changed` 只在首次观测或解码器状态变化时写入。周期性的 `playback.snapshot` 只在播放日志设为“跟踪”、性能记录关闭时写入。故障快照见 `details.state`。`mpv.error.context` 按 mpv 的 `prefix` 限频，`details.mpvErrorSequence` 指向同一来源的原始 mpv 日志。
 
-诊断包和单条复制共用脱敏规则。网络地址保留主机、端口和路径，移除用户信息、查询参数及片段。凭据字段、跨行认证头、私钥以及本地文件地址使用占位符替换。JSON 文本中的凭据按完整值替换，便于继续解析其余字段。
+诊断页最多显示应用和播放日志各 200 条，可按消息、类别或路由搜索，再按通道和等级缩小范围。展开记录就能查看来源、详情和堆栈。筛选只影响页面列表，导出仍使用日志文件快照。
+
+### 导出与脱敏
+
+导出先复制本地文件，再由后台 isolate 对副本脱敏、去重和压缩。主文件已有子窗口转发的同一事件时，ZIP 保留主文件中的副本。子窗口独有的记录仍会导出；来源字段不全时不会按消息文本猜测重复。`manifest.json` 的 `export.duplicateRecords` 是移除的镜像数，`export.skippedRecords` 是无法解析而跳过的记录数。清单版本与事件版本各自维护。
+
+复制单条日志与导出诊断包共用脱敏规则，本地原始日志保持不变。网络地址保留主机、端口和路径，删除用户信息和片段，整个查询串换成占位符。凭据字段、跨行认证头、私钥和本地文件 URL 也会替换；JSON 文本中的凭据按完整值处理。路径或消息仍可能含个人信息，分享前请检查。用户操作见[分享诊断记录](../../../doc/guides/data-security.md#分享诊断记录)。
 
 ## 性能采集与内存归属
 

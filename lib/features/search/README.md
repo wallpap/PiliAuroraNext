@@ -6,4 +6,6 @@
 
 `application/search_results.dart` 按页面实例、已提交关键词和筛选隔离查询；推荐账号决定凭据，主账号决定屏蔽规则。`application/scoped_search.dart` 按同一原则分别从主账号读取空间、从推荐账号读取直播。数据层适配 HTTP/gRPC，空间投稿卡片不消费生成协议。验证由应用层固定账号并校验查询归属，展示层打开原验证窗口并交付提示。
 
+[`SearchResultPage`](../../pages/search_result/view.dart) 接收分类面板回传的计数，只在标签文案变化时刷新分类栏。超过 99 的计数都显示为 `99+`，因此从 120 变成 125 不会刷新。计数变化不重建查询面板，也不发起新查询。
+
 回归入口为 `test/pages/search/`、`test/pages/search_results/`、`test/pages/scoped_search/`、`test/http/search_response_test.dart` 和 `test/utils/gaia_validation_test.dart`。真实验证码与服务交互需目标设备验证。

@@ -11,6 +11,7 @@
 | 独立播放窗口、音量、弹幕、空降助手 | [播放与弹幕](guides/playback.md) |
 | 黑名单、评论等级、点赞、评论菜单、表情包 | [内容过滤与互动](guides/content.md) |
 | 账号与设置导入导出、WebDAV、本机数据 | [账号与设置备份](guides/data-security.md) |
+| 查找、复制或分享诊断记录 | [分享诊断记录](guides/data-security.md#分享诊断记录) |
 | 提交问题或性能记录 | [问题反馈](../README.md#问题反馈) |
 
 ## 开发
@@ -35,6 +36,7 @@
 | 修改订阅列表、合集详情或失效清理 | [订阅模块](../lib/features/subscriptions/README.md) |
 | 修改消息、私信、未读或分享 | [消息模块](../lib/services/messaging/README.md) |
 | 运行检查、构建或制作发布包 | [构建与测试](development/build-and-test.md)、[测试目录](../test/README.md)、[工具入口](../tool/README.md) |
+| 查阅日志字段、窗口去重与导出规则 | [诊断模块](../lib/services/diagnostics/README.md#应用与播放日志) |
 | 核对默认引擎、缓存与资源策略 | [默认构建与策略](development/build-defaults.md) |
 | 更新依赖或定制引擎 | [第三方依赖](../third_party/README.md)、[引擎差异](development/engine-patches/README.md)、[引擎工具](../tool/engine/README.md) |
 | 排查设备、性能与内存问题 | [维护与排障](maintenance/troubleshooting.md)、[探针](../tool/probes/README.md)、[实验](../tool/experiments/README.md) |

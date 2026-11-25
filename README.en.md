@@ -128,9 +128,9 @@ PiliAuroraNext is free and open source. You can optionally support development a
 
 ## Reporting issues
 
-Open a [GitHub issue](https://github.com/wallpap/PiliAuroraNext/issues) with your operating system, device, app version, reproduction steps, and affected page. For playback issues, also include the video codec, quality, danmaku settings, and hardware-decoding state. Remove cookies, tokens, QR-code login information, and other account data before sharing logs.
+Open a [GitHub issue](https://github.com/wallpap/PiliAuroraNext/issues) with your operating system, device, app version, reproduction steps, and affected page. For playback issues, also include the video codec, quality, danmaku settings, and hardware-decoding state.
 
-For performance issues, enable performance recording under Settings → Logs and diagnostics, reproduce the issue, and export a diagnostic archive. Turn recording off afterwards; sampling and stored logs add overhead.
+Copy log entries or export a diagnostic archive from Settings → Logs and diagnostics. For performance issues, turn on performance recording before reproducing the issue, then export and turn recording off. The app redacts recognized credentials. Check the result for personal information before posting it, and leave out raw logs and account backups.
 
 ## Disclaimer
 

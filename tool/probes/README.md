@@ -760,31 +760,31 @@ fvm dart --packages=.dart_tool/package_config.json tool/probes/windows/inspect_v
 
 ## Windows 切页与播放卡顿对照
 
-`windows/stutter_validation.dart` 使用与内存探针相同的隔离存储入口，执行首页首次加载、
-复访与两轮同内容播放。复访、播放均按 debug/off/off/debug 顺序对照诊断开关，
-切换后先静置，再由独立 FrameTiming 和 5ms Timer 保留帧耗时、真实帧时间和唤醒间隔。
-`inactivePaintCleanup` 单独记录绘制层清理耗时；`grpcDecode` 另记录排队、解析及消费耗时，
-消费包含异步任务等待，后台解析计时包含 isolate 调度，均不能直接等同于 UI CPU 时间。
+`windows/stutter_validation.dart` 使用与内存探针相同的隔离存储。默认测首页首次加载、复访和两轮同内容播放。传入 `--navigation-only` 时，探针跳过播放，改测搜索、搜索结果分类、历史和设置的打开与返回。
+
+复访和播放区段按 debug/off/off/debug 对照诊断开关，路由区段使用调试级别。探针用 `FrameTiming` 记录帧耗时，用独立的 5 ms Timer 观察唤醒间隔。`inactivePaintCleanup` 单独记录绘制层清理，`grpcDecode` 记录排队、解析及消费耗时。后两项包含异步等待或 isolate 调度，不能当作 UI 线程的 CPU 时间。
 
 ```powershell
 pwsh -File tool/build.ps1 -Platform windows -Mode release -Target tool/probes/windows/stutter_validation.dart -SkipPubGet
-$env:PILIAURORANEXT_MEMORY_ROOT = '<独立测试种子目录>'
-$env:PILIAURORANEXT_STUTTER_OUTPUT = '<本地输出目录>/report.json'
-# 将完整构建目录复制到独立位置后启动该位置的 PiliAuroraNext.exe。
-python tool/probes/windows/analyze_stutter.py --input <report.json> --logs <测试种子/support/diagnostics> --output <summary.json>
+$probeDir = '<已复制完整 Release 目录的独立路径>'
+$runDir = Join-Path (Get-Location) 'build/navigation/run-01'
+$env:PILIAURORANEXT_MEMORY_ROOT = Join-Path $runDir 'app-data'
+$env:PILIAURORANEXT_STUTTER_OUTPUT = Join-Path $runDir 'report.json'
+Start-Process -FilePath (Join-Path $probeDir 'PiliAuroraNext.exe') -WorkingDirectory $probeDir -ArgumentList '--navigation-only' -Wait
+python tool/probes/windows/analyze_stutter.py --input $env:PILIAURORANEXT_STUTTER_OUTPUT --logs (Join-Path $env:PILIAURORANEXT_MEMORY_ROOT 'support/diagnostics') --output (Join-Path $runDir 'summary.json')
 ```
 
-启动探针时传入 `--navigation-only` 可测完首次访问和复访后直接测试搜索、搜索结果分类、
-历史和设置的打开及返回。`navigation` 按切换标记汇总前 600 ms 的框架帧、屏幕周期超预算数
-和已完成的图片、网络及绘制清理操作。`firstRasterFinishMs` 记录切换后首个 Flutter 帧光栅化
-完成的时间差。整段的进程内存样本与操作统计保存在 `stages`。等待目标页面超时时，
-报告的 `routeTimeout` 记录动作、实际路径、搜索结果路由状态和弹层状态。
+`navigation` 汇总切换标记之后 600 ms 内的 Flutter 帧，以及在这段时间内完成的图片、网络和清理操作。如果下一次切换更早，窗口到下一标记为止。报告中几个常用字段的含义如下。
 
-探针会切页、静音播放及改变隔离设置；不要指向现用账号存储。结束时按内存探针相同方式
-关闭窗口，再恢复正常发布入口。日志、账号种子、快照和实验报告放在本地忽略目录。
-在线列表可变化，先检查 `validWorkload`、各tab的loaded状态和播放进度；首次使用与复访分段解释。
+| 字段 | 含义 |
+| --- | --- |
+| `firstRasterFinishMs` | 从切换标记到首个 Flutter 帧光栅化完成的时间。未观测到帧时为 `null`，起始页已选中也可能出现这种情况。 |
+| `overDisplayBudget` | 构建或光栅耗时超过一个刷新周期的帧数。它是 Flutter 帧预算指标，不是实际屏幕掉帧数。 |
+| `stages[].process` | 各阶段的进程采样，包括工作集、峰值工作集和私有提交。 |
+| `routeTimeout` | 原始 `report.json` 的超时现场，含预期与实际路径、搜索结果路由状态和弹层状态。 |
 
-可选 PresentMon 使用测试PID、独立session_name和 `--qpc_time`。在采集期间保存同一时刻的
-UTC纳秒、QPC纳秒为 `utcNs/qpcNs`，并记录真实QueryPerformanceFrequency。
-离线分析另传 `--present <csv> --qpc-anchor <json> --qpc-frequency <频率>`。
-DXGI提交间隔与实际屏幕呈现分开解释；显示时间为NA时保留缺测，不按零延迟处理。
+做前后对照时，两个版本使用同一台机器、固定引擎和刷新率，轮流运行。每轮使用独立种子目录，切勿指向常用账号存储。先确认 `validWorkload`、各页加载情况和动作序列一致；播放模式还要核对播放进度。在线内容可能变化，首次打开与热切分开看，热切优先比较诊断关闭的区段。失败轨迹单独保留，不混入完成同一操作序列的样本。
+
+需要核对屏幕呈现时，可用 PresentMon 按测试 PID 采集，指定独立 `session_name` 和 `--qpc_time`。采集期间保存同一时刻的 `utcNs`、`qpcNs` 及实际 `QueryPerformanceFrequency`，离线分析再传 `--present <csv> --qpc-anchor <json> --qpc-frequency <频率>`。DXGI 提交间隔和屏幕呈现分别统计，`NA` 保持缺测。
+
+探针产物和原始日志留在本地忽略目录。测试结束后，恢复默认构建入口，再制作正式发布包。
