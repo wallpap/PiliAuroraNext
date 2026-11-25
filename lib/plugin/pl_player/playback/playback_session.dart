@@ -235,9 +235,6 @@ class PlaybackSession implements PlaybackMediaClock {
     );
     _sessionInhibitors.add(token);
     _updateRecoveryClock();
-    _healthySince = null;
-    _healthyCheck?.cancel();
-    _healthyCheck = null;
     _intentRevision++;
     _settlePlayingWaiters(const CommandResult.superseded());
     _publish();
@@ -907,11 +904,6 @@ class PlaybackSession implements PlaybackMediaClock {
     }
     final previous = owner._playing;
     owner._playing = playing;
-    if (!playing) {
-      _healthySince = null;
-      _healthyCheck?.cancel();
-      _healthyCheck = null;
-    }
     _updateRecoveryClock();
     final revision = ++_intentRevision;
     _settlePlayingWaiters(const CommandResult.superseded());
@@ -1146,6 +1138,7 @@ class PlaybackSession implements PlaybackMediaClock {
     final seekSequence = ++_seekSequence;
     _invalidateMediaAnchor();
     _pendingSeekSequence = seekSequence;
+    _observeHealth(_now());
     _observePlaybackProgress();
     final deadline = _now() + commandBudget;
     try {
@@ -1724,6 +1717,7 @@ class PlaybackSession implements PlaybackMediaClock {
   _RecoveryIncident _ensureRecoveryIncident(String contentKey) {
     final current = _recoveryIncident;
     if (current != null && current.contentKey == contentKey) return current;
+    _clearHealthyObservation();
     final incident = _RecoveryIncident(contentKey);
     _recoveryIncident = incident;
     _updateRecoveryClock();
@@ -2018,24 +2012,16 @@ class PlaybackSession implements PlaybackMediaClock {
     });
   }
 
+  bool get _canObserveRecoveryHealth =>
+      _phase == PlaybackPhase.ready &&
+      _effectivePlaying &&
+      _pendingSeekSequence == null &&
+      _actual.seeking != true;
+
   void _observeHealth(Duration now) {
-    final incident = _recoveryIncident;
     _updateRecoveryClock(now);
-    if (incident == null || _phase != PlaybackPhase.ready) {
-      _healthyCheck?.cancel();
-      _healthyCheck = null;
-      return;
-    }
-    final owner = _activeOwner;
-    if (owner == null ||
-        owner._requiresLoad ||
-        _sessionInhibitors.isNotEmpty ||
-        !owner._playing ||
-        _ownerInhibitors[owner]!.isNotEmpty) {
-      // 用户暂停或系统抑制期间保留预算，不用位置推进作为健康条件。
-      _healthySince = null;
-      _healthyCheck?.cancel();
-      _healthyCheck = null;
+    if (_recoveryIncident == null || !_canObserveRecoveryHealth) {
+      _clearHealthyObservation();
       return;
     }
     final audioOnly = _currentPlan?.configuration.audioOnly == true;
@@ -2052,9 +2038,7 @@ class PlaybackSession implements PlaybackMediaClock {
     if (!tracksHealthy ||
         _actual.playing != true ||
         _actual.buffering == true) {
-      _healthySince = null;
-      _healthyCheck?.cancel();
-      _healthyCheck = null;
+      _clearHealthyObservation();
       return;
     }
     if (_healthySince == null) {
@@ -2070,11 +2054,15 @@ class PlaybackSession implements PlaybackMediaClock {
 
   void _resetRecovery() {
     _recoveryIncident = null;
+    _clearHealthyObservation();
+    _recoveryCheck?.cancel();
+    _recoveryCheck = null;
+  }
+
+  void _clearHealthyObservation() {
     _healthySince = null;
     _healthyCheck?.cancel();
     _healthyCheck = null;
-    _recoveryCheck?.cancel();
-    _recoveryCheck = null;
   }
 
   void _scheduleHealthyCheck(Duration remaining) {
@@ -2445,6 +2433,9 @@ class PlaybackSession implements PlaybackMediaClock {
 
   void _publish() {
     if (_disposed) return;
+    if (_healthySince != null && !_canObserveRecoveryHealth) {
+      _clearHealthyObservation();
+    }
     _observePlaybackProgress();
     if (!_mediaClockMayAdvance) _freezeMediaAnchor();
     _snapshot = PlaybackSnapshot(
