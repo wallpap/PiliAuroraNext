@@ -130,11 +130,33 @@ void main() {
         expect(player.seeks, [const Duration(seconds: 160)]);
         expect(player.seekStarts, 1);
         expect(player.seekEnds, 1);
-        expect(player.seekToPos, isNull);
         player.seeks.clear();
       } else {
         expect(player.seeks, isEmpty);
       }
+    }
+  });
+
+  testWidgets('水平进退取消或更换加载后不提交旧目标', (tester) async {
+    final player = PresentationPlayer();
+    await tester.pumpWidget(_app(player));
+    final position = tester.getCenter(find.byKey(_surface));
+    for (final changeLoad in [false, true]) {
+      final gesture = await tester.startGesture(position);
+      await gesture.moveBy(const Offset(30, 0));
+      await gesture.moveBy(const Offset(60, 0));
+      await gesture.moveBy(const Offset(40, 0));
+      expect(player.seekStarts, changeLoad ? 2 : 1);
+      expect(player.seekPosition.value, greaterThan(player.position.value));
+      if (changeLoad) {
+        player.invalidateSeekDrag();
+        await gesture.up();
+      } else {
+        await gesture.cancel();
+      }
+      expect(player.seeks, isEmpty);
+      expect(player.position.value, 100);
+      await tester.pump(const Duration(milliseconds: 350));
     }
   });
 }

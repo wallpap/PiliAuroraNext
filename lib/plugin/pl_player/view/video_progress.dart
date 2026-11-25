@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/common/widgets/progress_bar/audio_video_progress_bar.dart';
@@ -55,7 +57,7 @@ class CompactVideoProgress extends StatelessWidget {
   }
 }
 
-class VideoProgressTrack extends StatelessWidget {
+class VideoProgressTrack extends StatefulWidget {
   const VideoProgressTrack({
     super.key,
     required this.controller,
@@ -68,23 +70,54 @@ class VideoProgressTrack extends StatelessWidget {
   final Color color;
   final bool interactive;
 
+  @override
+  State<VideoProgressTrack> createState() => _VideoProgressTrackState();
+}
+
+class _VideoProgressTrackState extends State<VideoProgressTrack> {
+  PlPlayerController get controller => widget.controller;
+  VideoDetailController get videoDetailController =>
+      widget.videoDetailController;
+  Color get color => widget.color;
+  bool get interactive => widget.interactive;
+  Object? _drag;
+  bool _dragStarted = false;
+  (PlPlayerController, int, bool)? _trackIdentity;
+
   void onDragStart(ThumbDragDetails duration) {
-    feedBack();
-    controller.onSeekStart(duration.seconds);
+    _dragStarted = true;
+    _drag = controller.onSeekStart(duration.seconds);
+    if (_drag != null) feedBack();
   }
 
-  void onDragUpdate(ThumbDragDetails duration) {
-    if (!controller.isFileSource && controller.showSeekPreview) {
-      controller.updatePreviewIndex(duration.seconds);
-    }
-    controller.seekPosition.value = duration.seconds;
-  }
+  void onDragUpdate(ThumbDragDetails duration) =>
+      controller.onSeekUpdate(_drag, duration.seconds);
 
   void onSeek(int milliseconds) {
-    controller
-      ..position.value = milliseconds ~/ 1000
-      ..onSeekEnd()
-      ..seekTo(Duration(milliseconds: milliseconds), isSeek: false);
+    final target = Duration(milliseconds: milliseconds);
+    if (!_dragStarted) {
+      unawaited(controller.seekTo(target, isSeek: false));
+      return;
+    }
+    final drag = _takeDrag();
+    controller.onSeekEnd(drag, target: target);
+  }
+
+  Object? _takeDrag() {
+    final drag = _drag;
+    _drag = null;
+    _dragStarted = false;
+    return drag;
+  }
+
+  void onDragCancel() => controller.onSeekEnd(_takeDrag());
+
+  @override
+  void dispose() {
+    final drag = _takeDrag();
+    final player = controller;
+    if (drag != null) scheduleMicrotask(() => player.onSeekEnd(drag));
+    super.dispose();
   }
 
   @override
@@ -93,22 +126,39 @@ class VideoProgressTrack extends StatelessWidget {
     alignment: Alignment.bottomCenter,
     children: [
       Obx(
-        () => ProgressBar(
-          progress: controller.progress,
-          buffered: controller.buffered.value,
-          total: controller.duration.value,
-          progressBarColor: color,
-          baseBarColor: const Color(0x33FFFFFF),
-          bufferedBarColor: color.withValues(alpha: 0.4),
-          thumbColor: color,
-          thumbGlowColor: color.withAlpha(80),
-          barHeight: 3.5,
-          thumbRadius: interactive ? 7 : 2.5,
-          thumbGlowRadius: interactive ? 25 : 30,
-          onDragStart: interactive ? onDragStart : null,
-          onDragUpdate: interactive ? onDragUpdate : null,
-          onSeek: interactive ? onSeek : null,
-        ),
+        () {
+          final identity = (
+            controller,
+            controller.seekDragEpoch,
+            interactive,
+          );
+          if (_trackIdentity != identity) {
+            final previous = _trackIdentity;
+            final drag = _takeDrag();
+            if (previous != null && drag != null) {
+              scheduleMicrotask(() => previous.$1.onSeekEnd(drag));
+            }
+            _trackIdentity = identity;
+          }
+          return ProgressBar(
+            key: ValueKey(identity),
+            progress: controller.progress,
+            buffered: controller.buffered.value,
+            total: controller.duration.value,
+            progressBarColor: color,
+            baseBarColor: const Color(0x33FFFFFF),
+            bufferedBarColor: color.withValues(alpha: 0.4),
+            thumbColor: color,
+            thumbGlowColor: color.withAlpha(80),
+            barHeight: 3.5,
+            thumbRadius: interactive ? 7 : 2.5,
+            thumbGlowRadius: interactive ? 25 : 30,
+            onDragStart: interactive ? onDragStart : null,
+            onDragUpdate: interactive ? onDragUpdate : null,
+            onDragCancel: interactive ? onDragCancel : null,
+            onSeek: interactive ? onSeek : null,
+          );
+        },
       ),
       if (controller.enableBlock)
         ValueListenableBuilder(

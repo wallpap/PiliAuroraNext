@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -37,13 +39,16 @@ class PresentationPlayer implements PlPlayerController {
   @override
   final seekPosition = 100.obs;
   @override
+  int get positionInMilliseconds => position.value * 1000;
+  @override
   final duration = 600.obs;
   @override
   int durationInMilliseconds = 600000;
   @override
   num sliderScale = 600000;
   @override
-  Duration? seekToPos;
+  int seekDragEpoch = 0;
+  Object? _drag;
   @override
   DanmakuInteractionHandle<DanmakuExtra>? danmakuInteraction;
 
@@ -85,13 +90,34 @@ class PresentationPlayer implements PlPlayerController {
   void removeDanmakuRuleListener(VoidCallback listener) =>
       ruleListeners.remove(listener);
   @override
-  void onSeekStart(int value) {
+  Object onSeekStart(int value) {
     seekPosition.value = value;
     seekStarts++;
+    return _drag = Object();
   }
 
   @override
-  void onSeekEnd() => seekEnds++;
+  bool isSeekDragCurrent(Object? token) =>
+      token != null && identical(_drag, token);
+
+  @override
+  void onSeekUpdate(Object? token, int seconds) {
+    if (isSeekDragCurrent(token)) seekPosition.value = seconds;
+  }
+
+  @override
+  void onSeekEnd(Object? token, {Duration? target}) {
+    if (!isSeekDragCurrent(token)) return;
+    _drag = null;
+    seekEnds++;
+    if (target != null) unawaited(seekTo(target, isSeek: false));
+  }
+
+  void invalidateSeekDrag() {
+    _drag = null;
+    seekDragEpoch++;
+  }
+
   @override
   Future<void> seekTo(Duration value, {bool isSeek = true}) async =>
       seeks.add(value);

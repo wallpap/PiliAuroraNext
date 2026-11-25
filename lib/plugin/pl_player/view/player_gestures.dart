@@ -113,6 +113,10 @@ class PlayerGestures {
 
   GestureType? _gestureType;
   Offset? _initialFocalPoint;
+  Object? _horizontalDrag;
+  Duration? _horizontalTarget;
+  int _horizontalStartMs = 0;
+  bool _seekCancelToasted = false;
 
   StreamSubscription? _brightnessListener;
   void _onBrightnessChanged(double value) {
@@ -189,41 +193,34 @@ class PlayerGestures {
   }
 
   void _onHorizontalDragStart() {
-    plPlayerController.onSeekStart(plPlayerController.position.value);
+    if (plPlayerController.isLive) return;
+    _horizontalStartMs = plPlayerController.positionInMilliseconds;
+    _horizontalDrag = plPlayerController.onSeekStart(
+      _horizontalStartMs ~/ 1000,
+    );
+    _horizontalTarget = null;
+    _seekCancelToasted = false;
   }
 
   void _onHorizontalDragUpdate(double dx) {
-    final curPos =
-        plPlayerController.seekToPos?.inMilliseconds ??
-        plPlayerController.seekPosition.value * 1000;
+    final curPos = _horizontalTarget?.inMilliseconds ?? _horizontalStartMs;
     final posDelta = (plPlayerController.sliderScale * dx / _maxWidth).round();
     final newPos = (curPos + posDelta).clamp(
       0,
       plPlayerController.durationInMilliseconds,
     );
-    final seconds = newPos ~/ 1000;
-    plPlayerController
-      ..seekToPos = Duration(milliseconds: newPos)
-      ..seekPosition.value = seconds;
-    if (!plPlayerController.isFileSource &&
-        plPlayerController.showSeekPreview) {
-      plPlayerController.updatePreviewIndex(seconds);
-    }
+    _horizontalTarget = Duration(milliseconds: newPos);
+    plPlayerController.onSeekUpdate(_horizontalDrag, newPos ~/ 1000);
   }
 
-  void _onHorizontalDragEnd() {
-    if (plPlayerController.seekToPos case final seekToPos?) {
-      feedBack();
-      plPlayerController
-        ..position.value = seekToPos.inSeconds
-        ..seekTo(seekToPos, isSeek: false)
-        ..seekToPos = null;
-    } else {
-      plPlayerController.position.value =
-          plPlayerController.videoPlayerController?.state.position.inSeconds ??
-          0;
-    }
-    plPlayerController.onSeekEnd();
+  void _onHorizontalDragEnd({required bool cancelled}) {
+    final drag = _horizontalDrag;
+    final target = cancelled ? null : _horizontalTarget;
+    _horizontalDrag = null;
+    _horizontalTarget = null;
+    if (!plPlayerController.isSeekDragCurrent(drag)) return;
+    if (target != null) feedBack();
+    plPlayerController.onSeekEnd(drag, target: target);
   }
 
   void _onPanUpdate(ScaleUpdateDetails details) {
@@ -273,17 +270,19 @@ class PlayerGestures {
     Offset delta = details.focalPointDelta;
 
     if (_gestureType == .horizontal) {
-      // live模式下禁用
-      if (plPlayerController.isLive) return;
+      if (!plPlayerController.isSeekDragCurrent(_horizontalDrag)) return;
 
       final height = _maxHeight * 0.125;
       if (details.localFocalPoint.dy <= height &&
           (details.localFocalPoint.dx >= _maxWidth * 0.875 ||
               details.localFocalPoint.dx <= _maxWidth * 0.125)) {
-        if (!plPlayerController.hasToasted) {
-          plPlayerController
-            ..seekToPos = null
-            ..hasToasted = true;
+        if (!_seekCancelToasted) {
+          _horizontalTarget = null;
+          _seekCancelToasted = true;
+          plPlayerController.onSeekUpdate(
+            _horizontalDrag,
+            _horizontalStartMs ~/ 1000,
+          );
           if (plPlayerController.showSeekPreview) {
             plPlayerController.hideSeekPreview();
           }
@@ -309,8 +308,8 @@ class PlayerGestures {
           );
         }
         return;
-      } else if (plPlayerController.hasToasted) {
-        plPlayerController.hasToasted = false;
+      } else if (_seekCancelToasted) {
+        _seekCancelToasted = false;
       }
 
       _onHorizontalDragUpdate(delta.dx);
@@ -370,7 +369,10 @@ class PlayerGestures {
   void _onPanEnd(ScaleEndDetails details) {
     _gestureVolume = null;
     if (_gestureType == .horizontal) {
-      _onHorizontalDragEnd();
+      _onHorizontalDragEnd(
+        cancelled:
+            _scaleGestureRecognizer.handlingCancel || details.pointerCount != 0,
+      );
     }
     _initialFocalPoint = null;
     _gestureType = null;
@@ -522,7 +524,7 @@ class PlayerGestures {
     }
 
     if (_gestureType == .horizontal) {
-      if (plPlayerController.isLive) return;
+      if (!plPlayerController.isSeekDragCurrent(_horizontalDrag)) return;
 
       _onHorizontalDragUpdate(event.localPanDelta.dx);
     } else if (_gestureType == .right) {
@@ -555,7 +557,7 @@ class PlayerGestures {
   void _onPointerPanZoomEnd(PointerPanZoomEndEvent event) {
     _gestureVolume = null;
     if (_gestureType == .horizontal) {
-      _onHorizontalDragEnd();
+      _onHorizontalDragEnd(cancelled: false);
     }
     _gestureType = null;
   }
@@ -658,6 +660,11 @@ class PlayerGestures {
 
   void dispose() {
     _disposed = true;
+    final drag = _horizontalDrag;
+    _horizontalDrag = null;
+    if (drag != null) {
+      scheduleMicrotask(() => plPlayerController.onSeekEnd(drag));
+    }
     _danmakuListener?.cancel();
     _tapGestureRecognizer.dispose();
     _longPressRecognizer?.dispose();

@@ -1,5 +1,10 @@
 import 'package:flutter/gestures.dart'
-    show ScaleGestureRecognizer, RecognizerCallback, GestureRecognizer;
+    show
+        GestureRecognizer,
+        PointerCancelEvent,
+        PointerEvent,
+        RecognizerCallback,
+        ScaleGestureRecognizer;
 
 mixin PlayerGestureMixin on GestureRecognizer {
   bool isPosAllowed = true;
@@ -25,4 +30,16 @@ class PlayerScaleGestureRecognizer extends ScaleGestureRecognizer
     super.trackpadScrollCausesScale,
     super.trackpadScrollToScaleFactor,
   });
+
+  bool handlingCancel = false;
+
+  @override
+  void handleEvent(PointerEvent event) {
+    handlingCancel = event is PointerCancelEvent;
+    try {
+      super.handleEvent(event);
+    } finally {
+      handlingCancel = false;
+    }
+  }
 }

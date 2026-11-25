@@ -44,8 +44,9 @@ void main() {
     final render = tester.renderObject<RenderProgressBar>(
       find.byType(ProgressBar),
     );
-    render.increaseAction();
-    render.decreaseAction();
+    render
+      ..increaseAction()
+      ..decreaseAction();
     expect(seeks, [55000, 45000]);
 
     final config = SemanticsConfiguration();

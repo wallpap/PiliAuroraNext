@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform, Directory, File;
 import 'dart:ui' as ui;
 
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_session/audio_session.dart' as system_audio;
 import 'package:dio/dio.dart';
@@ -14,6 +15,11 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:pili_aurora_next/common/assets.dart';
+import 'package:pili_aurora_next/common/widgets/progress_bar/audio_video_progress_bar.dart';
+import 'package:pili_aurora_next/common/widgets/progress_bar/segment_progress_bar.dart'
+    show Segment, ViewPointSegment;
+import 'package:pili_aurora_next/http/loading_state.dart';
+import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/plugin/pl_player/controller.dart';
 import 'package:pili_aurora_next/features/playback/domain/super_resolution_type.dart';
 import 'package:pili_aurora_next/platform/files/path_actions.dart';
@@ -29,6 +35,7 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/audio_recovery.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/native_playback_runtime.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_session.dart';
+import 'package:pili_aurora_next/plugin/pl_player/view/video_progress.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/player_diagnostics.dart';
 import 'package:pili_aurora_next/services/audio_session.dart';
@@ -958,6 +965,71 @@ void main() {
     expect(f.controller.progress, 10);
     expect(f.controller.isSeeking.value, isFalse);
     expect(statuses, isNot(contains(PlayerStatus.completed)));
+  });
+
+  _recoveryTest('进度条上的旧拖动不能跳转已经重开的媒体', (f) async {
+    await f.load(local: true);
+    f.runtime.complete();
+    final seeks = <Duration>[];
+    f.runtime.onSeek = (target) async {
+      seeks.add(target);
+      return const PlaybackRuntimeCommandResult();
+    };
+    await f.tester.pump();
+    final page = _ProgressPage();
+    await f.tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 500,
+              child: VideoProgressTrack(
+                controller: f.controller,
+                videoDetailController: page,
+                color: Colors.blue,
+                interactive: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final track = find.byType(ProgressBar);
+    expect(f.tester.widget<ProgressBar>(track).progress, 300);
+    final gesture = await f.tester.startGesture(f.tester.getCenter(track));
+    await gesture.moveBy(const Offset(100, 0));
+    expect(f.controller.isSeeking.value, isTrue);
+    await f.load(local: true);
+    expect(f.controller.position.value, 0);
+    final render = f.tester.renderObject<RenderProgressBar>(track);
+    final semantics = SemanticsConfiguration();
+    render.describeSemanticsConfiguration(semantics);
+    expect(semantics.value, '0%');
+    await gesture.up();
+    await f.tester.pump();
+
+    expect(f.controller.isSeeking.value, isFalse);
+    expect(f.controller.position.value, 0);
+    expect(f.tester.widget<ProgressBar>(track).progress, 0);
+    expect(seeks, isEmpty);
+    await f.advance(1);
+    expect(f.tester.widget<ProgressBar>(track).progress, 1);
+  });
+
+  _recoveryTest('同一加载内只有最新的拖动能结算，预览不改写播放位置', (f) async {
+    await f.load(local: true);
+    final first = f.controller.onSeekStart(40);
+    final second = f.controller.onSeekStart(120);
+    expect(first, isNotNull);
+    expect(second, isNotNull);
+    f.controller.onSeekUpdate(first, 270);
+    f.controller.onSeekEnd(first, target: const Duration(seconds: 270));
+    expect(f.controller.progress, 120);
+    expect(f.controller.position.value, 10);
+
+    f.controller.onSeekEnd(second);
+    expect(f.controller.progress, 10);
+    expect(f.controller.isSeeking.value, isFalse);
   });
 
   for (final playing in [true, false]) {
@@ -1952,6 +2024,23 @@ void _recoveryTest(
 }
 
 enum _Mode { separate, combined, audioOnly, videoOnly }
+
+class _ProgressPage implements VideoDetailController {
+  @override
+  final segmentChanges = ValueNotifier<List<Segment>>(const []);
+  @override
+  final showDmTrendChart = ValueNotifier(false);
+  @override
+  final dmTrend = ValueNotifier<LoadingState<List<double>>?>(null);
+  @override
+  final viewPoints = ValueNotifier<List<ViewPointSegment>>(const []);
+  @override
+  final showVP = ValueNotifier(false);
+  @override
+  List<ViewPointSegment> get viewPointList => const [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _ScreenshotPicker extends FilePickerPlatform {
   Completer<void> requested = Completer<void>();

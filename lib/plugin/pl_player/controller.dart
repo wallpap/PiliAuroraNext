@@ -154,9 +154,10 @@ class PlPlayerController
 
   final Rx<DataStatus> dataStatus = Rx(.none);
 
-  Duration? seekToPos;
-  bool hasToasted = false;
   final RxBool isSeeking = false.obs;
+  final _seekDragEpoch = 0.obs;
+  int get seekDragEpoch => _seekDragEpoch.value;
+  ({Object token, int requestId, int loadId})? _seekDrag;
 
   final RxInt position = RxInt(0);
   final RxInt seekPosition = RxInt(0);
@@ -1069,6 +1070,10 @@ class PlPlayerController
     if (!owner.isActive || !identical(_activeOwner, owner)) return;
     if (snapshot.snapshotVersion != _session.currentSnapshot.snapshotVersion) {
       return;
+    }
+    if (_seekDrag case final drag? when !isSeekDragCurrent(drag.token)) {
+      _invalidateSeekDrag();
+      if (showSeekPreview) hideSeekPreview();
     }
     if (snapshot.phase == PlaybackPhase.ended && !owner.hasLoadedMedia) {
       return;
@@ -2114,7 +2119,12 @@ class PlPlayerController
     _progressProjection
       ..suspendPosition()
       ..cancelPendingSeek();
-    seekToPos = null;
+    _invalidateSeekDrag();
+  }
+
+  void _invalidateSeekDrag() {
+    _seekDrag = null;
+    _seekDragEpoch.value++;
     isSeeking.value = false;
   }
 
@@ -2347,18 +2357,51 @@ class PlPlayerController
     });
   }
 
-  void onSeekStart(int seekFrom) {
+  Object? onSeekStart(int seekFrom) {
+    final snapshot = _session.currentSnapshot;
+    if (!(_activeOwner?.isActive ?? false) ||
+        !_isProjectedLoad(snapshot) ||
+        _session.isLoading ||
+        snapshot.capabilities.seekSupport == PlaybackSeekSupport.unsupported) {
+      return null;
+    }
+    final token = Object();
+    _seekDrag = (
+      token: token,
+      requestId: _session.requestId,
+      loadId: _session.loadId,
+    );
     seekPosition.value = seekFrom;
     isSeeking.value = true;
     _audioRecovery?.onPlaybackChanged();
+    return token;
   }
 
-  void onSeekEnd() {
+  bool isSeekDragCurrent(Object? token) {
+    final drag = _seekDrag;
+    return drag != null &&
+        identical(drag.token, token) &&
+        _activeOwner?.isActive == true &&
+        !_session.isLoading &&
+        _isProjectedLoad(_session.currentSnapshot) &&
+        drag.requestId == _session.requestId &&
+        drag.loadId == _session.loadId;
+  }
+
+  void onSeekUpdate(Object? token, int seconds) {
+    if (!isSeekDragCurrent(token)) return;
+    if (!isFileSource && showSeekPreview) updatePreviewIndex(seconds);
+    seekPosition.value = seconds;
+  }
+
+  void onSeekEnd(Object? token, {Duration? target}) {
+    if (!isSeekDragCurrent(token)) return;
+    _seekDrag = null;
     if (showSeekPreview) hideSeekPreview();
-    hasToasted = false;
     isSeeking.value = false;
     _audioRecovery?.onPlaybackChanged();
     hideTaskControls();
+    if (target != null) unawaited(seekTo(target, isSeek: false));
   }
 
   final RxBool volumeIndicator = false.obs;
