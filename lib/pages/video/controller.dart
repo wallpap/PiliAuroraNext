@@ -1006,10 +1006,11 @@ class VideoDetailController with BlockMixin {
     if (plan != null &&
         confirmedPlan != null &&
         plan.contentKey == confirmedPlan.contentKey) {
-      final position =
-          plPlayerController.videoPlayerController?.state.position ??
-          playedTime ??
-          snapshot.actual.position;
+      final position = plPlayerController.isCompleted
+          ? Duration.zero
+          : plPlayerController.videoPlayerController?.state.position ??
+                playedTime ??
+                snapshot.actual.position;
       if (position != null) {
         _playbackPlan = PlaybackPlan(
           contentKey: plan.contentKey,

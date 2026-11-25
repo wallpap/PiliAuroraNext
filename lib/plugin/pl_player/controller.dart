@@ -163,10 +163,12 @@ class PlPlayerController
   final _progressProjection = PlaybackProgressProjection();
   int get progress => isSeeking.value ? seekPosition.value : position.value;
 
-  int get positionInMilliseconds =>
-      processing || _progressProjection.awaitingPosition
-      ? position.value * 1000
-      : videoPlayerController?.state.position.inMilliseconds ?? 0;
+  int get positionInMilliseconds {
+    final snapshot = _session.currentSnapshot;
+    return (_canProjectPosition(snapshot) ? _observedPosition(snapshot) : null)
+            ?.inMilliseconds ??
+        position.value * 1000;
+  }
 
   final RxInt buffered = RxInt(0);
 
@@ -951,7 +953,7 @@ class PlPlayerController
 
   void closePlaybackOwner(PlaybackOwner owner) {
     if (identical(_activeOwner, owner)) {
-      _progressProjection.cancelPendingSeek();
+      _resetProgressHandoff();
       if (showSeekPreview) _clearPreview();
     }
     owner.close();
@@ -970,7 +972,7 @@ class PlPlayerController
       _session.synchronizePlaybackIntent();
 
   Future<PlaybackShutdownResult> shutdownPlaybackFacade() {
-    _progressProjection.cancelPendingSeek();
+    _resetProgressHandoff();
     _watchRuntimeRelease();
     return _session.shutdown();
   }
@@ -1049,7 +1051,7 @@ class PlPlayerController
   void activatePlaybackOwner(PlaybackOwner owner) {
     owner.activate();
     if (identical(_activeOwner, owner)) return;
-    _progressProjection.cancelPendingSeek();
+    _resetProgressHandoff();
     if (_activeOwner != null && showSeekPreview) _clearPreview();
     _activeOwner = owner;
     unawaited(_snapshotSubscription?.cancel());
@@ -1065,13 +1067,19 @@ class PlPlayerController
     PlaybackOwner owner,
   ) {
     if (!owner.isActive || !identical(_activeOwner, owner)) return;
+    final current = _session.currentSnapshot;
+    final currentLoad =
+        snapshot.loadId == current.loadId && snapshot.phase == current.phase;
+    if (snapshot.phase == PlaybackPhase.ended &&
+        (!currentLoad || !owner.hasLoadedMedia)) {
+      return;
+    }
     final action = snapshot.pendingAction;
     var completedAction = false;
     if (action != null) {
       if (action.id != _lastHandledActionId) {
         _lastHandledActionId = action.id;
         completedAction = true;
-        makeHeartBeat(-1, type: .completed);
       }
       if (action.ownerId == owner.id &&
           action.id != _lastAcknowledgedActionId &&
@@ -1112,19 +1120,8 @@ class PlPlayerController
       volume.value = (playerVolume / 100).clamp(0.0, 1.0);
     }
     final wasBuffering = isBuffering.value;
-    if ((snapshot.phase == PlaybackPhase.loading ||
-            snapshot.phase == PlaybackPhase.recovering) &&
-        !dataStatus.loading &&
-        !_audioSeekInProgress) {
-      _progressProjection.begin(Duration(seconds: position.value));
-    }
     if (snapshot.actual.buffering case final buffering?) {
       isBuffering.value = buffering;
-    }
-    if (snapshot.actual.duration case final actualDuration?
-        when snapshot.phase == PlaybackPhase.ready &&
-            actualDuration > Duration.zero) {
-      updateDuration(actualDuration);
     }
 
     final wasLoading = dataStatus.loading;
@@ -1135,20 +1132,16 @@ class PlPlayerController
       PlaybackPhase.failed => DataStatus.error,
       PlaybackPhase.closing || PlaybackPhase.disposed => DataStatus.none,
     };
-    if (snapshot.loadId case final loadId?
-        when snapshot.phase == PlaybackPhase.ready &&
-            loadId == _session.loadId &&
-            _session.currentSnapshot.phase == PlaybackPhase.ready) {
-      final plan = _session.currentPlan;
-      _progressProjection.alignReadyLoad(
-        loadId,
-        _audioSeekInProgress
-            ? null
-            : plan?.reloadPosition ?? plan?.startPosition,
-      );
-    }
-    if (snapshot.phase == PlaybackPhase.ready && player != null) {
-      _publishPlaybackPosition(player.state.position);
+    if (owner.hasLoadedMedia &&
+        currentLoad &&
+        (current.phase == PlaybackPhase.ready ||
+            current.phase == PlaybackPhase.ended)) {
+      _progressProjection.confirmLoad(current.loadId!);
+      if (current.actual.duration case final actualDuration?
+          when actualDuration > Duration.zero) {
+        updateDuration(actualDuration);
+      }
+      _publishPlaybackPosition();
     }
     if (snapshot.phase == PlaybackPhase.ready &&
         snapshot.capabilities.hasAudio == true &&
@@ -1168,9 +1161,11 @@ class PlPlayerController
         : switch (snapshot.actual.playing) {
             true => PlayerStatus.playing,
             false => PlayerStatus.paused,
-            null => playerStatus,
+            null =>
+              playerStatus.isCompleted ? PlayerStatus.paused : playerStatus,
           };
     if (nextStatus == playerStatus) {
+      if (completedAction) makeHeartBeat(-1, type: .completed);
       if (wasBuffering != isBuffering.value ||
           wasLoading != dataStatus.loading) {
         _updatePlaybackState();
@@ -1178,6 +1173,7 @@ class PlPlayerController
       return;
     }
     playerStatus = nextStatus;
+    if (nextStatus.isCompleted) makeHeartBeat(-1, type: .completed);
     _audioRecovery?.onPlaybackChanged();
     if (nextStatus.isPlaying) {
       _stopWakeLockTimer();
@@ -1201,10 +1197,8 @@ class PlPlayerController
         reportError(error, stackTrace);
       }
     }
-    if (nextStatus.isCompleted && !completedAction) {
-      makeHeartBeat(-1, type: .completed);
-    } else if (snapshot.actual.position case final position?
-        when position.inSeconds != 0) {
+    if (snapshot.actual.position case final position?
+        when !nextStatus.isCompleted && position.inSeconds != 0) {
       makeHeartBeat(position.inSeconds, type: .status);
     }
   }
@@ -1347,7 +1341,7 @@ class PlPlayerController
     height = plan.metadata?.height;
     _videoType = videoType ?? VideoType.ugc;
     _androidDecodeRecovery?.reset();
-    _progressProjection.cancelPendingSeek();
+    _resetProgressHandoff();
     _currentPlan = plan;
     _av1DecodeErrorObserved = false;
     dataStatus.value = DataStatus.loading;
@@ -1381,7 +1375,6 @@ class PlPlayerController
         plan.reloadPosition ??
         plan.startPosition ??
         (sameContent ? Duration(seconds: position.value) : Duration.zero);
-    _progressProjection.begin(initialPosition);
     position.value = buffered.value = initialPosition.inSeconds;
     if (!sameContent || plan.timeline.duration != null) {
       updateDuration(plan.timeline.duration ?? Duration.zero);
@@ -2043,17 +2036,25 @@ class PlPlayerController
         _audioRecovery?.onPlaybackChanged();
       }),
 
-      ///completed
-      stream.completed.listen((_) {}),
-
       /// position
-      stream.position.listen(_publishPlaybackPosition),
-      stream.duration.listen((value) {
-        if (!processing && value > Duration.zero) updateDuration(value);
+      stream.position.listen((_) {
+        if (_session.currentSnapshot.phase == PlaybackPhase.ready) {
+          _publishPlaybackPosition();
+        }
       }),
-      stream.buffer.listen((Duration buffer) {
-        if (!processing && !_progressProjection.awaitingPosition) {
-          buffered.value = buffer.inSeconds;
+      stream.duration.listen((_) {
+        final snapshot = _session.currentSnapshot;
+        if (snapshot.phase == PlaybackPhase.ready &&
+            _isProjectedLoad(snapshot) &&
+            player.state.duration > Duration.zero) {
+          updateDuration(player.state.duration);
+        }
+      }),
+      stream.buffer.listen((_) {
+        final snapshot = _session.currentSnapshot;
+        if (snapshot.phase == PlaybackPhase.ready &&
+            _canProjectPosition(snapshot)) {
+          buffered.value = player.state.buffer.inSeconds;
         }
       }),
       stream.buffering.listen((bool buffering) {
@@ -2102,19 +2103,43 @@ class PlPlayerController
     ];
   }
 
-  void _publishPlaybackPosition(Duration value) {
-    if (_audioSeekInProgress) return;
-    if (!_progressProjection.accept(_session.currentSnapshot.phase, value)) {
-      return;
-    }
+  void _resetProgressHandoff() {
+    _seekRevision++;
+    _audioSeekInProgress = false;
+    _progressProjection
+      ..suspendPosition()
+      ..cancelPendingSeek();
+    seekToPos = null;
+    isSeeking.value = false;
+  }
+
+  bool _isProjectedLoad(PlaybackSnapshot snapshot) =>
+      _activeOwner?.hasLoadedMedia == true &&
+      _progressProjection.acceptsPosition(snapshot);
+
+  bool _canProjectPosition(PlaybackSnapshot snapshot) =>
+      !_audioSeekInProgress && _isProjectedLoad(snapshot);
+
+  Duration? _observedPosition(PlaybackSnapshot snapshot) =>
+      snapshot.phase == PlaybackPhase.ended
+      ? snapshot.actual.position
+      : _videoPlayerController?.state.position;
+
+  void _publishPlaybackPosition() {
+    final snapshot = _session.currentSnapshot;
+    if (!_canProjectPosition(snapshot)) return;
+    final value = _observedPosition(snapshot);
+    if (value == null) return;
     final seconds = value.inSeconds;
     // 加载或 seek 期间可能已完成整段预读且不再发事件，交接后补发当前有效缓存。
     // 使用原生最新值，允许跳转或淘汰后的缓存边界回退。
     final player = _videoPlayerController;
-    if (player != null) buffered.value = player.state.buffer.inSeconds;
+    if (player != null && snapshot.phase == PlaybackPhase.ready) {
+      buffered.value = player.state.buffer.inSeconds;
+    }
     if (position.value != seconds) {
       position.value = seconds;
-      makeHeartBeat(seconds);
+      if (snapshot.phase == PlaybackPhase.ready) makeHeartBeat(seconds);
     }
     final bucket = value.inMilliseconds ~/ 100;
     if (bucket != _lastCoarsePositionBucket) {
@@ -2135,8 +2160,9 @@ class PlPlayerController
   }
 
   Future<void> seek(Duration position, {bool isSeek = false}) async {
+    final owner = _activeOwner;
+    if (owner == null || !owner.isActive) return;
     final revision = ++_seekRevision;
-    _progressProjection.begin(position);
     _audioSeekInProgress = true;
     _audioRecovery?.onPlaybackChanged();
     danmakuDisplay?.seeking?.call();
@@ -2147,15 +2173,7 @@ class PlPlayerController
       details: {'targetMs': position.inMilliseconds, 'dragSeek': isSeek},
     );
     try {
-      final owner = _activeOwner;
-      if (owner == null || !owner.isActive) return;
       final result = await owner.seek(position);
-      if (revision == _seekRevision &&
-          result.outcome != CommandOutcome.applied) {
-        if (_videoPlayerController case final player?) {
-          _progressProjection.begin(player.state.position);
-        }
-      }
       _diagnostics?.event(
         result.outcome == CommandOutcome.applied
             ? 'playback.seek.end'
@@ -2179,9 +2197,7 @@ class PlPlayerController
     } finally {
       if (revision == _seekRevision) {
         _audioSeekInProgress = false;
-        if (_videoPlayerController case final player?) {
-          _publishPlaybackPosition(player.state.position);
-        }
+        _publishPlaybackPosition();
         _audioRecovery?.onPlaybackChanged();
       }
     }
@@ -2230,7 +2246,8 @@ class PlPlayerController
     // 播放时自动隐藏控制条
     controls = !hideControls;
     // repeat为true，将从头播放
-    if (repeat) {
+    if (repeat || isCompleted) _heartDuration = 0;
+    if (repeat && !isCompleted) {
       await owner.seek(Duration.zero);
     }
     final result = await owner.setPlaying(true);
@@ -2451,15 +2468,12 @@ class PlPlayerController
   }
 
   bool get isCompleted =>
-      videoPlayerController!.state.completed ||
-      durationInMilliseconds - positionInMilliseconds <= 50;
+      _activeOwner?.hasLoadedMedia == true &&
+      _session.currentSnapshot.phase == PlaybackPhase.ended;
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
-    if (!isLive && isCompleted) {
-      await seekTo(Duration.zero, isSeek: false);
-      await play();
-    } else if (playerStatus.isPlaying) {
+    if (!isCompleted && playerStatus.isPlaying) {
       await pause();
     } else {
       await play();

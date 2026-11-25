@@ -77,6 +77,7 @@ class PlaybackSession implements PlaybackMediaClock {
   PlaybackPlan? _lastLoadPlan;
   PlaybackOwner? _lastLoadOwner;
   bool _runtimePositionAvailable = false;
+  int? _completedLoadId;
   String? _observedDurationContentKey;
   Duration? _observedDuration;
   int? _observedDurationLoadId;
@@ -1537,6 +1538,8 @@ class PlaybackSession implements PlaybackMediaClock {
     final sameMedia = _lastLoadPlan?.contentKey == plan.contentKey;
     final position = plan.timeline.kind == PlaybackTimelineKind.live
         ? null
+        : sameMedia && _completedLoadId == _loadId
+        ? Duration.zero
         : (sameMedia && _runtimePositionAvailable
                   ? _runtime.position ?? _actual.position
                   : null) ??
@@ -1832,6 +1835,7 @@ class PlaybackSession implements PlaybackMediaClock {
         _mediaAnchor = anchor;
         _mediaAnchors.add(anchor);
       case PlaybackRuntimeStateChanged(:final actual):
+        if (_phase == PlaybackPhase.ended) return;
         final duration = actual.duration;
         if (event.loadId != null &&
             duration != null &&
@@ -1868,9 +1872,11 @@ class PlaybackSession implements PlaybackMediaClock {
         if (owner == null || owner._requiresLoad) return;
         final plan = _currentPlan;
         final endPosition = position ?? _runtime.position ?? _actual.position;
-        final endDuration = duration != null && duration > Duration.zero
-            ? duration
-            : plan?.timeline.duration ?? _actual.duration;
+        final endDuration = switch (duration) {
+          final known? when known > Duration.zero => known,
+          _ when _observedDurationLoadId == _loadId => _observedDuration,
+          _ => plan?.timeline.duration,
+        };
         if (plan != null &&
             plan.source.isNetwork &&
             plan.timeline.kind == PlaybackTimelineKind.onDemand &&
@@ -1892,6 +1898,14 @@ class PlaybackSession implements PlaybackMediaClock {
         owner._playing = false;
         _intentRevision++;
         _settlePlayingWaiters(const CommandResult.superseded());
+        _completedLoadId = _loadId;
+        _actual = PlaybackActual(
+          playing: false,
+          buffering: false,
+          seeking: false,
+          position: endPosition,
+          duration: endDuration,
+        );
         _phase = PlaybackPhase.ended;
         _stage = PlaybackStage.observing;
         _pendingAction = PlaybackAction(
@@ -2506,6 +2520,7 @@ class PlaybackOwner {
       _attached &&
       !_session.isDisposed &&
       identical(_session._activeOwner, this);
+  bool get hasLoadedMedia => isActive && !_requiresLoad;
   bool get isQuerying =>
       identical(_session._acceptedRequest?.owner, this) &&
       _session._stage == PlaybackStage.resolving;

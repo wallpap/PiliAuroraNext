@@ -3,45 +3,40 @@ import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.da
 import 'package:pili_aurora_next/plugin/pl_player/playback/progress_projection.dart';
 
 void main() {
-  test('重载和页面续播过滤卸载零值，ready 后直接交接续播位置', () {
+  PlaybackSnapshot snapshot(int loadId, PlaybackPhase phase) =>
+      PlaybackSnapshot(
+        snapshotVersion: 0,
+        phase: phase,
+        stage: PlaybackStage.observing,
+        loadId: loadId,
+        intent: const PlaybackIntent(),
+        actual: const PlaybackActual(),
+        capabilities: const PlaybackCapabilities(),
+        presentation: const PlaybackPresentation(),
+      );
+
+  test('进度只接收已确认加载，独立于计划起点和实际落点', () {
     final progress = PlaybackProgressProjection();
-    for (final phase in [PlaybackPhase.loading, PlaybackPhase.recovering]) {
-      progress.begin(const Duration(seconds: 120));
-      expect(progress.accept(phase, Duration.zero), isFalse);
-      expect(progress.accept(phase, const Duration(seconds: 3)), isFalse);
-      expect(progress.accept(PlaybackPhase.ready, Duration.zero), isFalse);
-      expect(
-        progress.accept(PlaybackPhase.ready, const Duration(seconds: 600)),
-        isFalse,
-      );
-      expect(progress.awaitingPosition, isTrue);
-      expect(
-        progress.accept(
-          PlaybackPhase.ready,
-          const Duration(milliseconds: 120100),
-        ),
-        isTrue,
-      );
-      expect(progress.awaitingPosition, isFalse);
-      // 交接完成后的真实回到片头应正常显示。
-      expect(progress.accept(PlaybackPhase.ready, Duration.zero), isTrue);
+    for (final phase in PlaybackPhase.values) {
+      expect(progress.acceptsPosition(snapshot(1, phase)), isFalse);
     }
+    progress.confirmLoad(1);
+    for (final phase in PlaybackPhase.values) {
+      expect(
+        progress.acceptsPosition(snapshot(1, phase)),
+        phase == PlaybackPhase.ready || phase == PlaybackPhase.ended,
+      );
+    }
+    expect(progress.acceptsPosition(snapshot(2, PlaybackPhase.ready)), isFalse);
   });
 
-  test('新视频从片头开始可接收零值，旧加载的尾部通知被隔离', () {
-    final progress = PlaybackProgressProjection()..begin(Duration.zero);
-    expect(
-      progress.accept(PlaybackPhase.loading, const Duration(seconds: 600)),
-      isFalse,
-    );
-    expect(progress.accept(PlaybackPhase.ready, Duration.zero), isTrue);
-    expect(progress.accept(PlaybackPhase.failed, Duration.zero), isFalse);
-  });
-
-  test('交接期间用户跳回片头时使用最新目标', () {
+  test('切换归属时撤销进度，旧加载不能污染新加载', () {
     final progress = PlaybackProgressProjection()
-      ..begin(const Duration(seconds: 120))
-      ..begin(Duration.zero);
-    expect(progress.accept(PlaybackPhase.ready, Duration.zero), isTrue);
+      ..confirmLoad(1)
+      ..suspendPosition();
+    expect(progress.acceptsPosition(snapshot(1, PlaybackPhase.ready)), isFalse);
+    progress.confirmLoad(2);
+    expect(progress.acceptsPosition(snapshot(1, PlaybackPhase.ended)), isFalse);
+    expect(progress.acceptsPosition(snapshot(2, PlaybackPhase.ready)), isTrue);
   });
 }

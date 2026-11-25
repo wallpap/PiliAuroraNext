@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:audio_session/audio_session.dart' as system_audio;
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -20,6 +21,8 @@ import 'package:path/path.dart' as path;
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_status.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/audio_recovery.dart';
@@ -865,6 +868,146 @@ void main() {
     expect(f.controller.positionInMilliseconds, 0);
   });
 
+  _recoveryTest('确认完播后重新打开同一视频，不从最后一帧续播', (f) async {
+    await f.load(local: true);
+    f.runtime.complete(at: const Duration(milliseconds: 299800));
+    await f.tester.pump();
+    expect(f.controller.playerStatus, PlayerStatus.completed);
+
+    await f.load(local: true);
+    expect(f.controller.playerStatus, PlayerStatus.playing);
+    expect(f.controller.position.value, 0);
+    expect(f.controller.progress, 0);
+    expect(f.controller.positionInMilliseconds, 0);
+
+    await f.advance(1);
+    expect(f.controller.progress, 1);
+  });
+
+  _recoveryTest('重新打开后，进度采用当前加载的实际落点而不是旧片尾', (f) async {
+    await f.load(local: true);
+    f.runtime.complete();
+    await f.tester.pump();
+    expect(f.controller.progress, 300);
+
+    f.runtime.openPosition = const Duration(seconds: 4);
+    await f.load(local: true, owner: f.controller.attachPlaybackOwner());
+    expect(f.controller.position.value, 4);
+    expect(f.controller.progress, 4);
+    expect(f.controller.positionInMilliseconds, 4000);
+
+    await f.advance(1);
+    expect(f.controller.progress, 5);
+  });
+
+  _recoveryTest('重播时迟到的旧位置通知不能恢复片尾进度', (f) async {
+    await f.load(local: true);
+    f.runtime.complete();
+    await f.tester.pump();
+    await f.controller.play();
+    await f.tester.pump();
+    expect(f.controller.progress, 0);
+
+    f.runtime.player.playback.positionEvents.add(const Duration(minutes: 5));
+    await f.tester.pump();
+    expect(f.controller.progress, 0);
+  });
+
+  _recoveryTest('重播不依赖时长，未知时长的正常播放也不算完播', (f) async {
+    await f.load(local: true);
+    f.runtime.player.state.duration = Duration.zero;
+    f.runtime.emitActual();
+    f.controller.updateDuration(Duration.zero);
+    await f.tester.pump();
+    expect(f.controller.isCompleted, isFalse);
+
+    f.runtime.complete(at: const Duration(seconds: 10));
+    await f.tester.pump();
+    expect(f.controller.isCompleted, isTrue);
+    final replay = f.controller.onDoubleTapCenter();
+    await f.tester.pump();
+    expect(f.controller.playerStatus, PlayerStatus.playing);
+    expect(f.controller.progress, 0);
+    await replay;
+  });
+
+  _recoveryTest('完播后原生卸载清零不能回退终态的显示位置', (f) async {
+    await f.load(local: true);
+    f.runtime.complete(at: const Duration(milliseconds: 299800));
+    f.runtime.player.state
+      ..position = Duration.zero
+      ..duration = Duration.zero;
+    f.runtime.emitActual();
+    f.runtime.player.playback.positionEvents.add(Duration.zero);
+    await f.tester.pump();
+
+    expect(f.controller.isCompleted, isTrue);
+    expect(f.controller.progress, 299);
+    expect(f.controller.positionInMilliseconds, 299800);
+    expect(f.controller.durationInMilliseconds, 300000);
+  });
+
+  _recoveryTest('切源丢弃旧拖动预览和排队的完播回调', (f) async {
+    await f.load(local: true);
+    final statuses = <PlayerStatus>[];
+    f.controller.addStatusLister(statuses.add);
+    f.controller.onSeekStart(299);
+    f.runtime.complete();
+    await f.load(local: true, key: 'next');
+
+    expect(f.controller.progress, 10);
+    expect(f.controller.isSeeking.value, isFalse);
+    expect(statuses, isNot(contains(PlayerStatus.completed)));
+  });
+
+  _recoveryTest('完播历史在原生暂停回执后仍上报一次且不会被普通进度覆盖', (f) async {
+    final previous = Accounts.heartbeat;
+    Accounts.accountMode[AccountType.heartbeat.index] = LoginAccount(
+      BiliCookieJar.fromJson({'DedeUserID': '1', 'bili_jct': 'fixture'}),
+      null,
+      null,
+    );
+    Request();
+    final reported = <Object?>[];
+    final interceptor = InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (options.path == Api.heartBeat) {
+          reported.add((options.data as Map)['played_time']);
+        }
+        handler.resolve(Response(requestOptions: options, data: {'code': 0}));
+      },
+    );
+    Request.dio.interceptors.insert(0, interceptor);
+    try {
+      await f.load(local: true);
+      f.controller.cid = 1;
+      f.runtime.player.state.playing = false;
+      f.runtime.emitActual();
+      await f.tester.pump();
+      expect(f.controller.playerStatus, PlayerStatus.paused);
+
+      f.controller.enableHeart = true;
+      f.runtime.complete();
+      await f.tester.pump(const Duration(milliseconds: 1));
+      expect(f.controller.isCompleted, isTrue);
+      expect(reported, [-1]);
+    } finally {
+      Request.dio.interceptors.remove(interceptor);
+      Accounts.accountMode[AccountType.heartbeat.index] = previous;
+    }
+  });
+
+  _recoveryTest('完播判定优先使用本次加载的观测时长，不把真实结尾当成断流', (f) async {
+    await f.load();
+    f.runtime.player.state.duration = const Duration(seconds: 40);
+    f.runtime.complete(at: const Duration(milliseconds: 39800));
+    await f.tester.pump();
+
+    expect(f.controller.isCompleted, isTrue);
+    expect(f.controller.durationInMilliseconds, 40000);
+    expect(f.runtime.loads, hasLength(1));
+  });
+
   for (final actualFallback in [false, true]) {
     _recoveryTest('来源查询越界归零并在后续进度持续推进：$actualFallback', (f) async {
       final plan = PlaybackPlan(
@@ -1045,6 +1188,24 @@ void main() {
     expect(f.controller.position.value, 42);
     expect(f.controller.positionInMilliseconds, 42000);
     expect(f.controller.playerStatus, PlayerStatus.paused);
+  });
+
+  _recoveryTest('暂停时跳转落在较远关键帧，进度立即显示实际位置', (f) async {
+    await f.load(start: PlaybackStartPolicy.pause);
+    f.runtime.onSeek = (_) async {
+      f.runtime.player.state.position = const Duration(milliseconds: 22375);
+      return const PlaybackRuntimeCommandResult();
+    };
+    await f.tester.runAsync(
+      () => f.controller
+          .seekTo(const Duration(seconds: 30))
+          .timeout(const Duration(seconds: 2)),
+    );
+    await f.tester.pump();
+
+    expect(f.controller.position.value, 22);
+    expect(f.controller.progress, 22);
+    expect(f.controller.positionInMilliseconds, 22375);
   });
 
   _recoveryTest('时长确认不足一秒时也能完成等待中的跳转', (f) async {
@@ -1836,6 +1997,7 @@ class _Fixture {
 
   Future<void> load({
     String key = 'movie',
+    PlaybackOwner? owner,
     bool shaderEligible = false,
     PlaybackMetadataHint? metadata,
     PlaybackConfiguration? configuration,
@@ -1884,7 +2046,7 @@ class _Fixture {
           PlaybackConfiguration(audioOnly: mode == _Mode.audioOnly),
     );
     final result = await controller.loadPlaybackPlan(
-      owner: owner,
+      owner: owner ?? this.owner,
       plan: plan,
       start: start,
       live: false,
@@ -1968,6 +2130,7 @@ class _Runtime extends NativePlaybackRuntime {
   @override
   Duration get position => player.state.position;
   final loads = <PlaybackPlan>[];
+  Duration? openPosition;
   Future<void> Function(PlaybackPlan)? beforeLoad;
   Future<PlaybackRuntimeCommandResult> Function(Duration)? onSeek;
   Future<PlaybackRuntimeLoadResult?> Function(
@@ -2039,6 +2202,7 @@ class _Runtime extends NativePlaybackRuntime {
       ..completed = false
       ..buffering = false
       ..position =
+          openPosition ??
           plan.reloadPosition ??
           plan.startPosition ??
           const Duration(seconds: 10)
@@ -2143,6 +2307,7 @@ class _Runtime extends NativePlaybackRuntime {
     await player.playback.playingEvents.close();
     await player.playback.bufferingEvents.close();
     await player.playback.completedEvents.close();
+    await player.playback.positionEvents.close();
     await player.playback.bufferEvents.close();
   }
 }
@@ -2189,6 +2354,7 @@ class _Streams implements PlayerStream {
   final playingEvents = StreamController<bool>.broadcast(sync: true);
   final bufferingEvents = StreamController<bool>.broadcast(sync: true);
   final completedEvents = StreamController<bool>.broadcast(sync: true);
+  final positionEvents = StreamController<Duration>.broadcast(sync: true);
   final bufferEvents = StreamController<Duration>.broadcast(sync: true);
   @override
   Stream<PlayerLog> get log => logs.stream;
@@ -2199,7 +2365,7 @@ class _Streams implements PlayerStream {
   @override
   Stream<bool> get completed => completedEvents.stream;
   @override
-  Stream<Duration> get position => const Stream.empty();
+  Stream<Duration> get position => positionEvents.stream;
   @override
   Stream<Duration> get duration => const Stream.empty();
   @override
