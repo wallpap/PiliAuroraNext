@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path/path.dart' as paths;
+import 'package:path_provider/path_provider.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/data_source.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/native_playback_runtime.dart';
 import 'package:pili_aurora_next/plugin/pl_player/playback/playback_contracts.dart';
@@ -18,11 +20,10 @@ import 'package:window_manager/window_manager.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows) await windowManager.ensureInitialized();
-  MediaKit.ensureInitialized();
-  const media = String.fromEnvironment('DEVICE_MEDIA');
-  const audio = String.fromEnvironment('DEVICE_AUDIO');
+  const mediaPath = String.fromEnvironment('DEVICE_MEDIA');
+  const audioPath = String.fromEnvironment('DEVICE_AUDIO');
   const shader = String.fromEnvironment('DEVICE_SHADER');
-  const output = String.fromEnvironment('DEVICE_REPORT');
+  const reportPath = String.fromEnvironment('DEVICE_REPORT');
   const defaultSoakSeconds = int.fromEnvironment(
     'DEVICE_SOAK_SECONDS',
     defaultValue: 60,
@@ -31,7 +32,30 @@ Future<void> main() async {
     'DEVICE_SEEK_MS',
     defaultValue: 2400,
   );
-  if (media.isEmpty || output.isEmpty) throw ArgumentError('需要媒体和报告路径');
+  if (mediaPath.isEmpty || reportPath.isEmpty) {
+    throw ArgumentError('需要媒体和报告路径');
+  }
+  final external = Platform.isAndroid && !paths.isAbsolute(reportPath)
+      ? await getExternalStorageDirectory() ??
+            (throw StateError('Android 应用外部存储不可用'))
+      : null;
+  String resolve(String path) =>
+      external == null ||
+          path.isEmpty ||
+          paths.isAbsolute(path) ||
+          Uri.parse(path).hasScheme
+      ? path
+      : paths.join(external.path, path);
+  final media = resolve(mediaPath);
+  final audio = resolve(audioPath);
+  final output = resolve(reportPath);
+  if (external != null &&
+      !Uri.parse(mediaPath).hasScheme &&
+      !File(media).existsSync()) {
+    debugPrint('DEVICE_ACCEPTANCE_WAITING_FOR_MEDIA');
+    return;
+  }
+  MediaKit.ensureInitialized();
   final configFile = File('$output.config.json');
   final config = configFile.existsSync()
       ? jsonDecode(await configFile.readAsString()) as Map<String, dynamic>

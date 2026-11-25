@@ -371,9 +371,12 @@ Windows 的 `nativeTextureAttachReceipt` 表示该 load token 已收到原生纹
 `DEVICE_SEEK_MS`（暂停 seek 目标，默认 2400 毫秒）。Android 单视频沿用关键帧跳转策略，
 应先用 `ffprobe` 确认样片关键帧，再将 `DEVICE_SEEK_MS` 设为对应时刻。
 探针等待 seek 完成后核对位置，并检查播放时采样激活、暂停 seek 后相位样本清空。
-Android 可使用独立 debug 包，将样片及报告置于该包的外部私有 `files/` 目录，
-无需授予共享媒体权限；外部目录受设备限制时，可用 `run-as` 将样片及报告放到
-debug 包的内部 `cache/`，并同步修改构建参数中的路径。
+Android 可使用独立测试包，以 `DEVICE_MEDIA=sample.mp4`、`DEVICE_REPORT=report.json`
+从应用的外部私有 `files/` 目录读写，媒体 HTTP URL 仍原样使用。安装后先启动一次，
+让应用创建目录；看到 `DEVICE_ACCEPTANCE_WAITING_FOR_MEDIA` 后再用 ADB 将样片传到
+`/sdcard/Android/data/<测试包名>/files/`，然后重启探针。不要先从 shell 创建应用目录，
+避免真机将其归给 shell 而拒绝应用访问。无需授予共享媒体权限；外部目录受限时，
+仍可用 `run-as` 将样片及报告放到独立 debug 包的内部 `cache/` 并传入绝对路径。
 报告旁的 `<报告路径>.config.json` 支持以下运行配置，
 修改配置后重新启动探针即可复测：
 
