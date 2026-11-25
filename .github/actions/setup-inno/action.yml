@@ -1,0 +1,19 @@
+name: Set up Inno Setup
+description: Ensure Inno Setup 6 and the project's language file are available.
+runs:
+  using: composite
+  steps:
+    - name: Prepare Inno Setup
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $directory = "${env:ProgramFiles(x86)}\Inno Setup 6"
+        $iscc = Join-Path $directory 'ISCC.exe'
+        if (-not (Test-Path -LiteralPath $iscc)) {
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+        }
+        if (-not (Test-Path -LiteralPath $iscc)) { throw "ISCC.exe not found at $iscc" }
+        Copy-Item 'windows/packaging/exe/ChineseSimplified.isl' (Join-Path $directory 'Languages/ChineseSimplified.isl') -Force
+        Add-Content -LiteralPath $env:GITHUB_PATH -Value $directory
+        Add-Content -LiteralPath $env:GITHUB_ENV -Value "INNO_SETUP_PATH=$directory"

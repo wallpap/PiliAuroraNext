@@ -167,9 +167,9 @@ elseif (-not (Test-Path -LiteralPath (Join-Path $Workspace ".dart_tool/package_c
     throw "依赖尚未准备，请先运行构建脚本而不传 -SkipPubGet。"
 }
 
+$selectedFlutterRoot = Resolve-FvmFlutterRoot
 if (-not $SkipPatch) {
     $patchScript = Join-Path $Workspace "lib/scripts/patch.ps1"
-    $selectedFlutterRoot = Resolve-FvmFlutterRoot
     $inheritedFlutterRoot = $env:FLUTTER_ROOT
     $inheritedPath = $env:PATH
     $env:FLUTTER_ROOT = $selectedFlutterRoot
@@ -195,7 +195,6 @@ if (-not $SkipPatch) {
 # 解析及补丁步骤结束后检查最终锁文件，禁止重新引入 Git 来源。
 Invoke-Fvm @("exec", "dart", "--packages=.dart_tool/package_config.json", "tool/check_dependencies.dart")
 
-$selectedFlutterRoot = Resolve-FvmFlutterRoot
 # Release 与发布 CI 共用已验收的引擎；缺少或失配时直接失败，避免悄悄换回原版。
 if ($Mode -eq 'release' -and -not $EngineLibrary) {
     $packageScript = Join-Path $Workspace 'third_party/flutter_engine/package.py'

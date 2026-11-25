@@ -173,25 +173,40 @@ Resolve-FlutterRoot
         self.assertEqual((self.root / 'pubspec.yaml').read_text().strip(), 'version: 2.0.0+1')
         self.assertIn('version=2.0.0+1', (self.root / 'github.env').read_text())
 
-    def test_ci_versions_match_on_both_platforms_with_or_without_tag(self):
+    def test_ci_versions_and_timestamp_match_for_the_same_release(self):
+        build_time = 1795600000
         for tag, expected in (('', '2.0.0'), ('v2.1.0-rc.1', '2.1.0-rc.1')):
-            versions = []
-            for platform in ('android', 'windows'):
-                with self.subTest(tag=tag, platform=platform):
-                    (self.root / 'pubspec.yaml').write_text('version: 2.0.0+555\n')
-                    env_file = self.root / f'{platform}.env'
-                    env_file.write_text('')
-                    result = subprocess.run(
-                        ['pwsh', '-NoProfile', '-File', 'lib/scripts/build.ps1',
-                         platform, '-Version', tag], check=False, cwd=self.root,
-                        env={**os.environ, 'GITHUB_ENV': str(env_file)},
-                        capture_output=True, text=True, encoding='utf-8', timeout=60)
-                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                    metadata = json.loads((self.root / 'pili_release.json').read_text(encoding='utf-8-sig'))
-                    versions.append((metadata['pili.name'], metadata['pili.code'], metadata['pili.hash']))
-                    self.assertEqual((self.root / 'pubspec.yaml').read_text().strip(), f'version: {expected}+1')
-                    self.assertEqual(env_file.read_text().strip(), f'version={expected}+1')
-            self.assertEqual(versions[0], versions[1])
+            with self.subTest(tag=tag):
+                pubspec = self.root / 'pubspec.yaml'
+                pubspec.write_text('version: 2.0.0+555\n')
+                env_file = self.root / 'github.env'
+                env_file.write_text('')
+                command = ['pwsh', '-NoProfile', '-Command',
+                           '& ./lib/scripts/build.ps1 -MetadataOnly -Version $env:RELEASE_VERSION '
+                           '-BuildTime $env:RELEASE_TIME | ConvertTo-Json -Compress']
+                result = subprocess.run(
+                    command, check=False, cwd=self.root,
+                    env={**os.environ, 'GITHUB_ENV': str(env_file), 'RELEASE_VERSION': tag,
+                         'RELEASE_TIME': str(build_time)},
+                    capture_output=True, text=True, encoding='utf-8', timeout=60)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                metadata = json.loads(result.stdout)
+                self.assertEqual(metadata['pili.name'], expected)
+                self.assertEqual(metadata['pili.code'], 1)
+                self.assertEqual(metadata['pili.hash'], self.git('rev-parse', 'HEAD'))
+                self.assertEqual(metadata['pili.time'], build_time)
+                self.assertEqual(pubspec.read_text().strip(), 'version: 2.0.0+555')
+                self.assertEqual(env_file.read_text(), '')
+
+                result = subprocess.run(
+                    ['pwsh', '-NoProfile', '-File', 'lib/scripts/build.ps1', '-Version', tag,
+                     '-BuildTime', str(metadata['pili.time'])], check=False, cwd=self.root,
+                    env={**os.environ, 'GITHUB_ENV': str(env_file)},
+                    capture_output=True, text=True, encoding='utf-8', timeout=60)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(json.loads((self.root / 'pili_release.json').read_text(encoding='utf-8-sig')), metadata)
+                self.assertEqual(pubspec.read_text().strip(), f'version: {expected}+1')
+                self.assertEqual(env_file.read_text().strip(), f'version={expected}+1')
 
     def test_ci_rejects_versions_the_update_checker_cannot_parse(self):
         for version in ('v02.0.0', 'v2.0.0-rc.01', 'v2.0.0;bad'):

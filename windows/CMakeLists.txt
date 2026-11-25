@@ -68,6 +68,7 @@ add_subdirectory("runner")
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "$<TARGET_FILE_DIR:${BINARY_NAME}>" CACHE PATH "..." FORCE)
 endif()
+set(PILIAURORANEXT_LIBMPV_CACHE "${CMAKE_CURRENT_SOURCE_DIR}/../build/upstream-mpv")
 include(flutter/generated_plugins.cmake)
 
 # The plugin is an external dependency. Keep its MSVC warnings scoped to the

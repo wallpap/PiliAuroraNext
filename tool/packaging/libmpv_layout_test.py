@@ -31,9 +31,10 @@ class LibmpvLayoutTest(unittest.TestCase):
                     entry = tarfile.TarInfo(name)
                     entry.size = len(content)
                     bundle.addfile(entry, io.BytesIO(content))
+            expected = hashlib.sha256(archive.read_bytes()).hexdigest()
             (package / 'libmpv.json').write_text(json.dumps({
                 'url': archive.as_uri(),
-                'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
+                'sha256': expected,
             }), encoding='utf-8')
             for name in ('THIRD_PARTY_NOTICES.txt', 'NOTICE_SOURCES.json'):
                 (package / name).write_text('fixture', encoding='utf-8')
@@ -57,6 +58,23 @@ class LibmpvLayoutTest(unittest.TestCase):
             header.write_bytes(b'stale cache')
             configure()
             self.assertEqual(header.read_bytes(), members['include/mpv/client.h'])
+
+            cache = work / 'shared-cache'
+            cache.mkdir()
+            cached_archive = cache / f'{expected}.7z'
+            archive.rename(cached_archive)
+            shared_command = [
+                CMAKE, '-S', str(work), '-B', str(work / 'shared-build'),
+                f'-DPILIAURORANEXT_LIBMPV_CACHE={cache}',
+            ]
+            result = subprocess.run(shared_command, check=False, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual((work / 'shared-build/libmpv/libmpv-2.dll').read_bytes(), members['libmpv-2.dll'])
+
+            cached_archive.write_bytes(b'corrupt archive')
+            result = subprocess.run(shared_command, check=False, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('libmpv archive SHA256 mismatch', result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

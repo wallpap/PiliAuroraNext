@@ -92,9 +92,11 @@ gh workflow run build.yml --repo wallpap/PiliAuroraNext --ref 1.0.0 -f tag=1.0.0
 | `prerelease`、`draft_release` | 发布预览版时启用 `prerelease`。要在公开前核对附件，可启用 `draft_release` 保存为草稿；两项可以同时启用。 |
 | `skip_ci_tests` | 默认运行主机 CI 测试和 Windows 安装器测试。启用后跳过这些测试，仍校验依赖和预编译产物。 |
 
-CI 校验仓库中的引擎产物和身份文件后，为各平台和架构装配对应的定制引擎。维护步骤见[预编译引擎](../../third_party/flutter_engine/README.md)。发布时，工作流以 tag 指定版本名，用提交数生成构建号，并写入本次构建的 `pubspec.yaml` 和 `pili_release.json`。GitHub 根据本次发布的提交记录生成发布说明。
+CI 校验仓库中的引擎产物和身份文件后，为各平台和架构装配对应的定制引擎。维护步骤见[预编译引擎](../../third_party/flutter_engine/README.md)。工作流按 tag 和提交数一次生成版本名、构建号和时间，供三个 Android ABI 与 Windows 共用。Android 通过 Flutter 构建参数设置版本，不修改 `pubspec.yaml`；Windows 仍为 fastforge 生成 `pubspec.yaml` 的版本项和 `pili_release.json`。
 
-Android APK 构建失败时，工作流会在步骤输出中打印对应 `.build.log` 的最后 200 行；完整日志以 `android-build-logs-<run_id>-<run_attempt>` 工作流附件保留，成功、失败或取消时均尝试上传已有日志。排查 `flutter failed` 时先查看这些日志，定位 Flutter 或 Gradle 的实际错误。
+三个 Android ABI 在独立 runner 上并行编译、装配和签名；主机测试及 Windows 覆盖安装测试也与打包并行。双平台构建与 PR 检查一样由 Linux 运行共享测试，Windows 运行本机和双宿主回归；只打包 Windows 时仍在 Windows 运行共享测试。并行会缩短等待时间，但可能增加 runner 总用时。即使测试失败，已经生成的工作流附件仍可用于排查；只有所选平台的构建和未跳过的测试全部通过后，才会统一发布 Release。Windows CI 允许 CMake 同时构建四个原生目标；原生回退验收和 CMake 共用 `build/upstream-mpv/` 中的归档，各自校验 SHA-256。
+
+Android APK 构建失败时，工作流会在步骤输出中打印对应 `.build.log` 的最后 200 行；完整日志以 `android-build-logs-<run_id>-<run_attempt>-<abi>` 工作流附件保留，成功、失败或取消时均尝试上传已有日志。排查 `flutter failed` 时先查看这些日志，定位 Flutter 或 Gradle 的实际错误。
 
 ### Windows 打包与覆盖安装
 

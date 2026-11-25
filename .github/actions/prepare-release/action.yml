@@ -1,0 +1,25 @@
+name: Prepare Flutter release dependencies
+description: Set up the pinned Flutter SDK, apply platform patches, and check dependencies.
+inputs:
+  platform:
+    description: Platform for Flutter patches
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        flutter-version-file: .fvmrc
+        cache: true
+
+    - name: Apply Flutter patches
+      shell: pwsh
+      env:
+        PATCH_PLATFORM: ${{ inputs.platform }}
+      run: lib/scripts/patch.ps1 $env:PATCH_PLATFORM
+
+    - name: Check dependency sources and versions
+      shell: pwsh
+      run: dart --packages=.dart_tool/package_config.json tool/check_dependencies.dart

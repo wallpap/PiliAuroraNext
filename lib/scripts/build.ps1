@@ -1,7 +1,8 @@
 param(
     [string]$Arg = '',
     [string]$Version = '',
-    [switch]$MetadataOnly
+    [switch]$MetadataOnly,
+    [long]$BuildTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 )
 
 try {
@@ -47,13 +48,11 @@ try {
         throw "invalid version: $versionName"
     }
 
-    $buildTime = [int]([DateTimeOffset]::Now.ToUnixTimeSeconds())
-
     $data = @{
         'pili.name' = $versionName
         'pili.code' = $versionCode
         'pili.hash' = $commitHash
-        'pili.time' = $buildTime
+        'pili.time' = $BuildTime
     }
 
     # 本地构建只读取元数据，通过 Flutter 参数设置版本，避免改写工作区。
