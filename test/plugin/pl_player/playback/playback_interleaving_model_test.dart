@@ -102,7 +102,6 @@ void main() {
   test('关闭重入共享真实收据，清理成功仍须等实际释放', () async {
     final runtime = FakeSessionRuntime();
     final session = PlaybackSession(runtime: runtime);
-    session.attach();
     final cleanupReply = Completer<PlaybackShutdownResult>();
     Future<PlaybackShutdownResult>? reentrant;
     runtime.onShutdown = () {
@@ -137,7 +136,6 @@ void main() {
     final runtime = FakeSessionRuntime()
       ..onShutdown = () => cleanupReply.future;
     final session = PlaybackSession(runtime: runtime, shutdownBudget: budget);
-    session.attach();
     try {
       final shutdown = session.shutdown();
       await tester.pump(budget);
@@ -164,6 +162,47 @@ void main() {
       await runtime.eventController.close();
     }
   });
+
+  for (final eofFirst in [false, true]) {
+    test('当前加载的失败与完播按首个终态结算 EOF 先到=$eofFirst', () async {
+      final runtime = FakeSessionRuntime();
+      final session = PlaybackSession(runtime: runtime);
+      final owner = session.attach();
+      addTearDown(session.shutdown);
+      final first = await owner.load(
+        sessionPlan('terminal-order'),
+        start: PlaybackStartPolicy.play,
+      );
+
+      _emitTerminal(runtime, first.loadId!, eof: eofFirst);
+      final terminal = session.currentSnapshot;
+      _emitTerminal(runtime, first.loadId!, eof: !eofFirst);
+      _emitTerminal(runtime, first.loadId!, eof: eofFirst);
+      expect(session.currentSnapshot, same(terminal));
+      if (eofFirst) {
+        expect(terminal.phase, PlaybackPhase.ended);
+        expect(terminal.actual.position, _duration);
+        expect(terminal.pendingAction?.kind, PlaybackActionKind.completed);
+        expect(terminal.failure, isNull);
+        expect(session.resumePosition, Duration.zero);
+        expect(
+          (await owner.acknowledgeAction(terminal.pendingAction!)).outcome,
+          CommandOutcome.applied,
+        );
+        _emitTerminal(runtime, first.loadId!, eof: false);
+        expect(session.currentSnapshot.phase, PlaybackPhase.ended);
+        expect(session.currentSnapshot.pendingAction, isNull);
+        expect((await owner.setPlaying(true)).outcome, CommandOutcome.applied);
+      } else {
+        expect(terminal.phase, PlaybackPhase.failed);
+        expect(terminal.failure, same(_failure));
+        expect(terminal.pendingAction, isNull);
+        expect((await owner.retry()).outcome, LoadOutcome.ready);
+      }
+      expect(session.currentSnapshot.phase, PlaybackPhase.ready);
+      expect(session.currentSnapshot.loadId, isNot(first.loadId));
+    });
+  }
 
   for (final closeDuringSeek in [false, true]) {
     for (final order in _orders([

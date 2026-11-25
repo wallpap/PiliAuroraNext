@@ -2127,6 +2127,10 @@ class PlaybackSession implements PlaybackMediaClock {
 
   void _failFromRuntime(PlaybackFailure failure) {
     final request = _acceptedRequest;
+    if (request == null &&
+        (_phase == PlaybackPhase.ended || _phase == PlaybackPhase.failed)) {
+      return;
+    }
     if (request != null) {
       if (!_ownsRequest(request)) return;
       _cancelRequestCallbacks(request);
