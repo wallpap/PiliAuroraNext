@@ -1067,11 +1067,10 @@ class PlPlayerController
     PlaybackOwner owner,
   ) {
     if (!owner.isActive || !identical(_activeOwner, owner)) return;
-    final current = _session.currentSnapshot;
-    final currentLoad =
-        snapshot.loadId == current.loadId && snapshot.phase == current.phase;
-    if (snapshot.phase == PlaybackPhase.ended &&
-        (!currentLoad || !owner.hasLoadedMedia)) {
+    if (snapshot.snapshotVersion != _session.currentSnapshot.snapshotVersion) {
+      return;
+    }
+    if (snapshot.phase == PlaybackPhase.ended && !owner.hasLoadedMedia) {
       return;
     }
     final action = snapshot.pendingAction;
@@ -1133,11 +1132,10 @@ class PlPlayerController
       PlaybackPhase.closing || PlaybackPhase.disposed => DataStatus.none,
     };
     if (owner.hasLoadedMedia &&
-        currentLoad &&
-        (current.phase == PlaybackPhase.ready ||
-            current.phase == PlaybackPhase.ended)) {
-      _progressProjection.confirmLoad(current.loadId!);
-      if (current.actual.duration case final actualDuration?
+        (snapshot.phase == PlaybackPhase.ready ||
+            snapshot.phase == PlaybackPhase.ended)) {
+      _progressProjection.confirmLoad(snapshot.loadId!);
+      if (snapshot.actual.duration case final actualDuration?
           when actualDuration > Duration.zero) {
         updateDuration(actualDuration);
       }

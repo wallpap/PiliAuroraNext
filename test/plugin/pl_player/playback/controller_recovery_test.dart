@@ -960,6 +960,29 @@ void main() {
     expect(statuses, isNot(contains(PlayerStatus.completed)));
   });
 
+  for (final playing in [true, false]) {
+    _recoveryTest('快照投影模型：排队的旧播放状态不得触发回调，最新播放=$playing', (f) async {
+      await f.load(local: true);
+      f.runtime.player.state.playing = playing;
+      f.runtime.emitActual();
+      await f.tester.pump();
+      final statuses = <PlayerStatus>[];
+      f.controller.addStatusLister(statuses.add);
+
+      f.runtime.player.state.playing = !playing;
+      f.runtime.emitActual();
+      f.runtime.player.state.playing = playing;
+      f.runtime.emitActual();
+      await f.tester.pump();
+
+      expect(
+        f.controller.playerStatus,
+        playing ? PlayerStatus.playing : PlayerStatus.paused,
+      );
+      expect(statuses, isEmpty);
+    });
+  }
+
   _recoveryTest('完播历史在原生暂停回执后仍上报一次且不会被普通进度覆盖', (f) async {
     final previous = Accounts.heartbeat;
     Accounts.accountMode[AccountType.heartbeat.index] = LoginAccount(
