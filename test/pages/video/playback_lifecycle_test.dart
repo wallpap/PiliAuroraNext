@@ -684,9 +684,12 @@ void main() {
     final controller = await selectionPage();
     addTearDown(controller.closePlayback);
     final completion = Completer<LoadResult>();
-    controller.sourceLoad = (_) => completion.future;
-    controller.holdPlaybackForRoute();
-    controller.videoState.value = false;
+    controller
+      ..sourceLoad = (_) {
+        return completion.future;
+      }
+      ..holdPlaybackForRoute()
+      ..videoState.value = false;
 
     final restoring = controller.restorePlaybackAfterRoute();
     controller.cid.value = 2;
@@ -705,13 +708,17 @@ void main() {
     addTearDown(controller.closePlayback);
     final firstReply = Completer<LoadResult>();
     final secondReply = Completer<LoadResult>();
-    controller.sourceLoad = (_) => firstReply.future;
-    controller.holdPlaybackForRoute();
-    controller.videoState.value = false;
+    controller
+      ..sourceLoad = (_) {
+        return firstReply.future;
+      }
+      ..holdPlaybackForRoute()
+      ..videoState.value = false;
     final firstRestore = controller.restorePlaybackAfterRoute();
 
-    controller.holdPlaybackForRoute();
-    controller.sourceLoad = (_) => secondReply.future;
+    controller
+      ..holdPlaybackForRoute()
+      ..sourceLoad = (_) => secondReply.future;
     final secondRestore = controller.restorePlaybackAfterRoute();
     firstReply.complete(const LoadResult.ready(2));
     await firstRestore;
