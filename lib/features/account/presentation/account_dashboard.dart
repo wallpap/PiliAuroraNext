@@ -583,16 +583,26 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
             if (favFolderList.isEmpty) {
               return const SizedBox.shrink();
             }
-            bool flag = (_folderCount ?? 0) > favFolderList.length;
+            final hasMoreFolders = (_folderCount ?? 0) > favFolderList.length;
+            final itemCount = favFolderList.length + (hasMoreFolders ? 1 : 0);
+            final rowCount = itemCount > 1 ? 2 : 1;
+            const rowHeight = 190.0;
+            const padding = EdgeInsets.only(left: 20, top: 10, right: 20);
             return SizedBox(
-              height: 200,
+              height: padding.vertical + rowCount * rowHeight,
               child: HorizontalWheelScroll(
-                child: ListView.separated(
+                child: GridView.builder(
                   controller: _folderScroll,
-                  padding: const .only(left: 20, top: 10, right: 20),
-                  itemCount: favFolderList.length + (flag ? 1 : 0),
+                  padding: padding,
+                  scrollDirection: .horizontal,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: rowCount,
+                    mainAxisExtent: FavFolderItem.coverWidth,
+                    mainAxisSpacing: 14,
+                  ),
+                  itemCount: itemCount,
                   itemBuilder: (context, index) {
-                    if (flag && index == favFolderList.length) {
+                    if (index == favFolderList.length) {
                       return Padding(
                         padding: const .only(bottom: 35),
                         child: Center(
@@ -624,8 +634,6 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
                       );
                     }
                   },
-                  scrollDirection: .horizontal,
-                  separatorBuilder: (_, _) => const SizedBox(width: 14),
                 ),
               ),
             );

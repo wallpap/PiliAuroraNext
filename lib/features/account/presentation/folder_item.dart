@@ -16,6 +16,8 @@ class FavFolderItem extends StatelessWidget {
   final VoidCallback onPop;
   final String heroTag;
 
+  static const coverWidth = 180.0;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -52,7 +54,7 @@ class FavFolderItem extends StatelessWidget {
               tag: heroTag,
               child: NetworkImgLayer(
                 src: item.cover,
-                width: 180,
+                width: coverWidth,
                 height: 110,
               ),
             ),
