@@ -99,6 +99,8 @@ Windows 定制引擎的 ANGLE 对实际 AMD D3D11 适配器默认使用 `Image11
 
 `DesktopTitleBar` 随 Flutter 主题和应用图标设置更新，提供拖动、双击最大化、最小化、最大化/还原和关闭入口。关闭按钮调用普通窗口关闭事件，沿用主窗口已有的托盘驻留与播放器释放流程。最大化状态由窗口事件更新，初始化查询通过修订号隔离迟到结果，组件释放时移除监听。
 
+Windows runner 在初始化 Flutter 和应用存储前锁定当前 Windows 会话内的主实例。重复启动会激活已有主窗口并转发命令行应用链接。播放小窗和解码测试各自启动独立进程。并发启动、跨目录启动和窗口恢复可通过[重复启动探针](../../tool/probes/README.md#windows-主窗口重复启动验收)验证。
+
 `DesktopWindowFrame` 的 Overlay 覆盖整个窗口，标题栏与页面作为同一基础内容绘制，按钮提示显示在页面上方。不要把 Overlay 缩到标题栏高度：即便关闭裁剪，越界提示仍可能被随后绘制的页面遮挡。页面的 `MediaQuery.size` 使用扣除标题栏后的实际内容尺寸。
 
 标题栏订阅 `DesktopWindowBackground.fullscreen`，全屏时隐藏、退出后恢复，页面子树状态保留。“显示窗口标题栏”的生效时机见[设置行为](settings-behavior.md#桌面窗口)。回归入口为 `test/app/desktop_title_bar_test.dart`，包含提示像素检查、主题、窗口事件和全屏状态保留；测试边界见[测试目录](../../test/README.md)。

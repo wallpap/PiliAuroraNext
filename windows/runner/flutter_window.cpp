@@ -82,6 +82,30 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_NCDESTROY) {
+    ::RemovePropW(hwnd, kMainWindowProperty);
+  }
+  if (message == WM_WINDOWPOSCHANGED && ::IsWindowVisible(hwnd)) {
+    has_been_shown_ = true;
+  }
+  if (message == kActivateMainWindow && ::GetPropW(hwnd, kMainWindowProperty)) {
+    if (!has_been_shown_ && !::IsWindowVisible(hwnd)) return 0;
+    if (::IsIconic(hwnd)) {
+      ::ShowWindow(hwnd, SW_RESTORE);
+    } else if (!::IsWindowVisible(hwnd)) {
+      ::ShowWindow(hwnd, SW_SHOW);
+    }
+    ::SetForegroundWindow(hwnd);
+    if (flutter_controller_) {
+      flutter::MethodChannel<flutter::EncodableValue> channel(
+          flutter_controller_->engine()->messenger(),
+          "piliauroranext/window_activation",
+          &flutter::StandardMethodCodec::GetInstance());
+      channel.InvokeMethod("activate", nullptr);
+    }
+    return 0;
+  }
+
   // 更新退出先通知 Dart 保存进度和释放播放器，绕过普通关闭的托盘设置。
   if ((lparam & ENDSESSION_CLOSEAPP) != 0) {
     if (message == WM_QUERYENDSESSION) {

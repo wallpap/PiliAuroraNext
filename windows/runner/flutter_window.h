@@ -15,6 +15,9 @@
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
  public:
+  static constexpr wchar_t kMainWindowProperty[] = L"PiliAuroraNext.MainWindow";
+  static constexpr UINT kActivateMainWindow = WM_APP + 1;
+
   // Creates a new FlutterWindow hosting a Flutter view running |project|.
   explicit FlutterWindow(const flutter::DartProject& project);
   virtual ~FlutterWindow();
@@ -32,6 +35,7 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<GpuMetrics> gpu_metrics_;
   std::unique_ptr<MemoryMetricsChannel> memory_metrics_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> background_channel_;
+  bool has_been_shown_ = false;
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;

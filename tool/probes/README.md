@@ -16,6 +16,14 @@ Python 探针使用 uv 环境，首次运行前请按[工具入口中的 Python 
 
 Android/Windows Python 回归可用 `uv run --locked python tool/run_python_tests.py --suite android --suite windows --jobs 2` 并行运行；平台、编译器和夹具条件沿用各用例的检查。性能与设备采集单独执行。
 
+## Windows 主窗口重复启动验收
+
+退出已运行的应用（包括托盘驻留），完成 Windows 构建后运行下列命令。探针使用独立数据目录，验证同目录并发启动与跨目录重复启动不会创建第二个主窗口，并验证最小化和隐藏到托盘后的恢复。若从前台交互终端运行，可附加 `--require-foreground` 检查窗口实际取得前台焦点。
+
+```powershell
+python tool/probes/windows/windows_single_instance_probe.py build/windows/x64/runner/Release/PiliAuroraNext.exe
+```
+
 ## Windows 原生全屏回执
 
 回归用 MinGW `g++` 编译生产 `Utils`，在真实 Win32 窗口上核对进出全屏、失败回滚、重试及最大化恢复。

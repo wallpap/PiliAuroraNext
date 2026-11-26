@@ -62,6 +62,10 @@ class MainAppState extends PopScopeState<MainApp>
         WidgetsBindingObserver,
         WindowListener,
         SingleTickerProviderStateMixin {
+  static const _windowActivation = MethodChannel(
+    'piliauroranext/window_activation',
+  );
+
   late final NavigationLayoutPreferences _layout;
   late final List<NavigationBarType> _navigation;
   late final ValueNotifier<int> _selectedIndex;
@@ -152,7 +156,10 @@ class MainAppState extends PopScopeState<MainApp>
     Assets.iconStyle.addListener(_onIconStyleChanged);
     addObserverMobile(this);
     if (PlatformUtils.isDesktop) {
-      if (Platform.isWindows) WindowsUpdateExit.setHandler(_onClose);
+      if (Platform.isWindows) {
+        WindowsUpdateExit.setHandler(_onClose);
+        _windowActivation.setMethodCallHandler(_onWindowActivation);
+      }
       windowManager
         ..addListener(this)
         ..setPreventClose(true);
@@ -238,7 +245,10 @@ class MainAppState extends PopScopeState<MainApp>
     _pages?.dispose();
     _bars.dispose();
     Assets.iconStyle.removeListener(_onIconStyleChanged);
-    if (Platform.isWindows) WindowsUpdateExit.setHandler(null);
+    if (Platform.isWindows) {
+      WindowsUpdateExit.setHandler(null);
+      _windowActivation.setMethodCallHandler(null);
+    }
     if (PlatformUtils.isDesktop) {
       _disposeTray();
       windowManager.removeListener(this);
@@ -345,6 +355,12 @@ class MainAppState extends PopScopeState<MainApp>
   @override
   Future<void>? onWindowFocus() {
     return _setOpacity(1.0);
+  }
+
+  Future<void> _onWindowActivation(MethodCall call) async {
+    if (call.method != 'activate' || !mounted || _isClosing) return;
+    _releaseMinimizeInhibitor();
+    await _setOpacity(1.0);
   }
 
   /// https://github.com/leanflutter/window_manager/issues/571
