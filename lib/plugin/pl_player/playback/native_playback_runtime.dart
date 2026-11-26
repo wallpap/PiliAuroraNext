@@ -38,7 +38,9 @@ class NativePlaybackRuntime
     required this.configuration,
     required this.diagnosticsExtra,
     PlaybackRuntimeSlot? resourceSlot,
-  }) : _resourceSlot = resourceSlot ?? PlaybackRuntimeSlot.shared;
+  }) : _resourceSlot = resourceSlot ?? PlaybackRuntimeSlot.shared,
+       _createReplacementPlayer = null,
+       _createReplacementVideoController = null;
 
   @visibleForTesting
   NativePlaybackRuntime.withResources({
@@ -47,9 +49,12 @@ class NativePlaybackRuntime
     required Player player,
     required VideoController videoController,
     bool subscribeToPlaybackEvents = false,
+    PlaybackRuntimeSlot? resourceSlot,
+    this._createReplacementPlayer,
+    this._createReplacementVideoController,
   }) : _player = player,
        _videoController = videoController,
-       _resourceSlot = PlaybackRuntimeSlot.shared {
+       _resourceSlot = resourceSlot ?? PlaybackRuntimeSlot.shared {
     _bindNativeLifecycle(player);
     if (subscribeToPlaybackEvents) {
       _subscribePlaybackEvents(player, videoController);
@@ -65,12 +70,17 @@ class NativePlaybackRuntime
   final int runtimeId = _nextRuntimeId++;
 
   @override
-  Duration? get position => _activeBinding?.eofReported == true
+  Duration? get position => _nativeLifecycleUnknown
+      ? null
+      : _activeBinding?.eofReported == true
       ? _activeBinding?.endPosition
       : _player?.state.position;
 
   final PlaybackRuntimeConfig configuration;
   final PlaybackRuntimeSlot _resourceSlot;
+  final Future<Player> Function()? _createReplacementPlayer;
+  final Future<VideoController> Function(Player)?
+  _createReplacementVideoController;
   final Map<String, Object?> Function() diagnosticsExtra;
 
   @override
@@ -127,7 +137,7 @@ class NativePlaybackRuntime
       configuration.playerOptions['glsl-shaders'] ?? '';
   int _lastBatchId = 0;
   bool _shutdownRequested = false;
-  final _nativeLifecycleLost = Completer<void>();
+  var _nativeLifecycleLost = Completer<void>();
   bool get _nativeLifecycleUnknown => _nativeLifecycleLost.isCompleted;
   bool _nativeOpenNeedsRetirement = false;
   bool _seeking = false;
@@ -514,7 +524,25 @@ class NativePlaybackRuntime
         StateError('Load request is no longer current.'),
       );
     }
-    if (_nativeLifecycleUnknown) return _nativeLifecycleLoadFailure();
+    _quarantineUnboundOpen();
+    if (_nativeLifecycleUnknown) {
+      try {
+        final oldPlayer = _player;
+        if (oldPlayer != null) {
+          final failure = await _releaseNativeResources(
+            oldPlayer,
+            _recordReleaseStages('replace'),
+          );
+          if (failure != null) {
+            return _nativeLifecycleLoadFailure(failure.cause);
+          }
+        }
+      } catch (error) {
+        return _nativeLifecycleLoadFailure(error);
+      }
+      _nativeLifecycleLost = Completer<void>();
+      if (!context.isCurrent() || _shutdownRequested) return _supersededLoad();
+    }
 
     final player = await _ensureInitialized(context);
     if (player == null) {
@@ -801,8 +829,9 @@ class NativePlaybackRuntime
     Player player,
     PlaybackExecutionContext context,
   ) async {
-    final binding = await _waitForActiveBinding().timeout(_remaining(context));
-    if (binding == null) return;
+    _remaining(context);
+    final binding = _activeBinding;
+    if (binding == null || _nativeLifecycleUnknown) return;
     if (binding.unloaded && binding.endFileSeen) {
       _bindings.remove(binding.entryId);
       _nativeOpenNeedsRetirement = false;
@@ -825,21 +854,6 @@ class NativePlaybackRuntime
     _bindings.remove(binding.entryId);
     _nativeOpenNeedsRetirement = false;
     _activeBinding = null;
-  }
-
-  Future<_NativeFileBinding?> _waitForActiveBinding() async {
-    if (_activeBinding == null && _nativeOpenNeedsRetirement) {
-      final opening = _openingLoad;
-      if (opening == null) {
-        _markNativeLifecycleUnknown(
-          'An issued native open has no confirmed file binding.',
-        );
-        throw StateError('Native open has no confirmed native file identity.');
-      }
-      // 查询已失败仍保留这次 open 的归属，迟到的 START_FILE 可继续完成卸载。
-      await opening.started.future;
-    }
-    return _activeBinding;
   }
 
   Future<void> _applyLoadedTrackConfiguration(
@@ -906,12 +920,14 @@ class NativePlaybackRuntime
       }
       recordStage('slot-acquired');
       try {
-        player = await Player.create(
-          configuration: PlayerConfiguration(
-            logLevel: kDebugMode ? .warn : .error,
-            options: configuration.playerOptions,
-          ),
-        );
+        player =
+            await (_createReplacementPlayer?.call() ??
+                Player.create(
+                  configuration: PlayerConfiguration(
+                    logLevel: kDebugMode ? .warn : .error,
+                    options: configuration.playerOptions,
+                  ),
+                ));
       } on NativePlayerCreationFailure catch (error) {
         // Creation can fail after native allocation. Keep the process slot
         // isolated until this particular handle proves its destruction.
@@ -928,7 +944,9 @@ class NativePlaybackRuntime
         return null;
       }
       _bindNativeLifecycle(player);
-      _diagnostics = PlayerDiagnostics(player, extra: diagnosticsExtra);
+      if (_createReplacementPlayer == null) {
+        _diagnostics = PlayerDiagnostics(player, extra: diagnosticsExtra);
+      }
 
       final base = hardwareVideoConfiguration(
         enabled: configuration.hardwareAccelerationEnabled,
@@ -976,10 +994,12 @@ class NativePlaybackRuntime
         onAndroidDiagnostic: base.onAndroidDiagnostic,
         androidAttachSurfaceAfterVideoParameters: false,
       );
-      final video = await VideoController.create(
-        player,
-        configuration: videoConfiguration,
-      );
+      final video =
+          await (_createReplacementVideoController?.call(player) ??
+              VideoController.create(
+                player,
+                configuration: videoConfiguration,
+              ));
       _videoController = video;
       if (Platform.isAndroid) {
         try {
@@ -1181,6 +1201,7 @@ class NativePlaybackRuntime
     final token = _activeBinding?.token;
     final enabled =
         !_shutdownRequested &&
+        !_nativeLifecycleUnknown &&
         _playing &&
         !_buffering &&
         !_seeking &&
@@ -1220,7 +1241,10 @@ class NativePlaybackRuntime
     NativeHookRequest request,
     NativeHookApi api,
   ) async {
-    if (_shutdownRequested && request.name != NativeHookName.onUnload) return;
+    if ((_shutdownRequested || _nativeLifecycleUnknown) &&
+        request.name != NativeHookName.onUnload) {
+      return;
+    }
     if (request.name == NativeHookName.onUnload) {
       await _handleUnloadHook(request);
       return;
@@ -1530,6 +1554,7 @@ class NativePlaybackRuntime
             duration: binding.endDuration ?? _player?.state.duration,
           );
         } else if (reason == NativeEndFileReason.error &&
+            !_nativeLifecycleUnknown &&
             identical(binding, _activeBinding)) {
           final failure = PlaybackFailure(
             category: PlaybackFailureCategory.source,
@@ -1558,7 +1583,12 @@ class NativePlaybackRuntime
     Duration? position,
     Duration? duration,
   }) {
-    if (_shutdownRequested || binding.retiring || binding.eofReported) return;
+    if (_shutdownRequested ||
+        _nativeLifecycleUnknown ||
+        binding.retiring ||
+        binding.eofReported) {
+      return;
+    }
     binding
       ..eofReported = true
       ..endPosition = position
@@ -1846,6 +1876,8 @@ class NativePlaybackRuntime
   void _markNativeLifecycleUnknown(String reason) {
     if (_nativeLifecycleUnknown) return;
     _nativeLifecycleLost.complete();
+    _syncVideoFrameSampling();
+    _frameTimings.withdraw(Timeline.now);
     _diagnostics?.event(
       'native.lifecycle.unknown',
       level: DiagnosticLogLevel.error,
@@ -1873,11 +1905,12 @@ class NativePlaybackRuntime
     );
   }
 
-  PlaybackRuntimeLoadResult _nativeLifecycleLoadFailure() => _loadFailure(
-    PlaybackFailureCategory.capability,
-    'native-lifecycle',
-    'Native file identity or unload barrier is unknown.',
-  );
+  PlaybackRuntimeLoadResult _nativeLifecycleLoadFailure([Object? error]) =>
+      _loadFailure(
+        PlaybackFailureCategory.capability,
+        'native-lifecycle',
+        error ?? 'Native file identity or unload barrier is unknown.',
+      );
 
   PlaybackOutputStrategy _playbackOutputStrategy(
     OutputPreparationStrategy strategy,
@@ -2084,7 +2117,7 @@ class NativePlaybackRuntime
   void _emitActual(int? loadId) {
     _syncVideoFrameSampling();
     final player = _player;
-    if (player == null || loadId == null) return;
+    if (player == null || loadId == null || _nativeLifecycleUnknown) return;
     final now = _activeNow();
     final actual = PlaybackActual(
       playing: player.state.playing,
@@ -2116,7 +2149,7 @@ class NativePlaybackRuntime
   }
 
   void _emitCapabilities(int? loadId) {
-    if (loadId == null) return;
+    if (loadId == null || _nativeLifecycleUnknown) return;
     final capabilities = _currentCapabilities();
     final previous = _lastPublishedCapabilities;
     if (previous != null &&
@@ -2169,7 +2202,9 @@ class NativePlaybackRuntime
   }
 
   Player? _usablePlayer(PlaybackExecutionContext context) {
-    if (_shutdownRequested || !context.isCurrent()) return null;
+    if (_shutdownRequested || _nativeLifecycleUnknown || !context.isCurrent()) {
+      return null;
+    }
     final player = _player;
     if (player == null || player.disposed || _activeBinding == null) {
       return null;
@@ -2223,16 +2258,20 @@ class NativePlaybackRuntime
     cause: error.toString(),
   );
 
-  Future<void> _retireFileForShutdown(
+  void _quarantineUnboundOpen() {
+    if (!_nativeLifecycleUnknown &&
+        _activeBinding == null &&
+        _nativeOpenNeedsRetirement) {
+      _markNativeLifecycleUnknown('Submitted native open has no file binding.');
+    }
+  }
+
+  Future<void> _retireFileForRelease(
     Player player,
     void Function(String) recordStage,
   ) async {
+    _quarantineUnboundOpen();
     final binding = _activeBinding;
-    if (!_nativeLifecycleUnknown &&
-        binding == null &&
-        _nativeOpenNeedsRetirement) {
-      _markNativeLifecycleUnknown('Shutdown has no binding for native open.');
-    }
     if (!_nativeLifecycleUnknown && binding == null) return;
     if (binding != null && (binding.entryId == null || binding.token == null)) {
       _markNativeLifecycleUnknown('Shutdown has an incomplete file binding.');
@@ -2270,16 +2309,16 @@ class NativePlaybackRuntime
     await _videoController?.invalidateOutputGeneration(binding!.token!);
   }
 
-  Future<PlaybackShutdownResult> _shutdown() async {
+  void Function(String) _recordReleaseStages(String operation) {
     final watch = Stopwatch()..start();
     var previousStageUs = 0;
-    void recordStage(String stage) {
+    return (stage) {
       if (_player == null) return;
       final elapsed = watch.elapsedMicroseconds;
       Diagnostics.instance.playerLog(
         DiagnosticLogLevel.info,
         'player',
-        'runtime.shutdown.$stage',
+        'runtime.$operation.$stage',
         details: {
           'runtimeId': runtimeId,
           'durationUs': elapsed,
@@ -2294,59 +2333,87 @@ class NativePlaybackRuntime
         },
       );
       previousStageUs = elapsed;
+    };
+  }
+
+  Future<PlaybackFailure?> _releaseNativeResources(
+    Player player,
+    void Function(String) recordStage,
+  ) async {
+    if (!player.disposed) {
+      await _retireFileForRelease(player, recordStage);
+      _activeBinding = null;
+      _nativeOpenNeedsRetirement = false;
     }
 
+    recordStage('file-retired');
+    _diagnostics?.dispose();
+    _diagnostics = null;
+    recordStage('releasing-subscriptions');
+    for (final subscription in _subscriptions) {
+      await subscription.cancel();
+    }
+    _subscriptions.clear();
+    await _hookRegistration?.dispose();
+    _hookRegistration = null;
+    recordStage('subscriptions-released');
+    recordStage('waiting-for-media-clock');
+    _mediaClockSampling.invalidate();
+    await _mediaClockSampling.idle;
+    recordStage('releasing-output');
+    await _videoController?.releaseOutput();
+    recordStage('output-released');
+    _restoreRasterScheduling();
+    try {
+      recordStage('disposing-player');
+      if (!player.disposed) await player.dispose();
+      recordStage('player-disposed');
+      await player.released;
+      recordStage('released');
+    } catch (error) {
+      return _failure(
+        PlaybackFailureCategory.disposal,
+        'player-dispose',
+        error,
+      );
+    }
+
+    _player = null;
+    _videoController = null;
+    _activeBinding = null;
+    _activePlan = null;
+    _openingLoad = null;
+    _bindings.clear();
+    _nativeOpenNeedsRetirement = false;
+    _rendererSourceSize = null;
+    _appliedShaderList = configuration.playerOptions['glsl-shaders'] ?? '';
+    _lastBatchId = 0;
+    _seeking = false;
+    _playing = false;
+    _buffering = false;
+    _mediaClockSeekPending = false;
+    _samplingEnabled = false;
+    _releaseSeekObservation();
+    _resetHealthEvidence();
+    _setDisplaySyncActive(false);
+    _videoControllerListenable.value = null;
+    return null;
+  }
+
+  Future<PlaybackShutdownResult> _shutdown() async {
+    final recordStage = _recordReleaseStages('shutdown');
     recordStage('begin');
     _shutdownRequested = true;
     _syncVideoFrameSampling();
     _healthExpiry?.cancel();
     try {
       final player = _player;
-      if (player == null) {
-        await _closeRuntimeStreams();
-        if (!_released.isCompleted) _released.complete();
-        return const PlaybackShutdownResult.released();
+      if (player != null) {
+        final failure = await _releaseNativeResources(player, recordStage);
+        if (failure != null) {
+          return PlaybackShutdownResult.cleanupIncomplete(failure);
+        }
       }
-      if (!player.disposed) {
-        await _retireFileForShutdown(player, recordStage);
-        _activeBinding = null;
-        _nativeOpenNeedsRetirement = false;
-      }
-
-      recordStage('file-retired');
-      _diagnostics?.dispose();
-      _diagnostics = null;
-      recordStage('releasing-subscriptions');
-      for (final subscription in _subscriptions) {
-        await subscription.cancel();
-      }
-      _subscriptions.clear();
-      await _hookRegistration?.dispose();
-      _hookRegistration = null;
-      recordStage('subscriptions-released');
-      recordStage('waiting-for-media-clock');
-      await _mediaClockSampling.close();
-      recordStage('releasing-output');
-      await _videoController?.releaseOutput();
-      recordStage('output-released');
-      // Player 释放会归还运行时槽；下一 owner 取得槽前先恢复本次亲和性。
-      _restoreRasterScheduling();
-      try {
-        recordStage('disposing-player');
-        await player.dispose();
-        recordStage('player-disposed');
-        await player.released;
-        recordStage('released');
-      } catch (error) {
-        return PlaybackShutdownResult.cleanupIncomplete(
-          _failure(PlaybackFailureCategory.disposal, 'player-dispose', error),
-        );
-      }
-      _player = null;
-      _videoController = null;
-      _bindings.clear();
-      _activePlan = null;
-      _videoControllerListenable.value = null;
       await _closeRuntimeStreams();
       if (!_released.isCompleted) _released.complete();
       return const PlaybackShutdownResult.released();
@@ -2403,6 +2470,7 @@ class NativePlaybackRuntime
   }
 
   Future<void> _closeRuntimeStreams() async {
+    await _mediaClockSampling.close();
     _videoControllerListenable.value = null;
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());

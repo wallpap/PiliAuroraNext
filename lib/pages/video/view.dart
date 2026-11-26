@@ -1330,6 +1330,7 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
               ),
             )
           : PLVideoPlayer(
+              key: ObjectKey(plPlayerController?.videoController),
               maxWidth: width,
               maxHeight: height,
               plPlayerController: plPlayerController!,

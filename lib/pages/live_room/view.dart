@@ -296,6 +296,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                   );
                 }
                 return PLVideoPlayer(
+                  key: ObjectKey(videoController),
                   maxWidth: width,
                   maxHeight: height,
                   fill: fill,

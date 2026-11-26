@@ -167,51 +167,212 @@ void main() {
     expect(fixture.runtime.retainedNativeFileCount, 0);
   });
 
-  test('原生事件溢出后同一运行时拒绝不同内容和来源，直到真实释放', () async {
-    final fixture = _Fixture();
-    addTearDown(fixture.close);
-    final failures = <PlaybackRuntimeFailure>[];
-    final subscription = fixture.runtime.events
-        .where((event) => event is PlaybackRuntimeFailure)
-        .cast<PlaybackRuntimeFailure>()
-        .listen(failures.add);
-    addTearDown(subscription.cancel);
-    expect((await fixture.load()).loaded, isTrue);
-
-    fixture.player.events
-      ..add(const NativeEventQueueOverflow())
-      ..add(const NativeEventQueueOverflow());
-    await _turn();
-    expect(failures, hasLength(1));
-    expect(failures.single.loadId, 1);
-    expect(failures.single.failure.operation, 'native-lifecycle');
-    expect(failures.single.failure.recoverable, isFalse);
-    for (final (loadId, contentKey, host) in [
-      (2, 'other-video', 'example.test'),
-      (3, 'third-video', 'another.test'),
-    ]) {
-      final load = await fixture.load(
-        loadId: loadId,
-        contentKey: contentKey,
-        source: PlaybackSourceSnapshot.fromDataSource(
-          NetworkSource(videoSource: 'https://$host/video', audioSource: null),
-        ),
+  for (final action in _ReplacementAction.values) {
+    test('原生身份不明时同页等待旧输出和 Player 释放：${action.name}', () async {
+      final replacementCalls = <String>[];
+      final replacementPlayer = _Player(replacementCalls)..autoStop = true;
+      final replacementOutput = _Output(replacementCalls);
+      final fixture = _Fixture(
+        replacement: (player: replacementPlayer, output: replacementOutput),
       );
-      expect(load.loaded, isFalse);
-      expect(load.failure?.category, PlaybackFailureCategory.capability);
-      expect(load.failure?.operation, 'native-lifecycle');
-    }
-    expect(fixture.player.opens, 1);
-    expect(fixture.player.disposed, isFalse);
+      const loadBudget = Duration(seconds: 20);
+      final session = PlaybackSession(
+        runtime: fixture.runtime,
+        loadBudget: loadBudget,
+        monotonicNow: () => fixture.now,
+      );
+      final owner = session.attach();
+      final disposeReply = Completer<void>();
+      fixture.player.disposeReply = disposeReply.future;
+      final unboundOpen = action == _ReplacementAction.unboundOpen;
+      addTearDown(() async {
+        if (!disposeReply.isCompleted) disposeReply.complete();
+        if (unboundOpen && !fixture.player.disposed) {
+          fixture.player
+            ..autoStop = true
+            ..startFile();
+        }
+        fixture.player.emitProperty('path', null);
+        if (!fixture.output.releaseReceipt.isCompleted) {
+          fixture.output.releaseReceipt.complete();
+        }
+        replacementOutput.releaseReceipt.complete();
+        await session.shutdown();
+        await fixture.close();
+        await replacementPlayer.closeStreams();
+        await replacementOutput.progress.close();
+      });
+      final focus = session.acquireSessionInhibitor(
+        PlaybackInhibitorSource.audioFocus,
+      )!;
+      final oldPlan = sessionPlan('old', audioOnly: true);
+      final nextPlan = sessionPlan(
+        'next',
+        audioOnly: true,
+        candidates: ['https://another.test/next.mp4'],
+      );
+      if (unboundOpen) {
+        fixture.player
+          ..openTimesOut = true
+          ..emitProperty('path', 'local-fixture.mp4');
+      }
+      final firstLoad = await owner.load(
+        oldPlan,
+        start: PlaybackStartPolicy.play,
+      );
+      final oldToken = fixture.output.token!;
+      final failures = <PlaybackRuntimeFailure>[];
+      final subscription = fixture.runtime.events
+          .where((event) => event is PlaybackRuntimeFailure)
+          .cast<PlaybackRuntimeFailure>()
+          .listen(failures.add);
+      addTearDown(subscription.cancel);
 
-    fixture.player.autoStop = true;
-    fixture.output.releaseReceipt.complete();
-    expect(
-      (await fixture.runtime.shutdown()).outcome,
-      PlaybackShutdownOutcome.released,
+      if (unboundOpen) {
+        expect(firstLoad.outcome, LoadOutcome.failed);
+        expect(firstLoad.failure?.category, PlaybackFailureCategory.timeout);
+        expect(fixture.player.started, isFalse);
+      } else {
+        expect(firstLoad.outcome, LoadOutcome.ready);
+        fixture.player.events
+          ..add(const NativeEventQueueOverflow())
+          ..add(const NativeEventQueueOverflow());
+        expect(failures.single.loadId, firstLoad.loadId);
+        expect(failures.single.failure.operation, 'native-lifecycle');
+        expect(failures.single.failure.recoverable, isFalse);
+      }
+      expect(session.currentSnapshot.phase, PlaybackPhase.failed);
+      final attempt = action == _ReplacementAction.retry
+          ? owner.retry()
+          : owner.load(nextPlan, start: PlaybackStartPolicy.play);
+      await _turn();
+      expect(fixture.events, contains('stop'));
+      expect(fixture.player.opens, unboundOpen ? 0 : 1);
+      expect(fixture.output.releaseCalls, 0);
+      expect(fixture.replacements, 0);
+
+      fixture.player.emitProperty('path', null);
+      await _turn();
+      expect(fixture.output.releaseCalls, 1);
+      expect(fixture.player.disposed, isFalse);
+      expect(fixture.replacements, 0);
+
+      fixture.output.releaseReceipt.complete();
+      await _turn();
+      expect(fixture.player.disposed, isTrue);
+      expect(fixture.player.releaseReceipt.isCompleted, isFalse);
+      expect(fixture.replacements, 0);
+
+      final latestPlan = sessionPlan('latest', audioOnly: true);
+      final latest = action == _ReplacementAction.superseded
+          ? owner.load(latestPlan, start: PlaybackStartPolicy.play)
+          : null;
+      final shutdown = action == _ReplacementAction.shutdown
+          ? session.shutdown()
+          : null;
+      final expired = switch (action) {
+        _ReplacementAction.atDeadline => loadBudget,
+        _ReplacementAction.afterDeadline =>
+          loadBudget + const Duration(microseconds: 1),
+        _ => null,
+      };
+      if (expired != null) fixture.now = expired;
+      disposeReply.complete();
+      if (shutdown != null) {
+        expect((await attempt).outcome, LoadOutcome.superseded);
+        expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+        expect(fixture.replacements, 0);
+        return;
+      }
+      if (latest != null) {
+        expect((await attempt).outcome, LoadOutcome.superseded);
+      }
+      if (expired != null) {
+        final timedOut = await attempt;
+        expect(timedOut.outcome, LoadOutcome.failed);
+        expect(timedOut.failure?.category, PlaybackFailureCategory.timeout);
+        expect(fixture.replacements, 0);
+      }
+      final ready = await (expired == null
+          ? (latest ?? attempt)
+          : owner.retry());
+      expect(ready.outcome, LoadOutcome.ready);
+      expect(fixture.player.opens, unboundOpen ? 0 : 1);
+      expect(fixture.replacements, 1);
+      expect(replacementPlayer.opens, 1);
+      expect(replacementPlayer.playedUri, switch (action) {
+        _ReplacementAction.retry => oldPlan.source.currentVideoSource,
+        _ReplacementAction.superseded => latestPlan.source.currentVideoSource,
+        _ => nextPlan.source.currentVideoSource,
+      });
+      final newToken = replacementOutput.token!;
+      expect(newToken.runtimeId, oldToken.runtimeId);
+      expect(newToken.loadId, ready.loadId);
+      expect(newToken.outputEpoch, greaterThan(oldToken.outputEpoch));
+      expect(owner.isActive, isTrue);
+      expect(session.currentSnapshot.inhibitors, contains(focus));
+      expect(session.currentSnapshot.intent.playing, isTrue);
+      expect(replacementPlayer.state.playing, isFalse);
+      expect(
+        (await session.releaseSessionInhibitor(focus)).outcome,
+        CommandOutcome.applied,
+      );
+      expect(replacementPlayer.state.playing, isTrue);
+      fixture.player.events.add(const NativeEventQueueOverflow());
+      expect(session.currentSnapshot.phase, PlaybackPhase.ready);
+    });
+  }
+
+  test('同页更换 Player 后只用新实例的通知刷新播放进度', () async {
+    final replacementCalls = <String>[];
+    final replacementPlayer = _Player(replacementCalls, hasVideo: true)
+      ..autoStop = true;
+    final replacementOutput = _Output(replacementCalls);
+    final fixture = _Fixture(
+      subscribeToPlaybackEvents: true,
+      replacement: (player: replacementPlayer, output: replacementOutput),
     );
-    await fixture.runtime.released;
-    expect(fixture.player.disposed, isTrue);
+    final controller = PlPlayerController.withRuntime(fixture.runtime)
+      ..enableHeart = false;
+    final owner = controller.attachPlaybackOwner();
+    addTearDown(() async {
+      fixture.player.emitProperty('path', null);
+      if (!fixture.output.releaseReceipt.isCompleted) {
+        fixture.output.releaseReceipt.complete();
+      }
+      replacementOutput.releaseReceipt.complete();
+      await controller.shutdownPlaybackFacade();
+      await fixture.close();
+      await replacementPlayer.closeStreams();
+      await replacementOutput.progress.close();
+    });
+    Future<LoadResult> load(String content) => controller.loadPlaybackPlan(
+      owner: owner,
+      plan: sessionPlan(content),
+      start: PlaybackStartPolicy.pause,
+      live: false,
+    );
+
+    expect((await load('old')).outcome, LoadOutcome.ready);
+    await _turn();
+    expect(controller.videoControllerListenable.value, same(fixture.output));
+    fixture.player.setPosition(const Duration(seconds: 20));
+    expect(controller.position.value, 20);
+    fixture.player.events.add(const NativeEventQueueOverflow());
+    final reopened = load('next');
+    await _turn();
+    fixture.player.emitProperty('path', null);
+    fixture.output.releaseReceipt.complete();
+    expect((await reopened).outcome, LoadOutcome.ready);
+    await _turn();
+    expect(controller.videoControllerListenable.value, same(replacementOutput));
+    expect(controller.position.value, 0);
+
+    replacementPlayer.state.position = const Duration(seconds: 3);
+    fixture.player.setPosition(const Duration(seconds: 30));
+    expect(controller.position.value, 0);
+    replacementPlayer.setPosition(const Duration(seconds: 4));
+    expect(controller.position.value, 4);
   });
 
   test('START_FILE 未到时身份丢失立即结算加载，迟到身份仍可用于释放', () async {
@@ -924,11 +1085,24 @@ void main() {
 
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
+enum _ReplacementAction {
+  retry,
+  switchContent,
+  unboundOpen,
+  superseded,
+  shutdown,
+  atDeadline,
+  afterDeadline,
+}
+
 class _Runtime extends NativePlaybackRuntime {
   _Runtime({
     required super.player,
     required super.videoController,
     required super.subscribeToPlaybackEvents,
+    super.resourceSlot,
+    super.createReplacementPlayer,
+    super.createReplacementVideoController,
   }) : super.withResources(
          configuration: PlaybackRuntimeConfig(
            playerOptions: const {},
@@ -943,13 +1117,26 @@ class _Runtime extends NativePlaybackRuntime {
 }
 
 class _Fixture {
-  _Fixture({bool subscribeToPlaybackEvents = false}) {
+  _Fixture({
+    bool subscribeToPlaybackEvents = false,
+    ({_Player player, _Output output})? replacement,
+  }) {
     player = _Player(events, hasVideo: subscribeToPlaybackEvents);
     output = _Output(events);
     runtime = _Runtime(
       player: player,
       videoController: output,
       subscribeToPlaybackEvents: subscribeToPlaybackEvents,
+      resourceSlot: PlaybackRuntimeSlot.isolated(),
+      createReplacementPlayer: replacement == null
+          ? null
+          : () async {
+              replacements++;
+              return replacement.player;
+            },
+      createReplacementVideoController: replacement == null
+          ? null
+          : (_) async => replacement.output,
     );
     recovery = PlaybackNetworkRecovery(
       delay: Duration.zero,
@@ -990,6 +1177,7 @@ class _Fixture {
   var actual = const PlaybackActual();
   var now = Duration.zero;
   var reloads = 0;
+  var replacements = 0;
 
   Future<void> advance({
     bool consumeFrame = true,
@@ -1066,12 +1254,7 @@ class _Fixture {
     await player.unload();
     player.endFile();
     await runtime.shutdown();
-    await player.events.close();
-    await player.playback.playingEvents.close();
-    await player.playback.bufferingEvents.close();
-    for (final property in player.properties.values) {
-      await property.close();
-    }
+    await player.closeStreams();
     await output.progress.close();
   }
 }
@@ -1089,6 +1272,7 @@ class _Player implements NativePlayer {
   bool autoStop = false;
   bool recordOperations = false;
   int opens = 0;
+  String? playedUri;
   @override
   final current = <Media>[];
   @override
@@ -1132,6 +1316,11 @@ class _Player implements NativePlayer {
 
   void startPlaying() => setPlaying(true);
 
+  void setPosition(Duration position) {
+    state.position = position;
+    playback.positionEvents.add(position);
+  }
+
   void setPlaying(bool playing) {
     state.playing = playing;
     playback.playingEvents.add(playing);
@@ -1157,6 +1346,7 @@ class _Player implements NativePlayer {
   @override
   final state = PlayerState();
   final releaseReceipt = Completer<void>();
+  Future<void>? disposeReply;
   @override
   Future<void> get released => releaseReceipt.future;
   @override
@@ -1184,7 +1374,10 @@ class _Player implements NativePlayer {
     if (recordOperations) calls.add('open');
     state.duration = const Duration(minutes: 5);
     state.completed = false;
-    if (playable is Media) state.position = playable.start ?? Duration.zero;
+    if (playable is Media) {
+      playedUri = playable.uri;
+      state.position = playable.start ?? Duration.zero;
+    }
     current
       ..clear()
       ..add(const Media('https://example.test/movie'));
@@ -1284,7 +1477,22 @@ class _Player implements NativePlayer {
   Future<void> dispose() async {
     calls.add('dispose-player');
     disposed = true;
-    releaseReceipt.complete();
+    final pendingRelease = disposeReply;
+    if (pendingRelease == null) {
+      releaseReceipt.complete();
+    } else {
+      unawaited(pendingRelease.then((_) => releaseReceipt.complete()));
+    }
+  }
+
+  Future<void> closeStreams() async {
+    await events.close();
+    await playback.positionEvents.close();
+    await playback.playingEvents.close();
+    await playback.bufferingEvents.close();
+    for (final property in properties.values) {
+      await property.close();
+    }
   }
 
   @override
@@ -1398,10 +1606,11 @@ class _Output implements VideoController {
 class _PlayerStreams implements PlayerStream {
   final playingEvents = StreamController<bool>.broadcast(sync: true);
   final bufferingEvents = StreamController<bool>.broadcast(sync: true);
+  final positionEvents = StreamController<Duration>.broadcast(sync: true);
   @override
   Stream<bool> get playing => playingEvents.stream;
   @override
-  Stream<Duration> get position => const Stream.empty();
+  Stream<Duration> get position => positionEvents.stream;
   @override
   Stream<Duration> get duration => const Stream.empty();
   @override

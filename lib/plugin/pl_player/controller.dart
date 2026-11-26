@@ -1108,7 +1108,10 @@ class PlPlayerController
       }
     }
     final player = _videoPlayerController;
-    if (_subscriptions == null && player != null) _startListeners(player);
+    if (!identical(_listenedPlayer, player)) {
+      _removeListeners();
+      if (player != null) _startListeners(player);
+    }
     final desired = snapshot.configuration.desired;
     _playbackSpeed.value = desired.playbackSpeed;
     onlyPlayAudio.value = desired.audioOnly;
@@ -1861,6 +1864,7 @@ class PlPlayerController
   // 首次加载倍速、shader 与音轨配置均随 PlaybackPlan 提交。
 
   List<StreamSubscription>? _subscriptions;
+  NativePlayer? _listenedPlayer;
   final Set<ValueChanged<Duration>> _coarsePositionListeners = {};
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
   int? _lastCoarsePositionBucket;
@@ -1929,6 +1933,7 @@ class PlPlayerController
   /// 播放事件监听
   void _startListeners(NativePlayer player) {
     assert(_subscriptions == null);
+    _listenedPlayer = player;
     final stream = player.stream;
     if (Platform.isAndroid) {
       _androidDecodeRecovery = AndroidDecodeRecovery(
@@ -2167,6 +2172,7 @@ class PlPlayerController
 
   /// 移除事件监听
   void _removeListeners() {
+    _listenedPlayer = null;
     _androidDecodeRecovery?.dispose();
     _androidDecodeRecovery = null;
     _subscriptions?.forEach((e) => e.cancel());
