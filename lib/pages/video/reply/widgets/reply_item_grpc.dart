@@ -376,6 +376,7 @@ class ReplyItemGrpc extends StatelessWidget {
           Padding(
             padding: padding,
             child: ImageGridView(
+              allowImageCopy: true,
               picArr: replyItem.content.pictures
                   .map(
                     (item) => ImageModel(

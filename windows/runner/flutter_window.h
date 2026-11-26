@@ -35,6 +35,7 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<GpuMetrics> gpu_metrics_;
   std::unique_ptr<MemoryMetricsChannel> memory_metrics_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> background_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> image_clipboard_channel_;
   bool has_been_shown_ = false;
 
   // The Flutter instance hosted by this window.

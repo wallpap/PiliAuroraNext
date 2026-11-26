@@ -6,6 +6,7 @@
 #include <flutter/standard_method_codec.h>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "image_clipboard.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -28,6 +29,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  image_clipboard_channel_ =
+      RegisterImageClipboard(flutter_controller_->engine()->messenger(), GetHandle());
   background_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(),
@@ -69,6 +72,10 @@ void FlutterWindow::OnDestroy() {
   if (background_channel_) {
     background_channel_->SetMethodCallHandler(nullptr);
     background_channel_.reset();
+  }
+  if (image_clipboard_channel_) {
+    image_clipboard_channel_->SetMethodCallHandler(nullptr);
+    image_clipboard_channel_.reset();
   }
   gpu_metrics_.reset();
   memory_metrics_.reset();

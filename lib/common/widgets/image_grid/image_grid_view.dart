@@ -68,11 +68,13 @@ class ImageGridView extends StatelessWidget {
     required this.picArr,
     this.onViewImage,
     this.fullScreen = false,
+    this.allowImageCopy = false,
   });
 
   final List<ImageModel> picArr;
   final VoidCallback? onViewImage;
   final bool fullScreen;
+  final bool allowImageCopy;
 
   static bool horizontalPreview = DisplayPreferences.landscapeImagePreview;
   static final _regex = RegExp(r'/videoV|/dynamicDetail$|/articlePage');
@@ -104,6 +106,7 @@ class ImageGridView extends StatelessWidget {
             sources: imgList,
             initIndex: index,
             quality: DisplayPreferences.imageQuality,
+            allowImageCopy: allowImageCopy,
           ),
           enableDrag: false,
         );
@@ -114,6 +117,7 @@ class ImageGridView extends StatelessWidget {
       initialPage: index,
       imgList: imgList,
       tag: hashCode.toString(),
+      allowImageCopy: allowImageCopy,
     );
   }
 
@@ -148,6 +152,12 @@ class ImageGridView extends StatelessWidget {
       context: context,
       position: PageUtils.menuPosition(offset),
       items: [
+        if (allowImageCopy && PlatformUtils.isDesktop)
+          AppPopupMenuItem(
+            height: 42,
+            onTap: () => ImageUtils.copyImg(item.url),
+            child: const Text('复制图片', style: TextStyle(fontSize: 14)),
+          ),
         if (PlatformUtils.isMobile)
           AppPopupMenuItem(
             height: 42,

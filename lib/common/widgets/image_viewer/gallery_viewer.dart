@@ -62,6 +62,7 @@ class GalleryViewer extends StatefulWidget {
     this.initIndex = 0,
     this.onPageChanged,
     this.tag = '',
+    this.allowImageCopy = false,
   });
 
   final double minScale;
@@ -71,6 +72,7 @@ class GalleryViewer extends StatefulWidget {
   final int initIndex;
   final ValueChanged<int>? onPageChanged;
   final String tag;
+  final bool allowImageCopy;
 
   @override
   State<GalleryViewer> createState() => _GalleryViewerState();
@@ -599,6 +601,12 @@ class _GalleryViewerState extends State<GalleryViewer>
       context: context,
       position: PageUtils.menuPosition(details.globalPosition),
       items: [
+        if (widget.allowImageCopy && PlatformUtils.isDesktop)
+          AppPopupMenuItem(
+            height: 42,
+            onTap: () => ImageUtils.copyImg(item.url),
+            child: const Text('复制图片', style: TextStyle(fontSize: 14)),
+          ),
         AppPopupMenuItem(
           height: 42,
           onTap: () => ImageUtils.downloadImg([item.url]),

@@ -51,6 +51,7 @@ abstract final class PageUtils {
     int? quality,
     ValueChanged<int>? onPageChanged,
     String tag = '',
+    bool allowImageCopy = false,
   }) {
     return Get.key.currentState!.push<void>(
       HeroDialogRoute(
@@ -60,6 +61,7 @@ abstract final class PageUtils {
           quality: quality ?? DisplayPreferences.imageQuality,
           onPageChanged: onPageChanged,
           tag: tag,
+          allowImageCopy: allowImageCopy,
         ),
       ),
     );

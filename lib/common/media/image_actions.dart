@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/cache/image_cache.dart';
 import 'package:pili_aurora_next/services/live_photo_download.dart';
 import 'package:pili_aurora_next/platform/device_actions.dart';
+import 'package:pili_aurora_next/platform/desktop/windows_image_clipboard.dart';
 import 'package:pili_aurora_next/core/text/string_ext.dart';
 import 'package:pili_aurora_next/services/settings/display_preferences.dart';
 import 'package:pili_aurora_next/platform/files/path_actions.dart';
@@ -30,6 +31,31 @@ abstract final class ImageUtils {
 
   static bool _sharing = false;
   static bool _downloading = false;
+  static bool _copying = false;
+
+  static Future<void> copyImg(String url) async {
+    if (_copying) {
+      SmartDialog.showToast('图片正在复制，请稍候');
+      return;
+    }
+    _copying = true;
+    final loading = _ImageLoading();
+    try {
+      loading.show('正在加载原图');
+      final file = await CacheManager.manager.getSingleFile(url.http2https);
+      final bytes = await file.readAsBytes();
+      if (loading.cancelled) return;
+      loading.close();
+      final copiedAsFile = await WindowsImageClipboard.write(bytes);
+      SmartDialog.showToast(copiedAsFile ? '已复制原图文件' : '已复制图片');
+    } catch (error, stackTrace) {
+      final failure = _failure('图片复制失败，请重试', error, stackTrace);
+      if (!loading.cancelled) failure.toast();
+    } finally {
+      loading.close();
+      _copying = false;
+    }
+  }
 
   // 返回系统分享状态：取消和平台无法确认均保留原始 status，不宣称分享成功。
   static Future<LoadingState<ShareResult>> onShareImg(String url) async {
