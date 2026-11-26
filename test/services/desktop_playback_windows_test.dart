@@ -203,8 +203,8 @@ void main() {
     late DesktopPlaybackWindows child;
     final parent = DesktopPlaybackWindows(
       startProcess: (environment) async {
-        child = DesktopPlaybackWindows(environment: environment);
-        child.onPlayerClose = () async => process.finish(0);
+        child = DesktopPlaybackWindows(environment: environment)
+          ..onPlayerClose = () async => process.finish(0);
         await child.connectPlayer();
         await child.playerReady();
         return process;
@@ -218,14 +218,12 @@ void main() {
     await parent.open(const DesktopPlaybackRequest.live(1));
 
     final saved = GStorage.watchProgress.watch().take(2).toList();
-    child.savePlaybackProgress(
-      positionCid,
-      const OfflineWatchProgress.at(12000),
-    );
-    child.savePlaybackProgress(
-      completedCid,
-      const OfflineWatchProgress.completed(),
-    );
+    child
+      ..savePlaybackProgress(positionCid, const OfflineWatchProgress.at(12000))
+      ..savePlaybackProgress(
+        completedCid,
+        const OfflineWatchProgress.completed(),
+      );
     await saved.timeout(const Duration(seconds: 3));
     expect(OfflineProgress.resume(positionCid, 0).inMilliseconds, 12000);
     expect(OfflineProgress.read(completedCid, 0)?.isCompleted, isTrue);

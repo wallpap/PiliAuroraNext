@@ -440,8 +440,9 @@ class VideoDetailController with BlockMixin {
         : position == null
         ? null
         : OfflineWatchProgress.at(position);
-    if (progress != null)
+    if (progress != null) {
       unawaited(OfflineProgress.record(cid.value, progress));
+    }
   }
 
   void initFileSource(BiliDownloadEntryInfo entry, {bool isInit = true}) {

@@ -8,8 +8,9 @@ abstract final class OfflineProgress {
 
   static OfflineWatchProgress? read(int cid, int durationMs) {
     final stored = GStorage.watchProgress.get(_key(cid));
-    if (stored == _completedValue)
+    if (stored == _completedValue) {
       return const OfflineWatchProgress.completed();
+    }
     if (stored != null) {
       return stored < 0 ? null : OfflineWatchProgress.at(stored);
     }
