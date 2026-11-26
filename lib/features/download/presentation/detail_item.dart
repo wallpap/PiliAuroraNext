@@ -200,10 +200,21 @@ class DetailItem extends ConsumerWidget {
                     ListenableBuilder(
                       listenable: progress!,
                       builder: (_, _) {
+                        final durationMs = entry.totalTimeMilli;
                         final progress = ref
                             .read(downloadProgressStoreProvider)
-                            .read(cid!);
+                            .read(cid!, durationMs);
                         if (progress != null) {
+                          final positionMs = progress.positionMs;
+                          final elapsed = positionMs == null
+                              ? '已看完'
+                              : DurationUtils.formatDuration(
+                                  positionMs ~/ 1000,
+                                );
+                          final timeLabel =
+                              positionMs == null || durationMs <= 0
+                              ? elapsed
+                              : '$elapsed/${DurationUtils.formatDuration(durationMs ~/ 1000)}';
                           return Positioned(
                             left: 0,
                             right: 0,
@@ -215,23 +226,19 @@ class DetailItem extends ConsumerWidget {
                                   padding: const .only(right: 6, bottom: 3),
                                   child: PBadge(
                                     isStack: false,
-                                    text: progress >= entry.totalTimeMilli - 400
-                                        ? '已看完'
-                                        : '${DurationUtils.formatDuration(
-                                                progress ~/ 1000,
-                                              )}/'
-                                              '${DurationUtils.formatDuration(
-                                                entry.totalTimeMilli ~/ 1000,
-                                              )}',
+                                    text: timeLabel,
                                     type: .gray,
                                   ),
                                 ),
-                                VideoProgressIndicator(
-                                  color: theme.colorScheme.primary,
-                                  backgroundColor:
-                                      theme.colorScheme.secondaryContainer,
-                                  progress: progress / entry.totalTimeMilli,
-                                ),
+                                if (positionMs == null || durationMs > 0)
+                                  VideoProgressIndicator(
+                                    color: theme.colorScheme.primary,
+                                    backgroundColor:
+                                        theme.colorScheme.secondaryContainer,
+                                    progress: positionMs == null
+                                        ? 1
+                                        : positionMs / durationMs,
+                                  ),
                               ],
                             ),
                           );

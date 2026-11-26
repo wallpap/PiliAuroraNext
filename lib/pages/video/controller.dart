@@ -31,6 +31,7 @@ import 'package:pili_aurora_next/features/playback/domain/video_detail/page.dart
 import 'package:pili_aurora_next/features/playback/domain/play_info/subtitle.dart';
 import 'package:pili_aurora_next/features/playback/application/cast_media.dart';
 import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
 import 'package:pili_aurora_next/features/playback/application/subtitle_sources.dart';
 import 'package:pili_aurora_next/features/playback/application/video_metadata.dart';
 import 'package:pili_aurora_next/features/playback/application/video_playlist.dart';
@@ -421,14 +422,26 @@ class VideoDetailController with BlockMixin {
     if (isFileSource) _offlineCompleted = plPlayerController.isCompleted;
   }
 
+  int? get offlinePlaybackHandoffPosition {
+    if (!isFileSource ||
+        !playbackOwner.ownsLoadedContent(_playbackContentKey)) {
+      return null;
+    }
+    return plPlayerController.isCompleted
+        ? 0
+        : plPlayerController.positionInMilliseconds;
+  }
+
   void _cacheLocalProgress() {
     observePlaybackProgress();
-    final position = _offlineCompleted
-        ? entry.totalTimeMilli
-        : playedTime?.inMilliseconds;
-    if (position != null) {
-      unawaited(OfflineProgress.record(cid.value, position));
-    }
+    final position = playedTime?.inMilliseconds;
+    final progress = _offlineCompleted
+        ? const OfflineWatchProgress.completed()
+        : position == null
+        ? null
+        : OfflineWatchProgress.at(position);
+    if (progress != null)
+      unawaited(OfflineProgress.record(cid.value, progress));
   }
 
   void initFileSource(BiliDownloadEntryInfo entry, {bool isInit = true}) {

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/window_coordinator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_layout.dart';
@@ -272,7 +273,9 @@ class DesktopPlaybackWindows with WindowListener {
       case 'progress':
         await OfflineProgress.record(
           message['cid'] as int,
-          message['position'] as int,
+          message['completed'] == true
+              ? const OfflineWatchProgress.completed()
+              : OfflineWatchProgress.at(message['position'] as int),
         );
       case 'failed':
         if (!window.ready.isCompleted) {
@@ -788,8 +791,16 @@ class DesktopPlaybackWindows with WindowListener {
   }
 
   bool playerFailed() => _sendChild({'type': 'failed'});
-  void savePlaybackProgress(int cid, int position) =>
-      _sendChild({'type': 'progress', 'cid': cid, 'position': position});
+  void savePlaybackProgress(int cid, OfflineWatchProgress progress) {
+    _sendChild({
+      'type': 'progress',
+      'cid': cid,
+      if (progress.positionMs case final position?)
+        'position': position
+      else
+        'completed': true,
+    });
+  }
 
   Future<void> arrange(DesktopPlaybackLayout layout) async {
     if (_childSocket != null) {

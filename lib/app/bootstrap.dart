@@ -15,6 +15,7 @@ import 'package:pili_aurora_next/features/content_discovery/application/discover
 import 'package:pili_aurora_next/features/danmaku/application/work_quota.dart';
 import 'package:pili_aurora_next/features/favorites/application/favorite_library.dart';
 import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
 import 'package:pili_aurora_next/features/watch_later/application/later_library.dart';
 import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:pili_aurora_next/platform/platform_info.dart';
@@ -339,25 +340,38 @@ Future<void> _bootstrapApplication(
   }
 }
 
-Future<void> _saveOfflineProgress() async {
-  final player = PlPlayerController.instance;
+({int cid, OfflineWatchProgress progress})? _currentOfflineProgress(
+  PlPlayerController? player,
+) {
   final cid = player?.cid;
-  if (player != null && player.isFileSource && cid != null) {
-    await OfflineProgress.record(cid, player.positionInMilliseconds);
+  if (player == null ||
+      cid == null ||
+      !player.isFileSource ||
+      player.activePlaybackOwner?.ownsLoadedContent('file:$cid') != true) {
+    return null;
+  }
+  final progress = player.isCompleted
+      ? const OfflineWatchProgress.completed()
+      : OfflineWatchProgress.at(player.positionInMilliseconds);
+  return (cid: cid, progress: progress);
+}
+
+Future<void> _saveOfflineProgress() async {
+  if (_currentOfflineProgress(PlPlayerController.instance) case final saved?) {
+    await OfflineProgress.record(saved.cid, saved.progress);
   }
 }
 
 Future<void> _releasePlayback({required bool playerWindow}) async {
   final player = PlPlayerController.instance;
   if (player == null) return;
-  if (playerWindow &&
-      player.videoPlayerController != null &&
-      player.isFileSource &&
-      player.cid != null) {
-    DesktopPlaybackWindows.instance.savePlaybackProgress(
-      player.cid!,
-      player.positionInMilliseconds,
-    );
+  if (playerWindow) {
+    if (_currentOfflineProgress(player) case final saved?) {
+      DesktopPlaybackWindows.instance.savePlaybackProgress(
+        saved.cid,
+        saved.progress,
+      );
+    }
   }
   final result = await player.shutdownPlaybackFacade();
   if (result.outcome == PlaybackShutdownOutcome.cleanupIncomplete) {

@@ -10,6 +10,7 @@ import 'package:pili_aurora_next/features/download/application/download_provider
 import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/domain/download_snapshot.dart';
 import 'package:pili_aurora_next/features/download/presentation/library_page.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 
@@ -19,7 +20,7 @@ import '../../support/memory_box.dart';
 class _Progress implements DownloadProgressStore {
   final removed = <int>[];
   @override
-  int? read(int cid) => null;
+  OfflineWatchProgress? read(int cid, int durationMs) => null;
   @override
   Future<void> remove(Iterable<int> cids) async => removed.addAll(cids);
 }

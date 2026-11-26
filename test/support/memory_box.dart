@@ -39,6 +39,13 @@ class MemoryBox<T> implements Box<T> {
   }
 
   @override
+  Future<void> deleteAll(Iterable<dynamic> keys) async {
+    for (final key in keys) {
+      await delete(key);
+    }
+  }
+
+  @override
   Future<int> clear() async {
     final count = data.length;
     for (final key in data.keys) {

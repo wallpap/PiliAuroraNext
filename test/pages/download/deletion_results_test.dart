@@ -9,6 +9,7 @@ import 'package:pili_aurora_next/features/download/domain/download_entry.dart';
 import 'package:pili_aurora_next/features/download/presentation/deletion.dart';
 import 'package:pili_aurora_next/features/download/presentation/danmaku_update.dart';
 import 'package:pili_aurora_next/features/download/application/download_service.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 
 import '../../services/download/download_fixtures.dart';
@@ -19,9 +20,7 @@ class _Box extends MemoryBox<int> {
   @override
   Future<void> deleteAll(Iterable<dynamic> keys) async {
     if (fail) throw StateError('private-record');
-    for (final key in keys) {
-      await delete(key);
-    }
+    await super.deleteAll(keys);
   }
 }
 
@@ -97,7 +96,7 @@ void main() {
     final a = downloadEntry();
     final deleted = <BiliDownloadEntryInfo>[];
     final helper = DownloadDeletion(
-      clearProgress: (cids) => box.deleteAll(cids.map((cid) => cid.toString())),
+      clearProgress: OfflineProgress.remove,
     );
     final result = await helper.run(
       items: [a],
@@ -121,7 +120,7 @@ void main() {
     var current = true;
     var callbacks = 0;
     final helper = DownloadDeletion(
-      clearProgress: (cids) => box.deleteAll(cids.map((cid) => cid.toString())),
+      clearProgress: OfflineProgress.remove,
     );
     final pending = helper.run(
       items: [a, b],
@@ -144,7 +143,7 @@ void main() {
     final a = downloadEntry(cid: 1);
     final b = downloadEntry(cid: 2);
     final helper = DownloadDeletion(
-      clearProgress: (cids) => box.deleteAll(cids.map((cid) => cid.toString())),
+      clearProgress: OfflineProgress.remove,
     );
     final callbacks = <BiliDownloadEntryInfo>[];
     final result = await helper.run(

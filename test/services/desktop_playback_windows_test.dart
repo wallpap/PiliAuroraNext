@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
 import 'package:pili_aurora_next/services/desktop_playback_request.dart';
 import 'package:pili_aurora_next/services/desktop_playback_windows.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
@@ -192,6 +194,42 @@ void main() {
         isA<ProcessException>().having((e) => e.errorCode, 'exit code', 7),
       ),
     );
+  });
+
+  test('子窗口回传的位置和完播交给主进程存储', () async {
+    const positionCid = 710;
+    const completedCid = 711;
+    final process = _Process();
+    late DesktopPlaybackWindows child;
+    final parent = DesktopPlaybackWindows(
+      startProcess: (environment) async {
+        child = DesktopPlaybackWindows(environment: environment);
+        child.onPlayerClose = () async => process.finish(0);
+        await child.connectPlayer();
+        await child.playerReady();
+        return process;
+      },
+    );
+    addTearDown(() async {
+      await parent.closeAll();
+      await child.disconnectPlayer();
+      await OfflineProgress.remove([positionCid, completedCid]);
+    });
+    await parent.open(const DesktopPlaybackRequest.live(1));
+
+    final saved = GStorage.watchProgress.watch().take(2).toList();
+    child.savePlaybackProgress(
+      positionCid,
+      const OfflineWatchProgress.at(12000),
+    );
+    child.savePlaybackProgress(
+      completedCid,
+      const OfflineWatchProgress.completed(),
+    );
+    await saved.timeout(const Duration(seconds: 3));
+    expect(OfflineProgress.resume(positionCid, 0).inMilliseconds, 12000);
+    expect(OfflineProgress.read(completedCid, 0)?.isCompleted, isTrue);
+    expect(OfflineProgress.resume(completedCid, 120000), Duration.zero);
   });
 
   test('握手错误早于进程启动返回仍沿 open 交付，清理失败不覆盖解析原因', () async {

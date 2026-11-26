@@ -262,8 +262,13 @@ class _VideoDetailPageVState extends ConsumerState<VideoDetailPageV>
         'isVertical': videoDetailController.isVertical.value,
         'cover': videoDetailController.cover.value,
         'title': videoDetailController.args['title'] ?? '',
-        'progress':
-            videoDetailController.plPlayerController.positionInMilliseconds,
+        if ((videoDetailController.isFileSource
+                ? videoDetailController.offlinePlaybackHandoffPosition
+                : videoDetailController
+                      .plPlayerController
+                      .positionInMilliseconds)
+            case final position?)
+          'progress': position,
         'heroTag': 'desktop-${videoDetailController.cid.value}',
         if (videoDetailController.isFileSource) ...{
           'sourceType': SourceType.file,

@@ -10,6 +10,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/features/playback/application/video_playlist.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/common/widgets/route_aware_mixin.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
@@ -124,20 +125,22 @@ void main() {
     expect(first.defaultST, const Duration(seconds: 12));
     expect(second.defaultST, Duration.zero);
     expect(second.playbackOwner.isActive, isTrue);
-    int? windowCid() =>
-        (first.plPlayerController.desktopPlaybackRequest?.call().arguments
-            as Map?)?['cid'];
-    expect(windowCid(), 12);
+    Map? windowRequest() =>
+        first.plPlayerController.desktopPlaybackRequest?.call().arguments
+            as Map?;
+    expect(windowRequest()?['cid'], 12);
+    expect(windowRequest()!.containsKey('progress'), isFalse);
 
     Get.back<void>();
     await tester.pumpAndSettle();
     expect(second.isClosed, isTrue);
     expect(first.playbackOwner.isActive, isTrue);
-    expect(windowCid(), 11);
+    expect(windowRequest()?['cid'], 11);
+    expect(windowRequest()!.containsKey('progress'), isFalse);
     Get.back<void>();
     await tester.pumpAndSettle();
     expect(first.isClosed, isTrue);
-    expect(windowCid(), isNull);
+    expect(windowRequest(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -535,7 +538,7 @@ void main() {
       player.playerStatus = previousStatus;
       next.closePlayback();
       offline.closePlayback();
-      await GStorage.watchProgress.delete('$offlineCid');
+      await OfflineProgress.remove([offlineCid]);
     });
     expect(next.playbackOwner.isActive, isTrue);
     expect(offline.playbackOwner.isActive, isFalse);
@@ -545,7 +548,7 @@ void main() {
       ..observePlaybackProgress(const Duration(seconds: 60))
       ..onReset();
 
-    expect(GStorage.watchProgress.get('$offlineCid'), 8000);
+    expect(OfflineProgress.read(offlineCid, 60000)?.positionMs, 8000);
   });
 
   test('字幕加载期间选择关闭，以最新选择为准', () async {

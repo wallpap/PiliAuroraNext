@@ -4,7 +4,8 @@ import 'dart:ui' show AppExitResponse;
 import 'package:pili_aurora_next/features/download/application/download_providers.dart';
 import 'package:pili_aurora_next/features/download/application/download_progress.dart';
 import 'package:pili_aurora_next/features/download/application/download_service.dart';
-import 'package:pili_aurora_next/services/settings/storage.dart';
+import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
+import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
 import 'package:pili_aurora_next/features/download/data/download_repository.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/http/init.dart';
@@ -165,9 +166,9 @@ class _PiliAuroraNextAppState extends State<PiliAuroraNextApp>
 
 class _DownloadProgressStore implements DownloadProgressStore {
   @override
-  int? read(int cid) => GStorage.watchProgress.get(cid.toString());
+  OfflineWatchProgress? read(int cid, int durationMs) =>
+      OfflineProgress.read(cid, durationMs);
 
   @override
-  Future<void> remove(Iterable<int> cids) =>
-      GStorage.watchProgress.deleteAll(cids.map((cid) => cid.toString()));
+  Future<void> remove(Iterable<int> cids) => OfflineProgress.remove(cids);
 }
