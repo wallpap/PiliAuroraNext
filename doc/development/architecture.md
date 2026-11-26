@@ -156,7 +156,7 @@ flowchart LR
 - `DownloadRepository` 写入前编码快照，同目录临时文件 flush/close 后重命名替换，并保留上次可读 JSON 的 `.bak`。启动按正式文件、备份、临时文件顺序恢复记录与媒体索引，读取或恢复失败通过回调报告；Windows 文件占用时不删除正式文件重试。替换以单文件为单位；断电恢复时核对目录项和媒体文件，进程中断后的续传进度以实际媒体文件长度为准。
 - 播放各层职责与代次见上方[播放统一架构](#播放统一架构)。偏好在装配计划或运行时配置时读取；字幕、历史和弹幕等页面副作用提交时核对媒体及页面归属。
 - 显式后台媒体租约可让页面 owner 关闭后继续播放；最后一个 owner 和租约释放后才关闭会话。路由、后台与音频焦点分别释放自己的 inhibitor，保留用户暂停意图。
-- 快速切源复用 Player、控制器、订阅和纹理。过期操作在进入原生前跳过，已发出的操作仍沿运行时串行链完成并核对代次。
+- 正常切源复用 Player、控制器、订阅和纹理。旧实例的文件身份不可验证时，有效的新加载必须等旧输出和 Player 真实释放，再分配新实例；页面 owner 和会话抑制不变。过期操作在进入原生前跳过，已发出的操作仍沿运行时串行链完成并核对代次。
 - Windows 子窗口通过本地连接接收播放、账号及设置快照，设置仅在内存生效；超分重建先卸载媒体，再重建输出并重载，恢复点播位置与最新意图。资源释放顺序见[Windows 视频输出](../maintenance/windows-video-output.md)。
 - protobuf 与 Android JNI 都从项目中的输入和脚本生成。Bilibili protobuf 的输入来源和更新命令见[协议产物](../../lib/generated/README.md)。
 - 定制依赖通过 `dependency_overrides` 指向 `third_party/` 中的本地包。来源、版本和许可证以 `pubspec.yaml`、`pubspec.lock` 与 [`third_party/README.md`](../../third_party/README.md) 为准。

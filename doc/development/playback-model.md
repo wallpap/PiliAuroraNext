@@ -11,11 +11,19 @@
 
 ## 状态空间
 
-把系统写为带时间的转换系统 `M = (S, E, δ)`：`E` 是用户命令、查询回执、原生事件、
-超时及资源释放，`δ(S, e)` 产生新状态。每个 `await` 都是允许其他事件插入的调度点。
+把系统写为带时间的转换系统 `M = (S, E, δ, s₀)`。`s₀` 是 `idle`、尚无已确认媒体和
+原生资源的会话。`E` 包含用户命令、查询回执、原生事件、时钟推进及资源释放。
+`δ(s, e) = (s′, effects)`：一步可以投递原生命令、发布快照或结算回执；这些副作用的异步
+结果是下一步的输入，而不是当前状态里的已确认事实。不满足归属条件的回执不能提交该层状态。
+每个 `await` 都是允许其他事件插入的调度点，截止时间以单调时钟比较。
+
+为把播放器逻辑和设备行为分开，采用 `S = S_route × S_session × S_native × S_projection × S_slot`。
+路由分量拥有业务身份、抑制和历史副作用；会话分量掌握控制权、请求、播放意图和可观测结果；
+原生分量持有当前 Player、文件绑定和输出；投影分量维护 UI、系统媒体和媒体时间；进程槽分量
+约束 Player 的分配与销毁。对应的状态变量如下：
 
 ```text
-S = (phase, stage, owner, g, request, load, runtime, output,
+S = (phase, stage, owner, g, request, load, runtime, player, file, output, slot,
      plan, intent, inhibitors, desired, applied, revisions, pending,
      activeOperation, pendingOperations, writer, seekSequence, pendingSeek, anchor, failure, action,
      pendingEOF, progressWatch, recoveryIncident, healthySince, nativeIdentity,
@@ -26,7 +34,8 @@ S = (phase, stage, owner, g, request, load, runtime, output,
 | --- | --- |
 | `owner, g` | 当前页面所有者及其失效代次 |
 | `request, load` | 来源查询代次、实际原生加载代次；配置重载可保留 request，但必须改变 load |
-| `runtime, output` | 原生运行时身份与输出代次 outputEpoch |
+| `runtime, player, file, output` | 逻辑运行时身份、物理 Player 实例、原生文件绑定、输出代次 `outputEpoch` |
+| `slot` | 原生槽：空闲、已预留、由 Player 的真实释放回执保留 |
 | `desired, applied` | 已接受的目标配置、已获得成功回执的配置 |
 | `revisions[k], pending` | 每个配置键的修订号、尚未结算或等待加载的键 |
 | `intent, inhibitors` | 用户播放意图，以及页面和会话分别持有的抑制令牌 |
@@ -37,10 +46,22 @@ S = (phase, stage, owner, g, request, load, runtime, output,
 | `pendingEOF` | 当前接受请求中，等待加载结算的本次原生打开结束事件 |
 | `progressWatch` | 当前有效播放区间的非外推位置基线、无推进的截止时间及是否已观察到推进 |
 | `recoveryIncident, healthySince` | 按内容累计的恢复次数、活跃耗时与当前连续健康窗口的起点 |
-| `nativeIdentity` | 当前 runtime 的原生文件身份是否仍可验证，不随换片重置 |
+| `nativeIdentity` | 当前 Player 的文件身份是否仍可验证，只在释放该实例后重置 |
 | `snapshotVersion` | 会话发布的状态版本，门面用它拒绝过期投递 |
 | `routeGeneration, routeInhibitor` | 点播页面的交接代次及等候恢复时持有的抑制令牌 |
-| `released` | Player 实际释放屏障，不能用 shutdown 的调用方超时代替 |
+| `released` | 关闭整个运行时的释放回执；更换其中的 Player 不结算此回执 |
+
+## 关键转换
+
+| 事件与守卫 | 状态变化与副作用 |
+| --- | --- |
+| 页面接管或最新请求被接受 | 撤销旧控制权或旧请求的提交资格；解析来源，准备本次加载。已提交的原生操作仍须排空。 |
+| 当前请求在截止前确认文件、输出及意图写入 | 提交 `ready` 回执；若同代 EOF 已暂存，随即判定完播或恢复。其他观测仍需独立证据。 |
+| 当前 `ready` 媒体收到控制命令 | 更新相应意图、修订或跳转代次；原生回执只结算这次命令，位置和出帧另行确认。 |
+| 当前加载确认完播，或出现可恢复故障 | 完播提交单次完成动作；恢复保留仍有效的意图和位置，重新加载并消费当前故障的预算。 |
+| 当前 Player 身份不可验证 | 隔离该实例、停止接受来自它的业务观测；有效的下一次加载先等待原生资源释放，再重新初始化。 |
+| 超时、被取代或关闭 | 先结算调用方或取消提交资格，不视为原生完成；关闭随后排空原生操作并等待释放。 |
+| 位置、能力、纹理、快照回执到达 | 按所属层身份提交；只有当前版本可更新对外投影，拖动预览不回写媒体事实。 |
 
 ## 不变量与活性条件
 
@@ -129,7 +150,11 @@ terminal(k, r) ∧ r = revisions[k] ⇒ k ∉ pending
 deadline = acceptedAt + budget
 调用方取消/超时 ⇏ 原生操作已结束 ⇏ 原生资源已释放
 createNextPlayer ⇒ previousPlayer.released 已成功完成
+slot: free → reserved → retained(player) → free
 ```
+
+已分配实例的 `retained → free` 只接受该实例的真实释放回执；创建在分配前失败时可撤销
+预留。如果尚未交付 Player 就已分配了句柄，槽仍等待创建失败携带的释放回执。
 
 解析、排队、初始化、打开、输出确认和意图协调共享接受时的总预算；新阶段不能
 重新获得整份预算。当前加载的回执若在截止时刻或之后被处理，应立即结算为超时，
@@ -282,32 +307,38 @@ EOF(k) ∧ k = 当前打开 ∧ phase ∈ {loading, recovering} ⇒ 暂存首个
 ### I11：跨内容的不可播放有独立作用域
 
 ```text
-nativeIdentity = unknown ⇒ 同一 runtime 不发起新的原生 open
-切换内容、来源或网络 ⇏ 新 runtime ∨ 释放屏障已通过
+nativeIdentity(player) = unknown ⇒ 不在该 player 上发起新的原生 open
+切换内容、来源或网络 ⇏ 旧 player 的释放屏障已通过
 sessionInhibitors ≠ ∅ ⇒ 切换 owner 后仍不允许有效播放
 sourceFailed(load₁) ∧ 已接受 load₂ ∧ load₁ ≠ load₂
   ⇒ load₁ 的迟到回执不得使 load₂ 失败或阻止其推进
 ```
 
-原生事件队列溢出可使文件身份不可再验证；这条路径与来源是否可访问无关。此时不能清除
-身份标记或跳过释放屏障来强行打开下一文件。会话级抑制则允许加载确认成功，但播放意图
-不落实为原生播放。两者都可能跨视频持续，和单次加载的 EOF 不同，须按快照及运行时日志区分。
+原生事件队列溢出可使文件身份不可再验证；这条路径与来源是否可访问无关。隔离期间
+除隔离失败信号外，原生事实不得更新会话，也不能继续提交控制命令。会话级抑制则允许加载确认成功，但播放意图
+不落实为原生播放。两者都可能跨视频持续，须按快照及运行时日志区分。
 
 首次失去身份时，原生层以 `native-lifecycle` 结算待确认的加载，并通知当前非退休文件所属的会话。
 随后到达的准备回执不能使加载成功。重复身份错误只触发一次通知。旧文件身份与卸载信息仍用于验证
 文件身份未丢失时的正常释放；关闭期间丢失身份也要中止对文件事件的单一等待。
 
 ```text
-identityUnknown ∧ closing ∧ nativeStopConfirmed ∧ freshNativePathUnavailable
+identityUnknown ∧ retiring ∧ nativeStopConfirmed ∧ freshNativePathUnavailable
   ⇒ 可释放整个输出，不必重建丢失的文件身份
-允许新 Player 取得原生槽 ⇒ 旧输出和旧 Player 已确认释放
+allocate(player₂) ⇒ released(output₁) ∧ released(player₁) ∧ slotHeld(player₂)
+replace(player₁, player₂) ⇒ runtimeId 不变 ∧ loadId 与 outputEpoch 更新
 ```
 
-身份未知时，必须先收到整次原生 `stop` 的成功回执（含清空播放列表），再新订阅原生 `path`，
-等待当前文件已不再存在。单看 `idle-active`、Dart 播放状态或调用方超时都不是卸载证据。
-整个输出的释放和旧 Player 的真实销毁仍必须分别确认。任一确认缺失时不交出资源槽；
-调用方可以先收到 `cleanupIncomplete`，仍在途的清理不会因此失去资格。
-这条规则只用于关闭；旧运行时仍不能重新打开文件。
+原生 open 已提交但旧操作排空时仍没有 `START_FILE`，下一次加载或关闭会进入同一个隔离
+清理分支，不再被动等待未知文件身份。隔离清理必须先收到整次原生 `stop` 的成功回执（含清空播放列表），再新订阅
+原生 `path`，等待当前文件已不再存在。`idle-active`、Dart 播放状态、迟到的 `START_FILE`
+或调用方超时都不是卸载证据。整个输出的释放和旧 Player 的真实销毁仍须分别确认。任一确认缺失时
+不交出资源槽；调用方可以先收到 `cleanupIncomplete` 或加载超时，在途清理不会因此失去资格。
+
+同页重试或切片可由下一次有效加载触发隔离清理。只有旧资源已释放、请求仍有效且原生槽可用时
+才分配新实例；清理过程中若请求到期、被取代或开始关闭，不为旧请求重新初始化。
+换实例保留当前页面 owner 和会话抑制，新实例按该加载的配置和最新意图启动。旧订阅与视图
+不跟随新实例复用，也不能将旧观测投影为新媒体进度。
 
 对比单来源故障时，使用[生产会话设备探针](../../tool/probes/README.md#生产会话设备验收)的
 `networkRecoveryOnly`。两个真实 HTTP 端点分别验证 404 后原来源重试、切换到新内容，以及旧请求
@@ -393,6 +424,18 @@ eligible 持续到 deadline 且未再次推进 ⇒ failed(observe-playback-stall
 迟到的真正确认可解除屏障，但不会把会话从失败改回就绪；重试须经正常卸载和重新加载。
 已经换源、完播或进入关闭的旧跳转不会再发布该超时。
 
+### L4：隔离后可恢复，不以抢占释放屏障换取活性
+
+```text
+最新请求仍有效 ∧ 旧实例与输出最终确认释放 ∧ 原生槽可用
+  ⇒ 可在该请求剩余预算内为其分配新 Player
+ready(result) ⇒ 文件、输出与有效播放意图均已结算
+```
+
+第二式不保证在系统抑制仍持有时自动播放，也不保证网络、解码和 GPU 能用；正常就绪条件
+仍按目标来源检验。在任一原生清理回执缺失时，只有调用方的时限能保证终结，不能保证
+资源交还或继续播放。模型没有“换网络清除原生隔离”或“忽略释放超时”的路径。
+
 ## 检查方法
 
 1. 沿源码调用关系为每个事件列出提交条件、状态写入和异步边界。
@@ -407,11 +450,18 @@ eligible 持续到 deadline 且未再次推进 ⇒ failed(observe-playback-stall
    穷举暂停、更新 seek、切源的 6 种顺序，以及加入关闭后的 24 种顺序。每条轨迹检查回执、
    下一次原生提交和旧 EOF、旧失败的影响。另检查当前 EOF 或失败与 seek 提交前、提交后的组合。
    连续切源时，只允许最新有效请求等待原生执行器，并检查它在截止前、到期时及到期后收到旧回执的结果。
+   [原生释放与替换模型](../../test/plugin/pl_player/playback/native_shutdown_test.dart)分别控制停止、原生文件
+   消失、输出释放、实例销毁四个边界；关闭路径检查缺失 `START_FILE` 和关闭时丢失身份。
+   同页路径检查重试、跨来源切片、缺失 `START_FILE` 后切片、请求被取代、关闭、刚好到期和逾期
+   七条轨迹。门面用例让新旧实例交错发送位置通知。
 4. 修复后重新沿模型检查，新反例继续补充回归。
 5. 最后一轮没有新的可确认反例，且相关回归与静态检查通过，才结束本轮审查。
 
 ## 验证边界
 
-主机测试穷举测试中声明的输入组合，不穷举整个播放器状态空间，也不假定原生事件一定能到达。
+本模型的收口条件是：每个应用层转换都有归属、时间或释放守卫，循环都有可观测的退出条件，
+已确认的反例都有生产接口上的回归测试。主机测试穷举测试中声明的输入组合，不穷举整个
+播放器状态空间，也不假定原生事件一定能到达。
 Android Surface/MediaCodec、Windows 纹理/GPU 的真实呈现、音频焦点和系统全屏效果
-通过目标设备验证，并记录设备、输入和结果。
+通过目标设备验证，并记录设备、输入和结果。原生事件注入可验证隔离与恢复协议，不能证明
+某次线上故障由队列溢出引起，也不能替代真实 CDN、物理换网或系统焦点仲裁的复现。
