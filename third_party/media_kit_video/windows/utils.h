@@ -15,19 +15,13 @@
 
 class Utils {
  public:
-  static void EnterNativeFullscreen(HWND window);
+  static bool EnterNativeFullscreen(HWND window);
 
-  static void ExitNativeFullscreen(HWND window);
+  static bool ExitNativeFullscreen(HWND window);
 
   static RTL_OSVERSIONINFOW GetWindowsVersion();
 
   static bool IsWindows10RTMOrGreater();
-
- private:
-  static constexpr auto kFlutterViewWindowClassName = L"FLUTTERVIEW";
-
-  static bool fullscreen_;
-  static RECT rect_before_fullscreen_;
 };
 
 #endif  // UTILS_H_

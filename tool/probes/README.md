@@ -16,6 +16,15 @@ Python 探针使用 uv 环境，首次运行前请按[工具入口中的 Python 
 
 Android/Windows Python 回归可用 `uv run --locked python tool/run_python_tests.py --suite android --suite windows --jobs 2` 并行运行；平台、编译器和夹具条件沿用各用例的检查。性能与设备采集单独执行。
 
+## Windows 原生全屏回执
+
+回归用 MinGW `g++` 编译生产 `Utils`，在真实 Win32 窗口上核对进出全屏、失败回滚、重试及最大化恢复。
+注入 `SetWindowPos` 失败或未改变边界，测试不验证 Flutter 布局及最终屏幕呈现。
+
+```powershell
+python -m unittest discover -s tool/probes/windows -p windows_native_fullscreen_test.py -v
+```
+
 ## Windows 图片区域解码
 
 `windows/image_region_probe.py` 通过 Visual Studio CMake 独立构建正式图片 worker，并用锁定环境中的 Pillow 13.0.0 生成 JPEG、PNG、WebP、透明、ICC、动画及 EXIF 方向夹具。产物保存在 `build/probes/image-region/`。

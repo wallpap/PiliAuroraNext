@@ -64,7 +64,6 @@ import 'package:pili_aurora_next/platform/android/bindings.g.dart';
 import 'package:pili_aurora_next/platform/files/bundled_assets.dart';
 import 'package:pili_aurora_next/platform/device_actions.dart';
 import 'package:pili_aurora_next/platform/desktop/window_visibility.dart';
-import 'package:pili_aurora_next/platform/desktop/window_background.dart';
 import 'package:pili_aurora_next/core/time/duration_format.dart';
 import 'package:pili_aurora_next/services/settings/box_ext.dart';
 import 'package:pili_aurora_next/services/feedback/feed_back.dart';
@@ -2693,16 +2692,7 @@ class PlPlayerController
               _setFullScreen(true);
               await SchedulerBinding.instance.endOfFrame;
             }
-            if (isDesktopPip) {
-              await DesktopWindowBackground.setFullscreen(next.status);
-              try {
-                await windowManager.setFullScreen(next.status);
-              } catch (_) {
-                await DesktopWindowBackground.setFullscreen(previous);
-                rethrow;
-              }
-              applied = true;
-            } else if (next.status) {
+            if (next.status) {
               if (PlatformUtils.isMobile) {
                 await hideSystemBar();
                 await changeOrientation(
@@ -2712,7 +2702,7 @@ class PlPlayerController
                 applied = true;
               } else {
                 applied = await enterDesktopFullScreen(
-                  inAppFullScreen: next.inAppFullScreen,
+                  inAppFullScreen: next.inAppFullScreen && !isDesktopPip,
                 );
               }
             } else {
@@ -2867,7 +2857,9 @@ class PlPlayerController
 
   void onCloseAll() {
     _isCloseAll = true;
-    if (PlatformUtils.isDesktop) exitDesktopFullScreen();
+    if (PlatformUtils.isDesktop) {
+      unawaited(triggerFullScreen(status: false));
+    }
     Get.until((route) => route.isFirst);
   }
 

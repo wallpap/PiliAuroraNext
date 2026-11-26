@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:pili_aurora_next/features/playback/application/offline_progress.dart';
 import 'package:pili_aurora_next/features/playback/domain/media/offline_watch_progress.dart';
+import 'package:pili_aurora_next/plugin/pl_player/utils/fullscreen.dart';
 import 'package:pili_aurora_next/services/diagnostics/diagnostics.dart';
 import 'package:pili_aurora_next/services/diagnostics/window_coordinator.dart';
 import 'package:pili_aurora_next/services/desktop_playback_layout.dart';
@@ -902,12 +903,15 @@ class DesktopPlaybackWindows with WindowListener {
   }
 
   Future<void> _saveCurrentBounds() async {
-    if (await windowManager.isMinimized() ||
-        await windowManager.isFullScreen()) {
+    if (desktopFullscreenBlocksBounds || await windowManager.isMinimized()) {
       return;
     }
     final bounds = await windowManager.getBounds();
-    if (!_watchingPlayer || _windowClose != null) return;
+    if (!_watchingPlayer ||
+        _windowClose != null ||
+        desktopFullscreenBlocksBounds) {
+      return;
+    }
     if (_childSocket?.readyState == WebSocket.open) {
       _childSocket!.add(
         jsonEncode({'type': 'bounds', 'bounds': _rectValues(bounds)}),
@@ -929,10 +933,13 @@ class DesktopPlaybackWindows with WindowListener {
     _watchingPlayer = false;
     windowManager.removeListener(this);
     try {
-      if (!await windowManager.isMinimized() &&
-          !await windowManager.isFullScreen()) {
+      if (!desktopFullscreenBlocksBounds &&
+          !await windowManager.isMinimized()) {
         final bounds = await windowManager.getBounds();
-        if (_childSocket?.readyState != WebSocket.open) return;
+        if (desktopFullscreenBlocksBounds ||
+            _childSocket?.readyState != WebSocket.open) {
+          return;
+        }
         _childSocket!.add(
           jsonEncode({'type': 'bounds', 'bounds': _rectValues(bounds)}),
         );

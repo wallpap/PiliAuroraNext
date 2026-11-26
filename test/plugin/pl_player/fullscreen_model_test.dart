@@ -93,6 +93,10 @@ void main() {
       await transition;
       await latest;
       observed.add(controller.isFullScreen.value);
+      expect(
+        desktopFullscreenBlocksBounds,
+        !scenario.entering && scenario.fail,
+      );
       await reset();
     }
 
@@ -173,11 +177,13 @@ void main() {
     await tester.pumpAndSettle();
     await exitStarted.future;
     expect(finishedExit, isFalse);
+    expect(desktopFullscreenBlocksBounds, isTrue);
     exitGate.complete();
     await tester.pumpAndSettle();
     await transition;
     await exit;
     expect(controller.isFullScreen.value, isFalse);
+    expect(desktopFullscreenBlocksBounds, isFalse);
     await tester.pump(const Duration(milliseconds: 300));
   }, skip: !Platform.isWindows);
 }

@@ -492,14 +492,20 @@ void MediaKitVideoPlugin::HandleMethodCall(
              0) {
     auto window =
         ::GetAncestor(registrar_->GetView()->GetNativeWindow(), GA_ROOT);
-    Utils::EnterNativeFullscreen(window);
-    result->Success(flutter::EncodableValue(std::monostate{}));
+    if (Utils::EnterNativeFullscreen(window)) {
+      result->Success(flutter::EncodableValue(std::monostate{}));
+    } else {
+      result->Error("native_fullscreen", "Could not enter native fullscreen");
+    }
   } else if (method_call.method_name().compare("Utils.ExitNativeFullscreen") ==
              0) {
     auto window =
         ::GetAncestor(registrar_->GetView()->GetNativeWindow(), GA_ROOT);
-    Utils::ExitNativeFullscreen(window);
-    result->Success(flutter::EncodableValue(std::monostate{}));
+    if (Utils::ExitNativeFullscreen(window)) {
+      result->Success(flutter::EncodableValue(std::monostate{}));
+    } else {
+      result->Error("native_fullscreen", "Could not exit native fullscreen");
+    }
   } else {
     result->NotImplemented();
   }

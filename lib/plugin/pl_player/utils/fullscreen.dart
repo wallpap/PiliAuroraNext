@@ -8,50 +8,39 @@ import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
 
 bool _isDesktopFullScreen = false;
+bool _desktopFullscreenInFlight = false;
+
+bool get desktopFullscreenBlocksBounds =>
+    _desktopFullscreenInFlight || _isDesktopFullScreen;
+
+Future<bool> enterDesktopFullScreen({bool inAppFullScreen = false}) =>
+    inAppFullScreen ? Future.value(true) : _setDesktopFullScreen(true);
+
+Future<bool> exitDesktopFullScreen() => _setDesktopFullScreen(false);
 
 @pragma('vm:notify-debugger-on-exception')
-Future<bool> enterDesktopFullScreen({bool inAppFullScreen = false}) async {
-  if (!inAppFullScreen && !_isDesktopFullScreen) {
-    _isDesktopFullScreen = true;
-    try {
-      await DesktopWindowBackground.setFullscreen(true);
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.EnterNativeFullscreen');
-    } catch (error, stackTrace) {
-      _isDesktopFullScreen = false;
-      await DesktopWindowBackground.setFullscreen(false);
-      logger.w(
-        '进入原生全屏失败',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return false;
-    }
+Future<bool> _setDesktopFullScreen(bool target) async {
+  if (_isDesktopFullScreen == target) return true;
+  _desktopFullscreenInFlight = true;
+  try {
+    await DesktopWindowBackground.setFullscreen(target);
+    await const MethodChannel('com.alexmercerind/media_kit_video')
+        .invokeMethod<void>(
+          target ? 'Utils.EnterNativeFullscreen' : 'Utils.ExitNativeFullscreen',
+        );
+    _isDesktopFullScreen = target;
+    return true;
+  } catch (error, stackTrace) {
+    await DesktopWindowBackground.setFullscreen(_isDesktopFullScreen);
+    logger.w(
+      target ? '进入原生全屏失败' : '退出原生全屏失败',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return false;
+  } finally {
+    _desktopFullscreenInFlight = false;
   }
-  return true;
-}
-
-@pragma('vm:notify-debugger-on-exception')
-Future<bool> exitDesktopFullScreen() async {
-  if (_isDesktopFullScreen) {
-    try {
-      await DesktopWindowBackground.setFullscreen(false);
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.ExitNativeFullscreen');
-      _isDesktopFullScreen = false;
-    } catch (error, stackTrace) {
-      await DesktopWindowBackground.setFullscreen(true);
-      logger.w(
-        '退出原生全屏失败',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return false;
-    }
-  }
-  return true;
 }
 
 List<DeviceOrientation>? _lastOrientation;
