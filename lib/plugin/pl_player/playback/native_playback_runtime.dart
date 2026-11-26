@@ -2227,21 +2227,12 @@ class NativePlaybackRuntime
     Player player,
     void Function(String) recordStage,
   ) async {
-    if (!_nativeLifecycleUnknown &&
-        _activeBinding == null &&
-        _nativeOpenNeedsRetirement) {
-      recordStage('waiting-for-file-identity');
-      final opening = _openingLoad;
-      if (opening == null) {
-        _markNativeLifecycleUnknown('Shutdown has no binding for native open.');
-      } else {
-        await Future.any<void>([
-          opening.started.future,
-          _nativeLifecycleLost.future,
-        ]);
-      }
-    }
     final binding = _activeBinding;
+    if (!_nativeLifecycleUnknown &&
+        binding == null &&
+        _nativeOpenNeedsRetirement) {
+      _markNativeLifecycleUnknown('Shutdown has no binding for native open.');
+    }
     if (!_nativeLifecycleUnknown && binding == null) return;
     if (binding != null && (binding.entryId == null || binding.token == null)) {
       _markNativeLifecycleUnknown('Shutdown has an incomplete file binding.');

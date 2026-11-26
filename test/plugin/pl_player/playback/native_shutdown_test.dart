@@ -851,21 +851,24 @@ void main() {
     });
   }
 
-  test('open 回执失败后关闭仍等待迟到的文件身份和卸载证据', () async {
+  test('关闭中迟到的 START_FILE 不能代替隔离运行时的卸载证据', () async {
     final fixture = _Fixture();
     addTearDown(fixture.close);
-    fixture.player.openTimesOut = true;
+    fixture.player
+      ..openTimesOut = true
+      ..emitProperty('path', 'local-fixture.mp4');
     expect((await fixture.load()).loaded, isFalse);
 
     final shutdown = fixture.runtime.shutdown();
     await _turn();
+    expect(fixture.events, ['stop']);
     expect(fixture.output.releaseCalls, 0);
     expect(fixture.player.disposed, isFalse);
 
     fixture.player.startFile();
-    await _turn();
-    expect(fixture.events, ['stop']);
     await fixture.player.unload();
+    await _turn();
+    expect(fixture.output.releaseCalls, 0);
     fixture.player.endFile();
     await _turn();
     expect(fixture.output.releaseCalls, 1);
@@ -873,6 +876,29 @@ void main() {
     expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
     await fixture.runtime.released;
     expect(fixture.events.last, 'dispose-player');
+  });
+
+  test('open 提交后未产生 START_FILE，关闭仍能确认卸载并释放', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.close);
+    fixture.player
+      ..openTimesOut = true
+      ..emitProperty('path', 'local-fixture.mp4');
+    expect((await fixture.load()).loaded, isFalse);
+
+    final shutdown = fixture.runtime.shutdown();
+    await _turn();
+    expect(fixture.player.started, isFalse);
+    expect(fixture.events, ['stop']);
+    expect(fixture.output.releaseCalls, 0);
+
+    fixture.player.emitProperty('path', null);
+    await _turn();
+    expect(fixture.output.releaseCalls, 1);
+    expect(fixture.player.disposed, isFalse);
+    fixture.output.releaseReceipt.complete();
+    expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
+    expect(fixture.player.disposed, isTrue);
   });
 
   test('open 尚未提交加载就失败时关闭不等待文件身份', () async {
