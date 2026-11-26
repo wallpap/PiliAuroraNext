@@ -172,8 +172,12 @@ void main() {
       final replacementCalls = <String>[];
       final replacementPlayer = _Player(replacementCalls)..autoStop = true;
       final replacementOutput = _Output(replacementCalls);
+      final initializationReply = action == _ReplacementAction.expiringCreation
+          ? Completer<void>()
+          : null;
       final fixture = _Fixture(
         replacement: (player: replacementPlayer, output: replacementOutput),
+        replacementCreationGate: initializationReply?.future,
       );
       const loadBudget = Duration(seconds: 20);
       final session = PlaybackSession(
@@ -187,6 +191,9 @@ void main() {
       final unboundOpen = action == _ReplacementAction.unboundOpen;
       addTearDown(() async {
         if (!disposeReply.isCompleted) disposeReply.complete();
+        if (initializationReply != null && !initializationReply.isCompleted) {
+          initializationReply.complete();
+        }
         if (unboundOpen && !fixture.player.disposed) {
           fixture.player
             ..autoStop = true
@@ -277,7 +284,24 @@ void main() {
         _ => null,
       };
       if (expired != null) fixture.now = expired;
+      if (initializationReply != null) {
+        fixture.now = loadBudget - const Duration(microseconds: 1);
+      }
       disposeReply.complete();
+      if (initializationReply != null) {
+        await _turn();
+        expect(fixture.replacements, 1);
+        expect(replacementPlayer.opens, 0);
+        fixture.now = loadBudget;
+        initializationReply.complete();
+        final timedOut = await attempt;
+        expect(timedOut.outcome, LoadOutcome.failed);
+        expect(timedOut.failure?.category, PlaybackFailureCategory.timeout);
+        expect(replacementPlayer.opens, 0);
+        expect(replacementPlayer.releaseReceipt.isCompleted, isTrue);
+        expect(replacementOutput.releaseCalls, 0);
+        return;
+      }
       if (shutdown != null) {
         expect((await attempt).outcome, LoadOutcome.superseded);
         expect((await shutdown).outcome, PlaybackShutdownOutcome.released);
@@ -1093,6 +1117,7 @@ enum _ReplacementAction {
   shutdown,
   atDeadline,
   afterDeadline,
+  expiringCreation,
 }
 
 class _Runtime extends NativePlaybackRuntime {
@@ -1120,6 +1145,7 @@ class _Fixture {
   _Fixture({
     bool subscribeToPlaybackEvents = false,
     ({_Player player, _Output output})? replacement,
+    Future<void>? replacementCreationGate,
   }) {
     player = _Player(events, hasVideo: subscribeToPlaybackEvents);
     output = _Output(events);
@@ -1132,6 +1158,9 @@ class _Fixture {
           ? null
           : () async {
               replacements++;
+              if (replacementCreationGate != null) {
+                await replacementCreationGate;
+              }
               return replacement.player;
             },
       createReplacementVideoController: replacement == null

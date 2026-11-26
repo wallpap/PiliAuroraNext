@@ -27,13 +27,14 @@ S = (phase, stage, owner, g, request, load, runtime, player, file, output, slot,
      plan, intent, inhibitors, desired, applied, revisions, pending,
      activeOperation, pendingOperations, writer, seekSequence, pendingSeek, anchor, failure, action,
      pendingEOF, progressWatch, recoveryIncident, healthySince, nativeIdentity,
-     snapshotVersion, routeGeneration, routeInhibitor, owners, keepalive, released)
+     snapshotVersion, routeGeneration, routeInhibitor, owners, keepalive, released,
+     fullscreen, offlineFacts, offlineHistory)
 ```
 
 | 符号 | 源码含义 |
 | --- | --- |
 | `owner, g` | 当前页面所有者及其失效代次 |
-| `request, load` | 来源查询代次、实际原生加载代次；配置重载可保留 request，但必须改变 load |
+| `request, load` | 当前接受的请求记录与实际原生加载代次；配置重载可保留请求编号，但必须改变 load |
 | `runtime, player, file, output` | 逻辑运行时身份、物理 Player 实例、原生文件绑定、输出代次 `outputEpoch` |
 | `slot` | 原生槽：空闲、已预留、由 Player 的真实释放回执保留 |
 | `desired, applied` | 已接受的目标配置、已获得成功回执的配置 |
@@ -50,6 +51,14 @@ S = (phase, stage, owner, g, request, load, runtime, player, file, output, slot,
 | `snapshotVersion` | 会话发布的状态版本，门面用它拒绝过期投递 |
 | `routeGeneration, routeInhibitor` | 点播页面的交接代次及等候恢复时持有的抑制令牌 |
 | `released` | 关闭整个运行时的释放回执；更换其中的 Player 不结算此回执 |
+| `fullscreen` | 最新目标、在途操作、最后成功确认的全屏状态与当前布局 |
+| `offlineFacts, offlineHistory` | 页面按内容保留的离线播放事实，及按 `cid` 保存的历史 |
+
+`request = ⊥` 或包含 `(id, owner, deadline, loadId, resolution, result, cancelled, ...)` 的
+请求记录。`deadline = acceptedAt + budget` 在接受时计算并保存；每次处理事件使用该时刻的
+单调时间 `t`。`owns(r)` 核对当前请求记录的身份、当前 owner 和会话仍开放；
+`current(r, t) ≡ owns(r) ∧ t < r.deadline`。即使重载沿用编号，旧记录也不能提交。
+计时器只是触发检查的事件之一，未交付计时器并不延长截止时间。
 
 ## 关键转换
 
@@ -206,7 +215,8 @@ action.completed.owner = 已加载媒体的业务所有者
 取消只使未结算回执失效，不意味着原生操作已排空；迟到的 open 或 play 成功不能恢复 `ready`。
 若 `LoadResult.ready` 已交付，后续原生错误只改变当前快照，不追溯修改旧回执。
 同一加载一旦确认完播或失败，后到的原生终态事件不能互相覆盖，也不能重复提交完成动作。
-运行时身份隔离仍独立生效；若完播后运行时身份丢失，下一次打开会按原生身份规则拒绝加载。
+运行时身份隔离仍独立生效：若完播后旧 Player 丢失身份，会话保留原完播终态，但旧 Player
+不能再打开媒体。下一次有效加载可以按 I11 释放旧实例，再用新实例打开。
 
 ### I6：媒体时间与输出交接
 
@@ -214,8 +224,8 @@ action.completed.owner = 已加载媒体的业务所有者
 
 ```text
 p(t) = null                                      if ¬ready
-p(t) = p₀                                        if ¬advancing
-p(t) = p₀ + round(rate × clamp(t − t₀, 0, ttl))  otherwise
+p(t) = p₀                                        if ready ∧ ¬advancing
+p(t) = p₀ + round(rate × clamp(t − t₀, 0, ttl))  if ready ∧ advancing
 ```
 
 `rate` 必须有限且大于零。暂停、缓冲、seek 或终态先冻结/失效锚点；恢复后等待新采样。
@@ -227,34 +237,41 @@ p(t) = p₀ + round(rate × clamp(t − t₀, 0, ttl))  otherwise
 
 ### I7：全屏目标与已确认状态
 
-全屏包含 `target`、`confirmed` 和 `transition` 三种状态。Windows 可以在窗口放大前
-预先提交全屏布局；该布局是待确认状态，不能将其等同于原生窗口已经切换成功。
+全屏状态为 `(wanted, issued, confirmed, layout)`：`wanted` 是最新目标，`issued` 是
+已经提交且未结算的操作，其目标在整个操作期间不变；`confirmed` 保存最后一次成功确认的
+状态。Windows 可以先提交待确认的全屏布局，布局本身不是原生回执。
 
 ```text
-transition 成功 ⇒ confirmed := target
-transition 失败 ⇒ UI 回到先前 confirmed
-转换期间收到新目标 ⇒ 排空当前转换后落实最新目标
+提交操作 ⇒ issued := 当时的 wanted
+在途时收到新目标 ⇒ 只更新 wanted
+issued 成功 ⇒ confirmed := issued.target
+issued 失败 ⇒ confirmed 不变，layout := confirmed
+issued 结算 ⇒ 清空 issued，再处理与 confirmed 不同的最新待处理目标
 ```
 
-进入失败后仍须允许重新进入，退出失败后仍须允许重新退出。页面内全屏不要求原生
-窗口放大，但仍需要正确处理进出、失败和并发目标。
+失败的目标不会自动无限重试，但必须允许再次提交相同目标。Windows 原生切换只有在
+Win32 操作及窗口样式、边界核对均成功后才回报成功；失败尝试恢复先前窗口，确认值
+保留为最后一次成功观测，不意味着失败后一定恢复了物理状态。页面内全屏不要求原生
+窗口放大。操作回执也不是屏幕已经呈现新布局的证据。
 
 ### I8：自动续播位置属于媒体的有效区间
 
-来源查询、首次加载、页面恢复和自动重载中的续播位置应满足：
+来源查询、首次加载、页面恢复和自动重载都将播放事实投影成起点。用 `d > 0` 表示
+已知的有效时长，`∅` 表示没有给定位置：
 
 ```text
 live ⇒ startPosition = reloadPosition = null
-非直播 ∧ 已知有效 duration ⇒ 0 ≤ resumePosition < duration
-当前媒体确认完播 ∨ resumePosition < 0 ∨ resumePosition ≥ duration ⇒ 续播起点 = 0
+非直播且确认完播       ⇒ 起点 = 0
+非直播、未完播且无位置 ⇒ 起点 = ∅
+非直播、未完播且有 p   ⇒ 起点 = 0，若 p < 0 或 (d 已知且 p ≥ d)；否则为 p
 ```
 
 未知或非正时长不能用作上界。原生观测到的有效时长按内容身份保存，不能借用上一视频的
 时长裁剪新视频。初次加载才确认提示时长偏长时，纠正后的重新加载仍属于原请求，沿用
 同一个 deadline；从 0 仍失败时正常终结，不得循环重开。显式 seek 到片尾的结束语义
 与自动续播分开处理。
-最后一帧时间戳可以小于总时长。确认完播后，重播、同源续播和页面退出前保存的续播点
-均从零开始，是否立即播放仍由当前意图决定。提前 EOF 若进入恢复流程则保留中断点。
+最后一帧时间戳可以小于总时长。确认完播后，重播和同源续播从零开始，历史保存完播
+事实而不是位置（见 I14），是否立即播放仍由当前意图决定。提前 EOF 若进入恢复流程则保留中断点。
 
 手动重试只读取当前 owner 最近一次接受的有效计划；计划已接受但尚未进入原生时，
 排队超时仍保留该计划。新查询先撤销旧重试目标，未产出且未提交加载时返回 `noMedia`，
@@ -377,13 +394,20 @@ healthy 中断 ⇒ 丢弃健康窗口起点
 
 ```text
 采样当前播放事实 ⇒ owner 活跃且已加载 ∧ 当前内容键 = 页面内容键 ∧ phase ∈ {ready, ended}
-离线历史写入值 = 本页面确认完播 ? 该文件时长 : 本页面上次确认的位置
+History[cid] ∈ {无记录, Completed} ∪ {At(p) | p ≥ 0}
+确认完播 ⇒ 写入 Completed；否则有匹配位置 p ⇒ 写入 At(p)；其余不写入
 切集 ⇒ 先保存旧内容，再清除页面的完播和位置事实
 ```
 
 覆盖或关闭页面时，仍有归属就采样该条媒体的完播事实；失去归属后只使用页面已保留的值。
-共享播放器的 `completed` 投影不能直接写入离线历史，否则 B 完播时可能把 A 的续播位置覆盖为时长，
-导致 A 重开从零。新内容加载中或失败时也不能借用同一 owner 的旧内容事实。
+共享播放器的 `completed` 不经归属核对就用于写入，会把 B 的完播误记给 A；
+新内容加载中或失败时也不能借用同一 owner 的旧内容事实。退出保存与跨进程回传同样核对已加载内容。
+独立播放窗口接收显式交接位置时，当前媒体已完播则传入零；没有匹配的已加载内容时保留历史起点。
+
+现行存储用版本化键区分旧整数记录，在新记录中以 `-1` 编码 `Completed`、非负整数编码
+`At(p)`。未知或变化的时长不改变这两种事实；读取续播起点时才应用 I8。
+只有旧记录回退时才用已知时长与 `400 ms` 的尾部容差推断完播；若旧时长已改变，
+那个整数本身无法恢复原始完播事实。
 
 ### L1：已就绪且要求播放时，启动必须有限结算
 
@@ -427,14 +451,18 @@ eligible 持续到 deadline 且未再次推进 ⇒ failed(observe-playback-stall
 ### L4：隔离后可恢复，不以抢占释放屏障换取活性
 
 ```text
-最新请求仍有效 ∧ 旧实例与输出最终确认释放 ∧ 原生槽可用
-  ⇒ 可在该请求剩余预算内为其分配新 Player
+允许开始分配(r, t) ≡ current(r, t) ∧ 旧输出和旧实例已确认释放 ∧ r 已取得原生槽
+允许开始分配 ⇏ 能在 r.deadline 前完成初始化
 ready(result) ⇒ 文件、输出与有效播放意图均已结算
 ```
 
-第二式不保证在系统抑制仍持有时自动播放，也不保证网络、解码和 GPU 能用；正常就绪条件
-仍按目标来源检验。在任一原生清理回执缺失时，只有调用方的时限能保证终结，不能保证
-资源交还或继续播放。模型没有“换网络清除原生隔离”或“忽略释放超时”的路径。
+若从资源释放确认时刻 `tᵣ` 起，执行器调度、取得原生槽和初始化所需时间有上界 `Δ`，
+请求不被取代或关闭、本次初始化成功且 `tᵣ + Δ < r.deadline`，则保证及时完成初始化。
+只知道旧资源最终释放，不给 `Δ` 或剩余时间任何保证。若预算先耗尽，调用方按超时结算；
+已开始的原生操作仍须排空，逾期创建的实例不能用于旧请求。
+
+及时初始化也不保证 `ready` 或自动播放；来源、输出、意图与系统抑制仍按各自条件检查。
+缺少任何原生清理回执时，调用方可以在截止时间终结，但不能提前归还资源槽或继续播放。
 
 ## 检查方法
 
@@ -452,8 +480,11 @@ ready(result) ⇒ 文件、输出与有效播放意图均已结算
    连续切源时，只允许最新有效请求等待原生执行器，并检查它在截止前、到期时及到期后收到旧回执的结果。
    [原生释放与替换模型](../../test/plugin/pl_player/playback/native_shutdown_test.dart)分别控制停止、原生文件
    消失、输出释放、实例销毁四个边界；关闭路径检查缺失 `START_FILE` 和关闭时丢失身份。
-   同页路径检查重试、跨来源切片、缺失 `START_FILE` 后切片、请求被取代、关闭、刚好到期和逾期
-   七条轨迹。门面用例让新旧实例交错发送位置通知。
+    同页路径检查重试、跨来源切片、缺失 `START_FILE` 后切片、请求被取代、关闭、释放恰好到期、
+    释放逾期及分配开始后到期。门面用例让新旧实例交错发送位置通知。
+    [离线历史回归](../../test/features/playback/offline_progress_test.dart)检查时长变化与未知时长；
+    [全屏模型测试](../../test/plugin/pl_player/fullscreen_model_test.dart)检查目标交错，
+    [Windows 原生探针](../../tool/probes/windows/windows_native_fullscreen_test.py)注入进出失败并验证可重试。
 4. 修复后重新沿模型检查，新反例继续补充回归。
 5. 最后一轮没有新的可确认反例，且相关回归与静态检查通过，才结束本轮审查。
 
