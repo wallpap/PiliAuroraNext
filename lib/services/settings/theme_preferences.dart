@@ -37,14 +37,31 @@ abstract final class ThemePreferences {
   static Color seedColor(int value) =>
       isPreset(value) ? colorThemeTypes[value].color : Color(value);
 
+  static Color get customSeed {
+    final selection = color;
+    if (!isPreset(selection)) return seedColor(selection);
+    return switch (GStorage.setting.get(SettingBoxKey.customThemeSlot)) {
+      final int value when !isPreset(value) => seedColor(value),
+      _ => seedColor(selection),
+    };
+  }
+
   static Future<void> saveType(ThemeType value) =>
       GStorage.setting.put(SettingBoxKey.themeMode, value.index);
 
   static Future<void> saveVariant(FlexSchemeVariant value) =>
       GStorage.setting.put(SettingBoxKey.schemeVariant, value.index);
 
-  static Future<void> saveColor(int value) =>
-      GStorage.setting.put(SettingBoxKey.customColor, value);
+  static Future<void> saveColor(int value) {
+    final slot = isPreset(value) ? color : value;
+    if (!isPreset(slot)) {
+      return GStorage.setting.putAll({
+        SettingBoxKey.customColor: value,
+        SettingBoxKey.customThemeSlot: slot,
+      });
+    }
+    return GStorage.setting.put(SettingBoxKey.customColor, value);
+  }
 
   static Future<void> saveDynamicColor(bool value) =>
       GStorage.setting.put(SettingBoxKey.dynamicColor, value);

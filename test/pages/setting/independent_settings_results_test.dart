@@ -1,9 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pili_aurora_next/common/appearance/theme_builder.dart';
+import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/content_discovery/data/hot_repository.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/discovery_page.dart';
+import 'package:pili_aurora_next/features/content_discovery/domain/home_tab_type.dart';
+import 'package:pili_aurora_next/features/media_catalog/domain/ranked_video.dart';
+import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/services/settings/theme/theme_color_type.dart';
 import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/setting/models/system_settings.dart';
@@ -13,8 +22,17 @@ import 'package:pili_aurora_next/pages/setting/widgets/popup_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
 import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/storage_key.dart';
+import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 
 import '../../support/memory_box.dart';
+
+class _EmptyHotFeed extends HotRepository {
+  @override
+  Future<LoadingState<DiscoveryPage<HotVideoItemModel, void>>> fetch(
+    Account account,
+    int page,
+  ) async => const Success(DiscoveryPage([], metadata: null, hasMore: false));
+}
 
 class _Settings extends MemoryBox<dynamic> {
   bool fail = false;
@@ -35,7 +53,10 @@ class _Settings extends MemoryBox<dynamic> {
 
 void main() {
   final settings = _Settings();
-  setUpAll(() => GStorage.setting = settings);
+  setUpAll(() {
+    GStorage.setting = settings;
+    GStorage.localCache = MemoryBox();
+  });
   setUp(() {
     settings.data.clear();
     settings.writes.clear();
@@ -44,12 +65,25 @@ void main() {
   tearDown(Get.reset);
   Future<void> mount(WidgetTester tester, Widget child) async {
     await tester.pumpWidget(
-      GetMaterialApp(
-        builder: FlutterSmartDialog.init(),
-        home: Scaffold(body: child),
+      ProviderScope(
+        overrides: [hotRepositoryProvider.overrideWithValue(_EmptyHotFeed())],
+        child: GetMaterialApp(
+          builder: FlutterSmartDialog.init(),
+          home: Scaffold(body: child),
+        ),
       ),
     );
     SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
+  }
+
+  Future<void> mountThemePage(WidgetTester tester) async {
+    settings.data.addAll({
+      SettingBoxKey.tabBarSort: [HomeTabType.hot.index],
+      SettingBoxKey.useSideBar: true,
+      SettingBoxKey.showHotRcmd: false,
+      SettingBoxKey.filterBlockedAuthors: false,
+    });
+    await mount(tester, const ColorSelectPage());
   }
 
   Future<void> finish(WidgetTester tester) async {
@@ -107,7 +141,7 @@ void main() {
       SettingBoxKey.customColor: colorThemeTypes.length,
       SettingBoxKey.dynamicColor: false,
     });
-    await mount(tester, const ColorSelectPage());
+    await mountThemePage(tester);
     expect(find.text('当前模式：跟随系统'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -128,6 +162,120 @@ void main() {
     expect(settings.data[SettingBoxKey.themeMode], ThemeType.dark.index);
     expect(find.text('当前模式：深色'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('调色盘预览暂存草稿，校验色值并可取消', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(350, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    settings.data.addAll({
+      SettingBoxKey.dynamicColor: false,
+      SettingBoxKey.customColor: 0,
+      SettingBoxKey.isPureBlackTheme: true,
+    });
+    await mountThemePage(tester);
+    final page = find.byType(ColorSelectPage);
+    final original = Theme.of(tester.element(page)).colorScheme;
+    await tester.tap(find.text('自定义'));
+    await tester.pumpAndSettle();
+    final palette = find.bySemanticsLabel('饱和度与明度调色盘');
+    final input = find.byType(TextField);
+    expect(find.text('#5CB67B'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pump();
+      await tester.drag(palette, const Offset(0, 45));
+    } finally {
+      semantics.dispose();
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('#5CB67B'), findsNothing);
+    final dragged = tester.widget<TextField>(input).controller!.text;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(find.text(dragged), findsNothing);
+    await tester.ensureVisible(input);
+    await tester.enterText(input, '#bad');
+    await tester.pumpAndSettle();
+    expect(find.text('请输入六位十六进制色值'), findsOneWidget);
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.enterText(input, '#3478C0');
+    final dark = find.text('深色');
+    await tester.ensureVisible(dark);
+    await tester.tap(dark);
+    await tester.pumpAndSettle();
+    final preview = Theme.of(tester.element(find.text('播放')));
+    expect(preview.brightness, Brightness.dark);
+    expect(preview.scaffoldBackgroundColor, Colors.black);
+    expect(Theme.of(tester.element(page)).colorScheme, original);
+    expect(settings.data[SettingBoxKey.customColor], 0);
+    expect(settings.data, isNot(contains(SettingBoxKey.customThemeSlot)));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(settings.data[SettingBoxKey.customColor], 0);
+    await finish(tester);
+  });
+
+  testWidgets('保存失败保留草稿，成功后更新主题并覆盖唯一的自定义槽位', (tester) async {
+    const legacyColor = 0xff224466;
+    const newColor = 0xffc0623c;
+    settings.data.addAll({
+      SettingBoxKey.dynamicColor: false,
+      SettingBoxKey.customColor: legacyColor,
+    });
+    await mountThemePage(tester);
+
+    Future<void> openPalette() async {
+      expect(find.text('自定义'), findsOneWidget);
+      await tester.tap(find.text('自定义'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('粉红色'));
+    await tester.pumpAndSettle();
+    expect(settings.data[SettingBoxKey.customColor], 1);
+    expect(settings.writes.single, {
+      SettingBoxKey.customColor: 1,
+      SettingBoxKey.customThemeSlot: legacyColor,
+    });
+    await openPalette();
+    expect(find.text('#224466'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'c0623c');
+    await tester.pumpAndSettle();
+    final preview = Theme.of(tester.element(find.text('播放'))).colorScheme;
+
+    settings.fail = true;
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+    expect(find.text('设置保存失败，请重试'), findsOneWidget);
+    expect(find.text('c0623c'), findsOneWidget);
+    expect(settings.data[SettingBoxKey.customColor], 1);
+    expect(ThemePreferences.customSeed, const Color(legacyColor));
+
+    settings.fail = false;
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(settings.data[SettingBoxKey.customColor], newColor);
+    expect(settings.data[SettingBoxKey.customThemeSlot], newColor);
+    expect(
+      Theme.of(tester.element(find.byType(ColorSelectPage))).colorScheme,
+      preview,
+    );
+    expect(ThemeUtils.lightTheme.colorScheme, preview);
+
+    await tester.tap(find.text('默认绿'));
+    await tester.pumpAndSettle();
+    await openPalette();
+    expect(find.text('#C0623C'), findsOneWidget);
+    expect(find.text('#224466'), findsNothing);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(settings.data[SettingBoxKey.customColor], 0);
+    expect(settings.data[SettingBoxKey.customThemeSlot], newColor);
     await finish(tester);
   });
 

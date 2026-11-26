@@ -6,10 +6,10 @@ import 'package:pili_aurora_next/features/app_shell/domain/nav_bar_config.dart';
 import 'package:pili_aurora_next/services/settings/theme/theme_color_type.dart';
 import 'package:pili_aurora_next/services/settings/theme/theme_type.dart';
 import 'package:pili_aurora_next/pages/home/view.dart';
-import 'package:pili_aurora_next/pages/setting/slide_color_picker.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/popup_item.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/select_dialog.dart';
 import 'package:pili_aurora_next/pages/setting/widgets/setting_save.dart';
+import 'package:pili_aurora_next/pages/setting/widgets/theme_color_dialog.dart';
 import 'package:pili_aurora_next/services/settings/theme_preferences.dart';
 import 'package:pili_aurora_next/router/get_ext.dart';
 import 'package:pili_aurora_next/common/appearance/theme_ext.dart';
@@ -34,6 +34,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
   late var _currentColor = ThemePreferences.color;
   late var _dynamicColor = ThemePreferences.dynamicColor;
   bool _changingDynamicColor = false;
+  bool _savingColor = false;
 
   bool _canPresent() => mounted && (ModalRoute.of(context)?.isCurrent ?? true);
 
@@ -42,6 +43,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
     Future<void> Function() write,
     VoidCallback update, {
     VoidCallback? applyTheme,
+    bool Function()? canPresent,
   }) => saveSetting(
     key: key,
     write: write,
@@ -49,17 +51,41 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
       if (mounted) setState(update);
       (applyTheme ?? Get.updateMyAppTheme)();
     },
-    canPresent: _canPresent,
+    canPresent: canPresent ?? _canPresent,
   );
 
-  Future<bool> _selectColor(int value) => _save(
-    SettingBoxKey.customColor,
-    () => ThemePreferences.saveColor(value),
-    () => _currentColor = value,
-  );
+  Future<bool> _selectColor(int value, {bool Function()? canPresent}) async {
+    if (_dynamicColor || _changingDynamicColor || _savingColor) return false;
+    _savingColor = true;
+    try {
+      return await _save(
+        SettingBoxKey.customColor,
+        () => ThemePreferences.saveColor(value),
+        () => _currentColor = value,
+        canPresent: canPresent,
+      );
+    } finally {
+      _savingColor = false;
+    }
+  }
+
+  void _openCustomColor() {
+    if (_dynamicColor || _changingDynamicColor || _savingColor) return;
+    final seed = ThemePreferences.customSeed;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ThemeColorDialog(
+        color: seed,
+        variant: _variant,
+        onApply: (color, canPresent) =>
+            _selectColor(color.toARGB32(), canPresent: canPresent),
+      ),
+    );
+  }
 
   Future<void> _onChanged([bool? val]) async {
-    if (_changingDynamicColor) return;
+    if (_changingDynamicColor || _savingColor) return;
     final enabled = val ?? !_dynamicColor;
     _changingDynamicColor = true;
     try {
@@ -149,6 +175,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
           ),
           ListTile(
             title: const Text('动态取色'),
+            subtitle: _dynamicColor ? const Text('关闭动态取色后可自定义主题色') : null,
             leading: ExcludeFocus(
               child: Checkbox(
                 value: _dynamicColor,
@@ -197,6 +224,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
 
   Widget _buildColorPanel() {
     final currentColor = _currentColor;
+    final isCustom = !ThemePreferences.isPreset(currentColor);
     return AnimatedHeightWidgetExt(
       expand: !_dynamicColor,
       duration: const Duration(milliseconds: 200),
@@ -205,53 +233,28 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
         runSpacing: 18,
         alignment: .center,
         children: [
-          Builder(
-            builder: (context) {
-              final isCurr = !ThemePreferences.isPreset(currentColor);
-              final color = ThemePreferences.seedColor(currentColor);
-              return GestureDetector(
-                behavior: .opaque,
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      clipBehavior: .hardEdge,
-                      contentPadding: const .symmetric(vertical: 16),
-                      title: const Text('Color Picker'),
-                      content: SlideColorPicker(
-                        color: color,
-                        onChanged: (Color? color) async {
-                          if (mounted && color != null) {
-                            await _selectColor(color.toARGB32());
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                },
-                child: Column(
-                  spacing: 3,
-                  children: [
-                    ColorPalette(
-                      colorScheme: color.asColorSchemeSeed(
-                        _variant,
-                        theme.brightness,
-                      ),
-                      selected: isCurr,
-                    ),
-                    Text(
-                      '自定义',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isCurr
-                            ? null
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+          InkWell(
+            onTap: _dynamicColor ? null : _openCustomColor,
+            borderRadius: const .all(.circular(12)),
+            child: Column(
+              spacing: 3,
+              children: [
+                ColorPalette(
+                  colorScheme: ThemePreferences.customSeed.asColorSchemeSeed(
+                    _variant,
+                    theme.brightness,
+                  ),
+                  selected: isCustom,
                 ),
-              );
-            },
+                Text(
+                  '自定义',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isCustom ? null : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
           ...colorThemeTypes.mapIndexed(
             (i, e) {
@@ -259,7 +262,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
               final isCurr = currentColor == i;
               return GestureDetector(
                 behavior: .opaque,
-                onTap: () => _selectColor(i),
+                onTap: _dynamicColor ? null : () => _selectColor(i),
                 child: Column(
                   spacing: 3,
                   children: [

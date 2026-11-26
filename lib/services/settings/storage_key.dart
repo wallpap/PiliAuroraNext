@@ -240,6 +240,7 @@ abstract final class SettingBoxKey {
       appFontWeightV2 = 'appFontWeightV2',
       dynamicColor = 'dynamicColor',
       customColor = 'customColor',
+      customThemeSlot = 'customThemeSlot',
       displayMode = 'displayMode',
       smallCardWidth = 'smallCardWidth',
       recommendCardWidth = 'recommendCardWidth',

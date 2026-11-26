@@ -7,6 +7,7 @@ import 'package:pili_aurora_next/services/settings/font_assets.dart';
 import 'package:pili_aurora_next/services/settings/stored_preferences.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoThemeData;
 import 'package:dynamic_color/dynamic_color.dart' show DynamicColorPlugin;
+import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
 import 'package:material_color_utilities/palettes/tonal_palette.dart';
 import 'package:material_ui/material_ui.dart';
@@ -16,32 +17,34 @@ abstract final class ThemeUtils {
   static ColorScheme? _light, _dark;
 
   static (ThemeData, ThemeData) getAllTheme() {
-    final dynamicColor = _light != null && _dark != null && Pref.dynamicColor;
-
-    final ColorScheme lightScheme, darkScheme;
-    if (dynamicColor) {
-      lightScheme = _light!;
-      darkScheme = _dark!;
-    } else {
-      final brandColor = ThemePreferences.seedColor(ThemePreferences.color);
-      final variant = Pref.schemeVariant;
-
-      lightScheme = brandColor.asColorSchemeSeed(variant, .light);
-      darkScheme = brandColor.asColorSchemeSeed(variant, .dark);
+    if (_light != null && _dark != null && Pref.dynamicColor) {
+      return (
+        lightTheme = getThemeData(colorScheme: _light!, isDynamic: true),
+        darkTheme = getThemeData(
+          colorScheme: _dark!,
+          isDynamic: true,
+          isDark: true,
+        ),
+      );
     }
 
+    final seed = ThemePreferences.seedColor(ThemePreferences.color);
+    final variant = Pref.schemeVariant;
     return (
-      lightTheme = ThemeUtils.getThemeData(
-        colorScheme: lightScheme,
-        isDynamic: dynamicColor,
-      ),
-      darkTheme = ThemeUtils.getThemeData(
-        isDark: true,
-        colorScheme: darkScheme,
-        isDynamic: dynamicColor,
-      ),
+      lightTheme = buildSeedTheme(seed, variant, .light),
+      darkTheme = buildSeedTheme(seed, variant, .dark),
     );
   }
+
+  static ThemeData buildSeedTheme(
+    Color seed,
+    FlexSchemeVariant variant,
+    Brightness brightness,
+  ) => getThemeData(
+    colorScheme: seed.asColorSchemeSeed(variant, brightness),
+    isDynamic: false,
+    isDark: brightness == .dark,
+  );
 
   static Future<bool>? _platformInitialization;
 
