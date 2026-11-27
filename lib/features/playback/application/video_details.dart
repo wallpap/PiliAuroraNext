@@ -15,7 +15,7 @@ import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/media_catalog/domain/video_id.dart';
 
-enum _Read { introduction, author, relation, online, tags }
+enum _Read { introduction, author, shareAuthor, relation, online, tags }
 
 class VideoDetails {
   VideoDetails({required this.video, required this.part, required this.author});
@@ -99,6 +99,16 @@ class VideoDetails {
           matches: () => author() == mid,
         );
     return result?.dataOrNull;
+  }
+
+  Future<int?> shareAuthorFollowers(int mid) async {
+    if (author() != mid) return null;
+    final result = await _read(
+      _Read.shareAuthor,
+      (_, account) => MemberHttp.memberCardInfo(mid: mid, account: account),
+      matches: () => author() == mid,
+    );
+    return result?.dataOrNull?.follower;
   }
 
   Future<RelationData?> followStatus(int mid) async {

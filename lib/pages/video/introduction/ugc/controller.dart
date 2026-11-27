@@ -18,6 +18,8 @@ import 'package:pili_aurora_next/features/playback/domain/video_detail/staff.dar
 import 'package:pili_aurora_next/features/playback/domain/video_detail/stat_detail.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
+import 'package:pili_aurora_next/pages/video/share_card/content.dart';
+import 'package:pili_aurora_next/pages/video/share_card/preview.dart';
 import 'package:pili_aurora_next/pages/dynamics_repost/view.dart';
 import 'package:pili_aurora_next/plugin/pl_player/models/play_repeat.dart';
 import 'package:pili_aurora_next/services/service_locator.dart';
@@ -45,6 +47,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   // up主粉丝数
   final userStat = ValueNotifier(MemberCardInfoData());
+  int? _userStatOwner;
   // 关注状态 默认未关注
   final followStatus = ValueNotifier(RelationData());
   final staffRelations = ValueNotifier<Map<String, dynamic>?>(null);
@@ -147,11 +150,13 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   Future<void> queryUserStat(List<Staff>? staff) async {
+    final mid = videoDetail.value.owner?.mid;
     final stats = await details.authorStats(staff);
     if (stats == null || isClosed) return;
     if (stats.staff case final relations?) {
       staffRelations.value = Map.unmodifiable(relations);
     } else if (stats.profile case final profile?) {
+      _userStatOwner = mid;
       userStat.value = profile;
     }
   }
@@ -190,6 +195,17 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         context.mounted && !isClosed && accountOwner.isCurrent;
     final videoDetail = this.videoDetail.value;
     final cid = this.cid.value;
+    final authorId = videoDetail.owner?.mid;
+    final card = videoDetail.bvid == bvid
+        ? VideoShareCardContent.video(
+            videoDetail,
+            bvid: bvid,
+            cid: cid,
+            followers: authorId != null && authorId == _userStatOwner
+                ? userStat.value.follower
+                : null,
+          )
+        : null;
     final partIndex = videoDetail.pages?.indexWhere((e) => e.cid == cid);
     final addIndex = partIndex != null && partIndex > 0;
     final playedTimePos = videoDetailCtr.playedTimePos(addIndex);
@@ -197,7 +213,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         '${HttpString.baseUrl}/video/$bvid/${addIndex ? '?p=${partIndex + 1}' : ''}';
     showDialog(
       context: context,
-      builder: (_) => SimpleDialog(
+      builder: (dialogContext) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
         children: [
@@ -222,6 +238,28 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                   )
                 : null,
           ),
+          if (PlatformUtils.isDesktop || PlatformUtils.isMobile)
+            ListTile(
+              dense: true,
+              title: const Text('生成分享卡片', style: TextStyle(fontSize: 14)),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                if (!context.mounted || isClosed) return;
+                if (card == null) {
+                  SmartDialog.showToast('视频信息尚未加载，请重试');
+                  return;
+                }
+                showVideoShareCard(
+                  context,
+                  card,
+                  loadFollowers: authorId == null
+                      ? null
+                      : () async => ownsAccount()
+                            ? details.shareAuthorFollowers(authorId)
+                            : null,
+                );
+              },
+            ),
           ListTile(
             dense: true,
             title: const Text(

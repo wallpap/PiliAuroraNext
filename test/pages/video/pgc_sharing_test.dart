@@ -6,11 +6,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/playback/domain/pgc_detail/result.dart';
+import 'package:pili_aurora_next/features/playback/domain/video_detail/data.dart';
 import 'package:pili_aurora_next/pages/share/view.dart';
 import 'package:pili_aurora_next/pages/video/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/pgc/controller.dart';
 import 'package:pili_aurora_next/pages/video/introduction/ugc/controller.dart';
 import 'package:pili_aurora_next/pages/common/common_intro_controller.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/services/messaging/conversation.dart';
 import 'package:pili_aurora_next/services/messaging/session.dart';
 import 'package:pili_aurora_next/services/messaging/sharing.dart';
@@ -31,6 +33,10 @@ class _VideoController extends GetxController implements VideoDetailController {
 }
 
 class _ShareController extends PgcIntroController {
+  _ShareController() {
+    isPgc = true;
+  }
+
   final _video = _VideoController();
 
   @override
@@ -125,6 +131,86 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
+
+    testWidgets(
+      '${ugc ? 'UGC' : 'PGC'} 分享菜单打开海报并复制 PNG',
+      (tester) async {
+        MethodCall? clipboard;
+        const channel = MethodChannel('piliauroranext/image_clipboard');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              ..setMockMethodCallHandler(channel, (call) async {
+                clipboard = call;
+                return null;
+              });
+        addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+        final CommonIntroController controller = ugc
+            ? (_UgcShareController()
+                ..bvid = 'BV17x411w7KC'
+                ..cid.value = 1
+                ..videoDetail.value = VideoDetailData(
+                  bvid: 'BV17x411w7KC',
+                  title: '合成视频',
+                ))
+            : (_ShareController()
+                ..pgcItem = PgcInfoModel.fromJson({
+                  'title': '合成作品',
+                  'type': 1,
+                  'episodes': [
+                    {'id': 123, 'title': '1', 'long_title': '原分集'},
+                    {'id': 456, 'title': '2', 'long_title': '新分集'},
+                  ],
+                })
+                ..epId = 123);
+        await tester.pumpWidget(
+          GetMaterialApp(
+            navigatorObservers: [FlutterSmartDialog.observer],
+            builder: FlutterSmartDialog.init(),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => controller.actionShareVideo(context),
+                  child: const Text('打开分享'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('打开分享'));
+        await tester.pumpAndSettle();
+        if (controller is _ShareController) controller.epId = 456;
+        await tester.tap(find.text('生成分享卡片'));
+        await tester.pumpAndSettle();
+        final description = RegExp(ugc ? '合成视频' : '合成作品.*第1话.*原分集');
+        expect(find.bySemanticsLabel(description), findsOneWidget);
+
+        await tester.tap(find.text('复制图片'));
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (clipboard == null && DateTime.now().isBefore(deadline)) {
+          await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+          await tester.pump();
+        }
+        expect(clipboard?.method, 'writeBitmap');
+        final arguments = clipboard!.arguments as Map;
+        expect(arguments['width'], 920);
+        expect(arguments['height'], 1040);
+        expect((arguments['png'] as Uint8List).take(8), [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10,
+        ]);
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpWidget(const SizedBox());
+      },
+      skip: !PlatformUtils.isDesktop,
+    );
   }
 
   testWidgets('复制番剧链接包含播放进度', (tester) async {

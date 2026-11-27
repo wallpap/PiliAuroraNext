@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:pili_aurora_next/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:pili_aurora_next/pages/video/share_card/content.dart';
+import 'package:pili_aurora_next/pages/video/share_card/preview.dart';
 import 'package:pili_aurora_next/services/logger.dart';
 import 'package:pili_aurora_next/common/service_urls.dart';
 import 'package:pili_aurora_next/features/playback/application/video_details.dart';
@@ -42,7 +44,7 @@ class PgcIntroController extends CommonIntroController {
 
   late final bool isPgc;
   late final PgcInfoModel pgcItem;
-  late List<EpisodeItem> _playbackEpisodes;
+  List<EpisodeItem> _playbackEpisodes = const [];
 
   @override
   (Object, int) get getFavRidType => (epId!, 24);
@@ -123,12 +125,23 @@ class PgcIntroController extends CommonIntroController {
     final shareCover = item?.cover;
     bool ownsAccount() =>
         context.mounted && !isClosed && accountOwner.isCurrent;
+    final card = (PlatformUtils.isDesktop || PlatformUtils.isMobile) && isPgc
+        ? VideoShareCardContent.episode(
+            pgcItem,
+            epId: epId,
+            episode:
+                item ??
+                _playbackEpisodes.firstWhereOrNull(
+                  (episode) => (episode.epId ?? episode.id) == epId,
+                ),
+          )
+        : null;
 
     String videoUrl =
         '${HttpString.baseUrl}/bangumi/play/ep$epId${videoDetailCtr.playedTimePos(false)}';
     showDialog(
       context: context,
-      builder: (_) => SimpleDialog(
+      builder: (dialogContext) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
         children: [
@@ -139,6 +152,16 @@ class PgcIntroController extends CommonIntroController {
               copyText(videoUrl);
             },
           ),
+          if (card != null)
+            DialogOption(
+              child: const Text('生成分享卡片', style: TextStyle(fontSize: 14)),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (context.mounted && !isClosed) {
+                  showVideoShareCard(context, card);
+                }
+              },
+            ),
           DialogOption(
             child: const Text('其它app打开', style: TextStyle(fontSize: 14)),
             onPressed: () {

@@ -19,6 +19,7 @@
   ],
   "bothHosts": [
     "test/app/startup_failure_test.dart",
+    "test/pages/video/pgc_sharing_test.dart",
     "test/plugin/pl_player/fullscreen_model_test.dart",
     "test/plugin/pl_player/fullscreen_transition_test.dart",
     "test/plugin/pl_player/hardware_video_configuration_test.dart",
