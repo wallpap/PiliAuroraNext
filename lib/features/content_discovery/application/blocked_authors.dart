@@ -11,6 +11,11 @@ class BlockedAuthors {
 
   static const _repository = BlockedAuthorRepository();
   static BlockedAuthors? _session;
+  static final _blocks =
+      StreamController<({Account account, int mid})>.broadcast(
+        sync: true,
+      );
+  static Stream<({Account account, int mid})> get blocks => _blocks.stream;
   final Account _account;
   final int _revision;
   Set<int> _mids;
@@ -50,6 +55,9 @@ class BlockedAuthors {
       session._mids.remove(mid);
     }
     unawaited(session._persist());
+    if (blocked && mid > 0) {
+      _blocks.add((account: session._account, mid: mid));
+    }
   }
 
   static Future<void>? ensureLoaded() {

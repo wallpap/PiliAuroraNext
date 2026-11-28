@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pili_aurora_next/features/community/application/comments/comment_actions.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comments.dart';
 import 'package:pili_aurora_next/features/community/data/comments/comment_protocol.dart';
 import 'package:pili_aurora_next/features/community/domain/comment.dart';
+import 'package:pili_aurora_next/features/member_space/application/member_moderation.dart';
 import 'package:pili_aurora_next/generated/bilibili/main/community/reply/v1.pb.dart';
+import 'package:pili_aurora_next/http/api.dart';
+import 'package:pili_aurora_next/http/init.dart';
 import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/account/domain/account_type.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
@@ -14,6 +18,7 @@ import 'package:pili_aurora_next/services/settings/storage.dart';
 import 'package:pili_aurora_next/services/settings/storage_key.dart';
 
 import '../../support/comment_fixture.dart';
+import '../../support/controlled_interceptor.dart';
 import '../../support/memory_box.dart';
 
 LoginAccount account(String csrf) => LoginAccount(
@@ -38,7 +43,144 @@ void main() {
   });
   setUp(() async {
     await GStorage.setting.clear();
+    await GStorage.localCache.clear();
     Accounts.accountMode[AccountType.main.index] = account('old');
+  });
+
+  test('确认拉黑后仅更新命中的评论，分页回包也不会恢复它们', () async {
+    const blockedMid = 42;
+    ReplyInfo blocked(int id) => reply(id)..mid = Int64(blockedMid);
+    final pending = Completer<LoadingState<Object>>();
+    final fixture = CommentFixture()
+      ..responses.addAll([
+        Success(
+          MainListReply(
+            upTop: blocked(1),
+            replies: [
+              reply(2, children: [blocked(3), reply(4)])..count = Int64(2),
+              reply(5),
+              blocked(6),
+            ],
+            subjectControl: SubjectControl(count: Int64(100)),
+            cursor: CursorReply(next: Int64.ONE),
+          ),
+        ),
+        Success(
+          DetailListReply(
+            root: blocked(1)
+              ..replies.addAll([blocked(7), reply(8)])
+              ..count = Int64(2),
+            cursor: CursorReply(isEnd: true),
+          ),
+        ),
+        Success(
+          DialogListReply(
+            replies: [blocked(9), reply(10)],
+            cursor: CursorReply(isEnd: true),
+          ),
+        ),
+        Success(
+          MainListReply(replies: [reply(11)], cursor: CursorReply(isEnd: true)),
+        ),
+        pending.future,
+      ]);
+    final container = commentContainer(fixture);
+    final main = commentsProvider(commentQuery());
+    final thread = commentsProvider(
+      commentQuery(
+        thread: (root: 1, reply: null, dialog: null, seedAuthor: blockedMid),
+      ),
+    );
+    final dialog = commentsProvider(
+      commentQuery(thread: (root: 1, reply: null, dialog: 1, seedAuthor: null)),
+    );
+    final unaffected = commentsProvider(commentQuery());
+    var mainUpdates = 0;
+    container
+      ..listen(main, (_, _) => mainUpdates++)
+      ..listen(thread, (_, _) {})
+      ..listen(dialog, (_, _) {})
+      ..listen(unaffected, (_, _) {});
+    await flushComments();
+
+    List<CommentReply> rows(CommentsState snapshot) => snapshot.loading.data;
+    final old = container.read(main);
+    final oldUnaffected = container.read(unaffected);
+    final oldPreview = rows(old)[1];
+    final untouchedReply = rows(old)[2];
+    final untouchedChild = oldPreview.replies.last;
+    final paging = container.read(main.notifier).loadMore();
+    await flushComments();
+    final beforeBlock = mainUpdates;
+    final interceptor = ControlledInterceptor();
+    Request();
+    Request.dio.interceptors
+      ..clear()
+      ..add(interceptor);
+    addTearDown(() async {
+      Request.dio.interceptors.remove(interceptor);
+      await interceptor.close();
+    });
+
+    final moderation = MemberModeration.capture();
+    final failed = moderation.block(blockedMid);
+    await interceptor.waitForRequests(1);
+    expect(interceptor.requests.first.options.path, Api.relationMod);
+    interceptor.requests.first.reply.complete({'code': -1, 'message': '失败'});
+    expect((await failed).isSuccess, isFalse);
+    expect(mainUpdates, beforeBlock);
+
+    final success = moderation.block(blockedMid);
+    await interceptor.waitForRequests(2);
+    expect(mainUpdates, beforeBlock);
+    interceptor.requests.last.reply.complete({'code': 0});
+    expect((await success).isSuccess, isTrue);
+
+    final updated = container.read(main);
+    expect(mainUpdates, beforeBlock + 1);
+    expect(updated.source, same(old.source));
+    expect(updated.count, old.count);
+    expect(updated.busy, isTrue);
+    expect(rows(updated).map((row) => row.id.toInt()), [2, 5]);
+    expect(rows(updated).first.replies.single, same(untouchedChild));
+    expect(rows(updated).last, same(untouchedReply));
+    expect(oldPreview.replies, hasLength(2));
+    expect(container.read(thread).root, isNull);
+    expect(rows(container.read(thread)).single.id, Int64(8));
+    expect(rows(container.read(dialog)).single.id, Int64(10));
+    expect(container.read(unaffected), same(oldUnaffected));
+    expect(fixture.reads, hasLength(5));
+
+    pending.complete(
+      Success(
+        MainListReply(
+          replies: [
+            blocked(12),
+            reply(13, children: [blocked(14)])..mid = Int64(43),
+          ],
+          cursor: CursorReply(isEnd: true),
+          subjectControl: SubjectControl(count: Int64(100)),
+        ),
+      ),
+    );
+    await paging;
+    final result = rows(container.read(main));
+    expect(result.map((row) => row.id.toInt()), [2, 5, 13]);
+    expect(result.last.replies, isEmpty);
+    expect(fixture.reads, hasLength(5));
+
+    final report = CommentActions.report(
+      Accounts.main,
+      result.last,
+      reason: 1,
+      block: true,
+    );
+    await interceptor.waitForRequests(3);
+    expect(interceptor.requests.last.options.path, Api.replyReport);
+    interceptor.requests.last.reply.complete({'code': 0});
+    expect((await report).isSuccess, isTrue);
+    expect(rows(container.read(main)).map((row) => row.id.toInt()), [2, 5]);
+    expect(fixture.reads, hasLength(5));
   });
 
   test('按 ID 更新回显，重复回执和旧子项位置不改当前列表', () async {
@@ -136,7 +278,7 @@ void main() {
       ]);
     final container = commentContainer(fixture);
     final provider = commentsProvider(
-      commentQuery(thread: (root: 2, reply: 3, dialog: null)),
+      commentQuery(thread: (root: 2, reply: 3, dialog: null, seedAuthor: null)),
     );
     container.listen(provider, (_, _) {});
     final comments = container.read(provider.notifier);
@@ -190,7 +332,7 @@ void main() {
       );
     final container = commentContainer(fixture);
     final provider = commentsProvider(
-      commentQuery(thread: (root: 2, reply: null, dialog: 7)),
+      commentQuery(thread: (root: 2, reply: null, dialog: 7, seedAuthor: null)),
     );
     container.listen(provider, (_, _) {});
     await flushComments();

@@ -7,6 +7,7 @@ import 'package:pili_aurora_next/http/loading_state.dart';
 import 'package:pili_aurora_next/features/community/domain/comments/interaction/data.dart';
 import 'package:pili_aurora_next/features/account/application/accounts.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 
 abstract final class CommentActions {
   static const _repository = CommentsRepository();
@@ -24,13 +25,23 @@ abstract final class CommentActions {
     required int reason,
     String? description,
     required bool block,
-  }) => _repository.report(
-    account,
-    reply,
-    reason: reason,
-    description: description,
-    block: block,
-  );
+  }) async {
+    final result = await _repository.report(
+      account,
+      reply,
+      reason: reason,
+      description: description,
+      block: block,
+    );
+    final mid = reply.authorMid;
+    if (result.isSuccess &&
+        block &&
+        mid > Int64.ZERO &&
+        identical(account, Accounts.main)) {
+      BlockedAuthors.setBlocked(mid.toInt(), true);
+    }
+    return result;
+  }
 
   static Future<LoadingState<void>> delete(
     Account account,

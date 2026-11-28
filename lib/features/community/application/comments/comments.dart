@@ -10,9 +10,10 @@ import 'package:pili_aurora_next/features/community/domain/comments/reply_sort_t
 import 'package:pili_aurora_next/features/account/application/account_providers.dart';
 import 'package:pili_aurora_next/features/account/application/account.dart';
 import 'package:pili_aurora_next/features/community/application/comments/comment_preferences.dart';
+import 'package:pili_aurora_next/features/content_discovery/application/blocked_authors.dart';
 
 typedef CommentTarget = ({int oid, int type});
-typedef CommentThread = ({int root, int? reply, int? dialog});
+typedef CommentThread = ({int root, int? reply, int? dialog, int? seedAuthor});
 typedef CommentsQuery = ({
   Object owner,
   CommentTarget target,
@@ -79,7 +80,16 @@ class Comments extends Notifier<CommentsState> {
         ? CommentPreferences.defaultSort
         : CommentPreferences.threadSort;
     final owner = _owner = _Owner(account)..replyAnchor = query.thread?.reply;
-    ref.onDispose(() => owner.disposed = true);
+    final blocks = BlockedAuthors.blocks.listen((change) {
+      final current = _owner;
+      if (_current(current) && identical(current.account, change.account)) {
+        _applyBlock(change.mid);
+      }
+    });
+    ref.onDispose(() {
+      _owner.disposed = true;
+      unawaited(blocks.cancel());
+    });
     scheduleMicrotask(() {
       if (_current(owner)) unawaited(_load(owner, replacing: true));
     });
@@ -101,6 +111,45 @@ class Comments extends Notifier<CommentsState> {
   bool get sendVisibilityCheck => CommentPreferences.checkSendVisibility;
 
   Account get accountIdentity => _owner.account;
+
+  bool isAuthorBlocked(CommentReply reply) =>
+      _owner.account.isLogin &&
+      BlockedAuthors.contains(reply.authorMid.toInt());
+
+  CommentReply? _filterRoot(
+    CommentReply? root,
+    bool Function(CommentReply) isBlocked,
+  ) {
+    if (root == null || isBlocked(root)) return null;
+    final replies = filterRepliesByAuthor(root.replies, isBlocked);
+    return identical(replies, root.replies)
+        ? root
+        : root.copy(replies: replies);
+  }
+
+  void _applyBlock(int mid) {
+    final before = state;
+    final rows = before.loading.dataOrNull;
+    bool isBlocked(CommentReply reply) => reply.authorMid.toInt() == mid;
+    final filtered = rows == null
+        ? null
+        : filterRepliesByAuthor(rows, isBlocked);
+    final root = _filterRoot(before.root, isBlocked);
+    final hidesSeed = before.root == null && query.thread?.seedAuthor == mid;
+    if (!hidesSeed &&
+        identical(filtered, rows) &&
+        identical(root, before.root)) {
+      return;
+    }
+    _replaceSnapshot(
+      before,
+      loading: identical(filtered, rows)
+          ? before.loading
+          : Success(List.unmodifiable(filtered!)),
+      root: root,
+      count: before.count,
+    );
+  }
 
   bool Function() capture() {
     final generation = _accountGeneration;
@@ -231,8 +280,9 @@ class Comments extends Notifier<CommentsState> {
             minLevel,
             upMid == Int64.ZERO ? subject?.upMid : upMid,
           );
-          seen.addAll(rows.map((item) => item.id));
-          items.addAll(rows);
+          final visible = filterRepliesByAuthor(rows, isAuthorBlocked);
+          seen.addAll(visible.map((item) => item.id));
+          items.addAll(visible);
           hasMore =
               !page.isEnd &&
               (first ||
@@ -241,9 +291,9 @@ class Comments extends Notifier<CommentsState> {
               (minLevel > 0 || count < 0 || items.length < count);
           applied = true;
           remaining = remaining > 0
-              ? remaining - rows.length
-              : incoming - rows.length;
-          if (!hasMore || (rows.isNotEmpty && remaining <= 0)) break;
+              ? remaining - visible.length
+              : incoming - visible.length;
+          if (!hasMore || (visible.isNotEmpty && remaining <= 0)) break;
           if (attempt == 4) error = const Error('连续多页无可展示评论，点击继续加载');
         } else {
           error = const Error('评论请求没有返回结果');
@@ -258,12 +308,14 @@ class Comments extends Notifier<CommentsState> {
       source: owner,
       loading: replacing && !applied && error != null
           ? error
-          : Success(List.unmodifiable(items)),
+          : Success(
+              List.unmodifiable(filterRepliesByAuthor(items, isAuthorBlocked)),
+            ),
       sort: sort,
       count: count,
       subject: subject,
       vote: vote,
-      root: root,
+      root: _filterRoot(root, isAuthorBlocked),
       hasMore: hasMore,
       pageError: !replacing || applied ? error : null,
     );
@@ -277,6 +329,10 @@ class Comments extends Notifier<CommentsState> {
 
   void published(CommentReply? item, {CommentReply? parent}) {
     if (!_current(_owner)) return;
+    if ((item != null && isAuthorBlocked(item)) ||
+        (parent != null && isAuthorBlocked(parent))) {
+      return;
+    }
     final current = state.loading.dataOrNull;
     if (item == null || current == null || state.busy) {
       unawaited(refresh(clear: true));
@@ -315,22 +371,23 @@ class Comments extends Notifier<CommentsState> {
   void remove(CommentReply item, int? childIndex) {
     if (!_current(_owner)) return;
     final current = state.loading.dataOrNull;
+    if (current == null) return;
+    final index = current.indexWhere((row) => row.id == item.id);
+    if (index < 0) return;
+    if (childIndex != null &&
+        (!identical(item, current[index]) ||
+            childIndex < 0 ||
+            childIndex >= item.replies.length)) {
+      return;
+    }
     if (state.busy) {
       unawaited(refresh());
       return;
     }
-    if (current == null) return;
     final items = [...current];
-    final index = items.indexWhere((row) => row.id == item.id);
-    if (index < 0) return;
     if (childIndex == null) {
       items.removeAt(index);
     } else {
-      if (!identical(item, items[index]) ||
-          childIndex < 0 ||
-          childIndex >= item.replies.length) {
-        return;
-      }
       final updated = item.copy()..replies.removeAt(childIndex);
       if (updated.count > Int64.ZERO) updated.count -= Int64.ONE;
       items[index] = updated;
@@ -384,14 +441,28 @@ class Comments extends Notifier<CommentsState> {
 
   void _replace(List<CommentReply> items, int count) {
     final before = state;
+    _replaceSnapshot(
+      before,
+      loading: Success(List.unmodifiable(items)),
+      root: before.root,
+      count: count,
+    );
+  }
+
+  void _replaceSnapshot(
+    CommentsState before, {
+    required LoadingState<List<CommentReply>> loading,
+    required CommentReply? root,
+    required int count,
+  }) {
     state = CommentsState(
       source: before.source,
-      loading: Success(List.unmodifiable(items)),
+      loading: loading,
       sort: before.sort,
       count: count,
       subject: before.subject,
       vote: before.vote,
-      root: before.root,
+      root: root,
       hasMore: before.hasMore,
       busy: before.busy,
       pageError: before.pageError,

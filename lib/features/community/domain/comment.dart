@@ -161,6 +161,7 @@ final class CommentReply {
   final Int64 oid;
   final Int64 type;
   final Int64 mid;
+  Int64 get authorMid => mid > Int64.ZERO ? mid : member.mid;
   final Int64? rootId;
   Int64 get root => rootId ?? Int64.ZERO;
   final Int64 parent;
@@ -176,7 +177,7 @@ final class CommentReply {
   CommentContent? translatedContent;
   final List<CommentReply> replies;
 
-  CommentReply copy() => CommentReply(
+  CommentReply copy({List<CommentReply>? replies}) => CommentReply(
     id: id,
     oid: oid,
     type: type,
@@ -193,6 +194,6 @@ final class CommentReply {
     replyControl: replyControl._copy(),
     content: content,
     translatedContent: translatedContent,
-    replies: [for (final child in replies) child.copy()],
+    replies: replies ?? [for (final child in this.replies) child.copy()],
   );
 }

@@ -132,7 +132,12 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   CommentsQuery get _query => (
     owner: _owner,
     target: (oid: widget.oid, type: widget.replyType),
-    thread: (root: widget.rpid, reply: widget.id, dialog: widget.dialog),
+    thread: (
+      root: widget.rpid,
+      reply: widget.id,
+      dialog: widget.dialog,
+      seedAuthor: widget.firstFloor?.authorMid.toInt(),
+    ),
   );
   Object get _source =>
       widget.replyType == 1 ? IdUtils.av2bv(widget.oid) : widget.oid;
@@ -260,7 +265,10 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         _highlight = null;
         _pendingReply = null;
       }
-      final root = snapshot.root ?? (_showSeed ? widget.firstFloor : null);
+      final seed = _showSeed ? widget.firstFloor : null;
+      final root =
+          snapshot.root ??
+          (seed != null && !comments.isAuthorBlocked(seed) ? seed : null);
       final controller = _nestedController ?? _scrollController;
       final rows = snapshot.loading.dataOrNull;
       if (rows != null) {

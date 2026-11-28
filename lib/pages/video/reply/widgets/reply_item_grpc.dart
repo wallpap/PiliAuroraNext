@@ -1137,8 +1137,8 @@ class ReplyItemGrpc extends StatelessWidget {
               title: Text('举报', style: style.copyWith(color: errorColor)),
             ),
           if (account.isLogin &&
-              item.member.mid > Int64.ZERO &&
-              item.member.mid != ownerMid)
+              item.authorMid > Int64.ZERO &&
+              item.authorMid != ownerMid)
             ListTile(
               onTap: () async {
                 Get.back();
@@ -1152,7 +1152,7 @@ class ReplyItemGrpc extends StatelessWidget {
                 );
                 if (!confirmed || !isCurrent()) return;
                 final res = await MemberModeration.capture(account)
-                    .block(item.member.mid.toInt());
+                    .block(item.authorMid.toInt());
                 if (!isCurrent()) return;
                 if (res.isSuccess) {
                   SmartDialog.showToast('拉黑成功');
