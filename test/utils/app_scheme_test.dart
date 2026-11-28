@@ -7,6 +7,38 @@ import 'package:pili_aurora_next/router/app_scheme.dart';
 void main() {
   tearDown(Get.reset);
 
+  test('扫码接受站内内容、官方短链和无协议链接', () {
+    for (final (input, expected) in [
+      (
+        ' https://www.bilibili.com/video/BV1K8sN6sEXW/?p=2 ',
+        'https://www.bilibili.com/video/BV1K8sN6sEXW/?p=2',
+      ),
+      ('b23.tv/short', 'https://b23.tv/short'),
+      ('//space.bilibili.com/42', 'https://space.bilibili.com/42'),
+      ('bilibili://live/42', 'bilibili://live/42'),
+    ]) {
+      expect(PiliScheme.parseScannedLink(input), Uri.parse(expected));
+    }
+  });
+
+  test('扫码拒绝非网址、非站内链接和伪造域名', () {
+    for (final input in [
+      null,
+      '  ',
+      '普通文本',
+      'https://www.bilibili.com/video/av42 更多内容',
+      'https://bilibili.com.example.org/video/av42',
+      'https://example-bilibili.com/video/av42',
+      'https://example.org/?url=https://b23.tv/short',
+      'https://b23.tv.example.org/short',
+      'https://example.org@www.bilibili.com/video/av42',
+      'ftp://bilibili.com/video/av42',
+      'bilibili:///video/42',
+    ]) {
+      expect(PiliScheme.parseScannedLink(input), isNull, reason: input);
+    }
+  });
+
   for (final (query, expected) in <(String, int?)>[
     ('dm_progress=123000', 120000),
     ('dm_progress=2000', 0),

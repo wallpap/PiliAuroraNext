@@ -21,6 +21,8 @@ import 'package:pili_aurora_next/pages/live/view.dart';
 import 'package:pili_aurora_next/pages/pgc/view.dart';
 import 'package:pili_aurora_next/pages/rank/view.dart';
 import 'package:pili_aurora_next/common/widgets/extensions/size_ext.dart';
+import 'package:pili_aurora_next/pages/qr_scan/view.dart';
+import 'package:pili_aurora_next/platform/platform_info.dart';
 import 'package:pili_aurora_next/services/feedback/feed_back.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -261,6 +263,12 @@ class HomePageState extends CommonPageState<HomePage>
       children: [
         searchBar(),
         const SizedBox(width: 4),
+        if (PlatformUtils.isMobile)
+          IconButton(
+            tooltip: '扫一扫',
+            onPressed: () => QrScanPage.open(context),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+          ),
         const MessageBadge(),
         const SizedBox(width: 8),
         userAvatar(

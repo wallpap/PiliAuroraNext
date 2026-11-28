@@ -38,6 +38,26 @@ import 'package:window_manager/window_manager.dart';
 abstract final class PiliScheme {
   static final uriDigitRegExp = RegExp(r'/(\d+)');
   static final _prefixRegex = RegExp(r'^\S+://');
+  static final _whitespace = RegExp(r'\s');
+
+  static Uri? parseScannedLink(String? value) {
+    final text = value?.trim();
+    if (text == null || text.isEmpty || _whitespace.hasMatch(text)) return null;
+    final uri = Uri.tryParse(
+      text.startsWith('//')
+          ? 'https:$text'
+          : _prefixRegex.hasMatch(text)
+          ? text
+          : 'https://$text',
+    );
+    if (uri == null || uri.host.isEmpty || uri.authority.contains('@')) {
+      return null;
+    }
+    if (uri.scheme == 'bilibili' && !uri.hasPort) return uri;
+    return _isWebLink(uri) && (uri.host == b23_tv || _isBilibiliHost(uri.host))
+        ? uri
+        : null;
+  }
 
   static Future<void> Function() listenForAppLinks() {
     var active = true;
@@ -591,6 +611,13 @@ abstract final class PiliScheme {
   static const bilibili_search = 'search.$bilibili';
   static const bilibili_music = 'music.$bilibili';
 
+  static bool _isBilibiliHost(String host) =>
+      host == bilibili || host.endsWith('.$bilibili');
+
+  static bool _isWebLink(Uri uri) =>
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      !uri.authority.contains('@');
+
   static Future<bool> _fullPathPush(
     Uri uri, {
     bool selfHandle = false,
@@ -636,13 +663,13 @@ abstract final class PiliScheme {
       }
     }
 
-    if (!host.contains(bilibili) && !host.contains(b23_tv)) {
+    if (!_isWebLink(uri) || (!_isBilibiliHost(host) && host != b23_tv)) {
       launchURL();
       return false;
     }
 
     // redirect
-    if (host.contains(b23_tv)) {
+    if (host == b23_tv) {
       String? redirectUrl = await UrlUtils.parseRedirectUrl(uri.toString());
       // 已消费的旧链接不可再触发浏览器回退或覆盖用户的新导航。
       if (!current()) return true;
@@ -652,7 +679,7 @@ abstract final class PiliScheme {
       }
     }
 
-    if (!host.contains(bilibili)) {
+    if (!_isWebLink(uri) || !_isBilibiliHost(host)) {
       launchURL();
       return false;
     }
@@ -660,7 +687,7 @@ abstract final class PiliScheme {
     final path = uri.path;
     late final queryParameters = uri.queryParameters;
 
-    if (host.contains(bilibili_t)) {
+    if (host == bilibili_t) {
       if (_onPushDynDetail(uri, off)) {
         return true;
       } else if (path.startsWith('/vote')) {
@@ -677,7 +704,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains(bilibili_live)) {
+    } else if (host == bilibili_live) {
       String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
       if (roomId != null) {
         PageUtils.toLiveRoom(int.parse(roomId), off: off);
@@ -685,7 +712,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains(bilibili_space)) {
+    } else if (host == bilibili_space) {
       void toType({
         required String mid,
         required String? type,
@@ -735,7 +762,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains(bilibili_search)) {
+    } else if (host == bilibili_search) {
       String? keyword = uri.queryParameters['keyword'];
       if (keyword != null) {
         PageUtils.toDupNamed(
@@ -747,7 +774,7 @@ abstract final class PiliScheme {
       }
       launchURL();
       return false;
-    } else if (host.contains(bilibili_music)) {
+    } else if (host == bilibili_music) {
       // music.bilibili.com/pc/music-detail?music_id=MA***
       // music.bilibili.com/h5-music-detail?music_id=MA***
       if (path.contains('music-detail')) {

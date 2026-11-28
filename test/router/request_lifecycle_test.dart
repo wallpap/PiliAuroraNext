@@ -366,6 +366,22 @@ void main() {
     });
   }
 
+  testWidgets('分享卡片短链接解析后进入视频页', (tester) async {
+    await fixture.mount(tester);
+    final link = PiliScheme.parseScannedLink('https://b23.tv/short')!;
+    final operation = PiliScheme.routePush(link, selfHandle: true);
+    await fixture.until(tester, () => requests.length == 1);
+    expect(requests.single.options.method, 'HEAD');
+    expect(requests.single.options.uri, link);
+    await fixture.complete(tester, operation, 0, '');
+    expect(await operation, isTrue);
+    await fixture.until(tester, () => requests.length == 2);
+    await fixture.complete(tester, Future<void>.value(), 1, video(42));
+    expect(openedVideos.single['aid'], 123);
+    expect(openedVideos.single['cid'], 42);
+    await fixture.finish(tester);
+  });
+
   testWidgets('短链接重定向迟到后不再查询视频或回退网页', (tester) async {
     await fixture.mount(tester);
     var done = false;

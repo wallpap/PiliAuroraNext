@@ -37,6 +37,8 @@
 
 推荐、热门、排行榜、精选合集、直播发现和 PGC 首页的 Riverpod 调度与共享过滤入口见[内容发现模块](../../lib/features/content_discovery/README.md)。动态作者与分类由[社区模块](../../lib/features/community/README.md)协调，发布与删除通过领域失效信号同步列表。
 
+Android 首页的[扫一扫](../../lib/pages/qr_scan/view.dart)使用相机或系统照片选择器，扫码结果退出扫码页后交给 `PiliScheme` 解析为站内导航。不识别外站二维码，也不使用网页回退。
+
 - `lib/features/content_discovery/presentation/recommendation_viewport.dart` 与卡片共用网格几何，按实际高度、列数和字体缩放补足可视区及一行预取，页脚留白不计入容量。App 推荐按 `idx/pull` 顺序请求；Web 首包按容量取 20～50 项，之后最多并行两页，有序合并并去重。刷新保留历史内容及位置提示。
 - `lib/common/widgets/feed_pagination.dart` 以实际滚动范围触发分页；首页首屏补足由推荐 Notifier 负责。连续五页无增长时停止，失败保留内容，刷新、切号或退出使旧查询失效。所有者与快照修订的规则见[状态管理](state-management.md#查询与分页)。
 - 内容发现的 `application/blocked_authors.dart` 按主账号同步完整黑名单。同步与首页下载并行，发布前完成过滤；管理页的局部名单不覆盖完整缓存，同步失败沿用该账号缓存，应用内拉黑或解除即时更新。

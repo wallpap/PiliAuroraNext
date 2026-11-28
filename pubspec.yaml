@@ -83,6 +83,7 @@ dependencies:
   media_kit_libs_video: 1.0.5
   media_kit_video: 1.2.5+piliauroranext.1
   mime: 2.1.0
+  mobile_scanner: 7.5.0
   native_device_orientation: 2.0.5+piliauroranext.1
   path: 1.9.1
   path_provider: 2.1.6
