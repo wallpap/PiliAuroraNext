@@ -3,6 +3,28 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pili_aurora_next/pages/danmaku/window_renderer.dart';
 
+const _size = Size(320, 120);
+
+extension on DanmakuWindowRenderer<void> {
+  void configureTiming({
+    required int mediaUs,
+    required double duration,
+    required double staticDuration,
+    bool scrollFixedVelocity = false,
+  }) {
+    requestConfiguration(
+      option: rasters.option.copyWith(
+        duration: duration,
+        staticDuration: staticDuration,
+        scrollFixedVelocity: scrollFixedVelocity,
+      ),
+      size: _size,
+      devicePixelRatio: 1,
+    );
+    present(mediaUs, allowUnprepared: true);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -15,7 +37,7 @@ void main() {
         scrollFixedVelocity: fixed,
         safeArea: false,
       ),
-      size: const Size(320, 120),
+      size: _size,
     );
     addTearDown(renderer.dispose);
     renderer.prepare(
@@ -42,11 +64,10 @@ void main() {
     final before = {for (final s in handle.snapshot) s.identity: s.bounds};
     final images = renderer.rasters.rasterizations;
     final generation = renderer.generation;
-    renderer.updateTiming(
+    renderer.configureTiming(
       mediaUs: 1000000,
       duration: 2,
       staticDuration: 4,
-      scrollFixedVelocity: false,
     );
     expect(handle.isValid, isTrue);
     expect(renderer.generation, greaterThan(generation));
@@ -70,17 +91,15 @@ void main() {
 
   test('repeated static duration changes use elapsed lifetime across cuts', () {
     final renderer = create()
-      ..updateTiming(
+      ..configureTiming(
         mediaUs: 1000000,
         duration: 4,
         staticDuration: 6,
-        scrollFixedVelocity: false,
       )
-      ..updateTiming(
+      ..configureTiming(
         mediaUs: 3000000,
         duration: 4,
         staticDuration: 3,
-        scrollFixedVelocity: false,
       );
     expect(
       renderer.interaction.snapshot.where((s) => s.identity == 'static'),
@@ -96,7 +115,7 @@ void main() {
       final before = handle.snapshot
           .firstWhere((s) => s.identity == 'scroll')
           .bounds;
-      renderer.updateTiming(
+      renderer.configureTiming(
         mediaUs: 2000000,
         duration: 2,
         staticDuration: 4,
@@ -120,20 +139,18 @@ void main() {
     () {
       final renderer = create(future: false);
       final generation = renderer.generation;
-      renderer.updateTiming(
+      renderer.configureTiming(
         mediaUs: 1000000,
         duration: 4,
         staticDuration: 4,
-        scrollFixedVelocity: false,
       );
       expect(renderer.generation, generation);
       renderer.present(3000000);
       final handle = renderer.interaction..select('static');
-      renderer.updateTiming(
+      renderer.configureTiming(
         mediaUs: 5000000,
         duration: 4,
         staticDuration: 2,
-        scrollFixedVelocity: false,
       );
       expect(handle.snapshot.single.selected, isTrue);
       handle.clearSelection();

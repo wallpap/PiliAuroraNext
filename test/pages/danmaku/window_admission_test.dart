@@ -32,15 +32,13 @@ void main() {
         .firstWhere((s) => s.identity == 'top')
         .bounds;
     final images = renderer.rasters.rasterizations;
-    renderer.updateAdmission(
-      mediaUs: 500000,
-      hideTop: false,
-      hideBottom: false,
-      hideScroll: true,
-      hideSpecial: false,
-      massiveMode: false,
-      static2Scroll: false,
-    );
+    renderer
+      ..requestConfiguration(
+        option: renderer.rasters.option.copyWith(hideScroll: true),
+        size: const Size(320, 120),
+        devicePixelRatio: 1,
+      )
+      ..present(500000);
     expect(handle.snapshot.single.identity, 'top');
     expect(handle.snapshot.single.bounds, oldBounds);
     expect(handle.snapshot.single.selected, isFalse);
@@ -48,15 +46,13 @@ void main() {
     expect(renderer.rasters.rasterizations, images);
     expect(renderer.validFromUs, 500000);
     expect(renderer.hasPrepared('future'), isFalse);
-    renderer.updateAdmission(
-      mediaUs: 500000,
-      hideTop: false,
-      hideBottom: false,
-      hideScroll: false,
-      hideSpecial: false,
-      massiveMode: false,
-      static2Scroll: false,
-    );
+    renderer
+      ..requestConfiguration(
+        option: renderer.rasters.option.copyWith(hideScroll: false),
+        size: const Size(320, 120),
+        devicePixelRatio: 1,
+      )
+      ..present(500000);
     expect(handle.snapshot.single.identity, 'top');
     renderer.prepare(
       [
@@ -94,15 +90,14 @@ void main() {
       generation: renderer.generation,
       preparedUntilUs: 2000000,
     );
-    renderer.updateAdmission(
-      mediaUs: 100000,
-      hideTop: false,
-      hideBottom: false,
-      hideScroll: false,
-      hideSpecial: false,
-      massiveMode: true,
-      static2Scroll: false,
-    );
+    final option = renderer.rasters.option.copyWith(massiveMode: true);
+    renderer
+      ..requestConfiguration(
+        option: option,
+        size: const Size(320, 35),
+        devicePixelRatio: 1,
+      )
+      ..present(100000);
     expect(handle.snapshot.single.selected, isTrue);
     expect(renderer.hasPrepared('b'), isFalse);
     renderer.prepare(
@@ -115,15 +110,12 @@ void main() {
     renderer.present(500000);
     expect(handle.snapshot.length, 2);
     final generation = renderer.generation;
-    renderer.updateAdmission(
-      mediaUs: 500000,
-      hideTop: false,
-      hideBottom: false,
-      hideScroll: false,
-      hideSpecial: false,
-      massiveMode: true,
-      static2Scroll: false,
+    renderer.requestConfiguration(
+      option: option.copyWith(),
+      size: const Size(320, 35),
+      devicePixelRatio: 1,
     );
+    expect(renderer.hasPendingConfiguration, isFalse);
     expect(renderer.generation, generation);
   });
 }

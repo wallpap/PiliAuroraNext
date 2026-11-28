@@ -124,6 +124,53 @@ void main() {
     player.videoDisplaySyncActive.dispose();
   });
 
+  testWidgets('暂停时横屏全屏仍会重新定位活动弹幕', (tester) async {
+    final player = Player()..live = false;
+    Widget screen(Size size, {required bool fullscreen}) => host(
+      Center(
+        child: SizedBox.fromSize(
+          size: size,
+          child: PlDanmaku(
+            cid: 1,
+            playerController: player,
+            isFullScreen: fullscreen,
+            isFileSource: true,
+            size: size,
+          ),
+        ),
+      ),
+    );
+    addTearDown(player.clock.events.close);
+    addTearDown(player.videoDisplaySyncActive.dispose);
+    const portrait = Size(360, 202);
+    const landscape = Size(800, 360);
+    await tester.pumpWidget(screen(portrait, fullscreen: false));
+    await tester.pump();
+    player.danmakuDisplay!.echo!(
+      DanmakuContentItem<DanmakuExtra>(
+        '固定弹幕',
+        type: DanmakuItemType.bottom,
+        selfSend: true,
+      ),
+      1000000,
+    );
+    await tester.pump();
+    final handle = player.danmakuDisplay!.interaction();
+    final portraitBounds = handle.snapshot.single.bounds;
+    expect(portraitBounds.center.dx, portrait.width / 2);
+
+    await tester.pumpWidget(screen(landscape, fullscreen: true));
+    await tester.pumpAndSettle();
+    final fullscreenBounds = handle.snapshot.single.bounds;
+    expect(fullscreenBounds.center.dx, landscape.width / 2);
+    expect(fullscreenBounds.top, greaterThan(portraitBounds.top));
+
+    await tester.pumpWidget(screen(portrait, fullscreen: false));
+    await tester.pumpAndSettle();
+    expect(handle.snapshot.single.bounds, portraitBounds);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('hidden live page cannot reclaim active display binding', (
     tester,
   ) async {

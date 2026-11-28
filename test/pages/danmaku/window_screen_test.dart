@@ -655,12 +655,13 @@ void main() {
         ),
       ),
     );
-    renderer.updateTiming(
-      mediaUs: 1000000,
-      duration: 10,
-      staticDuration: 5,
-      scrollFixedVelocity: false,
-    );
+    renderer
+      ..requestConfiguration(
+        option: renderer.rasters.option.copyWith(duration: 10),
+        size: const Size(320, 120),
+        devicePixelRatio: 1,
+      )
+      ..present(1000000);
     final generation = renderer.generation;
     clock.emit(_anchor(position: 999000, advancing: false));
     await tester.pump();

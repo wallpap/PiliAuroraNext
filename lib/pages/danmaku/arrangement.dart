@@ -70,6 +70,56 @@ class DanmakuWindowPlanner<T> {
   final DanmakuTimelineWindow<DanmakuArrangement<T>> window;
   final math.Random _random;
 
+  List<DanmakuWindowItem<DanmakuArrangement<T>>> reflowActive(
+    List<DanmakuWindowItem<DanmakuArrangement<T>>> items,
+  ) {
+    final occupancy = _ArrangementOccupancy<T>(
+      trackHeight,
+      trackCount,
+      padding,
+    );
+    final placed = <Object, DanmakuWindowItem<DanmakuArrangement<T>>>{};
+    for (final item in [
+      ...items.where((item) => item.payload.suspended),
+      ...items.where((item) => !item.payload.suspended),
+    ]) {
+      final arrangement = item.payload;
+      final candidate = arrangement.candidate;
+      if (candidate.type == DanmakuItemType.special) {
+        placed[item.identity] = item;
+        continue;
+      }
+      final motion = arrangement.trajectory!;
+      final track = _findTrack(
+        candidate,
+        motion,
+        occupancy,
+        scrolling: arrangement.scrolling,
+        suspended: arrangement.suspended,
+        preferredTrack: arrangement.track,
+      );
+      if (track < 0) continue;
+
+      final updated = DanmakuWindowItem(
+        identity: item.identity,
+        sourceUs: item.sourceUs,
+        startUs: item.startUs,
+        endUs: item.endUs,
+        estimatedBytes: item.estimatedBytes,
+        payload: DanmakuArrangement(
+          candidate,
+          _atTrack(motion, track),
+          track,
+          arrangement.scrolling,
+          suspended: arrangement.suspended,
+        ),
+      );
+      placed[item.identity] = updated;
+      occupancy.add(updated);
+    }
+    return [for (final item in items) ?placed[item.identity]];
+  }
+
   bool prepare(
     List<DanmakuMeasuredCandidate<T>> candidates, {
     required int generation,
@@ -196,7 +246,7 @@ class DanmakuWindowPlanner<T> {
       return rejected();
     }
     var scrolling = candidate.type == DanmakuItemType.scroll;
-    DanmakuTrajectory trajectory(int track, bool scroll) {
+    DanmakuTrajectory trajectory(bool scroll) {
       final speed = scroll
           ? DanmakuGeometry.scrollVelocity(
               width,
@@ -214,94 +264,107 @@ class DanmakuWindowPlanner<T> {
                 ? (width + candidate.width) / speed
                 : option.staticDurationInMilliseconds),
         startX: scroll ? width : (width - candidate.width) / 2,
-        y: track * trackHeight,
+        y: 0,
         width: candidate.width,
         height: candidate.height,
         velocity: speed,
       );
     }
 
-    bool fits(int track) =>
-        track >= 0 &&
-        track + DanmakuGeometry.trackSpan(candidate.height, trackHeight) <=
-            trackCount;
-    bool blocks(
-      DanmakuTrajectory motion,
-      int track,
-      bool scroll, {
-      bool overlap = false,
-    }) {
-      for (final item in occupancy.at(motion, track)) {
-        final old = item.payload;
-        final oldMotion = old.trajectory;
-        if (oldMotion == null ||
-            old.candidate.type == DanmakuItemType.special) {
-          continue;
-        }
-        if (old.suspended) {
-          if (overlap &&
-              motion.height <= trackHeight &&
-              oldMotion.height <= trackHeight) {
-            continue;
-          }
-          if (motion.overlapsDuring(oldMotion, padding: padding)) return true;
-          continue;
-        }
-        final late = motion.startMs < oldMotion.startMs;
-        if (DanmakuGeometry.blocks(
-          late ? oldMotion : motion,
-          late ? motion : oldMotion,
-          trackHeight: trackHeight,
-          viewWidth: width,
-          candidateScrolling: late ? old.scrolling : scroll,
-          existingScrolling: late ? scroll : old.scrolling,
-          sameTrack: track == old.track,
-          allowNormalOverlap: overlap,
-          padding: padding,
-        )) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    var track = -1;
-    if (!scrolling) {
-      for (var index = 0; index < trackCount; index++) {
-        final choice = candidate.type == DanmakuItemType.bottom
-            ? trackCount - index - 1
-            : index;
-        if (fits(choice) && !blocks(trajectory(choice, false), choice, false)) {
-          track = choice;
-          break;
-        }
-      }
-      if (option.static2Scroll && (track < 0 || candidate.width > width)) {
-        track = -1;
-        scrolling = !option.hideScroll;
-      }
-    }
-    if (scrolling) {
-      for (var choice = 0; choice < trackCount; choice++) {
-        if (fits(choice) && !blocks(trajectory(choice, true), choice, true)) {
-          track = choice;
-          break;
-        }
-      }
-      if (track < 0 && (candidate.selfSend || option.massiveMode)) {
-        final choice = candidate.selfSend ? 0 : _random.nextInt(trackCount);
-        if (fits(choice) &&
-            !blocks(trajectory(choice, true), choice, true, overlap: true)) {
-          track = choice;
-        }
-      }
+    var motion = trajectory(scrolling);
+    var track = _findTrack(candidate, motion, occupancy, scrolling: scrolling);
+    if (!scrolling &&
+        option.static2Scroll &&
+        (track < 0 || candidate.width > width)) {
+      if (option.hideScroll) return rejected();
+      scrolling = true;
+      motion = trajectory(true);
+      track = _findTrack(candidate, motion, occupancy, scrolling: true);
     }
     if (track < 0) return rejected();
-    final motion = trajectory(track, scrolling);
+    motion = _atTrack(motion, track);
     if (!_withinCapacity(motion, occupancy.accepted, special: false)) {
       return rejected();
     }
     return DanmakuArrangement(candidate, motion, track, scrolling);
+  }
+
+  DanmakuTrajectory _atTrack(DanmakuTrajectory motion, int track) =>
+      DanmakuTrajectory(
+        startMs: motion.startMs,
+        endMs: motion.endMs,
+        startX: motion.startX,
+        y: track * trackHeight,
+        width: motion.width,
+        height: motion.height,
+        velocity: motion.velocity,
+      );
+
+  int _findTrack(
+    DanmakuMeasuredCandidate<T> candidate,
+    DanmakuTrajectory motion,
+    _ArrangementOccupancy<T> occupancy, {
+    required bool scrolling,
+    bool suspended = false,
+    int? preferredTrack,
+  }) {
+    if (trackCount <= 0 || trackHeight <= 0) return -1;
+    final lastTrack =
+        trackCount - DanmakuGeometry.trackSpan(motion.height, trackHeight);
+    if (lastTrack < 0) return -1;
+
+    bool fits(int track, {bool allowNormalOverlap = false}) {
+      final placed = _atTrack(motion, track);
+      for (final entry in occupancy.at(placed, track)) {
+        final other = entry.payload;
+        final existing = other.trajectory!;
+        final crossesTracks =
+            motion.height > trackHeight || existing.height > trackHeight;
+        if (crossesTracks || suspended || other.suspended) {
+          if ((crossesTracks || !allowNormalOverlap) &&
+              placed.overlapsDuring(existing, padding: padding)) {
+            return false;
+          }
+          continue;
+        }
+        if (allowNormalOverlap || track != other.track) continue;
+        final late = placed.startMs < existing.startMs;
+        final later = late ? existing : placed;
+        final earlier = late ? placed : existing;
+        if (scrolling && other.scrolling && later.startX != width) {
+          if (later.overlapsDuring(earlier)) return false;
+          continue;
+        }
+        if (DanmakuGeometry.blocks(
+          later,
+          earlier,
+          trackHeight: trackHeight,
+          viewWidth: width,
+          candidateScrolling: late ? other.scrolling : scrolling,
+          existingScrolling: late ? scrolling : other.scrolling,
+          sameTrack: true,
+        )) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    final preferred = preferredTrack?.clamp(0, lastTrack);
+    if (preferred != null && fits(preferred)) return preferred;
+    final fromBottom = !scrolling && candidate.type == DanmakuItemType.bottom;
+    for (var index = 0; index <= lastTrack; index++) {
+      final track = fromBottom ? lastTrack - index : index;
+      if (track != preferred && fits(track)) return track;
+    }
+    if (scrolling && (candidate.selfSend || option.massiveMode)) {
+      final track =
+          preferred ?? (candidate.selfSend ? 0 : _random.nextInt(trackCount));
+      if (track <= lastTrack && fits(track, allowNormalOverlap: true)) {
+        return track;
+      }
+    }
+    return -1;
   }
 
   bool _withinCapacity(

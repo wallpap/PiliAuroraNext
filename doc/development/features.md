@@ -79,6 +79,8 @@ Windows 的 [`InactivePaintCleanup`](../../lib/common/widgets/inactive_paint_cle
 
 点播与直播共用 `danmaku/window_renderer.dart`，分别由 `window_coordinator.dart` 和 `live_queue.dart` 提供候选，挂载为 `view.dart` 与 `live_layer.dart`。媒体时钟、资源归属与来源更新协议见[架构](architecture.md#弹幕显示与来源)。
 
+视口、字号或显示区域变化时，活动弹幕按新轨道重新排布。固定弹幕在新视口居中，并以对应的顶部或底部为基准定位。滚动弹幕保留画面内的横向位置，以新视口的速度继续滚动。轨道缩减时优先安置已选中的弹幕，无可用轨道的条目退出显示。
+
 合并在 [`merge.dart`](../../lib/pages/danmaku/merge.dart)，过滤和后台结果由 `controller.dart` 接入。在线按分段处理，本地文件稳定排序并保留全文件合并锚点。普通文字池 0/3 参与合并；自己发送的弹幕、不同模式、字幕和特殊弹幕仍独立显示。后台结果在来源或页面失效后丢弃。
 
 合并先查规范化后的完全匹配，找不到才对 8～200 字符的文本检查近似匹配。近似匹配先核对数字和否定词，再跳过相同的前后缀，只尝试最多两次编辑。窗口内最多保留 2048 组，每条检查至多 64 个候选。功能参考 [PiliNara](https://github.com/Starfallan/PiliNara#改动说明未来计划)，本项目未引入拼音依赖。
